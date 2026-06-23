@@ -5,11 +5,11 @@ name: Update HR Board
 on:
   workflow_dispatch:          # manual "Run workflow" button
   schedule:
-    # times are UTC. EDT = UTC-4 in summer.
-    - cron: "0 15 * * *"      # 11:00 AM ET  (early board, probables)
-    - cron: "0 18 * * *"      # 2:00 PM ET   (most day lineups posted)
-    - cron: "0 21 * * *"      # 5:00 PM ET   (evening lineups)
-    - cron: "30 22 * * *"     # 6:30 PM ET   (final pre-primetime pass)
+    # times are UTC. EDT = UTC-4 in summer. Hourly 11am-8pm ET keeps pace with
+    # lineup/probable confirmations; the build preserves the last good board if
+    # Savant throttles, so frequent runs are safe.
+    - cron: "0 15-23 * * *"     # 11am - 7pm ET, top of each hour
+    - cron: "30 21-23 * * *"    # extra :30 passes 5:30/6:30/7:30 ET for late lineups
 
 permissions:
   contents: write             # allow committing the refreshed board.json

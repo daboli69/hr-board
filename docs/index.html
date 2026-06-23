@@ -55,18 +55,18 @@
   .pending{font-size:12px;color:var(--muted);background:var(--panel);
     border:1px dashed var(--line);border-radius:10px;padding:10px 12px;margin:8px 0}
 
-  .row{background:var(--panel);border:1px solid var(--line);border-radius:14px;
-    margin:9px 0;overflow:hidden}
-  .row-head{display:grid;grid-template-columns:auto 1fr auto;gap:12px;
-    align-items:center;padding:12px 13px;cursor:pointer}
-  .rank{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--faint);width:20px;text-align:right}
+  .row{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    margin:7px 0;overflow:hidden}
+  .row-head{display:grid;grid-template-columns:auto 1fr auto;gap:10px;
+    align-items:center;padding:9px 11px;cursor:pointer}
+  .rank{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--faint);width:18px;text-align:right}
   .chip{display:flex;flex-direction:column;align-items:center;justify-content:center;
-    width:46px;height:46px;border-radius:11px;font-family:Archivo;font-weight:900;
+    width:40px;height:40px;border-radius:10px;font-family:Archivo;font-weight:900;
     line-height:1;flex:none}
-  .chip .n{font-size:20px}
-  .chip .l{font-size:8px;font-weight:700;letter-spacing:.08em;opacity:.85;margin-top:2px}
-  .who .name{font-family:Archivo;font-weight:700;font-size:16px;letter-spacing:-.01em;
-    display:flex;align-items:center;gap:7px}
+  .chip .n{font-size:17px}
+  .chip .l{font-size:7px;font-weight:700;letter-spacing:.08em;opacity:.85;margin-top:2px}
+  .who .name{font-family:Archivo;font-weight:700;font-size:15px;letter-spacing:-.01em;
+    display:flex;align-items:center;gap:6px}
   .bats{font-size:10px;color:var(--muted);border:1px solid var(--line);border-radius:4px;
     padding:1px 4px;font-weight:600}
   .matchup{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.45}
@@ -138,6 +138,18 @@
     <input class="search" id="search" placeholder="Search hitter or team…" />
     <div class="seg" id="thin"><button id="thinBtn" aria-pressed="false">Hide thin</button></div>
   </div>
+  <div class="controls" style="margin-top:8px">
+    <div class="seg" id="floor">
+      <button data-min="0" aria-pressed="true">All</button>
+      <button data-min="40">40+</button>
+      <button data-min="55">55+</button>
+      <button data-min="70">70+</button>
+    </div>
+    <select class="search" id="gameSel" style="flex:0 1 auto;min-width:140px">
+      <option value="">All games</option>
+    </select>
+    <span id="shown" class="stamp" style="align-self:center"></span>
+  </div>
   <div class="legend">
     <span>below</span><div class="grad"></div><span>elite</span>
     <span style="margin-left:6px">· four signals, last 2 weeks — orange clears the "good" mark</span>
@@ -151,7 +163,7 @@
 // the four signals that drive the ranking, in your order, with poor/good/elite anchors
 const CORE = [
   {k:"pull_air_pct", label:"Pull%",    poor:28, good:40, elite:55, fmt:v=>fmt(v,1)},
-  {k:"avg_ev",       label:"EV",       poor:87, good:90, elite:94, fmt:v=>fmt(v,1)},
+  {k:"avg_ev",       label:"EV",       poor:86, good:88.5, elite:91.5, fmt:v=>fmt(v,1)},
   {k:"barrel_pct",   label:"Brl%",     poor:6,  good:11, elite:17, fmt:v=>fmt(v,1)},
   {k:"ideal_aa_pct", label:"IdealAA%", poor:45, good:58, elite:70, fmt:v=>fmt(v,1)},
 ];
@@ -163,7 +175,7 @@ const EXTRA = [
   {k:"fb_pct",     label:"FB%",      fmt:v=>fmt(v,1)},
   {k:"pull_pct",   label:"Pull(all)",fmt:v=>fmt(v,1)},
 ];
-let BOARD=null, sortKey="heat", q="", hideThin=false;
+let BOARD=null, sortKey="heat", q="", hideThin=false, minHeat=0, gameFilter="";
 
 function fmt(v,d,strip){
   if(v===null||v===undefined||Number.isNaN(v)) return "–";
@@ -198,6 +210,8 @@ function render(){
   let players=BOARD.players.slice();
   const isThin=p=>((p.score_breakdown&&p.score_breakdown.flags)||[]).some(f=>f.indexOf("thin")===0);
   if(hideThin) players=players.filter(p=>!isThin(p));
+  if(minHeat>0) players=players.filter(p=>p.heat>=minHeat);
+  if(gameFilter) players=players.filter(p=>String(p.game_pk)===gameFilter);
   if(q){const t=q.toLowerCase();
     players=players.filter(p=>p.name.toLowerCase().includes(t)||(p.team||"").toLowerCase().includes(t)||(p.opp_team||"").toLowerCase().includes(t));}
   players.sort((a,b)=>{
@@ -205,6 +219,7 @@ function render(){
     if(sortKey==="time") return (a.time||"").localeCompare(b.time||"")|| b.heat-a.heat;
     return b.heat-a.heat;
   });
+  const sc=document.getElementById("shown"); if(sc) sc.textContent=players.length+" shown";
 
   let html="";
   if(BOARD.lineups_pending&&BOARD.lineups_pending.length){
@@ -312,7 +327,7 @@ function render(){
           <div class="who" style="min-width:0">
             <div class="name">${p.name}<span class="bats">${p.bats||"?"}</span></div>
             <div class="matchup">${p.team} vs ${p.opp_team} · ${timeStr(p.time)} · ${p.park||""}
-              · park ${fmt(p.park_hr_factor,2)}×${(p.windows&&p.windows.L14d&&p.windows.L14d.bb_count!=null)?` · ${p.windows.L14d.bb_count} BBE/2wk`:""}</div>
+              · park ${fmt(p.park_hr_factor,2)}×${(p.windows&&p.windows.L14d&&p.windows.L14d.pa!=null)?` · ${p.windows.L14d.pa} PA / ${p.windows.L14d.bb_count} BBE (2wk)`:""}</div>
             <div class="matchup" style="margin-top:4px">${armBadge}</div>
           </div>
         </div>
@@ -345,6 +360,13 @@ document.getElementById("search").addEventListener("input",e=>{q=e.target.value;
 document.getElementById("thinBtn").addEventListener("click",e=>{
   hideThin=!hideThin; e.target.setAttribute("aria-pressed",hideThin); render();
 });
+document.getElementById("floor").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b)return;
+  minHeat=+b.dataset.min;
+  [...document.querySelectorAll("#floor button")].forEach(x=>x.setAttribute("aria-pressed",x===b));
+  render();
+});
+document.getElementById("gameSel").addEventListener("change",e=>{gameFilter=e.target.value;render();});
 
 async function load(){
   try{
@@ -358,14 +380,25 @@ async function load(){
   const gen=new Date(BOARD.generated_at);
   document.getElementById("stamp").textContent=
     "updated "+gen.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});
+  const rw=BOARD.recent_window;
   document.getElementById("meta").innerHTML=
     `<span><b>${BOARD.slate_date}</b> slate</span>
      <span><b>${BOARD.games.length}</b> games</span>
-     <span><b>${BOARD.players.length}</b> hitters</span>`;
+     <span><b>${BOARD.players.length}</b> hitters</span>
+     ${rw?`<span>2wk = <b>${rw.start}→${rw.end}</b></span>`:""}`;
+  // populate game dropdown once
+  const sel=document.getElementById("gameSel");
+  if(sel.options.length<=1 && BOARD.games){
+    BOARD.games.slice().sort((a,b)=>(a.time||"").localeCompare(b.time||"")).forEach(g=>{
+      const o=document.createElement("option");
+      o.value=String(g.game_pk); o.textContent=`${g.away} @ ${g.home}`;
+      sel.appendChild(o);
+    });
+  }
   document.getElementById("foot").textContent=
     "All metrics = last 2 weeks. Heat ranks the four signals: Pull% (40%+ good), "+
-    "EV (90+), Barrel%, Ideal Attack Angle% (58%+). Orange = clears the good mark, blue = below. "+
-    "Park and opposing arm are shown as context, not baked into Heat. Tunable, not betting advice.";
+    "EV (88.5+ good), Barrel%, Ideal Attack Angle% (58%+ good), then nudged by the opposing arm. "+
+    "Orange = clears the good mark, blue = below. Tunable, not betting advice.";
   render();
 }
 load();

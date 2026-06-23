@@ -24,6 +24,11 @@ import pandas as pd
 import numpy as np
 from pybaseball import statcast, batting_stats
 
+
+class StatcastUnavailable(Exception):
+    """Raised when the Statcast pull comes back empty/short so callers can
+    preserve the last good board instead of publishing blanks."""
+
 # events that end a plate appearance (used for PA / K / ISO accounting)
 PA_EVENTS = {
     "single", "double", "triple", "home_run", "field_out", "strikeout",

@@ -25,7 +25,7 @@ from __future__ import annotations
 # (poor, good, elite) anchor points per signal
 ANCHORS = {
     "pull_air_pct": (28.0, 40.0, 55.0),
-    "avg_ev":       (87.0, 90.0, 94.0),
+    "avg_ev":       (86.0, 88.5, 91.5),   # lowered: ~88.5 2wk avg now clears "good"
     "barrel_pct":   (6.0, 11.0, 17.0),
     "ideal_aa_pct": (45.0, 58.0, 70.0),
 }

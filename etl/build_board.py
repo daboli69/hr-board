@@ -13,6 +13,7 @@ a board.
 from __future__ import annotations
 import json
 import os
+import time
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -28,6 +29,8 @@ ET = ZoneInfo("America/New_York")
 SEASON_START = os.environ.get("SEASON_START", "2026-03-26")
 RECENT_DAYS = int(os.environ.get("RECENT_DAYS", "45"))  # window for L5/L15/L30
 OUT_PATH = os.environ.get("BOARD_OUT", "docs/board.json")
+MIN_STATCAST_ROWS = int(os.environ.get("MIN_STATCAST_ROWS", "5000"))
+PULL_RETRIES = int(os.environ.get("PULL_RETRIES", "3"))
 
 
 def _norm(s: str) -> str:
@@ -64,16 +67,28 @@ def build(date_str: str | None = None) -> dict:
 
     # one big Statcast pull -> recent windows + season + pitcher allowed
     end = date_str
-    start = (datetime.strptime(date_str, "%Y-%m-%d") - timedelta(days=RECENT_DAYS)).strftime("%Y-%m-%d")
-    print(f"[build] pulling Statcast {SEASON_START}..{end} (recent window {start})")
-    try:
-        df = statcast_data.pull_season(SEASON_START, end)
-    except Exception as e:
-        print(f"[build] statcast pull failed: {e}")
-        df = statcast_data.pd.DataFrame()
+    print(f"[build] pulling Statcast {SEASON_START}..{end}")
+    df = statcast_data.pd.DataFrame()
+    for attempt in range(1, PULL_RETRIES + 1):
+        try:
+            df = statcast_data.pull_season(SEASON_START, end)
+        except Exception as e:
+            print(f"[build] statcast pull attempt {attempt} failed: {e}")
+            df = statcast_data.pd.DataFrame()
+        if len(df) >= MIN_STATCAST_ROWS:
+            break
+        if attempt < PULL_RETRIES:
+            wait = 30 * attempt
+            print(f"[build] got {len(df)} rows (<{MIN_STATCAST_ROWS}); retrying in {wait}s")
+            time.sleep(wait)
 
-    profiles = statcast_data.batter_profiles(df, batter_ids, date_str) if not df.empty else {}
-    pitch_profiles = statcast_data.pitcher_profiles(df, pitcher_ids, date_str) if not df.empty else {}
+    # GUARD: if Savant came back empty/short, do NOT zero out a good board.
+    if len(df) < MIN_STATCAST_ROWS:
+        print(f"[build] Statcast insufficient ({len(df)} rows). Keeping last good board.")
+        raise statcast_data.StatcastUnavailable(len(df))
+
+    profiles = statcast_data.batter_profiles(df, batter_ids, date_str)
+    pitch_profiles = statcast_data.pitcher_profiles(df, pitcher_ids, date_str)
     career = statcast_data.career_table(2015, now.year)
 
     # score every probable pitcher's HR vulnerability once
@@ -196,6 +211,11 @@ def build(date_str: str | None = None) -> dict:
             "park": g["park"], "time": g["time"],
         } for g in games],
         "lineups_pending": [g["game_pk"] for g in games if g["game_pk"] not in slate["lineups"]],
+        "recent_window": {
+            "days": 14,
+            "start": (datetime.strptime(date_str, "%Y-%m-%d") - timedelta(days=14)).strftime("%Y-%m-%d"),
+            "end": date_str,
+        },
         "players": players,
         "arms": sorted([
             {
@@ -219,7 +239,13 @@ def build(date_str: str | None = None) -> dict:
 
 
 def main():
-    board = build()
+    try:
+        board = build()
+    except statcast_data.StatcastUnavailable as e:
+        # Savant was unavailable/throttled. Leave the existing board.json in place
+        # (no write) so the page keeps serving the last good data instead of zeros.
+        print(f"[build] SKIPPED write — Statcast unavailable ({e}). Last good board preserved.")
+        return
     os.makedirs(os.path.dirname(OUT_PATH) or ".", exist_ok=True)
     with open(OUT_PATH, "w") as f:
         json.dump(board, f, indent=2, default=str)
