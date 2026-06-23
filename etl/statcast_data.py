@@ -128,6 +128,7 @@ def _agg_metrics(rows: pd.DataFrame) -> dict:
     ks = ev.isin(["strikeout", "strikeout_double_play"]).sum()
 
     iso = round((doubles + 2 * triples + 3 * hr) / ab, 3) if ab > 0 else None
+    slg = round((singles + 2 * doubles + 3 * triples + 4 * hr) / ab, 3) if ab > 0 else None
 
     pull_pct, pull_air_pct = _pull_metrics(bb)
     ideal_aa_pct, bat_speed = _ideal_aa(rows)
@@ -143,6 +144,7 @@ def _agg_metrics(rows: pd.DataFrame) -> dict:
         "ideal_aa_pct": ideal_aa_pct,
         "bat_speed": bat_speed,
         "iso": iso,
+        "slg": slg,
         "swstr_pct": pct(rows["description"].isin(SWING_STRIKE).sum(), pitches),
         "k_pct": pct(ks, pa),
         "hr": int(hr),

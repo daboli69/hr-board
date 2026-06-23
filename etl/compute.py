@@ -28,14 +28,18 @@ ANCHORS = {
     "avg_ev":       (86.0, 88.5, 91.5),   # lowered: ~88.5 2wk avg now clears "good"
     "barrel_pct":   (6.0, 11.0, 17.0),
     "ideal_aa_pct": (45.0, 58.0, 70.0),
+    "iso":          (0.140, 0.200, 0.290),   # isolated power — purest power outcome
+    "slg":          (0.380, 0.450, 0.560),   # slugging (includes singles, lighter weight)
 }
 
-# points each of the four can contribute (sums to 100)
+# points each signal can contribute (sums to 100)
 WEIGHTS = {
-    "barrel_pct": 28,
-    "pull_air_pct": 26,
-    "avg_ev": 24,
-    "ideal_aa_pct": 22,
+    "barrel_pct": 22,
+    "pull_air_pct": 20,
+    "iso": 16,
+    "avg_ev": 14,
+    "ideal_aa_pct": 14,
+    "slg": 14,
 }
 
 # kept for the UI / older callers
@@ -200,14 +204,35 @@ def pitcher_hr_score(recent: dict, season: dict) -> dict:
         flags.append("HRs even with Ks")
     if delta >= 10:
         flags.append("trending worse vs season")
+    # steady-bad: consistently vulnerable across both windows (a bad pitcher is a bad pitcher)
+    if rec_s >= 58 and sea_s >= 55 and abs(delta) < 6:
+        flags.append("consistently hittable (season + recent both poor)")
+    # bad but improving: underlying numbers ticking up — downgrade the target
+    if rec_s >= 50 and delta <= -8:
+        flags.append("underlying stats improving — caution")
 
-    # recent-form identifier
-    if rec_s >= 70:
-        form = {"label": "SHELLABLE", "color": "#E4572E"}
-    elif rec_s >= 55 or delta >= 10:
-        form = {"label": "SLIPPING", "color": "#E0913A"}
-    elif rec_s <= 35 and delta <= 0:
-        form = {"label": "DEALING", "color": "#5FB97A"}
+    # recent-form identifier = absolute vulnerability LEVEL x TREND direction.
+    # A bad pitcher is a bad pitcher even when steady; a bad pitcher whose
+    # underlying numbers are improving is a different (downgrade) story.
+    bad = rec_s >= 60          # absolutely vulnerable right now
+    midbad = 48 <= rec_s < 60
+    worsening = delta >= 6     # recent notably worse than season
+    improving = delta <= -6    # recent notably better than season
+
+    if bad and worsening:
+        form = {"label": "SHELLABLE", "color": "#E4572E"}      # bad and getting worse — prime
+    elif bad and improving:
+        form = {"label": "BAD-IMPROVING", "color": "#E0913A"}  # still bad but trending up — caution
+    elif bad:
+        form = {"label": "STEADY-BAD", "color": "#E4572E"}     # consistently hittable — still a target
+    elif worsening:
+        form = {"label": "SLIPPING", "color": "#E0913A"}       # was fine, now cracking — opportunity
+    elif midbad:
+        form = {"label": "HITTABLE", "color": "#E0913A"}       # middling, leaks some
+    elif improving and sea_s >= 50:
+        form = {"label": "BOUNCING-BACK", "color": "#5FB97A"}  # bad season but sharpening up — avoid
+    elif rec_s <= 35:
+        form = {"label": "DEALING", "color": "#5FB97A"}        # genuinely good — avoid
     else:
         form = {"label": "STEADY", "color": "#8A95A3"}
 

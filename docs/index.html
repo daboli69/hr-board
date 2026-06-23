@@ -55,18 +55,30 @@
   .pending{font-size:12px;color:var(--muted);background:var(--panel);
     border:1px dashed var(--line);border-radius:10px;padding:10px 12px;margin:8px 0}
 
-  .row{background:var(--panel);border:1px solid var(--line);border-radius:12px;
-    margin:7px 0;overflow:hidden}
-  .row-head{display:grid;grid-template-columns:auto 1fr auto;gap:10px;
-    align-items:center;padding:9px 11px;cursor:pointer}
-  .rank{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--faint);width:18px;text-align:right}
-  .chip{display:flex;flex-direction:column;align-items:center;justify-content:center;
-    width:40px;height:40px;border-radius:10px;font-family:Archivo;font-weight:900;
-    line-height:1;flex:none}
-  .chip .n{font-size:17px}
-  .chip .l{font-size:7px;font-weight:700;letter-spacing:.08em;opacity:.85;margin-top:2px}
-  .who .name{font-family:Archivo;font-weight:700;font-size:15px;letter-spacing:-.01em;
-    display:flex;align-items:center;gap:6px}
+  .row{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    margin:5px 0;overflow:hidden}
+  /* compact grid row */
+  .crow,.thead{display:grid;grid-template-columns:16px 32px 1fr auto;
+    gap:7px;align-items:center}
+  .crow{padding:7px 9px;cursor:pointer}
+  .thead{padding:7px 9px;position:sticky;top:var(--hh,200px);z-index:8;background:var(--bg);
+    border-bottom:1px solid var(--line);margin-bottom:2px}
+  .thead .rank{width:auto}
+  .th{font-size:9.5px;letter-spacing:.04em;color:var(--faint);text-transform:uppercase;
+    font-weight:600;cursor:pointer;text-align:center;white-space:nowrap}
+  .th.cheath{text-align:center}.th.cwhoh{text-align:left}
+  .th.on{color:var(--ink)}
+  .cheat{font-family:Archivo;font-weight:900;font-size:15px;height:30px;border-radius:7px;
+    display:flex;align-items:center;justify-content:center}
+  .cwho{min-width:0}
+  .cwho .name{font-family:Archivo;font-weight:700;font-size:14px;letter-spacing:-.01em;
+    display:flex;align-items:center;gap:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cmini{font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+  .cmetrics{display:grid;grid-template-columns:repeat(4,minmax(36px,42px));gap:6px}
+  .cm{font-family:"IBM Plex Mono",monospace;font-size:12.5px;font-weight:600;text-align:center;
+    padding:5px 0;border-radius:6px;font-variant-numeric:tabular-nums}
+  .row.open .crow{background:var(--panel-2)}
+  .rank{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--faint);text-align:right}
   .bats{font-size:10px;color:var(--muted);border:1px solid var(--line);border-radius:4px;
     padding:1px 4px;font-weight:600}
   .matchup{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.45}
@@ -87,6 +99,19 @@
   .arm-nm{min-width:0}
   .arm-nm b{font-weight:600}
   .arm-tag{font-size:10px;font-weight:700;letter-spacing:.05em;padding:2px 7px;border-radius:5px}
+  /* tracker */
+  .trk{max-width:760px;margin:0 auto}
+  .trk-sum{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin:8px 0;font-size:13px;line-height:1.6}
+  .trk-sum b{color:var(--ink)}
+  .trk h3{font-family:Archivo;font-weight:700;font-size:13px;letter-spacing:.02em;text-transform:uppercase;margin:18px 0 8px}
+  .trk-row{display:grid;grid-template-columns:78px 1fr 64px;gap:10px;align-items:center;padding:7px 2px;font-size:13px}
+  .trk-row .lab{color:var(--muted);font-weight:600}
+  .trk-bar{height:18px;background:var(--panel-2);border-radius:5px;overflow:hidden}
+  .trk-bar>span{display:block;height:100%;background:linear-gradient(90deg,var(--cold),var(--hot))}
+  .trk-row .val{font-family:"IBM Plex Mono",monospace;font-size:12px;text-align:right;color:var(--ink)}
+  .trk-day{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin:7px 0;padding:11px 13px;font-size:12.5px}
+  .trk-day .d{font-family:Archivo;font-weight:700;font-size:14px}
+  .trk-day .ln{color:var(--muted);margin-top:3px;line-height:1.5}
   .caret{color:var(--faint);font-size:13px;transition:transform .18s ease}
   .row.open .caret{transform:rotate(90deg)}
   .row.thin{opacity:.5}
@@ -129,7 +154,14 @@
     <span class="stamp mono" id="stamp">—</span>
   </div>
   <div class="meta" id="meta"></div>
-  <div class="controls">
+  <div class="controls" style="margin-top:10px">
+    <div class="seg" id="view">
+      <button data-view="board" aria-pressed="true">Board</button>
+      <button data-view="tracker" aria-pressed="false">Tracker</button>
+    </div>
+  </div>
+  <div id="boardControls">
+  <div class="controls" style="margin-top:8px">
     <div class="seg" id="sort">
       <button data-sort="heat" aria-pressed="true">Heat</button>
       <button data-sort="name">Name</button>
@@ -154,6 +186,7 @@
     <span>below</span><div class="grad"></div><span>elite</span>
     <span style="margin-left:6px">· four signals, last 2 weeks — orange clears the "good" mark</span>
   </div>
+  </div>
 </header>
 
 <main id="main"><div class="empty">Loading board…</div></main>
@@ -168,14 +201,15 @@ const CORE = [
   {k:"ideal_aa_pct", label:"IdealAA%", poor:45, good:58, elite:70, fmt:v=>fmt(v,1)},
 ];
 const EXTRA = [
+  {k:"iso",        label:"ISO",     fmt:v=>fmt(v,3,true)},
+  {k:"slg",        label:"SLG",     fmt:v=>fmt(v,3,true)},
   {k:"bat_speed",  label:"Bat Spd", fmt:v=>fmt(v,1)},
   {k:"hardhit_pct",label:"HH%",     fmt:v=>fmt(v,1)},
-  {k:"iso",        label:"ISO",     fmt:v=>fmt(v,3,true)},
   {k:"launch_angle",label:"LA",     fmt:v=>fmt(v,1)},
   {k:"fb_pct",     label:"FB%",      fmt:v=>fmt(v,1)},
   {k:"pull_pct",   label:"Pull(all)",fmt:v=>fmt(v,1)},
 ];
-let BOARD=null, sortKey="heat", q="", hideThin=false, minHeat=0, gameFilter="";
+let BOARD=null, HISTORY=null, view="board", sortKey="heat", q="", hideThin=false, minHeat=0, gameFilter="";
 
 function fmt(v,d,strip){
   if(v===null||v===undefined||Number.isNaN(v)) return "–";
@@ -214,10 +248,17 @@ function render(){
   if(gameFilter) players=players.filter(p=>String(p.game_pk)===gameFilter);
   if(q){const t=q.toLowerCase();
     players=players.filter(p=>p.name.toLowerCase().includes(t)||(p.team||"").toLowerCase().includes(t)||(p.opp_team||"").toLowerCase().includes(t));}
+  const sortVal=(p,k)=>{
+    if(k==="arm") return (p.opp_pitcher&&p.opp_pitcher.hr_score!=null)?p.opp_pitcher.hr_score:-1;
+    if(["pull_air_pct","avg_ev","barrel_pct","ideal_aa_pct"].indexOf(k)>=0){
+      const v=(p.metrics[k]||{}).recent; return v==null?-1:v;
+    }
+    return p.heat;
+  };
   players.sort((a,b)=>{
     if(sortKey==="name") return a.name.localeCompare(b.name);
     if(sortKey==="time") return (a.time||"").localeCompare(b.time||"")|| b.heat-a.heat;
-    return b.heat-a.heat;
+    return sortVal(b,sortKey)-sortVal(a,sortKey);
   });
   const sc=document.getElementById("shown"); if(sc) sc.textContent=players.length+" shown";
 
@@ -317,25 +358,30 @@ function render(){
         ${armFlags?`<div class="bd" style="margin-top:10px">${armFlags}</div>`:'<div class="arm">No red flags.</div>'}
     ` : `<div class="arm"><b>Opposing arm:</b> ${op.name||'—'}</div>`;
 
+    // compact mini-cells for the four signals (threshold-colored)
+    let mini="";
+    CORE.forEach(m=>{
+      const v=(p.metrics[m.k]||{}).recent;
+      mini+=`<div class="cm" style="background:${threshTint(v,m)}">${m.fmt(v)}</div>`;
+    });
+    const armSc = (p.opp_pitcher&&p.opp_pitcher.hr_score!=null)?p.opp_pitcher.hr_score:null;
+    const armCol = armSc!=null?chipColor(armSc):"transparent";
+
     html+=`<div class="row${isThin(p)?" thin":""}" data-i="${i}">
-      <div class="row-head" onclick="toggle(this)">
+      <div class="crow" onclick="toggle(this)">
         <div class="rank mono">${i+1}</div>
-        <div style="display:flex;gap:12px;align-items:center;min-width:0">
-          <div class="chip" style="background:${col}">
-            <span class="n">${p.heat}</span><span class="l">HEAT</span>
-          </div>
-          <div class="who" style="min-width:0">
-            <div class="name">${p.name}<span class="bats">${p.bats||"?"}</span></div>
-            <div class="matchup">${p.team} vs ${p.opp_team} · ${timeStr(p.time)} · ${p.park||""}
-              · park ${fmt(p.park_hr_factor,2)}×${(p.windows&&p.windows.L14d&&p.windows.L14d.pa!=null)?` · ${p.windows.L14d.pa} PA / ${p.windows.L14d.bb_count} BBE (2wk)`:""}</div>
-            <div class="matchup" style="margin-top:4px">${armBadge}</div>
-          </div>
+        <div class="cheat" style="background:${col}">${p.heat}</div>
+        <div class="cwho">
+          <div class="name">${p.name}<span class="bats">${p.bats||"?"}</span></div>
+          <div class="cmini">${p.team}→${p.opp_team} · ${timeStr(p.time)}${armSc!=null?` · arm <b style="color:${armCol}">${armSc}</b>`:""} · ${(p.windows&&p.windows.L14d&&p.windows.L14d.pa!=null)?`${p.windows.L14d.pa}PA`:"–"}</div>
         </div>
-        <div class="caret">▶</div>
+        <div class="cmetrics">${mini}</div>
       </div>
-      <div class="strip">${strip}</div>
       <div class="detail">
-        <h4>Trend (Pull% / EV / Brl% / IdealAA% — last 2 wk vs game windows)</h4>
+        <div class="matchup" style="margin-bottom:10px">${p.team} vs ${p.opp_team} · ${timeStr(p.time)} · ${p.park||""} · park ${fmt(p.park_hr_factor,2)}× · ${armBadge}</div>
+        <h4>Four signals — recent · season · career</h4>
+        <div class="strip" style="border:1px solid var(--line);border-radius:10px">${strip}</div>
+        <h4 style="margin-top:14px">Trend (last 2 wk vs game windows)</h4>
         <table class="win"><thead><tr><th></th><th>L5</th><th>2wk</th><th>L30</th></tr></thead>
         <tbody>${wrows}</tbody></table>
         <h4 style="margin-top:14px">Context (recent · season · career)</h4>
@@ -346,8 +392,80 @@ function render(){
       </div>
     </div>`;
   });
-  main.innerHTML=html;
+  main.innerHTML=thead()+html;
+  setHH();
 }
+function thead(){
+  const cols=[["pull_air_pct","PULL"],["avg_ev","EV"],["barrel_pct","BRL"],["ideal_aa_pct","IAA"]];
+  let cells=cols.map(([k,l])=>`<div class="th ${sortKey===k?'on':''}" onclick="setSort('${k}')">${l}${sortKey===k?' ▼':''}</div>`).join("");
+  return `<div class="thead">
+    <div class="rank"></div>
+    <div class="th cheath ${sortKey==='heat'?'on':''}" onclick="setSort('heat')">HEAT${sortKey==='heat'?' ▼':''}</div>
+    <div class="th cwhoh ${sortKey==='name'?'on':''}" onclick="setSort('name')">PLAYER${sortKey==='name'?' ▼':''}</div>
+    <div class="cmetrics">${cells}</div>
+  </div>`;
+}
+function setHH(){const h=document.querySelector("header");if(h)document.documentElement.style.setProperty("--hh",h.offsetHeight+"px");}
+window.addEventListener("resize",setHH);
+function setSort(k){ sortKey=k; render(); }
+function renderView(){ if(view==="tracker") renderTracker(); else render(); }
+
+function renderTracker(){
+  const main=document.getElementById("main");
+  if(!HISTORY||!HISTORY.days||!HISTORY.days.length){
+    main.innerHTML=`<div class="empty">No graded days yet.<br>The tracker fills in each morning after games are final.</div>`;
+    return;
+  }
+  const days=HISTORY.days.slice();
+  // cumulative aggregates
+  const TIER_ORDER=["70+","55-69","40-54","<40"];
+  const tiers={}, forms={}; let sp=0,bp=0,tot=0,homered=0,players=0;
+  days.forEach(d=>{
+    players+=d.players||0; homered+=d.hitters_homered||0; tot+=d.total_hr||0;
+    sp+=d.sp_hr||0; bp+=d.bp_hr||0;
+    Object.entries(d.by_tier||{}).forEach(([k,v])=>{const t=tiers[k]||(tiers[k]={n:0,hr:0});t.n+=v.n;t.hr+=v.hr;});
+    Object.entries(d.by_form||{}).forEach(([k,v])=>{const t=forms[k]||(forms[k]={n:0,hr:0});t.n+=v.n;t.hr+=v.hr;});
+  });
+  const rate=(o)=>o.n?100*o.hr/o.n:0;
+  const maxTierRate=Math.max(1,...Object.values(tiers).map(rate));
+  const maxFormRate=Math.max(1,...Object.values(forms).map(rate));
+
+  const bar=(o,max)=>{
+    const r=rate(o);
+    return `<div class="trk-bar"><span style="width:${Math.min(100,100*r/max)}%"></span></div>
+      <div class="val">${r.toFixed(1)}% <span style="color:var(--faint)">${o.hr}/${o.n}</span></div>`;
+  };
+
+  let tierRows=TIER_ORDER.filter(t=>tiers[t]).map(t=>
+    `<div class="trk-row"><div class="lab">${t}</div>${bar(tiers[t],maxTierRate)}</div>`).join("");
+
+  const FORM_ORDER=["SHELLABLE","STEADY-BAD","SLIPPING","HITTABLE","BAD-IMPROVING","STEADY","BOUNCING-BACK","DEALING"];
+  let formRows=FORM_ORDER.filter(f=>forms[f]).map(f=>
+    `<div class="trk-row"><div class="lab" style="font-size:11px">${f}</div>${bar(forms[f],maxFormRate)}</div>`).join("");
+
+  let dayRows=days.slice().reverse().map(d=>{
+    const top=(d.hr_log||[]).slice(0,4).map(h=>`${h.name} (${h.heat}, ${h.off})`).join(" · ");
+    return `<div class="trk-day"><div class="d">${d.date}</div>
+      <div class="ln"><b style="color:var(--ink)">${d.hitters_homered}/${d.players}</b> ranked hitters homered ·
+        ${d.total_hr} HR · ${d.sp_hr} off SP / ${d.bp_hr} off BP</div>
+      ${top?`<div class="ln">${top}</div>`:""}</div>`;
+  }).join("");
+
+  main.innerHTML=`<div class="trk">
+    <div class="trk-sum"><b>${days.length}</b> days graded · <b>${homered}</b> of ${players} ranked hitters homered ·
+      <b>${tot}</b> HR total · <b>${sp}</b> off starters / <b>${bp}</b> off the pen
+      ${tot?`(${(100*sp/tot).toFixed(0)}% SP)`:""}</div>
+    <h3>HR rate by Heat tier</h3>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">does a higher Heat actually produce more HRs?</div>
+    ${tierRows||'<div class="ln" style="color:var(--muted)">—</div>'}
+    <h3>HR rate by opposing-arm form</h3>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">do shellable / steady-bad arms get taken deep more?</div>
+    ${formRows||'<div class="ln" style="color:var(--muted)">—</div>'}
+    <h3>Daily log</h3>
+    ${dayRows}
+  </div>`;
+}
+
 function toggle(el){ el.closest(".row").classList.toggle("open"); }
 
 document.getElementById("sort").addEventListener("click",e=>{
@@ -367,6 +485,21 @@ document.getElementById("floor").addEventListener("click",e=>{
   render();
 });
 document.getElementById("gameSel").addEventListener("change",e=>{gameFilter=e.target.value;render();});
+document.getElementById("view").addEventListener("click",async e=>{
+  const b=e.target.closest("button"); if(!b)return;
+  view=b.dataset.view;
+  [...document.querySelectorAll("#view button")].forEach(x=>x.setAttribute("aria-pressed",x===b));
+  document.getElementById("boardControls").style.display = view==="tracker"?"none":"";
+  if(view==="tracker" && !HISTORY){ await loadHistory(); }
+  renderView();
+});
+
+async function loadHistory(){
+  try{
+    const r=await fetch("./history.json?t="+Date.now(),{cache:"no-store"});
+    HISTORY=await r.json();
+  }catch(err){ HISTORY={days:[]}; }
+}
 
 async function load(){
   try{
@@ -399,7 +532,8 @@ async function load(){
     "All metrics = last 2 weeks. Heat ranks the four signals: Pull% (40%+ good), "+
     "EV (88.5+ good), Barrel%, Ideal Attack Angle% (58%+ good), then nudged by the opposing arm. "+
     "Orange = clears the good mark, blue = below. Tunable, not betting advice.";
-  render();
+  if(view==="tracker"){ if(!HISTORY) await loadHistory(); }
+  renderView();
 }
 load();
 setInterval(load, 5*60*1000);   // refresh if a new board.json was published

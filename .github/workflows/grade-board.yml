@@ -1,0 +1,48 @@
+name: Grade HR Board
+
+# Grades yesterday's board against actual HRs once games are final.
+# Runs in the early morning ET (after West-coast games end), before the day's
+# new board overwrites board.json.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 10 * * *"     # 6:30 AM ET
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hr-grade
+  cancel-in-progress: false
+
+jobs:
+  grade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install deps
+        run: pip install -r requirements.txt
+      - name: Cache Statcast pulls
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pybaseball
+          key: pybaseball-${{ github.run_id }}
+          restore-keys: pybaseball-
+      - name: Grade board
+        run: python -m etl.track
+      - name: Commit history
+        run: |
+          git config user.name  "hr-board-bot"
+          git config user.email "actions@github.com"
+          git add docs/history.json
+          if git diff --staged --quiet; then
+            echo "No history change"
+          else
+            git commit -m "grade: ${{ github.run_id }} [skip ci]"
+            git push
+          fi

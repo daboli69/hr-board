@@ -168,7 +168,7 @@ def build(date_str: str | None = None) -> dict:
         metrics = {}
         # the four headline signals first (in your order), then context metrics
         for key in ("pull_air_pct", "avg_ev", "barrel_pct", "ideal_aa_pct",
-                    "bat_speed", "hardhit_pct", "iso", "launch_angle",
+                    "bat_speed", "hardhit_pct", "iso", "slg", "launch_angle",
                     "fb_pct", "pull_pct", "swstr_pct", "k_pct"):
             metrics[key] = {
                 "recent": recent.get(key),

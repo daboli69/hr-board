@@ -63,13 +63,43 @@ immediately, before any pull. The first real run overwrites it.
 
 ## Reading the board
 
-- **Heat chip** (0–100): ranks the four signals only. Blue (below) → orange (elite).
-- **Metric strip**: the four signals in order — Pull% / EV / Brl% / IdealAA%. Top
-  number is the **last 2 weeks**, shaded orange when it clears the "good" mark and
-  blue when it's below the "poor" floor. Small line below = season · career.
-- **Tap a row**: 2-week-vs-game-window trend, extra context metrics (bat speed,
-  HH%, ISO, LA), the opposing arm + park (context, not in Heat), warning flags
-  (e.g. "empty IAA — no EV behind it"), and the full Heat math.
+- **Dense sortable grid**: one compact row per hitter showing all four signals
+  (Pull% / EV / Brl% / IdealAA%) at a glance, threshold-shaded (orange clears the
+  "good" mark, blue is below the floor). **Tap any column header** (HEAT / PULL /
+  EV / BRL / IAA) to re-sort the whole slate by that metric — so you explore the
+  data yourself instead of trusting the Heat order.
+- **Filters**: Heat-floor chips (40+/55+/70+), per-game dropdown, search, hide-thin.
+
+
+## Daily Tracker
+
+A second view (top toggle) that grades the model against reality. The
+**Grade HR Board** workflow runs each morning (6:30 AM ET) after games are
+final: it reads that day's board, pulls actual HRs, classifies each as off the
+**starting pitcher or the bullpen**, and joins results back to what we ranked.
+It appends to `docs/history.json`, and the Tracker view shows:
+
+- HR rate by **Heat tier** (does higher Heat actually homer more?)
+- HR rate by **opposing-arm form** (do SHELLABLE / STEADY-BAD arms get taken deep?)
+- **SP vs BP** split of the HRs
+- a daily log
+
+## Scoring notes
+
+- **Hitter Heat** = six power signals on the last 2 weeks: Pull-air%, Barrel%,
+  ISO, EV, Ideal AA%, SLG (ISO/SLG added as power-outcome confirmation), then
+  nudged by the opposing arm's vulnerability. Weights/anchors at the top of
+  `etl/compute.py`.
+- **Park factor is display-only** — it does NOT move the Heat score. Environment
+  is shown for context; the data and matchup drive the ranking.
+- **Pitcher form** is a level × trend matrix: SHELLABLE (bad + worsening),
+  STEADY-BAD (consistently hittable — still a target), SLIPPING (was fine, now
+  cracking), BAD-IMPROVING / BOUNCING-BACK (downgrade — underlying numbers ticking up),
+  DEALING (avoid).
+
+- **Tap a row**: full detail — recent·season·career for every signal, 2wk/L5/L30
+  trend, context metrics, and the opposing arm's full HR-vulnerability breakdown
+  with red flags.
 
 ## Tuning (one place each)
 
