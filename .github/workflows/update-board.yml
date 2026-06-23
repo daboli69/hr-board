@@ -1,0 +1,59 @@
+name: Update HR Board
+
+# Zero-touch: runs on a schedule through the day so lineups fill in as teams
+# post them. Also runnable on demand from the Actions tab.
+on:
+  workflow_dispatch:          # manual "Run workflow" button
+  schedule:
+    # times are UTC. EDT = UTC-4 in summer.
+    - cron: "0 15 * * *"      # 11:00 AM ET  (early board, probables)
+    - cron: "0 18 * * *"      # 2:00 PM ET   (most day lineups posted)
+    - cron: "0 21 * * *"      # 5:00 PM ET   (evening lineups)
+    - cron: "30 22 * * *"     # 6:30 PM ET   (final pre-primetime pass)
+
+permissions:
+  contents: write             # allow committing the refreshed board.json
+
+concurrency:
+  group: hr-board
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Cache Statcast pulls
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pybaseball
+          key: pybaseball-${{ github.run_id }}
+          restore-keys: pybaseball-
+
+      - name: Build board
+        env:
+          SEASON_START: "2026-03-26"   # opening day; bump each season
+          RECENT_DAYS: "45"
+        run: python -m etl.build_board
+
+      - name: Commit updated board
+        run: |
+          git config user.name  "hr-board-bot"
+          git config user.email "actions@github.com"
+          git add docs/board.json
+          if git diff --staged --quiet; then
+            echo "No change in board.json"
+          else
+            git commit -m "board: ${{ github.run_id }} [skip ci]"
+            git push
+          fi
