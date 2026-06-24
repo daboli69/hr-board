@@ -128,3 +128,17 @@ It appends to `docs/history.json`, and the Tracker view shows:
 - **Batting-order spot** (#1-#9) shows on every row and confirms the lineup is posted.
 - **Tier badge** on each hitter = confirmation strength at a glance, independent of Heat.
 
+## Pitcher platoon splits & bullpen (added)
+
+- **Pitcher vs RHB / LHB**: each arm's HR-vulnerability is now split by batter
+  handedness (from Statcast `stand`). The hitter detail shows vs-RHB and vs-LHB
+  allowed rates and highlights the side matching *this* hitter — so you can see if
+  the arm gets mashed by the hand your guy bats from.
+- **Opposing bullpen**: every team's relievers (everyone who isn't the game's
+  starter) are aggregated into a bullpen HR-vulnerability score + form, with the
+  same RHB/LHB platoon split. Each hitter shows the opposing pen's overall score,
+  its read vs that hitter's hand, and pen red flags. *Display-only for now* — not
+  baked into Heat, since the starter is the primary matchup. Easy to weight later.
+- **Handedness** shows as a colored badge (R orange / L blue / S purple) at the
+  front of every name so it's always visible, plus a **Bats filter** (R / L / S).
+

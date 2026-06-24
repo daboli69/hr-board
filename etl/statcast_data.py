@@ -50,6 +50,8 @@ def pull_season(start: str, end: str) -> pd.DataFrame:
         "launch_speed", "launch_angle", "launch_speed_angle", "bb_type",
         "stand", "p_throws", "type", "hc_x", "hc_y",
         "attack_angle", "bat_speed", "release_speed", "pitch_type",
+        "inning", "inning_topbot", "at_bat_number", "pitch_number",
+        "home_team", "away_team",
     ]
     keep = [c for c in keep if c in df.columns]
     return df[keep].copy()
@@ -238,7 +240,59 @@ def pitcher_profiles(df: pd.DataFrame, pitcher_ids: list[int], asof: str,
         if recent.get("fb_velo") is not None and season.get("fb_velo") is not None:
             vt = round(recent["fb_velo"] - season["fb_velo"], 1)
         recent["velo_trend"] = vt
-        out[int(pid)] = {"season": season, "recent": recent}
+        # platoon splits — what the pitcher allows vs RHB vs LHB
+        g_recent = g[g["_gd"] >= cutoff]
+        splits = {}
+        for hand in ("R", "L"):
+            splits[hand] = {
+                "season": _pitcher_metrics(g[g["stand"] == hand]),
+                "recent": _pitcher_metrics(g_recent[g_recent["stand"] == hand]),
+            }
+        out[int(pid)] = {"season": season, "recent": recent, "splits": splits}
+    return out
+
+
+def bullpen_profiles(df: pd.DataFrame, asof: str, recent_days: int = 14) -> dict:
+    """
+    Per team: HR-vulnerability of the BULLPEN (all non-starter pitchers), season +
+    trailing 2 weeks, with RHB/LHB platoon splits. Starters are identified as the
+    pitcher who threw the first pitch of each half-inning's game; everyone else that
+    appeared for that team is a reliever.
+    """
+    from datetime import timedelta
+    if df.empty or "inning" not in df.columns:
+        return {}
+    work = df.copy()
+    work["_gd"] = pd.to_datetime(work["game_date"], errors="coerce")
+    cutoff = pd.to_datetime(asof) - timedelta(days=recent_days)
+
+    # starter per (game_pk, half) = first pitcher of inning 1 that half
+    inn1 = work[work["inning"] == 1].sort_values(["game_pk", "inning_topbot", "at_bat_number", "pitch_number"])
+    starter_df = (inn1.groupby(["game_pk", "inning_topbot"], as_index=False).first()
+                  [["game_pk", "inning_topbot", "pitcher"]].rename(columns={"pitcher": "_starter"}))
+
+    # pitching team for each row: Top = home pitches, Bot = away pitches
+    work["pitch_team"] = np.where(work["inning_topbot"].eq("Top"), work["home_team"], work["away_team"])
+    work = work.merge(starter_df, on=["game_pk", "inning_topbot"], how="left")
+    pen = work[work["pitcher"] != work["_starter"]]
+
+    out = {}
+    for team, g in pen.groupby("pitch_team"):
+        if not isinstance(team, str):
+            continue
+        g_recent = g[g["_gd"] >= cutoff]
+        splits = {}
+        for hand in ("R", "L"):
+            splits[hand] = {
+                "season": _pitcher_metrics(g[g["stand"] == hand]),
+                "recent": _pitcher_metrics(g_recent[g_recent["stand"] == hand]),
+            }
+        out[team] = {
+            "season": _pitcher_metrics(g),
+            "recent": _pitcher_metrics(g_recent),
+            "splits": splits,
+            "arms": int(g["pitcher"].nunique()),
+        }
     return out
 
 

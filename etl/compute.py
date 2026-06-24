@@ -63,6 +63,45 @@ def anchor_scale(v, poor, good, elite):
     return 1.0
 
 
+def form_score(w: dict) -> float:
+    """0-100 power-form score from a window's metrics (the 6 signals, no arm)."""
+    if not w:
+        return 0.0
+    tot = 0.0
+    for k, wt in WEIGHTS.items():
+        tot += anchor_scale(w.get(k), *ANCHORS[k]) * wt
+    return round(tot, 1)
+
+
+def trend(short_w: dict, long_w: dict) -> dict:
+    """
+    Direction + % change of recent power form: short window (L5) vs longer (L30).
+    Sample-aware:
+      - short < 6 BBE  -> flat (too little to read)
+      - long  < 15 BBE -> NEW player; if the short window is hot, flag up-new
+      - else           -> signed % change between the two form scores
+    Returns {dir: up/down/flat, pct: int|None, new: bool}.
+    """
+    s_bbe = (short_w or {}).get("bb_count") or 0
+    l_bbe = (long_w or {}).get("bb_count") or 0
+    if s_bbe < 6:
+        return {"dir": "flat", "pct": None, "new": l_bbe < 15}
+    s = form_score(short_w)
+    if l_bbe < 15:                         # call-up / off-IL: no real baseline
+        if s >= 50:
+            return {"dir": "up", "pct": None, "new": True}
+        return {"dir": "flat", "pct": None, "new": True}
+    l = form_score(long_w)
+    if l <= 0:
+        return {"dir": "flat", "pct": None, "new": False}
+    pct = round((s - l) / l * 100)
+    if pct >= 8:
+        return {"dir": "up", "pct": pct, "new": False}
+    if pct <= -8:
+        return {"dir": "down", "pct": pct, "new": False}
+    return {"dir": "flat", "pct": pct, "new": False}
+
+
 def heat_score(recent: dict, pitcher_score: int | None = None) -> tuple[int, dict]:
     """
     Score a hitter on his last-2-weeks form across the four signals, then nudge by
@@ -80,6 +119,8 @@ def heat_score(recent: dict, pitcher_score: int | None = None) -> tuple[int, dic
         if recent.get(key) is not None and s >= 0.65:   # cleared its "good" anchor
             cleared += 1
     bd["cleared"] = cleared          # 0-6 signals at/above good
+    bd["signals"] = {k: (recent.get(k) is not None and anchor_scale(recent.get(k), *ANCHORS[k]) >= 0.65)
+                     for k in WEIGHTS}
     # confirmation tier (echoes a quad/triple/double read)
     tier = ("LOADED" if cleared >= 5 else "STRONG" if cleared == 4
             else "SOLID" if cleared == 3 else "LEAN" if cleared == 2 else "THIN")
@@ -92,8 +133,9 @@ def heat_score(recent: dict, pitcher_score: int | None = None) -> tuple[int, dic
     pull = recent.get("pull_air_pct")
     brl = recent.get("barrel_pct")
     bbe = recent.get("bb_count") or 0
-    if bbe < 12:
-        flags.append(f"thin sample ({bbe} BBE)")
+    pa = recent.get("pa") or 0
+    if pa < 25 or bbe < 18:          # ~5 games or fewer = unreliable 2-week read
+        flags.append(f"small sample ({pa} PA, {bbe} BBE)")
     if ev is not None and ev < ANCHORS["avg_ev"][0]:
         flags.append("EV below 87 floor")
     if iaa is not None and ev is not None and iaa >= ANCHORS["ideal_aa_pct"][1] and ev < 88:
@@ -165,6 +207,60 @@ def _vuln(metrics: dict) -> float:
         else:
             total += anchor_scale(metrics.get(key), *PITCH_ANCHORS[key]) * w
     return round(total, 1)
+
+
+def hand_vuln(split: dict | None) -> dict | None:
+    """HR-vulnerability score of a pitcher (or pen) vs ONE batter hand, from a
+    split's {season, recent} dicts. Returns None if the sample is too small to read."""
+    if not split:
+        return None
+    season = split.get("season") or {}
+    recent = split.get("recent") or {}
+    if (season.get("bbe") or 0) < 20:        # not enough vs that hand to trust
+        return None
+    res = pitcher_hr_score(recent, season)
+    res["bbe"] = season.get("bbe")
+    return res
+
+
+def platoon_note(splits: dict | None) -> dict | None:
+    """Compare a pitcher's vulnerability vs RHB vs LHB. Returns which hand mashes it."""
+    if not splits:
+        return None
+    r = hand_vuln(splits.get("R"))
+    l = hand_vuln(splits.get("L"))
+    rs = r["score"] if r else None
+    ls = l["score"] if l else None
+    if rs is None and ls is None:
+        return None
+    worse, gap = None, None
+    if rs is not None and ls is not None:
+        worse = "R" if rs >= ls else "L"
+        gap = abs(rs - ls)
+    return {"R": rs, "L": ls, "worse": worse, "gap": gap}
+
+
+def bullpen_vuln(pen: dict | None, bat_hand: str | None = None) -> dict | None:
+    """
+    Score a team bullpen's HR-vulnerability (overall) plus, if the batter's hand is
+    given, the pen's vulnerability vs that specific hand (the platoon-vs-pen read).
+    """
+    if not pen:
+        return None
+    overall = pitcher_hr_score(pen.get("recent") or {}, pen.get("season") or {})
+    out = {
+        "score": overall["score"],
+        "form": overall["form"],
+        "flags": overall.get("flags", [])[:3],
+        "arms": pen.get("arms"),
+    }
+    splits = pen.get("splits") or {}
+    if bat_hand in ("R", "L"):
+        vh = hand_vuln(splits.get(bat_hand))
+        out["vs_hand"] = vh["score"] if vh else None
+        out["hand"] = bat_hand
+    out["platoon"] = platoon_note(splits)
+    return out
 
 
 def pitcher_hr_score(recent: dict, season: dict) -> dict:

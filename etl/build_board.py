@@ -112,7 +112,19 @@ def build(date_str: str | None = None) -> dict:
 
     profiles = statcast_data.batter_profiles(df, batter_ids, date_str)
     pitch_profiles = statcast_data.pitcher_profiles(df, pitcher_ids, date_str)
+    bullpens = statcast_data.bullpen_profiles(df, date_str)
     career = statcast_data.career_table(2015, now.year)
+
+    # statsapi and Statcast mostly share team abbreviations; a few differ.
+    _TEAM_ALIAS = {"AZ": "ARI", "ARI": "AZ", "CWS": "CHW", "CHW": "CWS",
+                   "WSH": "WSN", "WSN": "WSH", "KC": "KCR", "KCR": "KC",
+                   "SD": "SDP", "SDP": "SD", "SF": "SFG", "SFG": "SF",
+                   "TB": "TBR", "TBR": "TB"}
+
+    def _bullpen_for(abbr):
+        if abbr in bullpens:
+            return bullpens[abbr]
+        return bullpens.get(_TEAM_ALIAS.get(abbr))
 
     # score every probable pitcher's HR vulnerability once
     pitcher_hr = {}
@@ -188,6 +200,24 @@ def build(date_str: str | None = None) -> dict:
             },
         }
 
+        # pitcher platoon splits — what he allows vs this hitter's hand
+        eff_hand = eff_side if bats == "S" else bats
+        psplits = pprof.get("splits") or {}
+        opp_pitcher_obj["platoon"] = compute.platoon_note(psplits)
+        vh = compute.hand_vuln(psplits.get(eff_hand)) if eff_hand in ("R", "L") else None
+        opp_pitcher_obj["vs_hand"] = eff_hand
+        opp_pitcher_obj["vs_hand_score"] = vh["score"] if vh else None
+        _vhs = (psplits.get(eff_hand) or {})
+        opp_pitcher_obj["vs_hand_metrics"] = {
+            "barrel_pct_allowed": (_vhs.get("season") or {}).get("barrel_pct_allowed"),
+            "hr_per_pa": (_vhs.get("season") or {}).get("hr_per_pa"),
+            "bbe": (_vhs.get("season") or {}).get("bbe"),
+        }
+
+        # opposing BULLPEN vulnerability (overall + vs this hitter's hand)
+        opp_abbr = g["home"] if side == "away" else g["away"]
+        opp_bullpen = compute.bullpen_vuln(_bullpen_for(opp_abbr), eff_hand) if g else None
+
         metrics = {}
         # the four headline signals first (in your order), then context metrics
         for key in ("pull_air_pct", "avg_ev", "barrel_pct", "ideal_aa_pct",
@@ -222,6 +252,8 @@ def build(date_str: str | None = None) -> dict:
             "bats": bats,
             "lineup_spot": spot_of_batter.get(bid),
             "lineup_status": status_of_batter.get(bid, "confirmed"),
+            "trend": compute.trend(prof.get("windows", {}).get("L5", {}),
+                                   prof.get("windows", {}).get("L30", {})),
             "team": g["away"] if side == "away" else g["home"],
             "opp_team": g["home"] if side == "away" else g["away"],
             "game_pk": pk,
@@ -238,6 +270,7 @@ def build(date_str: str | None = None) -> dict:
                 "season": season.get("bb_count"),
             },
             "opp_pitcher": opp_pitcher_obj,
+            "opp_bullpen": opp_bullpen,
             "heat": score,
             "score_breakdown": breakdown,
             "metrics": metrics,
@@ -249,7 +282,7 @@ def build(date_str: str | None = None) -> dict:
 
     # ---- decision helpers ----
     def _thin(p):
-        return any(str(f).startswith("thin") for f in p["score_breakdown"].get("flags", []))
+        return any(str(f).startswith("small sample") for f in p["score_breakdown"].get("flags", []))
 
     # Top Plays: strongest, non-thin hitters not facing a DEALING arm
     top_plays = []
@@ -351,6 +384,29 @@ def main():
     os.makedirs(os.path.dirname(OUT_PATH) or ".", exist_ok=True)
     with open(OUT_PATH, "w") as f:
         json.dump(board, f, indent=2, default=str)
+
+    # slim daily snapshot so the grader can grade this day even after the live
+    # board rolls over to tomorrow's slate
+    try:
+        snap_dir = os.path.join(os.path.dirname(OUT_PATH) or ".", "snapshots")
+        os.makedirs(snap_dir, exist_ok=True)
+        snap = {
+            "date": board["slate_date"],
+            "players": [{
+                "id": p["id"], "name": p["name"], "team": p["team"],
+                "heat": p["heat"], "tier": p.get("tier"), "cleared": p.get("cleared"),
+                "signals": p["score_breakdown"].get("signals", {}),
+                "opp_form": (p["opp_pitcher"].get("form") or {}).get("label"),
+            } for p in board["players"]],
+        }
+        with open(os.path.join(snap_dir, f"{board['slate_date']}.json"), "w") as f:
+            json.dump(snap, f, default=str)
+        import glob
+        for old in sorted(glob.glob(os.path.join(snap_dir, "20*.json")))[:-16]:
+            os.remove(old)
+    except Exception as e:
+        print(f"[build] snapshot write failed (non-fatal): {e}")
+
     print(f"[build] wrote {OUT_PATH}: {len(board['players'])} hitters, "
           f"{len(board['games'])} games")
 
@@ -367,7 +423,7 @@ def main():
     topby("pull_air_pct", "pull-air%")
     topby("ideal_aa_pct", "ideal AA%")
     thin = [p["name"] for p in ps
-            if any(str(f).startswith("thin") for f in p.get("score_breakdown", {}).get("flags", []))]
+            if any(str(f).startswith("small sample") for f in p.get("score_breakdown", {}).get("flags", []))]
     if thin:
         print(f"[sanity] {len(thin)} thin-sample hitters flagged (dimmed on board): {', '.join(thin[:8])}")
 
