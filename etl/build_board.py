@@ -48,16 +48,39 @@ def build(date_str: str | None = None) -> dict:
     games = slate["games"]
     print(f"[build] {len(games)} games, lineups posted for {len(slate['lineups'])}")
 
+    # Fall back to each team's last batting order (projected) where today's
+    # lineup isn't posted yet, so the board isn't blank in the morning.
+    yest = (datetime.strptime(date_str, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
+    projected_pks = set()
+    _recent_cache = {}
+
+    def _recent(team_id):
+        if team_id not in _recent_cache:
+            _recent_cache[team_id] = statsapi.get_recent_lineup(team_id, yest)
+        return _recent_cache[team_id]
+
+    for g in games:
+        pk = g["game_pk"]
+        if pk in slate["lineups"]:
+            continue
+        away = _recent(g["away_id"])
+        home = _recent(g["home_id"])
+        if away or home:
+            slate["lineups"][pk] = {"away": away, "home": home}
+            projected_pks.add(pk)
+    print(f"[build] projected lineups for {len(projected_pks)} games")
+
     # collect batter ids from posted lineups
-    batter_ids, game_of_batter, side_of_batter = [], {}, {}
+    batter_ids, game_of_batter, side_of_batter, spot_of_batter, status_of_batter = [], {}, {}, {}, {}
     for pk, lu in slate["lineups"].items():
         gmeta = next((g for g in games if g["game_pk"] == pk), None)
         if not gmeta:
             continue
-        for bid in lu["away"]:
-            batter_ids.append(bid); game_of_batter[bid] = pk; side_of_batter[bid] = "away"
-        for bid in lu["home"]:
-            batter_ids.append(bid); game_of_batter[bid] = pk; side_of_batter[bid] = "home"
+        st = "projected" if pk in projected_pks else "confirmed"
+        for i, bid in enumerate(lu.get("away", [])):
+            batter_ids.append(bid); game_of_batter[bid] = pk; side_of_batter[bid] = "away"; spot_of_batter[bid] = i + 1; status_of_batter[bid] = st
+        for i, bid in enumerate(lu.get("home", [])):
+            batter_ids.append(bid); game_of_batter[bid] = pk; side_of_batter[bid] = "home"; spot_of_batter[bid] = i + 1; status_of_batter[bid] = st
     batter_ids = list(dict.fromkeys(batter_ids))
 
     pitcher_ids = [p for g in games for p in (g["away_pitcher_id"], g["home_pitcher_id"])]
@@ -176,16 +199,38 @@ def build(date_str: str | None = None) -> dict:
                 "career": car.get(key),
             }
 
+        # auto "why" line — the cleared signals + arm read, for instant scanning
+        why_bits = []
+        if recent.get("pull_air_pct") is not None and recent["pull_air_pct"] >= 40:
+            why_bits.append(f"{recent['pull_air_pct']:.0f}% air-pull")
+        if recent.get("barrel_pct") is not None and recent["barrel_pct"] >= 11:
+            why_bits.append(f"{recent['barrel_pct']:.0f}% brl")
+        if recent.get("avg_ev") is not None and recent["avg_ev"] >= 88.5:
+            why_bits.append(f"{recent['avg_ev']:.1f} EV")
+        if recent.get("ideal_aa_pct") is not None and recent["ideal_aa_pct"] >= 58:
+            why_bits.append(f"{recent['ideal_aa_pct']:.0f}% IAA")
+        if recent.get("iso") is not None and recent["iso"] >= 0.200:
+            why_bits.append(f".{int(round(recent['iso']*1000)):03d} ISO")
+        oform = (opp_pitcher_obj.get("form") or {}).get("label", "")
+        why = " · ".join(why_bits[:3])
+        if oform in ("SHELLABLE", "STEADY-BAD", "SLIPPING", "HITTABLE"):
+            why = (why + " · " if why else "") + f"vs {oform} arm"
+
         players.append({
             "id": bid,
             "name": name,
             "bats": bats,
+            "lineup_spot": spot_of_batter.get(bid),
+            "lineup_status": status_of_batter.get(bid, "confirmed"),
             "team": g["away"] if side == "away" else g["home"],
             "opp_team": g["home"] if side == "away" else g["away"],
             "game_pk": pk,
             "time": g["time"],
             "park": g["park"],
             "park_hr_factor": round(pf, 2),
+            "why": why,
+            "tier": breakdown.get("tier"),
+            "cleared": breakdown.get("cleared"),
             "sample": {                       # batted-ball counts so tiny windows are obvious
                 "L5": (prof.get("windows", {}).get("L5", {}) or {}).get("bb_count"),
                 "L15": (prof.get("windows", {}).get("L15", {}) or {}).get("bb_count"),
@@ -202,6 +247,57 @@ def build(date_str: str | None = None) -> dict:
 
     players.sort(key=lambda p: p["heat"], reverse=True)
 
+    # ---- decision helpers ----
+    def _thin(p):
+        return any(str(f).startswith("thin") for f in p["score_breakdown"].get("flags", []))
+
+    # Top Plays: strongest, non-thin hitters not facing a DEALING arm
+    top_plays = []
+    for p in players:
+        if _thin(p) or p["heat"] < 60:
+            continue
+        if (p["opp_pitcher"].get("form") or {}).get("label") == "DEALING":
+            continue
+        top_plays.append({
+            "name": p["name"], "team": p["team"], "opp_team": p["opp_team"],
+            "heat": p["heat"], "tier": p["tier"], "why": p["why"],
+            "spot": p["lineup_spot"], "time": p["time"],
+            "arm": p["opp_pitcher"].get("name"),
+            "arm_form": (p["opp_pitcher"].get("form") or {}).get("label"),
+            "arm_score": p["opp_pitcher"].get("hr_score"),
+        })
+        if len(top_plays) >= 12:
+            break
+
+    # Stacks (pairing): a vulnerable arm with 2+ strong hitters facing him
+    from collections import defaultdict
+    groups = defaultdict(list)
+    for p in players:
+        groups[(p["game_pk"], p["opp_pitcher"].get("name"))].append(p)
+    stacks = []
+    for (gpk, arm), ps in groups.items():
+        if not arm:
+            continue
+        form = (ps[0]["opp_pitcher"].get("form") or {}).get("label", "")
+        if form not in ("SHELLABLE", "STEADY-BAD", "SLIPPING", "HITTABLE"):
+            continue
+        strong = sorted([x for x in ps if x["heat"] >= 55], key=lambda x: x["heat"], reverse=True)
+        if len(strong) < 2:
+            continue
+        stacks.append({
+            "arm": arm,
+            "form": ps[0]["opp_pitcher"].get("form"),
+            "arm_score": ps[0]["opp_pitcher"].get("hr_score"),
+            "game_pk": gpk,
+            "team": strong[0]["team"], "opp_team": strong[0]["opp_team"],
+            "time": strong[0]["time"],
+            "hitters": [{
+                "name": x["name"], "heat": x["heat"], "tier": x["tier"],
+                "spot": x["lineup_spot"], "bats": x["bats"],
+            } for x in strong[:6]],
+        })
+    stacks.sort(key=lambda s: (s["arm_score"] or 0, len(s["hitters"])), reverse=True)
+
     board = {
         "generated_at": now.isoformat(timespec="seconds"),
         "slate_date": date_str,
@@ -211,12 +307,18 @@ def build(date_str: str | None = None) -> dict:
             "park": g["park"], "time": g["time"],
         } for g in games],
         "lineups_pending": [g["game_pk"] for g in games if g["game_pk"] not in slate["lineups"]],
+        "projected_games": [
+            {"game_pk": g["game_pk"], "away": g["away"], "home": g["home"]}
+            for g in games if g["game_pk"] in projected_pks
+        ],
         "recent_window": {
             "days": 14,
             "start": (datetime.strptime(date_str, "%Y-%m-%d") - timedelta(days=14)).strftime("%Y-%m-%d"),
             "end": date_str,
         },
         "players": players,
+        "top_plays": top_plays,
+        "stacks": stacks,
         "arms": sorted([
             {
                 "name": slate["pitchers"].get(pid, {}).get("name", str(pid)),

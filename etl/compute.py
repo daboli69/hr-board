@@ -71,12 +71,19 @@ def heat_score(recent: dict, pitcher_score: int | None = None) -> tuple[int, dic
     if not recent:
         return 0, {"note": "no recent data"}
 
-    bd, total = {}, 0.0
+    bd, total, cleared = {}, 0.0, 0
     for key, w in WEIGHTS.items():
         s = anchor_scale(recent.get(key), *ANCHORS[key])
         pts = round(s * w, 1)
         bd[key] = pts
         total += pts
+        if recent.get(key) is not None and s >= 0.65:   # cleared its "good" anchor
+            cleared += 1
+    bd["cleared"] = cleared          # 0-6 signals at/above good
+    # confirmation tier (echoes a quad/triple/double read)
+    tier = ("LOADED" if cleared >= 5 else "STRONG" if cleared == 4
+            else "SOLID" if cleared == 3 else "LEAN" if cleared == 2 else "THIN")
+    bd["tier"] = tier
 
     # plain-language flags
     flags = []

@@ -9,6 +9,7 @@ Docs base: https://statsapi.mlb.com/api/v1
 """
 from __future__ import annotations
 import requests
+from datetime import datetime, timedelta
 
 BASE = "https://statsapi.mlb.com/api/v1"
 TIMEOUT = 20
@@ -82,6 +83,36 @@ def get_slate(date_str: str) -> dict:
                     }
 
     return {"games": games, "lineups": lineups, "pitchers": pitchers}
+
+
+def get_recent_lineup(team_id: int, before_date: str) -> list[int]:
+    """
+    A team's most recent posted batting order (player ids, in order), used as a
+    PROJECTED lineup before today's is confirmed. Looks back up to 10 days for the
+    team's last completed game and reads its boxscore battingOrder.
+    """
+    try:
+        start = (datetime.strptime(before_date, "%Y-%m-%d") - timedelta(days=10)).strftime("%Y-%m-%d")
+        data = _get(f"{BASE}/schedule",
+                    {"sportId": 1, "teamId": team_id, "startDate": start, "endDate": before_date})
+        games = []
+        for d in data.get("dates", []):
+            for g in d.get("games", []):
+                if g.get("status", {}).get("abstractGameState") == "Final":
+                    games.append((g.get("gameDate", ""), g["gamePk"]))
+        if not games:
+            return []
+        games.sort()
+        game_pk = games[-1][1]
+        box = _get(f"{BASE}/game/{game_pk}/boxscore")
+        for side in ("away", "home"):
+            t = box.get("teams", {}).get(side, {})
+            if t.get("team", {}).get("id") == team_id:
+                order = t.get("battingOrder", []) or []
+                return [int(x) for x in order]
+        return []
+    except Exception:
+        return []
 
 
 def get_handedness(player_ids: list[int]) -> dict:

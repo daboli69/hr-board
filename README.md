@@ -115,3 +115,16 @@ It appends to `docs/history.json`, and the Tracker view shows:
 - Lineups post a few hours before first pitch, so the morning run shows
   probables and any early lineups; later runs fill the rest in.
 - Career Statcast metrics only exist from 2015 on.
+
+## Decision helpers (time-savers)
+
+- **Top Plays** (panel on the Board): the strongest non-thin hitters not facing a
+  DEALING arm, each with a **confirmation tier** (LOADED / STRONG / SOLID / LEAN —
+  how many of the 6 signals cleared "good"), batting-order spot, and a one-line
+  **why** (e.g. "52% air-pull · 14% brl · 91 EV · vs STEADY-BAD arm"). Scan this
+  instead of 270 rows.
+- **Stacks** (view toggle): every vulnerable arm with 2+ hot hitters (Heat 55+)
+  facing him, sorted by Heat — built for grand-slam parlays / same-game pairing.
+- **Batting-order spot** (#1-#9) shows on every row and confirms the lineup is posted.
+- **Tier badge** on each hitter = confirmation strength at a glance, independent of Heat.
+

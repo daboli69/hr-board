@@ -112,6 +112,35 @@
   .trk-day{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin:7px 0;padding:11px 13px;font-size:12.5px}
   .trk-day .d{font-family:Archivo;font-weight:700;font-size:14px}
   .trk-day .ln{color:var(--muted);margin-top:3px;line-height:1.5}
+  /* top plays + tier */
+  .tier{font-size:8px;font-weight:800;letter-spacing:.04em;padding:1px 4px;border-radius:4px;margin-left:4px}
+  .tier.LOADED{background:#E4572E;color:#fff}
+  .tier.STRONG{background:#E0913A;color:#1a1a1a}
+  .tier.SOLID{background:#3E7CB1;color:#fff}
+  .tier.LEAN{background:var(--panel-2);color:var(--muted);border:1px solid var(--line)}
+  .tier.THIN{background:transparent;color:var(--faint);border:1px solid var(--line)}
+  .tp{background:var(--panel);border:1px solid var(--seam);border-radius:14px;margin:9px 0 4px;overflow:hidden}
+  .tp-head{display:flex;align-items:center;justify-content:space-between;padding:11px 13px;cursor:pointer}
+  .tp-head h3{margin:0;font-family:Archivo;font-weight:900;font-size:14px;letter-spacing:.02em;text-transform:uppercase}
+  .tp-head h3 .y{color:var(--seam)}
+  .tp-body{border-top:1px solid var(--line);display:none}
+  .tp.open .tp-body{display:block}
+  .tp-row{padding:9px 13px;border-bottom:1px solid var(--line)}
+  .tp-row:last-child{border-bottom:none}
+  .tp-row .top{display:flex;align-items:center;gap:8px}
+  .tp-row .hc{font-family:Archivo;font-weight:900;font-size:15px;width:34px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex:none}
+  .tp-row .nm{font-family:Archivo;font-weight:700;font-size:14px}
+  .tp-row .why{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.45}
+  .spot{font-size:9px;color:var(--faint);border:1px solid var(--line);border-radius:4px;padding:1px 4px;font-family:"IBM Plex Mono",monospace}
+  /* stacks */
+  .stack{background:var(--panel);border:1px solid var(--line);border-radius:14px;margin:9px 0;overflow:hidden}
+  .stack-head{display:flex;align-items:center;gap:10px;padding:11px 13px;border-bottom:1px solid var(--line)}
+  .stack-head .sc{font-family:Archivo;font-weight:900;font-size:16px;width:38px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex:none}
+  .stack-head .nm{font-weight:700;font-size:14px}
+  .stack-head .sub{font-size:11px;color:var(--muted)}
+  .stack-h{display:grid;grid-template-columns:30px 1fr auto auto;gap:9px;align-items:center;padding:8px 13px;border-bottom:1px solid var(--line);font-size:13px}
+  .stack-h:last-child{border-bottom:none}
+  .stack-h .hh{font-family:"IBM Plex Mono",monospace;font-weight:600;width:30px;text-align:center;border-radius:5px;padding:2px 0;font-size:12px}
   .caret{color:var(--faint);font-size:13px;transition:transform .18s ease}
   .row.open .caret{transform:rotate(90deg)}
   .row.thin{opacity:.5}
@@ -157,6 +186,7 @@
   <div class="controls" style="margin-top:10px">
     <div class="seg" id="view">
       <button data-view="board" aria-pressed="true">Board</button>
+      <button data-view="stacks" aria-pressed="false">Stacks</button>
       <button data-view="tracker" aria-pressed="false">Tracker</button>
     </div>
   </div>
@@ -266,6 +296,34 @@ function render(){
   if(BOARD.lineups_pending&&BOARD.lineups_pending.length){
     html+=`<div class="pending">${BOARD.lineups_pending.length} game(s) waiting on lineups — they fill in automatically as teams post them.</div>`;
   }
+  if(BOARD.projected_games&&BOARD.projected_games.length){
+    const g=BOARD.projected_games.map(x=>`${x.away}@${x.home}`).join(", ");
+    html+=`<div class="pending" style="border-color:var(--seam);color:var(--ink)">
+      <b>Projected lineups</b> (last game's order) for ${BOARD.projected_games.length} game(s) — today's not posted yet: ${g}.
+      Probable pitchers are live, so matchups are real; bats update automatically when lineups drop.</div>`;
+  }
+  // Top Plays: the time-saver shortlist (only on default sort/no filters)
+  if(BOARD.top_plays&&BOARD.top_plays.length&&!q&&!gameFilter&&minHeat===0&&sortKey==="heat"){
+    let rows=BOARD.top_plays.map(t=>`<div class="tp-row">
+      <div class="top">
+        <div class="hc" style="background:${chipColor(t.heat)}">${t.heat}</div>
+        <div>
+          <span class="nm">${t.name}</span>
+          <span class="tier ${t.tier}">${t.tier}</span>
+          ${t.spot?`<span class="spot">#${t.spot}</span>`:""}
+          <span style="color:var(--muted);font-size:11px"> ${t.team}→${t.opp_team} · ${timeStr(t.time)}</span>
+        </div>
+      </div>
+      <div class="why">${t.why||""}</div>
+    </div>`).join("");
+    html+=`<div class="tp" id="tpPanel">
+      <div class="tp-head" onclick="document.getElementById('tpPanel').classList.toggle('open')">
+        <h3>Top <span class="y">Plays</span> · ${BOARD.top_plays.length}</h3>
+        <span class="sub" style="font-size:11px;color:var(--muted)">tap to expand</span>
+      </div>
+      <div class="tp-body">${rows}</div>
+    </div>`;
+  }
   // Arms today: starters ranked by HR vulnerability
   if(BOARD.arms&&BOARD.arms.length){
     let arows="";
@@ -289,7 +347,14 @@ function render(){
       <div class="arms-body">${arows}</div>
     </div>`;
   }
-  if(!players.length){ main.innerHTML=`<div class="empty">No hitters match.</div>`; return; }
+  if(!players.length){
+    const noLineups=!BOARD.players||!BOARD.players.length;
+    const msg = noLineups
+      ? `Lineups aren't posted yet for the ${BOARD.slate_date} slate (${(BOARD.games||[]).length} games).<br>Hitters fill in automatically through the day as teams post lineups — usually a few hours before each game.`
+      : `No hitters match your filters.`;
+    main.innerHTML=html+`<div class="empty">${msg}</div>`;
+    return;
+  }
 
   players.forEach((p,i)=>{
     const col=chipColor(p.heat);
@@ -372,8 +437,8 @@ function render(){
         <div class="rank mono">${i+1}</div>
         <div class="cheat" style="background:${col}">${p.heat}</div>
         <div class="cwho">
-          <div class="name">${p.name}<span class="bats">${p.bats||"?"}</span></div>
-          <div class="cmini">${p.team}→${p.opp_team} · ${timeStr(p.time)}${armSc!=null?` · arm <b style="color:${armCol}">${armSc}</b>`:""} · ${(p.windows&&p.windows.L14d&&p.windows.L14d.pa!=null)?`${p.windows.L14d.pa}PA`:"–"}</div>
+          <div class="name">${p.name}<span class="bats">${p.bats||"?"}</span>${p.tier?`<span class="tier ${p.tier}">${p.tier}</span>`:""}${p.lineup_status==="projected"?`<span class="spot" style="color:var(--seam);border-color:var(--seam)">proj</span>`:""}</div>
+          <div class="cmini">${p.lineup_spot?`#${p.lineup_spot} · `:""}${p.team}→${p.opp_team} · ${timeStr(p.time)}${armSc!=null?` · arm <b style="color:${armCol}">${armSc}</b>`:""} · ${(p.windows&&p.windows.L14d&&p.windows.L14d.pa!=null)?`${p.windows.L14d.pa}PA`:"–"}</div>
         </div>
         <div class="cmetrics">${mini}</div>
       </div>
@@ -408,7 +473,41 @@ function thead(){
 function setHH(){const h=document.querySelector("header");if(h)document.documentElement.style.setProperty("--hh",h.offsetHeight+"px");}
 window.addEventListener("resize",setHH);
 function setSort(k){ sortKey=k; render(); }
-function renderView(){ if(view==="tracker") renderTracker(); else render(); }
+function renderView(){ if(view==="tracker") renderTracker(); else if(view==="stacks") renderStacks(); else render(); }
+
+function renderStacks(){
+  const main=document.getElementById("main");
+  const stacks=(BOARD&&BOARD.stacks)||[];
+  if(!stacks.length){
+    main.innerHTML=`<div class="empty">No stacks yet.<br>A stack = a vulnerable arm with 2+ hot hitters (Heat 55+) facing him. Fills in as lineups post.</div>`;
+    return;
+  }
+  let html=`<div style="max-width:760px;margin:0 auto">
+    <div style="font-size:12px;color:var(--muted);padding:6px 2px 4px">Vulnerable arms with a cluster of hot hitters — built for grand-slam parlays. Each arm's hitters are sorted by Heat.</div>`;
+  stacks.forEach(s=>{
+    const f=s.form||{label:"",color:"#8A95A3"};
+    let rows=s.hitters.map(h=>`<div class="stack-h">
+      <div class="hh" style="background:${chipColor(h.heat)}">${h.heat}</div>
+      <div><b>${h.name}</b> <span style="color:var(--muted);font-size:11px">${h.bats||""}</span></div>
+      ${h.spot?`<div class="spot">#${h.spot}</div>`:"<div></div>"}
+      <div class="tier ${h.tier}">${h.tier}</div>
+    </div>`).join("");
+    html+=`<div class="stack">
+      <div class="stack-head">
+        <div class="sc" style="background:${chipColor(s.arm_score)}">${s.arm_score}</div>
+        <div style="flex:1;min-width:0">
+          <div class="nm">${s.arm} <span class="arm-tag" style="color:${f.color};border:1px solid ${f.color}">${f.label}</span></div>
+          <div class="sub">${s.opp_team} hitters vs ${s.team} · ${timeStr(s.time)} · ${s.hitters.length} bats 55+</div>
+        </div>
+      </div>
+      ${rows}
+    </div>`;
+  });
+  html+=`</div>`;
+  main.innerHTML=html;
+}
+
+function toggle(el){ el.closest(".row").classList.toggle("open"); }
 
 function renderTracker(){
   const main=document.getElementById("main");
@@ -466,8 +565,6 @@ function renderTracker(){
   </div>`;
 }
 
-function toggle(el){ el.closest(".row").classList.toggle("open"); }
-
 document.getElementById("sort").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b)return;
   sortKey=b.dataset.sort;
@@ -489,7 +586,7 @@ document.getElementById("view").addEventListener("click",async e=>{
   const b=e.target.closest("button"); if(!b)return;
   view=b.dataset.view;
   [...document.querySelectorAll("#view button")].forEach(x=>x.setAttribute("aria-pressed",x===b));
-  document.getElementById("boardControls").style.display = view==="tracker"?"none":"";
+  document.getElementById("boardControls").style.display = view==="board"?"":"none";
   if(view==="tracker" && !HISTORY){ await loadHistory(); }
   renderView();
 });
