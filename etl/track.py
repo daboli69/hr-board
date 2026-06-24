@@ -16,6 +16,8 @@ from __future__ import annotations
 import json
 import os
 import time
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from pybaseball import statcast
 
@@ -67,6 +69,14 @@ def grade():
     with open(BOARD_PATH) as f:
         board = json.load(f)
     date = board["slate_date"]
+
+    # only grade fully-completed days. If the board still shows today's (or a
+    # future) slate, the games aren't final — grading happens the next morning.
+    today = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+    if date >= today:
+        print(f"[track] {date} games not final yet (today is {today}); grading runs after completion. Skipping.")
+        return
+
     print(f"[track] grading {date}")
 
     sc = None
