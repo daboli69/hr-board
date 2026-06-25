@@ -73,6 +73,21 @@ def form_score(w: dict) -> float:
     return round(tot, 1)
 
 
+# Trend uses CONTACT-QUALITY only (barrel / pull-air / EV / attack angle). Results
+# (ISO/SLG) lag and run lucky, so leaving them out makes "trending up" a cleaner
+# leading indicator of imminent power rather than an echo of recent luck.
+_QUALITY_WEIGHTS = {"barrel_pct": 32, "pull_air_pct": 28, "avg_ev": 20, "ideal_aa_pct": 20}
+
+
+def _quality_form(w: dict) -> float:
+    if not w:
+        return 0.0
+    tot = 0.0
+    for k, wt in _QUALITY_WEIGHTS.items():
+        tot += anchor_scale(w.get(k), *ANCHORS[k]) * wt
+    return round(tot, 1)
+
+
 def trend(short_w: dict, long_w: dict) -> dict:
     """
     Direction + % change of recent power form: short window (L5) vs longer (L30).
@@ -86,15 +101,16 @@ def trend(short_w: dict, long_w: dict) -> dict:
     l_bbe = (long_w or {}).get("bb_count") or 0
     if s_bbe < 6:
         return {"dir": "flat", "pct": None, "new": l_bbe < 15}
-    s = form_score(short_w)
+    s = _quality_form(short_w)
     if l_bbe < 15:                         # call-up / off-IL: no real baseline
         if s >= 50:
             return {"dir": "up", "pct": None, "new": True}
         return {"dir": "flat", "pct": None, "new": True}
-    l = form_score(long_w)
+    l = _quality_form(long_w)
     if l <= 0:
         return {"dir": "flat", "pct": None, "new": False}
-    pct = round((s - l) / l * 100)
+    base = max(l, 30)                       # floor the baseline so a cold hitter's
+    pct = max(-99, min(99, round((s - l) / base * 100)))  # tiny gain isn't +60%; cap sanity
     if pct >= 8:
         return {"dir": "up", "pct": pct, "new": False}
     if pct <= -8:
@@ -281,6 +297,51 @@ def luck_read(gap: float | None) -> str | None:
     if gap <= -0.040:
         return "running hot — regression risk"
     return "roughly fair"
+
+
+def read_angle(*, hand=None, trend=None, pitch_matchup=None, luck_gap=None,
+               opp_form=None, hand_hr=None, eff_hand=None) -> str:
+    """
+    One synthesized sentence — the model's read on a hitter today, assembled from the
+    strongest 1-2 matchup facts plus a trend/luck qualifier. Returns '' if nothing
+    stands out (so the card stays quiet rather than forcing a weak narrative).
+    """
+    handlbl = {"R": "RHB", "L": "LHB", "S": "switch"}.get(hand, "")
+    eff_lbl = {"R": "RHB", "L": "LHB"}.get(eff_hand, handlbl)
+    bits = []
+    # 1) pitch-mix power edge — the strongest "why" when present
+    pm = pitch_matchup
+    if pm and pm.get("best") and pm.get("edge") is not None and pm["edge"] >= 2:
+        b = pm["best"]
+        lab = b["label"].lower()
+        bits.append(f"barrels {lab} ({b['barrel']}%) vs a {b['usage']}% {lab} arm")
+    # 2) the arm has coughed up HRs to this hitter's hand
+    if hand_hr and eff_hand in ("R", "L"):
+        side = hand_hr.get(eff_hand)
+        if side and side.get("pa") and (side.get("hr", 0) >= 20 or
+                                        (side["hr"] / side["pa"]) >= 0.035):
+            bits.append(f"vs an arm that's allowed {side['hr']} HR to {eff_lbl} (2yr)")
+    # 3) shellable starter
+    if not bits and opp_form in ("SHELLABLE", "STEADY-BAD"):
+        bits.append(f"facing a {opp_form.lower().replace('-', ' ')} starter")
+    # qualifier: due/hot + trend
+    qual = None
+    if luck_gap is not None and luck_gap >= 0.04:
+        qual = "running cold — due"
+    elif luck_gap is not None and luck_gap <= -0.04:
+        qual = "hot lately, watch regression"
+    elif trend and trend.get("dir") == "up" and trend.get("pct"):
+        qual = f"contact heating up (+{trend['pct']}%)"
+    elif trend and trend.get("dir") == "down" and trend.get("pct"):
+        qual = f"contact cooling ({trend['pct']}%)"
+    if not bits and not qual:
+        return ""
+    lead = (handlbl + " " if handlbl else "")
+    if bits:
+        s = lead + ", ".join(bits[:2]) + (f" — {qual}" if qual else "")
+    else:                                  # nothing notable but a trend/luck note
+        s = lead.rstrip() + (f" — {qual}" if qual else "")
+    return s[0].upper() + s[1:]
 
 
 def hand_vuln(split: dict | None) -> dict | None:

@@ -197,10 +197,25 @@ def build(date_str: str | None = None) -> dict:
         # vs-pitch-mix variant: re-weight EV/LA/whiff by THIS arm's pitch mix (last 2wk),
         # then recompute Heat with the mix-adjusted EV. Display-toggle only.
         mix_prof = compute.pitch_mix_profile(prof.get("pitch_splits_recent"), pprof.get("usage"))
+        pmatch = compute.pitch_matchup(prof.get("pitch_splits"), pprof.get("usage"), season.get("barrel_pct"))
         heat_mix = score
         if mix_prof and mix_prof.get("avg_ev") is not None:
             recent_mix = {**recent, "avg_ev": mix_prof["avg_ev"]}
             heat_mix, _ = compute.heat_score(recent_mix, phr.get("score"))
+            # barrel-mix layer: if he barrels THIS arm's mix harder than his overall,
+            # nudge up slightly (capped) — rewards a strong barrel-vs-mix matchup
+            if pmatch and pmatch.get("edge"):
+                heat_mix = min(100, heat_mix + max(0, min(4, round(pmatch["edge"]))))
+
+        # trend (contact-quality) + the synthesized one-line read
+        tr = compute.trend(prof.get("windows", {}).get("L5", {}),
+                           prof.get("windows", {}).get("L30", {}))
+        eff_hand = eff_side if bats == "S" else bats
+        angle = compute.read_angle(
+            hand=bats, trend=tr, pitch_matchup=pmatch,
+            luck_gap=recent.get("luck_gap"),
+            opp_form=(phr.get("form") or {}).get("label"),
+            hand_hr=(hand2yr.get(pid) or {}).get("two_yr"), eff_hand=eff_hand)
 
         pr = pprof.get("recent", {})
         ps = pprof.get("season", {})
@@ -295,8 +310,8 @@ def build(date_str: str | None = None) -> dict:
             "bats": bats,
             "lineup_spot": spot_of_batter.get(bid),
             "lineup_status": status_of_batter.get(bid, "confirmed"),
-            "trend": compute.trend(prof.get("windows", {}).get("L5", {}),
-                                   prof.get("windows", {}).get("L30", {})),
+            "trend": tr,
+            "angle": angle,
             "team": g["away"] if side == "away" else g["home"],
             "opp_team": g["home"] if side == "away" else g["away"],
             "game_pk": pk,
@@ -316,8 +331,7 @@ def build(date_str: str | None = None) -> dict:
             "opp_bullpen": opp_bullpen,
             "pitch_splits": prof.get("pitch_splits"),
             "pitch_usage": pprof.get("usage"),
-            "pitch_matchup": compute.pitch_matchup(
-                prof.get("pitch_splits"), pprof.get("usage"), season.get("barrel_pct")),
+            "pitch_matchup": pmatch,
             "heat_mix": heat_mix,
             "mix": mix_prof,
             "ev_overall": recent.get("avg_ev"),

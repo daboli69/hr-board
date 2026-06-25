@@ -194,6 +194,8 @@
     font-size:21px;letter-spacing:-.02em;margin:2px 0 8px;flex-wrap:wrap}
   .dname .dspot{font-family:'IBM Plex Mono';font-size:12px;font-weight:600;color:var(--muted);
     border:1px solid var(--line);border-radius:5px;padding:1px 6px}
+  .angle{font-size:13px;line-height:1.5;color:var(--ink);background:linear-gradient(90deg,rgba(228,87,46,.13),transparent);
+    border-left:3px solid var(--seam);padding:8px 11px;border-radius:0 8px 8px 0;margin:0 0 12px}
   .detail h4{margin:0 0 8px;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
   table.win{width:100%;border-collapse:collapse;font-family:"IBM Plex Mono",monospace;font-size:12px}
   table.win th,table.win td{padding:5px 6px;text-align:right;border-bottom:1px solid var(--line)}
@@ -642,6 +644,7 @@ function render(){
       </div>
       <div class="detail">
         <div class="dname"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span>${p.name}</span>${p.lineup_spot?`<span class="dspot">#${p.lineup_spot}</span>`:""}</div>
+        ${p.angle?`<div class="angle">${p.angle}</div>`:""}
         <div class="matchup" style="margin-bottom:10px">${p.team} vs ${p.opp_team} · ${timeStr(p.time)} · ${p.park||""} · park ${fmt(p.park_hr_factor,2)}× · ${armBadge}</div>
         ${(p.max_ev&&p.max_ev.season!=null)?`<div class="arm" style="margin:-4px 0 8px">💥 <b>${p.name.split(' ').slice(-1)[0]}'s max EV:</b> <b style="color:var(--hot)">${p.max_ev.season}</b> mph season${p.max_ev.recent!=null?` · ${p.max_ev.recent} last 2wk`:""}</div>`:""}
         <h4>Four signals — recent · season · career</h4>
