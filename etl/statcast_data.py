@@ -52,6 +52,7 @@ def pull_season(start: str, end: str) -> pd.DataFrame:
         "attack_angle", "bat_speed", "release_speed", "pitch_type",
         "inning", "inning_topbot", "at_bat_number", "pitch_number",
         "home_team", "away_team",
+        "estimated_woba_using_speedangle", "woba_value", "woba_denom",
     ]
     keep = [c for c in keep if c in df.columns]
     return df[keep].copy()
@@ -104,6 +105,53 @@ def _ideal_aa(rows: pd.DataFrame) -> tuple:
     return round(100.0 * ideal / nc, 1), bs
 
 
+PITCH_BUCKET = {
+    # fastballs
+    "FF": "FB", "FA": "FB", "SI": "FB", "FT": "FB", "FC": "FB",
+    # breaking
+    "SL": "BR", "ST": "BR", "CU": "BR", "KC": "BR", "CS": "BR", "SV": "BR", "SC": "BR", "KN": "BR",
+    # offspeed
+    "CH": "OFF", "FS": "OFF", "FO": "OFF",
+}
+
+
+def _pitch_splits(rows: pd.DataFrame) -> dict:
+    """Per pitch-family (FB/BR/OFF) batted-ball damage for a hitter."""
+    if rows.empty or "pitch_type" not in rows.columns:
+        return {}
+    bb = rows[rows["launch_speed"].notna()].copy()
+    if bb.empty:
+        return {}
+    bb["fam"] = bb["pitch_type"].map(PITCH_BUCKET)
+    out = {}
+    for fam in ("FB", "BR", "OFF"):
+        sub = bb[bb["fam"] == fam]
+        n = len(sub)
+        if n < 5:
+            continue
+        out[fam] = {
+            "barrel_pct": round(100.0 * (sub["launch_speed_angle"] == 6).sum() / n, 1) if "launch_speed_angle" in sub else None,
+            "avg_ev": round(sub["launch_speed"].mean(), 1),
+            "hr": int((sub["events"] == "home_run").sum()),
+            "bbe": n,
+        }
+    return out
+
+
+def _pitch_usage(rows: pd.DataFrame) -> dict:
+    """A pitcher's pitch-family usage % (of all pitches thrown)."""
+    if rows.empty or "pitch_type" not in rows.columns:
+        return {}
+    fam = rows["pitch_type"].map(PITCH_BUCKET).dropna()
+    total = len(fam)
+    if total < 30:
+        return {}
+    out = {}
+    for f in ("FB", "BR", "OFF"):
+        out[f] = round(100.0 * (fam == f).sum() / total, 1)
+    return out
+
+
 def _agg_metrics(rows: pd.DataFrame) -> dict:
     """Compute the metric dict for an arbitrary subset of pitch-level rows."""
     if rows.empty:
@@ -135,6 +183,20 @@ def _agg_metrics(rows: pd.DataFrame) -> dict:
     pull_pct, pull_air_pct = _pull_metrics(bb)
     ideal_aa_pct, bat_speed = _ideal_aa(rows)
 
+    # luck gap: expected vs actual on contact (Savant xwOBAcon vs wOBAcon)
+    xwobacon = wobacon = luck_gap = None
+    if n_bb and "estimated_woba_using_speedangle" in bb:
+        xser = bb["estimated_woba_using_speedangle"].dropna()
+        if len(xser) >= 8:
+            xwobacon = round(xser.mean(), 3)
+            if "woba_value" in bb and "woba_denom" in bb:
+                wv = bb.loc[xser.index, "woba_value"]
+                wd = bb.loc[xser.index, "woba_denom"]
+                denom = wd.sum()
+                if denom > 0:
+                    wobacon = round(wv.sum() / denom, 3)
+                    luck_gap = round(xwobacon - wobacon, 3)   # + = under-rewarded (due)
+
     out = {
         "barrel_pct": pct((bb["launch_speed_angle"] == 6).sum(), n_bb) if "launch_speed_angle" in bb else None,
         "hardhit_pct": pct((bb["launch_speed"] >= 95).sum(), n_bb),
@@ -147,6 +209,9 @@ def _agg_metrics(rows: pd.DataFrame) -> dict:
         "bat_speed": bat_speed,
         "iso": iso,
         "slg": slg,
+        "xwobacon": xwobacon,
+        "wobacon": wobacon,
+        "luck_gap": luck_gap,
         "swstr_pct": pct(rows["description"].isin(SWING_STRIKE).sum(), pitches),
         "k_pct": pct(ks, pa),
         "hr": int(hr),
@@ -180,6 +245,7 @@ def batter_profiles(df: pd.DataFrame, batter_ids: list[int], asof: str,
             "season": season,
             "windows": windows,
             "recent": recent,          # headline = last 2 weeks
+            "pitch_splits": _pitch_splits(g),   # season-long damage by pitch family
         }
     return out
 
@@ -248,7 +314,8 @@ def pitcher_profiles(df: pd.DataFrame, pitcher_ids: list[int], asof: str,
                 "season": _pitcher_metrics(g[g["stand"] == hand]),
                 "recent": _pitcher_metrics(g_recent[g_recent["stand"] == hand]),
             }
-        out[int(pid)] = {"season": season, "recent": recent, "splits": splits}
+        out[int(pid)] = {"season": season, "recent": recent, "splits": splits,
+                         "usage": _pitch_usage(g)}
     return out
 
 

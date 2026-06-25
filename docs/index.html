@@ -31,6 +31,25 @@
   .brand h1{font-family:Archivo;font-weight:900;font-size:22px;letter-spacing:-.02em;
     margin:0;text-transform:uppercase}
   .brand h1 .yard{color:var(--seam)}
+  #helpBtn{margin-left:auto;align-self:center;flex:none;width:26px;height:26px;border-radius:50%;
+    border:1px solid var(--line);background:var(--panel-2);color:var(--muted);
+    font-family:Archivo;font-weight:800;font-size:14px;cursor:pointer;line-height:1}
+  #helpBtn:active{background:var(--panel)}
+  .faq{position:fixed;inset:0;z-index:50;background:rgba(6,9,12,.72);
+    display:none;align-items:flex-end;justify-content:center}
+  .faq.show{display:flex}
+  .faq-box{background:var(--bg);border:1px solid var(--line);border-radius:18px 18px 0 0;
+    width:100%;max-width:760px;max-height:90vh;display:flex;flex-direction:column}
+  .faq-head{display:flex;align-items:center;justify-content:space-between;
+    padding:16px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg)}
+  .faq-head h2{margin:0;font-family:Archivo;font-weight:900;font-size:18px}
+  .faq-head button{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer}
+  .faq-body{padding:14px 18px 32px;overflow-y:auto}
+  .faq-lead{color:var(--muted);font-size:13px;line-height:1.6;margin:4px 0 8px}
+  .faq-body h3{font-family:Archivo;font-weight:700;font-size:13px;letter-spacing:.03em;
+    text-transform:uppercase;color:var(--seam);margin:18px 0 6px}
+  .faq-body p{font-size:13px;line-height:1.65;color:var(--ink);margin:0 0 8px}
+  .faq-body p b{color:var(--ink);font-weight:700}
   .stamp{font-size:11px;color:var(--muted)}
   .stamp.mono{letter-spacing:.02em}
   .meta{display:flex;gap:14px;margin-top:6px;font-size:12px;color:var(--muted);flex-wrap:wrap}
@@ -185,6 +204,7 @@
   <div class="brand">
     <h1>Going <span class="yard">Yard</span></h1>
     <span class="stamp mono" id="stamp">—</span>
+    <button id="helpBtn" onclick="document.getElementById('faq').classList.add('show')" aria-label="How to use">?</button>
   </div>
   <div class="meta" id="meta"></div>
   <div class="controls" style="margin-top:10px">
@@ -229,6 +249,44 @@
   </div>
   </div>
 </header>
+
+<div id="faq" class="faq">
+  <div class="faq-box">
+    <div class="faq-head">
+      <h2>How to use <span class="yard">Going Yard</span></h2>
+      <button onclick="document.getElementById('faq').classList.remove('show')" aria-label="Close">✕</button>
+    </div>
+    <div class="faq-body">
+      <p class="faq-lead">A daily board that ranks hitters on how likely they are to go yard, using free Statcast + MLB data. Everything updates itself through the day — no input needed. It's a research tool, not betting advice.</p>
+
+      <h3>The board</h3>
+      <p><b>Heat (0–100)</b> ranks each hitter on six power signals over the last 2 weeks — Pull-air%, Barrel%, ISO, Exit Velo, Ideal Attack Angle%, SLG — then nudges for the opposing pitcher's vulnerability. Higher = better HR spot. The chip runs blue (cold) → orange (elite).</p>
+      <p>The <b>four cells</b> (Pull / EV / Brl / IAA) show those signals at a glance — orange means it cleared the "good" mark, blue means below. <b>Tap any column header</b> (HEAT, PULL, EV, BRL, IAA) to re-sort the whole slate by that stat — that's how you find a low-Heat guy who's elite in one area.</p>
+      <p><b>Tap any row</b> to open full detail: recent/season/career for every signal, the trend windows, the opposing arm, bullpen, pitch matchup, and luck.</p>
+
+      <h3>Badges & arrows</h3>
+      <p><b>R / L / S</b> (orange/blue/purple) = bats right, left, or switch. <b>Tier</b> (LOADED / STRONG / SOLID / LEAN / THIN) = how many of the six signals cleared "good" — a confirmation read independent of Heat. <b>▲ / ▼</b> = trending up or down in power form (recent vs baseline), with % change. <b>proj</b> = lineup not posted yet, using last game's order as a placeholder. <b>#1–#9</b> = batting-order spot.</p>
+
+      <h3>Filters & sorting</h3>
+      <p><b>Heat / Trend / Name / Time</b> sort the list. <b>40+/55+/70+</b> cut the long tail by Heat floor. <b>All games</b> jumps to one matchup. <b>Bats R/L/S</b> shows only that handedness. <b>Hide small samples</b> drops hitters with under ~25 PA in the window (their numbers are noise).</p>
+
+      <h3>Top Plays & Stacks</h3>
+      <p><b>Top Plays</b> (panel up top) = the strongest non-thin hitters not facing a sharp arm, each with a one-line "why" — your fast scan. <b>Stacks</b> (view toggle) groups hot hitters by the vulnerable arm they share — built for grand-slam parlays / same-game pairing.</p>
+
+      <h3>The pitcher</h3>
+      <p><b>Arms Today</b> ranks starters by how shellable they are. Form labels: <b>SHELLABLE</b> (bad & getting worse — prime), <b>STEADY-BAD</b> (consistently hittable — still a target), <b>SLIPPING</b> (was fine, now cracking), <b>BAD-IMPROVING / BOUNCING-BACK</b> (downgrade — numbers improving), <b>DEALING</b> (avoid). <b>Platoon</b> shows whether the arm gets hit harder by RHB or LHB, and the score vs your hitter's hand. <b>Opposing bullpen</b> shows the pen's HR-vulnerability and its split vs your hitter's hand.</p>
+
+      <h3>Pitch matchup & luck (context only)</h3>
+      <p><b>Pitch matchup</b> = the hitter's barrel% by pitch family (Fastball/Breaking/Offspeed) crossed with the arm's usage — flags when the mix feeds his power. <b>Contact luck</b> = expected (xwOBAcon) vs actual results; a positive gap means he's hitting it well but unlucky ("due"), negative means "regression risk." Neither affects Heat — they're there to sharpen a read.</p>
+
+      <h3>Tracker</h3>
+      <p>Grades the model against reality each morning. <b>Model vs baselines</b> is the one that matters: does Heat's top 10 homer more than just sorting by ISO or barrel%? If yes, the model is genuinely finding HR hitters better than the simple stats. The rest shows HR rate by Heat tier, by arm form, top-N success, which signals correlate to HRs, and a daily log. It needs a few graded days to mean anything.</p>
+
+      <h3>How it updates</h3>
+      <p>The board rebuilds hourly through the day as lineups post; the grader runs each morning after games are final. Park factor is shown for context but isn't baked into Heat — the data and matchup drive the ranking. All of it is tunable, and none of it is betting advice.</p>
+    </div>
+  </div>
+</div>
 
 <main id="main"><div class="empty">Loading board…</div></main>
 <footer id="foot"></footer>
@@ -279,6 +337,47 @@ function timeStr(iso){
     return d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});}catch{return "";}
 }
 
+function pitchBlock(p){
+  const us=p.pitch_usage, hs=p.pitch_splits, pm=p.pitch_matchup;
+  if(!us && !hs) return "";
+  const LAB={FB:"Fastball",BR:"Breaking",OFF:"Offspeed"};
+  let rows="";
+  ["FB","BR","OFF"].forEach(f=>{
+    const u=us?us[f]:null, h=hs?hs[f]:null;
+    if(u==null && !h) return;
+    const brl=(h&&h.barrel_pct!=null)?h.barrel_pct:null;
+    const col=brl==null?"var(--muted)":(brl>=14?"var(--hot)":brl>=9?"var(--ink)":"var(--muted)");
+    rows+=`<div class="arm-row" style="grid-template-columns:72px 1fr 1fr">
+      <div style="color:var(--muted);font-size:12px">${LAB[f]}</div>
+      <div style="font-size:12px">sees <b>${u!=null?u+"%":"–"}</b></div>
+      <div style="font-size:12px">brl <b style="color:${col}">${brl!=null?brl+"%":"–"}</b>${(h&&h.hr)?` · ${h.hr} HR`:""}</div>
+    </div>`;
+  });
+  if(!rows) return "";
+  let head="";
+  if(pm&&pm.best&&pm.edge!=null){
+    const fav=pm.edge>=2;
+    head=`<div style="font-size:12px;color:${fav?'var(--seam)':'var(--muted)'};margin-bottom:6px">${fav?'⚡ ':''}sees ${pm.best.usage}% ${pm.best.label}, barrels it <b>${pm.best.barrel}%</b>${fav?' — mix feeds his power':''}</div>`;
+  }
+  return `<h4 style="margin-top:16px">Pitch matchup — his damage vs the arm's mix</h4>${head}<div>${rows}</div>`;
+}
+function luckBlock(p){
+  const L=p.luck; if(!L) return "";
+  function line(w,lbl){
+    if(!w||w.xwobacon==null) return "";
+    const x=w.xwobacon, a=w.wobacon, g=w.luck_gap;
+    const col=g==null?"var(--muted)":(g>=0.04?"var(--good)":g<=-0.04?"var(--bad)":"var(--muted)");
+    const read=g==null?"":(g>=0.04?"running cold — due":g<=-0.04?"running hot — regression risk":"roughly fair");
+    return `<div class="arm-row" style="grid-template-columns:50px 1fr auto">
+      <div style="color:var(--muted);font-size:12px">${lbl}</div>
+      <div style="font-size:12px">xwOBAcon <b>${x.toFixed(3)}</b> vs <b>${a!=null?a.toFixed(3):'–'}</b> actual${w.bb_count?` · ${w.barrel_pct!=null?w.barrel_pct+'% brl':''}${w.hr!=null?', '+w.hr+' HR':''}`:''}</div>
+      <div style="font-size:11px;color:${col};font-weight:700">${g!=null?(g>0?'+':'')+g.toFixed(3):''}</div>
+    </div>${read?`<div style="font-size:11px;color:${col};margin:-3px 0 7px 50px">${read}</div>`:''}`;
+  }
+  const r=line(L.recent,"2wk"), s=line(L.season,"szn");
+  if(!r&&!s) return "";
+  return `<h4 style="margin-top:16px">Contact luck — expected vs actual (on contact)</h4>${r}${s}`;
+}
 function trendBadge(t){
   if(!t||t.dir==="flat") return "";
   if(t.dir==="up") return `<span style="color:var(--good);font-weight:700">▲${t.new?"new":(t.pct!=null?t.pct+"%":"")}</span>`;
@@ -422,7 +521,8 @@ function render(){
     });
     const bd=p.score_breakdown||{};
     const flags=(bd.flags||[]);
-    const bdChips=Object.entries(bd).filter(([k])=>k!=="note"&&k!=="flags")
+    const _bdSkip=new Set(["note","flags","signals","tier","cleared"]);
+    const bdChips=Object.entries(bd).filter(([k,v])=>!_bdSkip.has(k)&&typeof v!=="object")
       .map(([k,v])=>`<span>${k.replace(/_/g," ")}: ${v}</span>`).join("");
     const flagChips=flags.map(f=>`<span style="color:var(--ink);border-color:var(--seam)">${f}</span>`).join("");
 
@@ -482,6 +582,8 @@ function render(){
         <tbody>${wrows}</tbody></table>
         <h4 style="margin-top:14px">Context (recent · season · career)</h4>
         <div class="strip" style="border:1px solid var(--line);border-radius:10px">${extra}</div>
+        ${pitchBlock(p)}
+        ${luckBlock(p)}
         ${flagChips?`<div class="bd" style="margin-top:12px">${flagChips}</div>`:""}
         ${armBlock}
         <div class="bd">${bdChips}</div>
@@ -549,7 +651,7 @@ function renderTracker(){
   const days=HISTORY.days.slice();
   // cumulative aggregates
   const TIER_ORDER=["70+","55-69","40-54","<40"];
-  const tiers={}, forms={}, sigAgg={}, topAgg={}; let sp=0,bp=0,tot=0,homered=0,players=0;
+  const tiers={}, forms={}, sigAgg={}, topAgg={}, rankAgg={heat:{},iso:{},barrel:{},base:{}}; let sp=0,bp=0,tot=0,homered=0,players=0;
   days.forEach(d=>{
     players+=d.players||0; homered+=d.hitters_homered||0; tot+=d.total_hr||0;
     sp+=d.sp_hr||0; bp+=d.bp_hr||0;
@@ -557,6 +659,7 @@ function renderTracker(){
     Object.entries(d.by_form||{}).forEach(([k,v])=>{const t=forms[k]||(forms[k]={n:0,hr:0});t.n+=v.n;t.hr+=v.hr;});
     Object.entries(d.by_signal||{}).forEach(([k,v])=>{const a=sigAgg[k]||(sigAgg[k]={cleared:{n:0,hr:0},not:{n:0,hr:0}});a.cleared.n+=v.cleared.n;a.cleared.hr+=v.cleared.hr;a.not.n+=v.not.n;a.not.hr+=v.not.hr;});
     Object.entries(d.top_n||{}).forEach(([k,v])=>{const a=topAgg[k]||(topAgg[k]={n:0,hr:0});a.n+=v.n;a.hr+=v.hr;});
+    if(d.ranks){["heat","iso","barrel","base"].forEach(m=>{Object.entries(d.ranks[m]||{}).forEach(([k,v])=>{const a=rankAgg[m][k]||(rankAgg[m][k]={n:0,hr:0});a.n+=v.n;a.hr+=v.hr;});});}
   });
   const rate=(o)=>o.n?100*o.hr/o.n:0;
   const maxTierRate=Math.max(1,...Object.values(tiers).map(rate));
@@ -580,6 +683,26 @@ function renderTracker(){
   const maxTopRate=Math.max(1,...TOP_ORDER.filter(k=>topAgg[k]).map(k=>rate(topAgg[k])));
   let topRows=TOP_ORDER.filter(k=>topAgg[k]).map(k=>
     `<div class="trk-row"><div class="lab">Top ${k}</div>${bar(topAgg[k],maxTopRate)}</div>`).join("");
+
+  // THE validation: Heat vs ISO-only vs Barrel-only vs base rate (top 10)
+  const N="10";
+  const methods=[["heat","Heat (model)"],["iso","ISO only"],["barrel","Barrel% only"],["base","Base rate"]];
+  const avail=methods.filter(([m])=>rankAgg[m][N]&&rankAgg[m][N].n);
+  const maxCmp=Math.max(1,...avail.map(([m])=>rate(rankAgg[m][N])));
+  let cmpRows=avail.map(([m,lbl])=>{
+    const o=rankAgg[m][N]; const isHeat=m==="heat";
+    return `<div class="trk-row"><div class="lab" style="${isHeat?'color:var(--seam);font-weight:700':''}">${lbl}</div>${bar(o,maxCmp)}</div>`;
+  }).join("");
+  let verdict="";
+  if(rankAgg.heat[N]&&rankAgg.heat[N].n){
+    const hr=rate(rankAgg.heat[N]);
+    const beat=["iso","barrel","base"].filter(m=>rankAgg[m][N]&&rankAgg[m][N].n).map(m=>rate(rankAgg[m][N]));
+    const best=Math.max(...beat, 0);
+    const win=hr>best+0.01;
+    verdict=`<div style="font-size:12px;margin:6px 0 2px;color:${win?'var(--good)':'var(--bad)'}">${win
+      ? '✓ Heat is beating its own inputs — the composite is adding value.'
+      : 'Heat is NOT yet beating ISO/barrel alone. Small sample, or the composite needs work.'}</div>`;
+  }
 
   // Signal -> HR correlation (cleared vs not, with lift)
   const SIG_LABEL={pull_air_pct:"Pull-air%",barrel_pct:"Barrel%",iso:"ISO",avg_ev:"EV",ideal_aa_pct:"Ideal AA%",slg:"SLG"};
@@ -607,6 +730,10 @@ function renderTracker(){
     <div class="trk-sum"><b>${days.length}</b> days graded · <b>${homered}</b> of ${players} ranked hitters homered ·
       <b>${tot}</b> HR total · <b>${sp}</b> off starters / <b>${bp}</b> off the pen
       ${tot?`(${(100*sp/tot).toFixed(0)}% SP)`:""}</div>
+    <h3>⚖︎ Model vs baselines — top 10 HR rate</h3>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">the real test: does Heat beat just sorting by ISO or barrel%? it has to clear these to have edge.</div>
+    ${cmpRows||'<div class="ln" style="color:var(--muted)">— needs a few graded days —</div>'}
+    ${verdict}
     <h3>HR rate by Heat tier</h3>
     <div style="font-size:11px;color:var(--muted);margin-bottom:4px">does a higher Heat actually produce more HRs?</div>
     ${tierRows||'<div class="ln" style="color:var(--muted)">—</div>'}

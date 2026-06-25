@@ -112,15 +112,33 @@ def grade():
                            "arm_form": p.get("opp_form"),
                            "off": "SP" if res["sp"] else "BP", "hr": res["hr"]})
 
+    # ---- the validation that matters: does Heat beat simple baselines? ----
+    # Rank the same hitter pool by each method and check top-N HR rates head to head.
+    def _ranked_topN(key):
+        rk = sorted((p for p in players if p.get(key) is not None),
+                    key=lambda p: p.get(key) or 0, reverse=True)
+        return {str(n): {"n": min(n, len(rk)), "hr": sum(1 for p in rk[:n] if homered(p))}
+                for n in (5, 10, 25)}
+
     ranked = sorted(players, key=lambda p: (p.get("heat") or 0), reverse=True)
     topN = {str(n): {"n": min(n, len(ranked)), "hr": sum(1 for p in ranked[:n] if homered(p))}
             for n in (5, 10, 25)}
 
+    n_hit = sum(1 for p in players if homered(p))
+    ranks = {
+        "heat": topN,
+        "iso": _ranked_topN("iso"),
+        "barrel": _ranked_topN("barrel_pct"),
+        # base rate = a random hitter from the slate (every method must beat this)
+        "base": {str(n): {"n": len(players), "hr": n_hit} for n in (5, 10, 25)},
+    }
+
     record = {
         "date": yesterday, "players": len(players),
-        "hitters_homered": sum(1 for p in players if homered(p)),
+        "hitters_homered": n_hit,
         "total_hr": total_hr, "sp_hr": sp_hr, "bp_hr": bp_hr,
         "by_tier": tiers, "by_form": forms, "by_signal": by_signal, "top_n": topN,
+        "ranks": ranks,
         "hr_log": sorted(hr_log, key=lambda x: (x["heat"] or 0), reverse=True),
     }
 

@@ -142,3 +142,26 @@ It appends to `docs/history.json`, and the Tracker view shows:
 - **Handedness** shows as a colored badge (R orange / L blue / S purple) at the
   front of every name so it's always visible, plus a **Bats filter** (R / L / S).
 
+## Pitch-type matchup & contact luck (added — display only)
+
+Both are context to sharpen a read; neither moves Heat or the rankings.
+
+- **Pitch matchup**: each hitter's barrel% by pitch family (Fastball / Breaking /
+  Offspeed, from `pitch_type`) crossed with the opposing starter's usage of those
+  families. Flags when the arm's mix feeds the hitter's power (e.g. crushes FB and
+  sees 62% FB). Shown per hitter in the detail.
+- **Contact luck**: xwOBAcon (Statcast `estimated_woba_using_speedangle`) vs actual
+  wOBA on contact, for the last 2 weeks and season. A positive gap = under-rewarded
+  ("running cold — due"); negative = "running hot — regression risk". Surfaces
+  buy-low bats whose results lag their contact quality.
+
+## Model vs baselines (the validation that matters)
+
+The Tracker's top section answers the only question that decides if this is real:
+**does Heat beat just sorting by ISO or barrel%?** Each graded day, the grader
+re-ranks the same hitter pool by Heat, by ISO alone, and by barrel% alone, and
+records the top-10 HR rate for each plus the slate's base rate. The Tracker shows
+all four head to head with a plain verdict. If Heat doesn't clear its own inputs
+over a few weeks, the composite isn't adding value and should be simplified — the
+board tells you the truth instead of flattering itself.
+

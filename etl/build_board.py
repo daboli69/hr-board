@@ -271,6 +271,14 @@ def build(date_str: str | None = None) -> dict:
             },
             "opp_pitcher": opp_pitcher_obj,
             "opp_bullpen": opp_bullpen,
+            "pitch_splits": prof.get("pitch_splits"),
+            "pitch_usage": pprof.get("usage"),
+            "pitch_matchup": compute.pitch_matchup(
+                prof.get("pitch_splits"), pprof.get("usage"), season.get("barrel_pct")),
+            "luck": {
+                "recent": {k: recent.get(k) for k in ("xwobacon", "wobacon", "luck_gap", "barrel_pct", "hr", "bb_count")},
+                "season": {k: season.get(k) for k in ("xwobacon", "wobacon", "luck_gap", "barrel_pct", "hr", "bb_count")},
+            },
             "heat": score,
             "score_breakdown": breakdown,
             "metrics": metrics,
@@ -366,6 +374,7 @@ def build(date_str: str | None = None) -> dict:
                 "season_score": phr.get("season_score"),
                 "form": phr.get("form"),
                 "flags": phr.get("flags", []),
+                "platoon": compute.platoon_note(pitch_profiles.get(pid, {}).get("splits")),
             }
             for pid, phr in pitcher_hr.items()
         ], key=lambda a: (a["hr_score"] is not None, a["hr_score"] or 0), reverse=True),
@@ -397,6 +406,8 @@ def main():
                 "heat": p["heat"], "tier": p.get("tier"), "cleared": p.get("cleared"),
                 "signals": p["score_breakdown"].get("signals", {}),
                 "opp_form": (p["opp_pitcher"].get("form") or {}).get("label"),
+                "iso": (p.get("windows", {}).get("L14d", {}) or {}).get("iso"),
+                "barrel_pct": (p.get("windows", {}).get("L14d", {}) or {}).get("barrel_pct"),
             } for p in board["players"]],
         }
         with open(os.path.join(snap_dir, f"{board['slate_date']}.json"), "w") as f:

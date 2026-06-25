@@ -209,7 +209,49 @@ def _vuln(metrics: dict) -> float:
     return round(total, 1)
 
 
-def hand_vuln(split: dict | None) -> dict | None:
+PITCH_FAM_LABEL = {"FB": "Fastball", "BR": "Breaking", "OFF": "Offspeed"}
+
+
+def pitch_matchup(hitter_splits: dict | None, usage: dict | None,
+                  overall_barrel: float | None = None) -> dict | None:
+    """
+    Cross a hitter's barrel% by pitch family with the pitcher's usage of those
+    families. Surfaces whether the pitcher's mix feeds the hitter's strengths.
+    Display-only context — not part of Heat.
+    """
+    if not hitter_splits or not usage:
+        return None
+    fams, wsum, wbar = [], 0.0, 0.0
+    for f in ("FB", "BR", "OFF"):
+        u = usage.get(f)
+        hs = hitter_splits.get(f)
+        if u is None or not hs or hs.get("barrel_pct") is None:
+            continue
+        wsum += u
+        wbar += u * hs["barrel_pct"]
+        fams.append((f, u, hs["barrel_pct"]))
+    if wsum <= 0:
+        return None
+    weighted = round(wbar / wsum, 1)
+    best = max(fams, key=lambda x: x[1] * x[2])
+    edge = round(weighted - overall_barrel, 1) if overall_barrel is not None else None
+    return {
+        "weighted_barrel": weighted,
+        "edge": edge,                         # vs the hitter's own overall barrel%
+        "best": {"fam": best[0], "label": PITCH_FAM_LABEL[best[0]], "usage": best[1], "barrel": best[2]},
+        "fams": {f: {"usage": u, "barrel": b} for f, u, b in fams},
+    }
+
+
+def luck_read(gap: float | None) -> str | None:
+    """Label the xwOBA-vs-actual gap on contact."""
+    if gap is None:
+        return None
+    if gap >= 0.040:
+        return "running cold — due"
+    if gap <= -0.040:
+        return "running hot — regression risk"
+    return "roughly fair"
     """HR-vulnerability score of a pitcher (or pen) vs ONE batter hand, from a
     split's {season, recent} dicts. Returns None if the sample is too small to read."""
     if not split:
