@@ -61,6 +61,11 @@
   .seg button{background:none;border:none;color:var(--muted);font:inherit;font-size:12px;
     padding:7px 12px;cursor:pointer;font-weight:500}
   .seg button[aria-pressed="true"]{background:var(--panel-2);color:var(--ink)}
+  .seg-lab{color:var(--muted);font-size:11px;font-weight:600;padding:7px 10px;
+    border-right:1px solid var(--line);text-transform:uppercase;letter-spacing:.03em;
+    align-self:center;cursor:default;user-select:none}
+  #luckF button[aria-pressed="true"],#dryF button[aria-pressed="true"]{
+    background:var(--seam);color:#0c0f14;font-weight:700}
   .search{flex:1;min-width:120px;background:var(--panel);border:1px solid var(--line);
     border-radius:9px;color:var(--ink);font:inherit;font-size:13px;padding:8px 11px}
   .search::placeholder{color:var(--faint)}
@@ -246,14 +251,14 @@
       <button data-bat="S">S</button>
     </div>
     <div class="seg" id="luckF" title="Contact luck: expected vs actual">
-      <button data-luck="" aria-pressed="true">Luck</button>
+      <span class="seg-lab">Luck</span>
       <button data-luck="due">Due</button>
       <button data-luck="hot">Hot</button>
     </div>
     <div class="seg" id="dryF" title="No HR in recent games — possible 'due' bats">
-      <button data-dry="" aria-pressed="true">HR drought</button>
+      <span class="seg-lab">HR drought</span>
       <button data-dry="l5">0·L5</button>
-      <button data-dry="2wk">0·2wk</button>
+      <button data-dry="w2">0·2wk</button>
     </div>
     <span id="shown" class="stamp" style="align-self:center"></span>
   </div>
@@ -322,7 +327,7 @@ const EXTRA = [
   {k:"fb_pct",     label:"FB%",      fmt:v=>fmt(v,1)},
   {k:"pull_pct",   label:"Pull(all)",fmt:v=>fmt(v,1)},
 ];
-let BOARD=null, HISTORY=null, view="board", sortKey="heat", q="", hideThin=false, minHeat=0, gameFilter="", batFilter="", luckFilter="", dryFilter="";
+let BOARD=null, HISTORY=null, view="board", sortKey="heat", q="", hideThin=false, minHeat=0, gameFilter="", batFilter="", luckSel=new Set(), drySel=new Set();
 
 function fmt(v,d,strip){
   if(v===null||v===undefined||Number.isNaN(v)) return "–";
@@ -413,18 +418,18 @@ function render(){
   if(minHeat>0) players=players.filter(p=>p.heat>=minHeat);
   if(gameFilter) players=players.filter(p=>String(p.game_pk)===gameFilter);
   if(batFilter) players=players.filter(p=>(p.bats||"R")===batFilter);
-  if(luckFilter){
+  if(luckSel.size){
     players=players.filter(p=>{
       const g=p.luck&&p.luck.recent?p.luck.recent.luck_gap:null;
       if(g==null) return false;
-      return luckFilter==="due"?g>=0.04:g<=-0.04;
+      return (luckSel.has("due")&&g>=0.04) || (luckSel.has("hot")&&g<=-0.04);
     });
   }
-  if(dryFilter){
+  if(drySel.size){
     players=players.filter(p=>{
-      if(dryFilter==="l5") return p.hr_recent&&p.hr_recent.L5===0;
-      const h=(p.luck&&p.luck.recent)?p.luck.recent.hr:null;  // 14-day HR
-      return h===0;
+      const l5=p.hr_recent&&p.hr_recent.L5===0;
+      const w2=(p.luck&&p.luck.recent)?p.luck.recent.hr===0:false;
+      return (drySel.has("l5")&&l5) || (drySel.has("w2")&&w2);
     });
   }
   if(q){const t=q.toLowerCase();
@@ -573,7 +578,7 @@ function render(){
           ${prow('FB velo','fb_velo',1)}
         </tbody></table>
         ${op.recent&&op.recent.velo_trend!=null?`<div class="arm">Velo trend (2wk vs szn): <b style="color:${op.recent.velo_trend<=-0.8?'var(--seam)':'var(--ink)'}">${op.recent.velo_trend>0?'+':''}${op.recent.velo_trend} mph</b></div>`:''}
-        ${op.platoon&&op.platoon.worse?`<div class="arm"><b>Starter vs LHB/RHB</b> — harder hit by <b style="color:var(--seam)">${op.platoon.worse==='R'?'RHB':'LHB'}</b>: vs RHB <b>${op.platoon.R??'–'}</b> · vs LHB <b>${op.platoon.L??'–'}</b>${op.vs_hand_score!=null?` · <b style="color:var(--seam)">vs ${op.vs_hand}HB (this hitter): ${op.vs_hand_score}</b>`:''}</div>${(op.hr_by_hand)?`<div class="arm" style="color:var(--muted)">HR allowed by hand (this yr): RHB <b style="color:var(--ink)">${op.hr_by_hand.R!=null?op.hr_by_hand.R:'–'}</b>/100PA · LHB <b style="color:var(--ink)">${op.hr_by_hand.L!=null?op.hr_by_hand.L:'–'}</b>/100PA</div>`:''}`:''}
+        ${(op.hr_by_hand && (op.hr_by_hand.R_hr!=null || op.hr_by_hand.L_hr!=null))?`<div class="arm"><b>Starter — HRs allowed by batter hand (this yr):</b> vs RHB <b style="color:var(--seam)">${op.hr_by_hand.R_hr!=null?op.hr_by_hand.R_hr:'–'}</b>${op.hr_by_hand.R_pa?` <span style="color:var(--muted)">(${op.hr_by_hand.R_pa} PA)</span>`:''} · vs LHB <b style="color:var(--seam)">${op.hr_by_hand.L_hr!=null?op.hr_by_hand.L_hr:'–'}</b>${op.hr_by_hand.L_pa?` <span style="color:var(--muted)">(${op.hr_by_hand.L_pa} PA)</span>`:''}</div>`:''}
         ${armFlags?`<div class="bd" style="margin-top:10px">${armFlags}</div>`:'<div class="arm">No red flags.</div>'}
         ${p.opp_bullpen?`
           <h4 style="margin-top:16px">Opposing bullpen — HR vulnerability
@@ -603,7 +608,8 @@ function render(){
       </div>
       <div class="detail">
         <div class="dname"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span>${p.name}</span>${p.lineup_spot?`<span class="dspot">#${p.lineup_spot}</span>`:""}</div>
-        <div class="matchup" style="margin-bottom:10px">${p.team} vs ${p.opp_team} · ${timeStr(p.time)} · ${p.park||""} · park ${fmt(p.park_hr_factor,2)}× · ${armBadge}${(p.max_ev&&p.max_ev.season!=null)?` · max EV <b style="color:var(--ink)">${p.max_ev.season}</b>${p.max_ev.recent!=null?` (2wk ${p.max_ev.recent})`:""}`:""}</div>
+        <div class="matchup" style="margin-bottom:10px">${p.team} vs ${p.opp_team} · ${timeStr(p.time)} · ${p.park||""} · park ${fmt(p.park_hr_factor,2)}× · ${armBadge}</div>
+        ${(p.max_ev&&p.max_ev.season!=null)?`<div class="arm" style="margin:-4px 0 8px">💥 <b>${p.name.split(' ').slice(-1)[0]}'s max EV:</b> <b style="color:var(--hot)">${p.max_ev.season}</b> mph season${p.max_ev.recent!=null?` · ${p.max_ev.recent} last 2wk`:""}</div>`:""}
         <h4>Four signals — recent · season · career</h4>
         <div class="strip" style="border:1px solid var(--line);border-radius:10px">${strip}</div>
         <h4 style="margin-top:14px">Trend (last 2 wk vs game windows)</h4>
@@ -805,14 +811,16 @@ document.getElementById("bats").addEventListener("click",e=>{
 });
 document.getElementById("luckF").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b)return;
-  luckFilter=b.dataset.luck;
-  [...document.querySelectorAll("#luckF button")].forEach(x=>x.setAttribute("aria-pressed",x===b));
+  const k=b.dataset.luck;
+  if(luckSel.has(k)) luckSel.delete(k); else luckSel.add(k);
+  b.setAttribute("aria-pressed", luckSel.has(k));
   render();
 });
 document.getElementById("dryF").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b)return;
-  dryFilter=b.dataset.dry;
-  [...document.querySelectorAll("#dryF button")].forEach(x=>x.setAttribute("aria-pressed",x===b));
+  const k=b.dataset.dry;
+  if(drySel.has(k)) drySel.delete(k); else drySel.add(k);
+  b.setAttribute("aria-pressed", drySel.has(k));
   render();
 });
 document.getElementById("view").addEventListener("click",async e=>{

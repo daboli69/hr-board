@@ -205,8 +205,10 @@ def build(date_str: str | None = None) -> dict:
         psplits = pprof.get("splits") or {}
         opp_pitcher_obj["platoon"] = compute.platoon_note(psplits)
         opp_pitcher_obj["hr_by_hand"] = {
-            "R": (psplits.get("R") or {}).get("season", {}).get("hr_per_pa"),
-            "L": (psplits.get("L") or {}).get("season", {}).get("hr_per_pa"),
+            "R_hr": (psplits.get("R") or {}).get("season", {}).get("hr_allowed"),
+            "R_pa": (psplits.get("R") or {}).get("season", {}).get("pa"),
+            "L_hr": (psplits.get("L") or {}).get("season", {}).get("hr_allowed"),
+            "L_pa": (psplits.get("L") or {}).get("season", {}).get("pa"),
         }
         vh = compute.hand_vuln(psplits.get(eff_hand)) if eff_hand in ("R", "L") else None
         opp_pitcher_obj["vs_hand"] = eff_hand
