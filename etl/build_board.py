@@ -51,7 +51,6 @@ def build(date_str: str | None = None) -> dict:
     # Fall back to each team's last batting order (projected) where today's
     # lineup isn't posted yet, so the board isn't blank in the morning.
     yest = (datetime.strptime(date_str, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
-    projected_pks = set()
     _recent_cache = {}
 
     def _recent(team_id):
@@ -59,16 +58,26 @@ def build(date_str: str | None = None) -> dict:
             _recent_cache[team_id] = statsapi.get_recent_lineup(team_id, yest)
         return _recent_cache[team_id]
 
+    projected_sides = set()
     for g in games:
         pk = g["game_pk"]
-        if pk in slate["lineups"]:
-            continue
-        away = _recent(g["away_id"])
-        home = _recent(g["home_id"])
+        lu = slate["lineups"].get(pk) or {}
+        away = lu.get("away") or None
+        home = lu.get("home") or None
+        # fill EACH side independently — a posted away lineup must not block a
+        # projected home lineup (partial postings otherwise erase a whole team)
+        if not away:
+            away = _recent(g["away_id"])
+            if away:
+                projected_sides.add((pk, "away"))
+        if not home:
+            home = _recent(g["home_id"])
+            if home:
+                projected_sides.add((pk, "home"))
         if away or home:
-            slate["lineups"][pk] = {"away": away, "home": home}
-            projected_pks.add(pk)
-    print(f"[build] projected lineups for {len(projected_pks)} games")
+            slate["lineups"][pk] = {"away": away or [], "home": home or []}
+    proj_game_pks = {pk for (pk, _s) in projected_sides}
+    print(f"[build] projected {len(projected_sides)} lineup side(s) across {len(proj_game_pks)} game(s)")
 
     # collect batter ids from posted lineups
     batter_ids, game_of_batter, side_of_batter, spot_of_batter, status_of_batter = [], {}, {}, {}, {}
@@ -76,11 +85,12 @@ def build(date_str: str | None = None) -> dict:
         gmeta = next((g for g in games if g["game_pk"] == pk), None)
         if not gmeta:
             continue
-        st = "projected" if pk in projected_pks else "confirmed"
         for i, bid in enumerate(lu.get("away", [])):
-            batter_ids.append(bid); game_of_batter[bid] = pk; side_of_batter[bid] = "away"; spot_of_batter[bid] = i + 1; status_of_batter[bid] = st
+            batter_ids.append(bid); game_of_batter[bid] = pk; side_of_batter[bid] = "away"; spot_of_batter[bid] = i + 1
+            status_of_batter[bid] = "projected" if (pk, "away") in projected_sides else "confirmed"
         for i, bid in enumerate(lu.get("home", [])):
-            batter_ids.append(bid); game_of_batter[bid] = pk; side_of_batter[bid] = "home"; spot_of_batter[bid] = i + 1; status_of_batter[bid] = st
+            batter_ids.append(bid); game_of_batter[bid] = pk; side_of_batter[bid] = "home"; spot_of_batter[bid] = i + 1
+            status_of_batter[bid] = "projected" if (pk, "home") in projected_sides else "confirmed"
     batter_ids = list(dict.fromkeys(batter_ids))
 
     pitcher_ids = [p for g in games for p in (g["away_pitcher_id"], g["home_pitcher_id"])]
@@ -411,7 +421,7 @@ def build(date_str: str | None = None) -> dict:
         "lineups_pending": [g["game_pk"] for g in games if g["game_pk"] not in slate["lineups"]],
         "projected_games": [
             {"game_pk": g["game_pk"], "away": g["away"], "home": g["home"]}
-            for g in games if g["game_pk"] in projected_pks
+            for g in games if g["game_pk"] in proj_game_pks
         ],
         "recent_window": {
             "days": 14,
