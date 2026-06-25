@@ -204,18 +204,19 @@ def build(date_str: str | None = None) -> dict:
         # hitter ranking = four signals, modulated by opposing-arm vulnerability
         score, breakdown = compute.heat_score(recent, phr.get("score"))
 
-        # vs-pitch-mix variant: re-weight EV/LA/whiff by THIS arm's pitch mix (last 2wk),
-        # then recompute Heat with the mix-adjusted EV. Display-toggle only.
+        # vs-pitch-mix variant: re-weight the two pitch-dependent power signals —
+        # avg EV and barrel% — to THIS arm's pitch mix (last 2wk), then recompute Heat.
+        # Barrel varies most by pitch type and is the heaviest signal, so this is what
+        # actually moves the ranking. Bidirectional: weak-vs-mix hitters drop too.
         mix_prof = compute.pitch_mix_profile(prof.get("pitch_splits_recent"), pprof.get("usage"))
         pmatch = compute.pitch_matchup(prof.get("pitch_splits"), pprof.get("usage"), season.get("barrel_pct"))
         heat_mix = score
         if mix_prof and mix_prof.get("avg_ev") is not None:
-            recent_mix = {**recent, "avg_ev": mix_prof["avg_ev"]}
+            recent_mix = dict(recent)
+            recent_mix["avg_ev"] = mix_prof["avg_ev"]
+            if mix_prof.get("barrel_pct") is not None:
+                recent_mix["barrel_pct"] = mix_prof["barrel_pct"]
             heat_mix, _ = compute.heat_score(recent_mix, phr.get("score"))
-            # barrel-mix layer: if he barrels THIS arm's mix harder than his overall,
-            # nudge up slightly (capped) — rewards a strong barrel-vs-mix matchup
-            if pmatch and pmatch.get("edge"):
-                heat_mix = min(100, heat_mix + max(0, min(4, round(pmatch["edge"]))))
 
         # trend (contact-quality) + the synthesized one-line read
         tr = compute.trend(prof.get("windows", {}).get("L5", {}),

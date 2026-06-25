@@ -410,7 +410,7 @@ function pitchBlock(p){
     const dc=d==null?'var(--muted)':(d>=1?'var(--hot)':d<=-1?'var(--cold)':'var(--muted)');
     const hd=(p.heat_mix!=null&&p.heat!=null)?p.heat_mix-p.heat:null;
     mixLine=`<div style="font-size:12px;margin:8px 0 2px;padding:8px;border:1px solid var(--line);border-radius:8px">
-      <b>vs this mix (2wk):</b> EV <b style="color:${dc}">${mv}</b>${ov!=null?` <span style="color:var(--muted)">(overall ${ov}${d!=null?`, ${d>0?'+':''}${d}`:''})</span>`:''}${p.mix.la!=null?` · LA <b>${p.mix.la}°</b>`:''}${p.mix.whiff_pct!=null?` · whiff <b>${p.mix.whiff_pct}%</b>`:''}
+      <b>vs this mix (2wk):</b> EV <b style="color:${dc}">${mv}</b>${ov!=null?` <span style="color:var(--muted)">(overall ${ov}${d!=null?`, ${d>0?'+':''}${d}`:''})</span>`:''}${p.mix.barrel_pct!=null?` · brl <b style="color:var(--hot)">${p.mix.barrel_pct}%</b>`:''}${p.mix.la!=null?` · LA <b>${p.mix.la}°</b>`:''}${p.mix.whiff_pct!=null?` · whiff <b>${p.mix.whiff_pct}%</b>`:''}
       ${hd!=null?`<br><span style="color:var(--muted)">Heat vs-mix: <b style="color:${hd>0?'var(--hot)':hd<0?'var(--cold)':'var(--ink)'}">${p.heat_mix}</b> (${hd>0?'+':''}${hd} vs standard ${p.heat}) — toggle "vs Pitch Mix" up top to rank by this</span>`:''}
     </div>`;
   }

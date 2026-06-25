@@ -236,7 +236,7 @@ def pitch_mix_profile(recent_splits: dict | None, usage: dict | None) -> dict | 
     """
     if not recent_splits or not usage:
         return None
-    ev_n = ev_d = la_n = la_d = wh_n = wh_d = 0.0
+    ev_n = ev_d = la_n = la_d = wh_n = wh_d = br_n = br_d = 0.0
     for f in ("FB", "BR", "OFF"):
         u = usage.get(f)
         hs = recent_splits.get(f)
@@ -248,10 +248,13 @@ def pitch_mix_profile(recent_splits: dict | None, usage: dict | None) -> dict | 
             la_n += u * hs["la"]; la_d += u
         if hs.get("whiff_pct") is not None:
             wh_n += u * hs["whiff_pct"]; wh_d += u
+        if hs.get("barrel_pct") is not None:
+            br_n += u * hs["barrel_pct"]; br_d += u
     if not ev_d:
         return None
     return {
         "avg_ev": round(ev_n / ev_d, 1),
+        "barrel_pct": round(br_n / br_d, 1) if br_d else None,
         "la": round(la_n / la_d, 1) if la_d else None,
         "whiff_pct": round(wh_n / wh_d, 1) if wh_d else None,
     }
