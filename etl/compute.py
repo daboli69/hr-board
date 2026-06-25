@@ -252,6 +252,9 @@ def luck_read(gap: float | None) -> str | None:
     if gap <= -0.040:
         return "running hot — regression risk"
     return "roughly fair"
+
+
+def hand_vuln(split: dict | None) -> dict | None:
     """HR-vulnerability score of a pitcher (or pen) vs ONE batter hand, from a
     split's {season, recent} dicts. Returns None if the sample is too small to read."""
     if not split:
