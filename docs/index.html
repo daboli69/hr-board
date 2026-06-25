@@ -64,6 +64,7 @@
   .seg-lab{color:var(--muted);font-size:11px;font-weight:600;padding:7px 10px;
     border-right:1px solid var(--line);text-transform:uppercase;letter-spacing:.03em;
     align-self:center;cursor:default;user-select:none}
+  #mixSeg button[aria-pressed="true"]{background:var(--hot);color:#0c0f14;font-weight:800}
   #luckF button[aria-pressed="true"],#dryF button[aria-pressed="true"]{
     background:var(--seam);color:#0c0f14;font-weight:700}
   .search{flex:1;min-width:120px;background:var(--panel);border:1px solid var(--line);
@@ -233,6 +234,7 @@
     </div>
     <input class="search" id="search" placeholder="Search hitter or team…" />
     <div class="seg" id="thin"><button id="thinBtn" aria-pressed="false">Hide small samples</button></div>
+    <div class="seg" id="mixSeg"><button id="mixBtn" aria-pressed="false" title="Re-rank by EV/LA/whiff vs this pitcher's pitch mix (last 2wk)">⚙︎ vs Pitch Mix</button></div>
   </div>
   <div class="controls" style="margin-top:8px">
     <div class="seg" id="floor">
@@ -296,7 +298,8 @@
       <p><b>Arms Today</b> ranks starters by how shellable they are. Form labels: <b>SHELLABLE</b> (bad & getting worse — prime), <b>STEADY-BAD</b> (consistently hittable — still a target), <b>SLIPPING</b> (was fine, now cracking), <b>BAD-IMPROVING / BOUNCING-BACK</b> (downgrade — numbers improving), <b>DEALING</b> (avoid). <b>Platoon</b> shows whether the arm gets hit harder by RHB or LHB, and the score vs your hitter's hand. <b>Opposing bullpen</b> shows the pen's HR-vulnerability and its split vs your hitter's hand.</p>
 
       <h3>Pitch matchup & luck (context only)</h3>
-      <p><b>Pitch matchup</b> = the hitter's barrel% by pitch family (Fastball/Breaking/Offspeed) crossed with the arm's usage — flags when the mix feeds his power. <b>Contact luck</b> = expected (xwOBAcon) vs actual results; a positive gap means he's hitting it well but unlucky ("due"), negative means "regression risk." Neither affects Heat — they're there to sharpen a read.</p>
+      <p><b>vs Pitch Mix toggle</b> (top controls): re-ranks the board by each hitter's EV/launch-angle/whiff <i>weighted to the opposing starter's pitch mix</i> over the last 2 weeks — a guy who crushes fastballs rises against a fastball-heavy arm. Toggle off to return to standard Heat instantly. Barrel% stays overall. Each card shows the mix-adjusted EV and how Heat shifts.</p>
+      <p><b>Pitch matchup</b> = the hitter's barrel% by pitch family (Fastball/Breaking/Offspeed) crossed with the arm's usage. <b>Contact luck</b> = expected (xwOBAcon) vs actual; positive gap = hitting it well but unlucky ("due"), negative = "regression risk." <b>Starter HRs by hand</b> = actual HRs the starter allowed to RHB vs LHB, over a 2-year sample and this year. None of these affect Heat unless the mix toggle is on.</p>
 
       <h3>Tracker</h3>
       <p>Grades the model against reality each morning. <b>Model vs baselines</b> is the one that matters: does Heat's top 10 homer more than just sorting by ISO or barrel%? If yes, the model is genuinely finding HR hitters better than the simple stats. The rest shows HR rate by Heat tier, by arm form, top-N success, which signals correlate to HRs, and a daily log. It needs a few graded days to mean anything.</p>
@@ -327,7 +330,9 @@ const EXTRA = [
   {k:"fb_pct",     label:"FB%",      fmt:v=>fmt(v,1)},
   {k:"pull_pct",   label:"Pull(all)",fmt:v=>fmt(v,1)},
 ];
-let BOARD=null, HISTORY=null, view="board", sortKey="heat", q="", hideThin=false, minHeat=0, gameFilter="", batFilter="", luckSel=new Set(), drySel=new Set();
+let BOARD=null, HISTORY=null, view="board", sortKey="heat", q="", hideThin=false, minHeat=0, gameFilter="", batFilter="", luckSel=new Set(), drySel=new Set(), mixView=false;
+// effective heat: vs-pitch-mix variant when the toggle is on, else standard
+function H(p){return (mixView && p.heat_mix!=null) ? p.heat_mix : p.heat;}
 
 function fmt(v,d,strip){
   if(v===null||v===undefined||Number.isNaN(v)) return "–";
@@ -356,6 +361,23 @@ function timeStr(iso){
     return d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});}catch{return "";}
 }
 
+function hrByHandBlock(op){
+  const two=op.hr_by_hand_2yr;
+  const row=(lbl,r,l)=>`<div class="arm"><span style="color:var(--muted)">${lbl}</span> vs RHB <b style="color:var(--seam)">${r&&r.hr!=null?r.hr:'–'}</b> HR${r&&r.pa?` <span style="color:var(--muted)">(${r.pa} PA)</span>`:''} · vs LHB <b style="color:var(--seam)">${l&&l.hr!=null?l.hr:'–'}</b> HR${l&&l.pa?` <span style="color:var(--muted)">(${l.pa} PA)</span>`:''}</div>`;
+  if(two && (two.two_yr||two.this_yr)){
+    let out=`<h4 style="margin-top:14px">Starter — actual HRs allowed by batter hand</h4>`;
+    if(two.two_yr) out+=row("2-yr", two.two_yr.R, two.two_yr.L);
+    if(two.this_yr) out+=row("this yr", two.this_yr.R, two.this_yr.L);
+    return out;
+  }
+  // fallback: this-season only (from the main pull)
+  const hb=op.hr_by_hand;
+  if(hb && (hb.R_hr!=null || hb.L_hr!=null)){
+    return `<h4 style="margin-top:14px">Starter — actual HRs allowed by batter hand</h4>`+
+      row("this yr", {hr:hb.R_hr,pa:hb.R_pa}, {hr:hb.L_hr,pa:hb.L_pa});
+  }
+  return "";
+}
 function pitchBlock(p){
   const us=p.pitch_usage, hs=p.pitch_splits, pm=p.pitch_matchup;
   if(!us && !hs) return "";
@@ -378,7 +400,19 @@ function pitchBlock(p){
     const fav=pm.edge>=2;
     head=`<div style="font-size:12px;color:${fav?'var(--seam)':'var(--muted)'};margin-bottom:6px">${fav?'⚡ ':''}sees ${pm.best.usage}% ${pm.best.label}, barrels it <b>${pm.best.barrel}%</b>${fav?' — mix feeds his power':''}</div>`;
   }
-  return `<h4 style="margin-top:16px">Pitch matchup — his damage vs the arm's mix</h4>${head}<div>${rows}</div>`;
+  // vs-mix adjusted EV/LA/whiff + how Heat shifts under the mix view
+  let mixLine="";
+  if(p.mix && p.mix.avg_ev!=null){
+    const ov=p.ev_overall, mv=p.mix.avg_ev;
+    const d=(ov!=null)?+(mv-ov).toFixed(1):null;
+    const dc=d==null?'var(--muted)':(d>=1?'var(--hot)':d<=-1?'var(--cold)':'var(--muted)');
+    const hd=(p.heat_mix!=null&&p.heat!=null)?p.heat_mix-p.heat:null;
+    mixLine=`<div style="font-size:12px;margin:8px 0 2px;padding:8px;border:1px solid var(--line);border-radius:8px">
+      <b>vs this mix (2wk):</b> EV <b style="color:${dc}">${mv}</b>${ov!=null?` <span style="color:var(--muted)">(overall ${ov}${d!=null?`, ${d>0?'+':''}${d}`:''})</span>`:''}${p.mix.la!=null?` · LA <b>${p.mix.la}°</b>`:''}${p.mix.whiff_pct!=null?` · whiff <b>${p.mix.whiff_pct}%</b>`:''}
+      ${hd!=null?`<br><span style="color:var(--muted)">Heat vs-mix: <b style="color:${hd>0?'var(--hot)':hd<0?'var(--cold)':'var(--ink)'}">${p.heat_mix}</b> (${hd>0?'+':''}${hd} vs standard ${p.heat}) — toggle "vs Pitch Mix" up top to rank by this</span>`:''}
+    </div>`;
+  }
+  return `<h4 style="margin-top:16px">Pitch matchup — his damage vs the arm's mix</h4>${head}<div>${rows}</div>${mixLine}`;
 }
 function luckBlock(p){
   const L=p.luck; if(!L) return "";
@@ -415,7 +449,7 @@ function render(){
   let players=BOARD.players.slice();
   const isThin=p=>((p.score_breakdown&&p.score_breakdown.flags)||[]).some(f=>f.indexOf("small sample")===0);
   if(hideThin) players=players.filter(p=>!isThin(p));
-  if(minHeat>0) players=players.filter(p=>p.heat>=minHeat);
+  if(minHeat>0) players=players.filter(p=>H(p)>=minHeat);
   if(gameFilter) players=players.filter(p=>String(p.game_pk)===gameFilter);
   if(batFilter) players=players.filter(p=>(p.bats||"R")===batFilter);
   if(luckSel.size){
@@ -439,7 +473,7 @@ function render(){
     if(["pull_air_pct","avg_ev","barrel_pct","ideal_aa_pct"].indexOf(k)>=0){
       const v=(p.metrics[k]||{}).recent; return v==null?-1:v;
     }
-    return p.heat;
+    return H(p);
   };
   players.sort((a,b)=>{
     if(sortKey==="name") return a.name.localeCompare(b.name);
@@ -514,7 +548,7 @@ function render(){
   }
 
   players.forEach((p,i)=>{
-    const col=chipColor(p.heat);
+    const col=chipColor(H(p));
     const op=p.opp_pitcher||{};
     const form=op.form||null;
     const armBadge = (op.hr_score!=null)
@@ -578,7 +612,7 @@ function render(){
           ${prow('FB velo','fb_velo',1)}
         </tbody></table>
         ${op.recent&&op.recent.velo_trend!=null?`<div class="arm">Velo trend (2wk vs szn): <b style="color:${op.recent.velo_trend<=-0.8?'var(--seam)':'var(--ink)'}">${op.recent.velo_trend>0?'+':''}${op.recent.velo_trend} mph</b></div>`:''}
-        ${(op.hr_by_hand && (op.hr_by_hand.R_hr!=null || op.hr_by_hand.L_hr!=null))?`<div class="arm"><b>Starter — HRs allowed by batter hand (this yr):</b> vs RHB <b style="color:var(--seam)">${op.hr_by_hand.R_hr!=null?op.hr_by_hand.R_hr:'–'}</b>${op.hr_by_hand.R_pa?` <span style="color:var(--muted)">(${op.hr_by_hand.R_pa} PA)</span>`:''} · vs LHB <b style="color:var(--seam)">${op.hr_by_hand.L_hr!=null?op.hr_by_hand.L_hr:'–'}</b>${op.hr_by_hand.L_pa?` <span style="color:var(--muted)">(${op.hr_by_hand.L_pa} PA)</span>`:''}</div>`:''}
+        ${hrByHandBlock(op)}
         ${armFlags?`<div class="bd" style="margin-top:10px">${armFlags}</div>`:'<div class="arm">No red flags.</div>'}
         ${p.opp_bullpen?`
           <h4 style="margin-top:16px">Opposing bullpen — HR vulnerability
@@ -599,7 +633,7 @@ function render(){
     html+=`<div class="row${isThin(p)?" thin":""}" data-i="${i}">
       <div class="crow" onclick="toggle(this)">
         <div class="rank mono">${i+1}</div>
-        <div class="cheat" style="background:${col}">${p.heat}</div>
+        <div class="cheat" style="background:${col}">${H(p)}</div>
         <div class="cwho">
           <div class="name"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span class="nm-txt">${p.name}</span></div>
           <div class="cmini">${trendBadge(p.trend)?trendBadge(p.trend)+" ":""}${p.tier?`<span class="tier ${p.tier}">${p.tier}</span> `:""}${p.lineup_status==="projected"?`<span class="spot" style="color:var(--seam);border-color:var(--seam)">proj</span> `:""}${p.lineup_spot?`#${p.lineup_spot} · `:""}${p.team}→${p.opp_team} · ${timeStr(p.time)}${armSc!=null?` · arm <b style="color:${armCol}">${armSc}</b>`:""} · ${(p.windows&&p.windows.L14d&&p.windows.L14d.pa!=null)?`${p.windows.L14d.pa}PA`:"–"}</div>
@@ -795,6 +829,9 @@ document.getElementById("sort").addEventListener("click",e=>{
 document.getElementById("search").addEventListener("input",e=>{q=e.target.value;render();});
 document.getElementById("thinBtn").addEventListener("click",e=>{
   hideThin=!hideThin; e.target.setAttribute("aria-pressed",hideThin); render();
+});
+document.getElementById("mixBtn").addEventListener("click",e=>{
+  mixView=!mixView; e.target.setAttribute("aria-pressed",mixView); render();
 });
 document.getElementById("floor").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b)return;

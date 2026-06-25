@@ -131,6 +131,34 @@ def build(date_str: str | None = None) -> dict:
     for pid, prof_p in pitch_profiles.items():
         pitcher_hr[pid] = compute.pitcher_hr_score(prof_p.get("recent", {}), prof_p.get("season", {}))
 
+    # 2-year HR-by-hand per starter (cached in a repo file so we don't re-pull hourly)
+    _HAND2YR_PATH = os.path.join(os.path.dirname(OUT_PATH) or ".", "hand2yr.json")
+    try:
+        with open(_HAND2YR_PATH) as _f:
+            hand2yr_cache = json.load(_f)
+    except Exception:
+        hand2yr_cache = {}
+    hand2yr = {}
+    for pid in {p for p in pitcher_ids if p}:
+        key = str(pid)
+        ent = hand2yr_cache.get(key)
+        fresh = False
+        if ent and ent.get("asof"):
+            try:
+                fresh = 0 <= (datetime.strptime(date_str, "%Y-%m-%d") -
+                              datetime.strptime(ent["asof"], "%Y-%m-%d")).days <= 10
+            except Exception:
+                fresh = False
+        if fresh:
+            hand2yr[pid] = ent.get("data")
+        else:
+            data = statcast_data.pitcher_hand_hr_2yr(pid, date_str)
+            if data is not None:
+                hand2yr_cache[key] = {"asof": date_str, "data": data}
+                hand2yr[pid] = data
+            elif ent:                       # pull failed but we have an older value — keep it
+                hand2yr[pid] = ent.get("data")
+
     # opposing pitcher lookup per batter
     def opp_pitcher(pk, side):
         g = next((x for x in games if x["game_pk"] == pk), None)
@@ -165,6 +193,14 @@ def build(date_str: str | None = None) -> dict:
 
         # hitter ranking = four signals, modulated by opposing-arm vulnerability
         score, breakdown = compute.heat_score(recent, phr.get("score"))
+
+        # vs-pitch-mix variant: re-weight EV/LA/whiff by THIS arm's pitch mix (last 2wk),
+        # then recompute Heat with the mix-adjusted EV. Display-toggle only.
+        mix_prof = compute.pitch_mix_profile(prof.get("pitch_splits_recent"), pprof.get("usage"))
+        heat_mix = score
+        if mix_prof and mix_prof.get("avg_ev") is not None:
+            recent_mix = {**recent, "avg_ev": mix_prof["avg_ev"]}
+            heat_mix, _ = compute.heat_score(recent_mix, phr.get("score"))
 
         pr = pprof.get("recent", {})
         ps = pprof.get("season", {})
@@ -210,6 +246,7 @@ def build(date_str: str | None = None) -> dict:
             "L_hr": (psplits.get("L") or {}).get("season", {}).get("hr_allowed"),
             "L_pa": (psplits.get("L") or {}).get("season", {}).get("pa"),
         }
+        opp_pitcher_obj["hr_by_hand_2yr"] = hand2yr.get(pid)
         vh = compute.hand_vuln(psplits.get(eff_hand)) if eff_hand in ("R", "L") else None
         opp_pitcher_obj["vs_hand"] = eff_hand
         opp_pitcher_obj["vs_hand_score"] = vh["score"] if vh else None
@@ -281,6 +318,9 @@ def build(date_str: str | None = None) -> dict:
             "pitch_usage": pprof.get("usage"),
             "pitch_matchup": compute.pitch_matchup(
                 prof.get("pitch_splits"), pprof.get("usage"), season.get("barrel_pct")),
+            "heat_mix": heat_mix,
+            "mix": mix_prof,
+            "ev_overall": recent.get("avg_ev"),
             "luck": {
                 "recent": {k: recent.get(k) for k in ("xwobacon", "wobacon", "luck_gap", "barrel_pct", "hr", "bb_count")},
                 "season": {k: season.get(k) for k in ("xwobacon", "wobacon", "luck_gap", "barrel_pct", "hr", "bb_count")},
@@ -386,6 +426,14 @@ def build(date_str: str | None = None) -> dict:
             for pid, phr in pitcher_hr.items()
         ], key=lambda a: (a["hr_score"] is not None, a["hr_score"] or 0), reverse=True),
     }
+
+    # persist the 2-year HR-by-hand cache so future builds reuse it (avoids hourly re-pulls)
+    try:
+        with open(_HAND2YR_PATH, "w") as _f:
+            json.dump(hand2yr_cache, _f)
+    except Exception as _e:
+        print(f"[build] hand2yr cache write failed (non-fatal): {_e}")
+
     return board
 
 

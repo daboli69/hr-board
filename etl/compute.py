@@ -212,6 +212,35 @@ def _vuln(metrics: dict) -> float:
 PITCH_FAM_LABEL = {"FB": "Fastball", "BR": "Breaking", "OFF": "Offspeed"}
 
 
+def pitch_mix_profile(recent_splits: dict | None, usage: dict | None) -> dict | None:
+    """
+    Weight a hitter's recent per-pitch-family avg EV / launch angle / whiff% by the
+    opposing starter's usage of those families — i.e. what he does vs THIS arm's mix
+    over the last 2 weeks. Returns mix-adjusted values, or None if not computable.
+    """
+    if not recent_splits or not usage:
+        return None
+    ev_n = ev_d = la_n = la_d = wh_n = wh_d = 0.0
+    for f in ("FB", "BR", "OFF"):
+        u = usage.get(f)
+        hs = recent_splits.get(f)
+        if u is None or not hs:
+            continue
+        if hs.get("avg_ev") is not None:
+            ev_n += u * hs["avg_ev"]; ev_d += u
+        if hs.get("la") is not None:
+            la_n += u * hs["la"]; la_d += u
+        if hs.get("whiff_pct") is not None:
+            wh_n += u * hs["whiff_pct"]; wh_d += u
+    if not ev_d:
+        return None
+    return {
+        "avg_ev": round(ev_n / ev_d, 1),
+        "la": round(la_n / la_d, 1) if la_d else None,
+        "whiff_pct": round(wh_n / wh_d, 1) if wh_d else None,
+    }
+
+
 def pitch_matchup(hitter_splits: dict | None, usage: dict | None,
                   overall_barrel: float | None = None) -> dict | None:
     """

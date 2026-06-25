@@ -119,19 +119,24 @@ def _pitch_splits(rows: pd.DataFrame) -> dict:
     """Per pitch-family (FB/BR/OFF) batted-ball damage for a hitter."""
     if rows.empty or "pitch_type" not in rows.columns:
         return {}
-    bb = rows[rows["launch_speed"].notna()].copy()
-    if bb.empty:
-        return {}
-    bb["fam"] = bb["pitch_type"].map(PITCH_BUCKET)
+    work = rows.copy()
+    work["fam"] = work["pitch_type"].map(PITCH_BUCKET)
+    bb_all = work[work["launch_speed"].notna()]
+    SWINGS = {"swinging_strike", "swinging_strike_blocked", "foul", "foul_tip", "hit_into_play"}
     out = {}
     for fam in ("FB", "BR", "OFF"):
-        sub = bb[bb["fam"] == fam]
+        fam_rows = work[work["fam"] == fam]            # all pitches of this family
+        sub = bb_all[bb_all["fam"] == fam]             # batted balls of this family
         n = len(sub)
         if n < 5:
             continue
+        swings = fam_rows["description"].isin(SWINGS).sum()
+        whiffs = fam_rows["description"].isin(SWING_STRIKE).sum()
         out[fam] = {
             "barrel_pct": round(100.0 * (sub["launch_speed_angle"] == 6).sum() / n, 1) if "launch_speed_angle" in sub else None,
             "avg_ev": round(sub["launch_speed"].mean(), 1),
+            "la": round(sub["launch_angle"].mean(), 1) if sub["launch_angle"].notna().any() else None,
+            "whiff_pct": round(100.0 * whiffs / swings, 1) if swings else None,
             "hr": int((sub["events"] == "home_run").sum()),
             "bbe": n,
         }
@@ -150,6 +155,38 @@ def _pitch_usage(rows: pd.DataFrame) -> dict:
     for f in ("FB", "BR", "OFF"):
         out[f] = round(100.0 * (fam == f).sum() / total, 1)
     return out
+
+
+def pitcher_hand_hr_2yr(pid: int, end_date: str) -> dict | None:
+    """
+    Actual HRs (and PA) a pitcher has allowed to RHB vs LHB over the trailing ~2 years,
+    plus the this-season subset. Uses a per-pitcher Statcast pull (cached upstream so
+    this isn't run every hourly build). Returns None on any failure (degrades cleanly).
+    """
+    from datetime import datetime, timedelta
+    try:
+        from pybaseball import statcast_pitcher
+        end = datetime.strptime(end_date, "%Y-%m-%d")
+        start2 = (end - timedelta(days=730)).strftime("%Y-%m-%d")
+        df = statcast_pitcher(start2, end_date, int(pid))
+    except Exception:
+        return None
+    if df is None or df.empty or "stand" not in df.columns or "events" not in df.columns:
+        return None
+    pa_rows = df[df["events"].isin(PA_EVENTS)]
+    if pa_rows.empty:
+        return None
+    this_year = str(end.year)
+
+    def _split(rows):
+        o = {}
+        for hand in ("R", "L"):
+            h = rows[rows["stand"] == hand]
+            o[hand] = {"hr": int((h["events"] == "home_run").sum()), "pa": int(len(h))}
+        return o
+
+    ty_rows = pa_rows[pa_rows["game_date"].astype(str).str.startswith(this_year)]
+    return {"two_yr": _split(pa_rows), "this_yr": _split(ty_rows)}
 
 
 def _agg_metrics(rows: pd.DataFrame) -> dict:
@@ -246,7 +283,8 @@ def batter_profiles(df: pd.DataFrame, batter_ids: list[int], asof: str,
             "season": season,
             "windows": windows,
             "recent": recent,          # headline = last 2 weeks
-            "pitch_splits": _pitch_splits(g),   # season-long damage by pitch family
+            "pitch_splits": _pitch_splits(g),                       # season-long by pitch family
+            "pitch_splits_recent": _pitch_splits(g[g["_gd"] >= cutoff]),  # last 2 weeks by family
         }
     return out
 
