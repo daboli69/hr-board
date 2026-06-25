@@ -204,6 +204,10 @@ def build(date_str: str | None = None) -> dict:
         eff_hand = eff_side if bats == "S" else bats
         psplits = pprof.get("splits") or {}
         opp_pitcher_obj["platoon"] = compute.platoon_note(psplits)
+        opp_pitcher_obj["hr_by_hand"] = {
+            "R": (psplits.get("R") or {}).get("season", {}).get("hr_per_pa"),
+            "L": (psplits.get("L") or {}).get("season", {}).get("hr_per_pa"),
+        }
         vh = compute.hand_vuln(psplits.get(eff_hand)) if eff_hand in ("R", "L") else None
         opp_pitcher_obj["vs_hand"] = eff_hand
         opp_pitcher_obj["vs_hand_score"] = vh["score"] if vh else None
@@ -279,6 +283,7 @@ def build(date_str: str | None = None) -> dict:
                 "recent": {k: recent.get(k) for k in ("xwobacon", "wobacon", "luck_gap", "barrel_pct", "hr", "bb_count")},
                 "season": {k: season.get(k) for k in ("xwobacon", "wobacon", "luck_gap", "barrel_pct", "hr", "bb_count")},
             },
+            "max_ev": {"recent": recent.get("max_ev"), "season": season.get("max_ev")},
             "heat": score,
             "score_breakdown": breakdown,
             "metrics": metrics,

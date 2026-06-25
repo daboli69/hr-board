@@ -184,6 +184,10 @@
   /* ---- expand ---- */
   .detail{display:none;border-top:1px solid var(--line);background:var(--panel-2);padding:13px}
   .row.open .detail{display:block}
+  .dname{display:flex;align-items:center;gap:8px;font-family:Archivo;font-weight:900;
+    font-size:21px;letter-spacing:-.02em;margin:2px 0 8px;flex-wrap:wrap}
+  .dname .dspot{font-family:'IBM Plex Mono';font-size:12px;font-weight:600;color:var(--muted);
+    border:1px solid var(--line);border-radius:5px;padding:1px 6px}
   .detail h4{margin:0 0 8px;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
   table.win{width:100%;border-collapse:collapse;font-family:"IBM Plex Mono",monospace;font-size:12px}
   table.win th,table.win td{padding:5px 6px;text-align:right;border-bottom:1px solid var(--line)}
@@ -240,6 +244,16 @@
       <button data-bat="R">R</button>
       <button data-bat="L">L</button>
       <button data-bat="S">S</button>
+    </div>
+    <div class="seg" id="luckF" title="Contact luck: expected vs actual">
+      <button data-luck="" aria-pressed="true">Luck</button>
+      <button data-luck="due">Due</button>
+      <button data-luck="hot">Hot</button>
+    </div>
+    <div class="seg" id="dryF" title="No HR in recent games — possible 'due' bats">
+      <button data-dry="" aria-pressed="true">HR drought</button>
+      <button data-dry="l5">0·L5</button>
+      <button data-dry="2wk">0·2wk</button>
     </div>
     <span id="shown" class="stamp" style="align-self:center"></span>
   </div>
@@ -308,7 +322,7 @@ const EXTRA = [
   {k:"fb_pct",     label:"FB%",      fmt:v=>fmt(v,1)},
   {k:"pull_pct",   label:"Pull(all)",fmt:v=>fmt(v,1)},
 ];
-let BOARD=null, HISTORY=null, view="board", sortKey="heat", q="", hideThin=false, minHeat=0, gameFilter="", batFilter="";
+let BOARD=null, HISTORY=null, view="board", sortKey="heat", q="", hideThin=false, minHeat=0, gameFilter="", batFilter="", luckFilter="", dryFilter="";
 
 function fmt(v,d,strip){
   if(v===null||v===undefined||Number.isNaN(v)) return "–";
@@ -399,6 +413,20 @@ function render(){
   if(minHeat>0) players=players.filter(p=>p.heat>=minHeat);
   if(gameFilter) players=players.filter(p=>String(p.game_pk)===gameFilter);
   if(batFilter) players=players.filter(p=>(p.bats||"R")===batFilter);
+  if(luckFilter){
+    players=players.filter(p=>{
+      const g=p.luck&&p.luck.recent?p.luck.recent.luck_gap:null;
+      if(g==null) return false;
+      return luckFilter==="due"?g>=0.04:g<=-0.04;
+    });
+  }
+  if(dryFilter){
+    players=players.filter(p=>{
+      if(dryFilter==="l5") return p.hr_recent&&p.hr_recent.L5===0;
+      const h=(p.luck&&p.luck.recent)?p.luck.recent.hr:null;  // 14-day HR
+      return h===0;
+    });
+  }
   if(q){const t=q.toLowerCase();
     players=players.filter(p=>p.name.toLowerCase().includes(t)||(p.team||"").toLowerCase().includes(t)||(p.opp_team||"").toLowerCase().includes(t));}
   const sortVal=(p,k)=>{
@@ -545,7 +573,7 @@ function render(){
           ${prow('FB velo','fb_velo',1)}
         </tbody></table>
         ${op.recent&&op.recent.velo_trend!=null?`<div class="arm">Velo trend (2wk vs szn): <b style="color:${op.recent.velo_trend<=-0.8?'var(--seam)':'var(--ink)'}">${op.recent.velo_trend>0?'+':''}${op.recent.velo_trend} mph</b></div>`:''}
-        ${op.platoon&&op.platoon.worse?`<div class="arm">Platoon: gives up more to <b style="color:var(--seam)">${op.platoon.worse==='R'?'RHB':'LHB'}</b> — vs RHB <b>${op.platoon.R??'–'}</b> · vs LHB <b>${op.platoon.L??'–'}</b>${op.vs_hand_score!=null?` · <b style="color:var(--seam)">vs ${op.vs_hand}HB (this hitter): ${op.vs_hand_score}</b>`:''}</div>`:''}
+        ${op.platoon&&op.platoon.worse?`<div class="arm"><b>Starter vs LHB/RHB</b> — harder hit by <b style="color:var(--seam)">${op.platoon.worse==='R'?'RHB':'LHB'}</b>: vs RHB <b>${op.platoon.R??'–'}</b> · vs LHB <b>${op.platoon.L??'–'}</b>${op.vs_hand_score!=null?` · <b style="color:var(--seam)">vs ${op.vs_hand}HB (this hitter): ${op.vs_hand_score}</b>`:''}</div>${(op.hr_by_hand)?`<div class="arm" style="color:var(--muted)">HR allowed by hand (this yr): RHB <b style="color:var(--ink)">${op.hr_by_hand.R!=null?op.hr_by_hand.R:'–'}</b>/100PA · LHB <b style="color:var(--ink)">${op.hr_by_hand.L!=null?op.hr_by_hand.L:'–'}</b>/100PA</div>`:''}`:''}
         ${armFlags?`<div class="bd" style="margin-top:10px">${armFlags}</div>`:'<div class="arm">No red flags.</div>'}
         ${p.opp_bullpen?`
           <h4 style="margin-top:16px">Opposing bullpen — HR vulnerability
@@ -574,7 +602,8 @@ function render(){
         <div class="cmetrics">${mini}</div>
       </div>
       <div class="detail">
-        <div class="matchup" style="margin-bottom:10px">${p.team} vs ${p.opp_team} · ${timeStr(p.time)} · ${p.park||""} · park ${fmt(p.park_hr_factor,2)}× · ${armBadge}</div>
+        <div class="dname"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span>${p.name}</span>${p.lineup_spot?`<span class="dspot">#${p.lineup_spot}</span>`:""}</div>
+        <div class="matchup" style="margin-bottom:10px">${p.team} vs ${p.opp_team} · ${timeStr(p.time)} · ${p.park||""} · park ${fmt(p.park_hr_factor,2)}× · ${armBadge}${(p.max_ev&&p.max_ev.season!=null)?` · max EV <b style="color:var(--ink)">${p.max_ev.season}</b>${p.max_ev.recent!=null?` (2wk ${p.max_ev.recent})`:""}`:""}</div>
         <h4>Four signals — recent · season · career</h4>
         <div class="strip" style="border:1px solid var(--line);border-radius:10px">${strip}</div>
         <h4 style="margin-top:14px">Trend (last 2 wk vs game windows)</h4>
@@ -772,6 +801,18 @@ document.getElementById("bats").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b)return;
   batFilter=b.dataset.bat;
   [...document.querySelectorAll("#bats button")].forEach(x=>x.setAttribute("aria-pressed",x===b));
+  render();
+});
+document.getElementById("luckF").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b)return;
+  luckFilter=b.dataset.luck;
+  [...document.querySelectorAll("#luckF button")].forEach(x=>x.setAttribute("aria-pressed",x===b));
+  render();
+});
+document.getElementById("dryF").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b)return;
+  dryFilter=b.dataset.dry;
+  [...document.querySelectorAll("#dryF button")].forEach(x=>x.setAttribute("aria-pressed",x===b));
   render();
 });
 document.getElementById("view").addEventListener("click",async e=>{

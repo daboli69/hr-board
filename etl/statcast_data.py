@@ -201,6 +201,7 @@ def _agg_metrics(rows: pd.DataFrame) -> dict:
         "barrel_pct": pct((bb["launch_speed_angle"] == 6).sum(), n_bb) if "launch_speed_angle" in bb else None,
         "hardhit_pct": pct((bb["launch_speed"] >= 95).sum(), n_bb),
         "avg_ev": round(bb["launch_speed"].mean(), 1) if n_bb else None,
+        "max_ev": round(bb["launch_speed"].max(), 1) if n_bb else None,
         "launch_angle": round(bb["launch_angle"].mean(), 1) if n_bb else None,
         "fb_pct": pct((bb["bb_type"] == "fly_ball").sum(), n_bb) if "bb_type" in bb else None,
         "pull_pct": pull_pct,
