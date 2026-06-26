@@ -374,7 +374,7 @@ def player_badges(*, opp_form=None, hand_hr=None, eff_hand=None, pitch_matchup=N
     if luck_gap is not None and luck_gap >= 0.045:
         out.append({"t": "DUE", "k": "due"})
     elif luck_gap is not None and luck_gap <= -0.090:
-        out.append({"t": "COOLING", "k": "cool"})        # results far beyond contact — regression risk
+        out.append({"t": "REGRESSION", "k": "cool"})      # results far beyond contact — likely to cool
     elif xwobacon is not None and xwobacon >= 0.420 and (luck_gap is None or luck_gap > -0.060):
         out.append({"t": "LOCKED IN", "k": "lock"})       # genuinely elite contact, sustainable hot
     if trend and trend.get("dir") == "up":
