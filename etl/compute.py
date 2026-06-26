@@ -293,26 +293,33 @@ def pitch_matchup(hitter_splits: dict | None, usage: dict | None,
 
 def luck_read(gap: float | None, xwobacon: float | None = None) -> str | None:
     """
-    Label the xwOBA-vs-actual gap on contact. Critically, an overperforming hitter
-    is only a regression risk if the UNDERLYING contact is mediocre — if his expected
-    contact (xwOBAcon) is itself elite, the hot streak is earned and can sustain.
+    Read the xwOBAcon-vs-actual gap. Two independent things matter:
+      - HOW FAR results exceed contact (gap magnitude) = regression risk
+      - HOW GOOD the underlying contact is (xwOBAcon level) = the floor he regresses to
+    Elite contact (>=.420) is genuinely rare, so "locked in" stays meaningful.
     """
     if gap is None:
         return None
-    elite = xwobacon is not None and xwobacon >= 0.400
-    strong = xwobacon is not None and xwobacon >= 0.370
-    if gap >= 0.040:
-        return "running cold — due"
-    if gap <= -0.040:
+    elite = xwobacon is not None and xwobacon >= 0.420
+    weak = xwobacon is not None and xwobacon < 0.360
+    if gap >= 0.045:
+        return "running cold — due to break out"
+    if gap <= -0.090:                       # results FAR beyond the contact
+        return ("red hot — but producing well beyond even elite contact; some cooling likely"
+                if elite else
+                "red hot but lucky — results far above his contact; regression likely")
+    if gap <= -0.045:                       # moderately above contact
         if elite:
-            return "locked in — elite contact, the heat is earned"
-        if strong:
-            return "hot, and the contact backs it up"
-        return "running hot — getting more than the contact warrants (may cool)"
-    # roughly fair: results match contact
+            return "hot, and elite contact backs most of it up"
+        if weak:
+            return "hot on light contact — likely to cool"
+        return "hot — running a bit above his contact"
+    # results roughly match contact
     if elite:
-        return "locked in — elite contact, results are real"
-    return "roughly fair — results match the contact"
+        return "locked in — elite contact, results match; genuinely hot"
+    if weak:
+        return "fair — but the underlying contact is light"
+    return "fair — results in line with his contact"
 
 
 def pitcher_badges(*, recent=None, score=None, recent_score=None, season_score=None,
@@ -364,10 +371,12 @@ def player_badges(*, opp_form=None, hand_hr=None, eff_hand=None, pitch_matchup=N
             out.append({"t": "PLATOON", "k": "plat"})
     if pitch_matchup and pitch_matchup.get("edge") is not None and pitch_matchup["edge"] >= 2:
         out.append({"t": "MIX EDGE", "k": "mix"})
-    if luck_gap is not None and luck_gap >= 0.04:
+    if luck_gap is not None and luck_gap >= 0.045:
         out.append({"t": "DUE", "k": "due"})
-    elif xwobacon is not None and xwobacon >= 0.400 and (luck_gap is None or luck_gap <= 0.0):
-        out.append({"t": "LOCKED IN", "k": "lock"})   # earned hot: elite expected contact
+    elif luck_gap is not None and luck_gap <= -0.090:
+        out.append({"t": "COOLING", "k": "cool"})        # results far beyond contact — regression risk
+    elif xwobacon is not None and xwobacon >= 0.420 and (luck_gap is None or luck_gap > -0.060):
+        out.append({"t": "LOCKED IN", "k": "lock"})       # genuinely elite contact, sustainable hot
     if trend and trend.get("dir") == "up":
         out.append({"t": "HEATING", "k": "hot"})
     if max_ev is not None and max_ev >= 112:
@@ -404,15 +413,15 @@ def read_angle(*, hand=None, trend=None, pitch_matchup=None, luck_gap=None,
         bits.append(f"facing a {opp_form.lower().replace('-', ' ')} starter")
     # qualifier: due/hot + trend
     qual = None
-    if luck_gap is not None and luck_gap >= 0.04:
+    if luck_gap is not None and luck_gap >= 0.045:
         qual = "running cold — due"
-    elif luck_gap is not None and luck_gap <= -0.04:
-        if xwobacon is not None and xwobacon >= 0.400:
-            qual = "locked in — the heat is earned"
-        elif xwobacon is not None and xwobacon >= 0.370:
-            qual = "hot, and the contact backs it"
-        else:
-            qual = "hot — running above his contact"
+    elif luck_gap is not None and luck_gap <= -0.090:
+        qual = "results far above his contact — regression risk"
+    elif luck_gap is not None and luck_gap <= -0.045:
+        qual = ("hot, elite contact backs it" if (xwobacon and xwobacon >= 0.420)
+                else "hot — a bit above his contact")
+    elif xwobacon is not None and xwobacon >= 0.420 and (luck_gap is None or abs(luck_gap) < 0.045):
+        qual = "locked in — elite contact, genuinely hot"
     elif trend and trend.get("dir") == "up" and trend.get("pct"):
         qual = f"contact heating up (+{trend['pct']}%)"
     elif trend and trend.get("dir") == "down" and trend.get("pct"):

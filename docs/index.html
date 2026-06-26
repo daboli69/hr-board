@@ -143,6 +143,7 @@
   .bk-pen{background:rgba(228,87,46,.1);color:#d68a72;border-color:rgba(228,87,46,.25)}
   .bk-tough{background:rgba(45,156,142,.16);color:#5ec9b7;border-color:rgba(45,156,142,.4)}
   .bk-lock{background:rgba(46,160,93,.16);color:#56c878;border-color:rgba(46,160,93,.45)}
+  .bk-cool{background:rgba(120,134,150,.16);color:#aab4c0;border-color:rgba(120,134,150,.4)}
   .mixd{font-family:'IBM Plex Mono';font-weight:800;font-size:11px;padding:1px 5px;border-radius:5px;margin-right:4px}
   .mixd.up{background:rgba(245,158,11,.18);color:#fbbf24}
   .mixd.down{background:rgba(62,124,177,.18);color:#7fb0dd}
@@ -496,16 +497,15 @@ function luckBlock(p){
   function line(w,lbl){
     if(!w||w.xwobacon==null) return "";
     const x=w.xwobacon, a=w.wobacon, g=w.luck_gap;
-    const elite=x!=null&&x>=0.400, strong=x!=null&&x>=0.370;
+    const elite=x!=null&&x>=0.420, weak=x!=null&&x<0.360;
     let read="", col="var(--muted)";
     if(g!=null){
-      if(g>=0.04){ read="running cold — due"; col="var(--good)"; }
-      else if(g<=-0.04){
-        if(elite){ read="locked in — elite contact, the heat is earned"; col="var(--good)"; }
-        else if(strong){ read="hot, and the contact backs it up"; col="var(--ink)"; }
-        else { read="running hot — above what his contact warrants (may cool)"; col="var(--bad)"; }
-      } else if(elite){ read="locked in — elite contact, results are real"; col="var(--good)"; }
-      else { read="roughly fair — results match the contact"; col="var(--muted)"; }
+      if(g>=0.045){ read="running cold — due to break out"; col="var(--good)"; }
+      else if(g<=-0.090){ read=elite?"red hot — beyond even elite contact; some cooling likely":"red hot but lucky — results far above his contact; regression likely"; col="var(--bad)"; }
+      else if(g<=-0.045){ read=elite?"hot, elite contact backs most of it":weak?"hot on light contact — likely to cool":"hot — a bit above his contact"; col=elite?"var(--ink)":"var(--bad)"; }
+      else if(elite){ read="locked in — elite contact, results match; genuinely hot"; col="var(--good)"; }
+      else if(weak){ read="fair — underlying contact is light"; col="var(--muted)"; }
+      else { read="fair — results in line with his contact"; col="var(--muted)"; }
     }
     return `<div class="arm-row" style="grid-template-columns:50px 1fr auto">
       <div style="color:var(--muted);font-size:12px">${lbl}</div>
