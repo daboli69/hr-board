@@ -291,19 +291,94 @@ def pitch_matchup(hitter_splits: dict | None, usage: dict | None,
     }
 
 
-def luck_read(gap: float | None) -> str | None:
-    """Label the xwOBA-vs-actual gap on contact."""
+def luck_read(gap: float | None, xwobacon: float | None = None) -> str | None:
+    """
+    Label the xwOBA-vs-actual gap on contact. Critically, an overperforming hitter
+    is only a regression risk if the UNDERLYING contact is mediocre — if his expected
+    contact (xwOBAcon) is itself elite, the hot streak is earned and can sustain.
+    """
     if gap is None:
         return None
+    elite = xwobacon is not None and xwobacon >= 0.400
+    strong = xwobacon is not None and xwobacon >= 0.370
     if gap >= 0.040:
         return "running cold — due"
     if gap <= -0.040:
-        return "running hot — regression risk"
-    return "roughly fair"
+        if elite:
+            return "locked in — elite contact, the heat is earned"
+        if strong:
+            return "hot, and the contact backs it up"
+        return "running hot — getting more than the contact warrants (may cool)"
+    # roughly fair: results match contact
+    if elite:
+        return "locked in — elite contact, results are real"
+    return "roughly fair — results match the contact"
+
+
+def pitcher_badges(*, recent=None, score=None, recent_score=None, season_score=None,
+                   two_yr=None) -> list:
+    """Defined, actionable vulnerability badges for a starter — the pitcher analogue
+    of the hitter trait badges. Priority order = most HR-relevant first."""
+    r = recent or {}
+    out = []
+    if score is not None and score >= 70:
+        out.append({"t": "HR PRONE", "k": "arm"})
+    if r.get("barrel_pct_allowed") is not None and r["barrel_pct_allowed"] >= 10:
+        out.append({"t": "BARRELED", "k": "mix"})
+    if (r.get("avg_ev_allowed") is not None and r["avg_ev_allowed"] >= 90.5) or \
+       (r.get("hardhit_pct_allowed") is not None and r["hardhit_pct_allowed"] >= 43):
+        out.append({"t": "LOUD", "k": "pow"})
+    if r.get("pull_air_allowed") is not None and r["pull_air_allowed"] >= 45:
+        out.append({"t": "PULL-AIR", "k": "hot"})
+    # platoon: which hand has he coughed up HRs to (2yr)? flag the worse one
+    if two_yr:
+        worst = None
+        for hand, lbl in (("R", "WEAK vs R"), ("L", "WEAK vs L")):
+            s = two_yr.get(hand)
+            if s and s.get("pa") and s["pa"] >= 200:
+                rate = s["hr"] / s["pa"]
+                if rate >= 0.035 and (worst is None or rate > worst[0]):
+                    worst = (rate, lbl)
+        if worst:
+            out.append({"t": worst[1], "k": "plat"})
+    if r.get("velo_trend") is not None and r["velo_trend"] <= -0.8:
+        out.append({"t": "VELO ↓", "k": "due"})
+    if recent_score is not None and season_score is not None and (recent_score - season_score) >= 8:
+        out.append({"t": "SLIPPING", "k": "arm"})
+    if not out and score is not None and score <= 35:
+        out.append({"t": "TOUGH", "k": "tough"})
+    return out
+
+
+def player_badges(*, opp_form=None, hand_hr=None, eff_hand=None, pitch_matchup=None,
+                  luck_gap=None, trend=None, max_ev=None, pen_score=None, xwobacon=None) -> list:
+    """Ordered, actionable trait badges for a hitter — each one a specific reason
+    he's interesting today. Priority order = most HR-relevant first."""
+    out = []
+    if opp_form in ("SHELLABLE", "STEADY-BAD"):
+        out.append({"t": "WEAK ARM", "k": "arm"})
+    if hand_hr and eff_hand in ("R", "L"):
+        side = hand_hr.get(eff_hand)
+        if side and side.get("pa") and (side.get("hr", 0) >= 25 or
+                                        (side["hr"] / side["pa"]) >= 0.035):
+            out.append({"t": "PLATOON", "k": "plat"})
+    if pitch_matchup and pitch_matchup.get("edge") is not None and pitch_matchup["edge"] >= 2:
+        out.append({"t": "MIX EDGE", "k": "mix"})
+    if luck_gap is not None and luck_gap >= 0.04:
+        out.append({"t": "DUE", "k": "due"})
+    elif xwobacon is not None and xwobacon >= 0.400 and (luck_gap is None or luck_gap <= 0.0):
+        out.append({"t": "LOCKED IN", "k": "lock"})   # earned hot: elite expected contact
+    if trend and trend.get("dir") == "up":
+        out.append({"t": "HEATING", "k": "hot"})
+    if max_ev is not None and max_ev >= 112:
+        out.append({"t": "POWER", "k": "pow"})
+    if pen_score is not None and pen_score >= 78:
+        out.append({"t": "WEAK PEN", "k": "pen"})
+    return out
 
 
 def read_angle(*, hand=None, trend=None, pitch_matchup=None, luck_gap=None,
-               opp_form=None, hand_hr=None, eff_hand=None) -> str:
+               opp_form=None, hand_hr=None, eff_hand=None, xwobacon=None) -> str:
     """
     One synthesized sentence — the model's read on a hitter today, assembled from the
     strongest 1-2 matchup facts plus a trend/luck qualifier. Returns '' if nothing
@@ -332,7 +407,12 @@ def read_angle(*, hand=None, trend=None, pitch_matchup=None, luck_gap=None,
     if luck_gap is not None and luck_gap >= 0.04:
         qual = "running cold — due"
     elif luck_gap is not None and luck_gap <= -0.04:
-        qual = "hot lately, watch regression"
+        if xwobacon is not None and xwobacon >= 0.400:
+            qual = "locked in — the heat is earned"
+        elif xwobacon is not None and xwobacon >= 0.370:
+            qual = "hot, and the contact backs it"
+        else:
+            qual = "hot — running above his contact"
     elif trend and trend.get("dir") == "up" and trend.get("pct"):
         qual = f"contact heating up (+{trend['pct']}%)"
     elif trend and trend.get("dir") == "down" and trend.get("pct"):

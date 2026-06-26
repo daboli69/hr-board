@@ -224,9 +224,15 @@ def build(date_str: str | None = None) -> dict:
         eff_hand = eff_side if bats == "S" else bats
         angle = compute.read_angle(
             hand=bats, trend=tr, pitch_matchup=pmatch,
-            luck_gap=recent.get("luck_gap"),
+            luck_gap=recent.get("luck_gap"), xwobacon=recent.get("xwobacon"),
             opp_form=(phr.get("form") or {}).get("label"),
             hand_hr=(hand2yr.get(pid) or {}).get("two_yr"), eff_hand=eff_hand)
+        badges = compute.player_badges(
+            opp_form=(phr.get("form") or {}).get("label"),
+            hand_hr=(hand2yr.get(pid) or {}).get("two_yr"), eff_hand=eff_hand,
+            pitch_matchup=pmatch, luck_gap=recent.get("luck_gap"), trend=tr,
+            xwobacon=recent.get("xwobacon"),
+            max_ev=(prof.get("season", {}) or {}).get("max_ev"))
 
         pr = pprof.get("recent", {})
         ps = pprof.get("season", {})
@@ -323,6 +329,7 @@ def build(date_str: str | None = None) -> dict:
             "lineup_status": status_of_batter.get(bid, "confirmed"),
             "trend": tr,
             "angle": angle,
+            "badges": badges,
             "team": g["away"] if side == "away" else g["home"],
             "opp_team": g["home"] if side == "away" else g["away"],
             "game_pk": pk,
@@ -446,6 +453,11 @@ def build(date_str: str | None = None) -> dict:
                 "season_score": phr.get("season_score"),
                 "form": phr.get("form"),
                 "flags": phr.get("flags", []),
+                "badges": compute.pitcher_badges(
+                    recent=pitch_profiles.get(pid, {}).get("recent", {}),
+                    score=phr.get("score"), recent_score=phr.get("recent_score"),
+                    season_score=phr.get("season_score"),
+                    two_yr=(hand2yr.get(pid) or {}).get("two_yr")),
                 "platoon": compute.platoon_note(pitch_profiles.get(pid, {}).get("splits")),
             }
             for pid, phr in pitcher_hr.items()
