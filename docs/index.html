@@ -213,6 +213,8 @@
   .mixd.up{background:rgba(245,158,11,.18);color:#fbbf24}
   .mixd.down{background:rgba(62,124,177,.18);color:#7fb0dd}
   .mixd.flat{background:var(--panel-2);color:var(--faint)}
+  .bpchip{display:inline-block;font-family:"IBM Plex Mono";font-weight:800;font-size:10px;color:#0c0f14;
+    padding:1px 6px;border-radius:5px;vertical-align:middle}
   .arm-nm .badges{margin-top:4px}
   .cmini{font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.45;
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -423,6 +425,7 @@
     <div class="seg" id="sort">
       <button data-sort="heat" aria-pressed="true">Heat</button>
       <button data-sort="trend" aria-pressed="false">Trend</button>
+      <button data-sort="bp" aria-pressed="false">BP</button>
       <button data-sort="name">Name</button>
       <button data-sort="time">Time</button>
     </div>
@@ -524,7 +527,7 @@
       <p>Then one <b>form</b> read per hitter — a simple spectrum so you never see a contradiction: <b>DUE</b> (hitting it hard but unlucky — results lag his contact), <b>WARMING</b> (contact quality trending up), <b>HOT</b> (elite contact and results match — genuinely hot, earned), <b>MAY COOL</b> (results have run well above his contact and may regress). <b>▲ / ▼</b> = power-form trend with % change. <b>proj</b> = lineup not posted, using last game's order. <b>#1–#9</b> = batting-order spot.</p>
 
       <h3>Filters & sorting</h3>
-      <p><b>Heat / Trend / Name / Time</b> sort the list. In <b>⚙ Filters</b>: <b>Games</b> and <b>Teams</b> narrow to specific matchups or clubs, <b>Heat floor</b> (40/55/70+) cuts the long tail, <b>Bats</b> shows one handedness, and <b>Traits</b> lets you tap any badge to show only hitters carrying it (tap several to stack them). <b>Hide small samples</b> drops hitters under ~25 PA in the window.</p>
+      <p><b>Heat / Trend / BP / Name / Time</b> sort the list — <b>BP</b> ranks by how vulnerable the opposing bullpen is to each hitter's hand (a weak pen means more late-game HR chances; the "pen NN" chip shows the score). In <b>⚙ Filters</b>: <b>Games</b> and <b>Teams</b> narrow to specific matchups or clubs, <b>Heat floor</b> (40/55/70+) cuts the long tail, <b>Bats</b> shows one handedness, and <b>Traits</b> lets you tap any badge to show only hitters carrying it (tap several to stack them). <b>Hide small samples</b> drops hitters under ~25 PA in the window.</p>
 
       <h3>Top Plays & Stacks</h3>
       <p><b>Top Plays</b> (panel up top) = the strongest non-thin hitters not facing a sharp arm, each with a one-line "why" — your fast scan. <b>Stacks</b> (view toggle) groups hot hitters by the vulnerable arm they share — built for grand-slam parlays / same-game pairing.</p>
@@ -705,6 +708,7 @@ function trendVal(t){
   if(t.dir==="down") return t.pct||-20;
   return 0;
 }
+function bpVal(p){const bp=p.opp_bullpen||{}; const v=bp.vs_hand!=null?bp.vs_hand:bp.score; return v!=null?v:-1;}
 
 function render(){
   const main=document.getElementById("main");
@@ -742,6 +746,7 @@ function render(){
     if(sortKey==="name") return a.name.localeCompare(b.name);
     if(sortKey==="time") return (a.time||"").localeCompare(b.time||"")|| b.heat-a.heat;
     if(sortKey==="trend") return trendVal(b.trend)-trendVal(a.trend)|| b.heat-a.heat;
+    if(sortKey==="bp") return bpVal(b)-bpVal(a)|| b.heat-a.heat;
     return sortVal(b,sortKey)-sortVal(a,sortKey);
   });
   const sc=document.getElementById("shown"); if(sc) sc.textContent=players.length+" shown";
@@ -843,6 +848,8 @@ function render(){
     const form=op.form||null;
     const md=mixView?(mixDelta[p.id]||0):null;
     const mdChip=(md!=null)?`<span class="mixd ${md>0?'up':md<0?'down':'flat'}">${md>0?'▲':md<0?'▼':'='}${md?Math.abs(md):''}</span>`:"";
+    const bpv=(sortKey==="bp")?bpVal(p):null;
+    const bpChip=(bpv!=null&&bpv>=0)?`<span class="bpchip" style="background:${chipColor(bpv)}">pen ${bpv}</span> `:"";
     const armBadge = (op.hr_score!=null)
       ? `<span class="armbadge" style="border-color:${form?form.color:'var(--line)'};color:${form?form.color:'var(--muted)'}">`
         +`${throwBadge(op.throws)} ${op.name||'arm'} · HR ${op.hr_score}${form?` · ${form.label}`:''}</span>`
@@ -929,7 +936,7 @@ function render(){
           <div class="cheat" style="background:${col}">${H(p)}</div>
           <div class="cwho">
             <div class="name"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span class="nm-txt">${p.name}</span></div>
-            <div class="cmini">${mdChip}${trendBadge(p.trend)?trendBadge(p.trend)+" ":""}${p.lineup_status==="projected"?`<span class="spot" style="color:var(--seam);border-color:var(--seam)">proj</span> `:""}${p.lineup_spot?`#${p.lineup_spot} · `:""}${p.team}→${p.opp_team} · ${timeStr(p.time)}${armSc!=null?` · arm <b style="color:${armCol}">${armSc}</b>`:""} · ${(p.windows&&p.windows.L14d&&p.windows.L14d.pa!=null)?`${p.windows.L14d.pa}PA`:"–"}</div>
+            <div class="cmini">${bpChip}${mdChip}${trendBadge(p.trend)?trendBadge(p.trend)+" ":""}${p.lineup_status==="projected"?`<span class="spot" style="color:var(--seam);border-color:var(--seam)">proj</span> `:""}${p.lineup_spot?`#${p.lineup_spot} · `:""}${p.team}→${p.opp_team} · ${timeStr(p.time)}${armSc!=null?` · arm <b style="color:${armCol}">${armSc}</b>`:""} · ${(p.windows&&p.windows.L14d&&p.windows.L14d.pa!=null)?`${p.windows.L14d.pa}PA`:"–"}</div>
           </div>
           <div class="cmetrics">${mini}</div>
         </div>
