@@ -474,6 +474,14 @@
             <button data-min="70">70+</button>
           </div>
         </div>
+        <div class="fgrp"><label>Opposing starter <span class="fhint">drop strong SP — keep only hitters facing a vulnerable starter</span></label>
+          <div class="seg" id="spF">
+            <button data-sp="0" aria-pressed="true">All</button>
+            <button data-sp="50">soft 50+</button>
+            <button data-sp="65">weak 65+</button>
+            <button data-sp="80">shellable 80+</button>
+          </div>
+        </div>
         <div class="fgrp"><label>Bats</label>
           <div class="seg" id="bats">
             <button data-bat="" aria-pressed="true">All</button>
@@ -527,7 +535,7 @@
       <p>Then one <b>form</b> read per hitter — a simple spectrum so you never see a contradiction: <b>DUE</b> (hitting it hard but unlucky — results lag his contact), <b>WARMING</b> (contact quality trending up), <b>HOT</b> (elite contact and results match — genuinely hot, earned), <b>MAY COOL</b> (results have run well above his contact and may regress). <b>▲ / ▼</b> = power-form trend with % change. <b>proj</b> = lineup not posted, using last game's order. <b>#1–#9</b> = batting-order spot.</p>
 
       <h3>Filters & sorting</h3>
-      <p><b>Heat / Trend / BP / Name / Time</b> sort the list — <b>BP</b> ranks by how vulnerable the opposing bullpen is to each hitter's hand (a weak pen means more late-game HR chances; the "pen NN" chip shows the score). In <b>⚙ Filters</b>: <b>Games</b> and <b>Teams</b> narrow to specific matchups or clubs, <b>Heat floor</b> (40/55/70+) cuts the long tail, <b>Bats</b> shows one handedness, and <b>Traits</b> lets you tap any badge to show only hitters carrying it (tap several to stack them). <b>Hide small samples</b> drops hitters under ~25 PA in the window.</p>
+      <p><b>Heat / Trend / BP / Name / Time</b> sort the list — <b>BP</b> ranks by how vulnerable the opposing bullpen is to each hitter's hand (a weak pen means more late-game HR chances; the "pen NN" chip shows the score). In <b>⚙ Filters</b>: <b>Games</b> and <b>Teams</b> narrow to specific matchups or clubs, <b>Heat floor</b> (40/55/70+) cuts the long tail, <b>Opposing starter</b> drops strong SP so you only see hitters facing a vulnerable one, <b>Bats</b> shows one handedness, and <b>Traits</b> lets you tap any badge to show only hitters carrying it (tap several to stack them). Every filter combines, so you can stack (say) a vulnerable starter + weak bullpen sort + a trait + a team at once. <b>Hide small samples</b> drops hitters under ~25 PA in the window.</p>
 
       <h3>Top Plays & Stacks</h3>
       <p><b>Top Plays</b> (panel up top) = the strongest non-thin hitters not facing a sharp arm, each with a one-line "why" — your fast scan. <b>Stacks</b> (view toggle) groups hot hitters by the vulnerable arm they share — built for grand-slam parlays / same-game pairing.</p>
@@ -580,7 +588,7 @@ const EXTRA = [
   {k:"fb_pct",     label:"FB%",      fmt:v=>fmt(v,1)},
   {k:"pull_pct",   label:"Pull(all)",fmt:v=>fmt(v,1)},
 ];
-let BOARD=null, HISTORY=null, view="board", sortKey="heat", q="", hideThin=false, minHeat=0, gameSel=new Set(), batFilter="", traitSel=new Set(), teamSel=new Set(), drySel=new Set(), mixView=false;
+let BOARD=null, HISTORY=null, view="board", sortKey="heat", q="", hideThin=false, minHeat=0, spFloor=0, gameSel=new Set(), batFilter="", traitSel=new Set(), teamSel=new Set(), drySel=new Set(), mixView=false;
 // effective heat: vs-pitch-mix variant when the toggle is on, else standard
 function H(p){return (mixView && p.heat_mix!=null) ? p.heat_mix : p.heat;}
 
@@ -717,6 +725,7 @@ function render(){
   const isThin=p=>((p.score_breakdown&&p.score_breakdown.flags)||[]).some(f=>f.indexOf("small sample")===0);
   if(hideThin) players=players.filter(p=>!isThin(p));
   if(minHeat>0) players=players.filter(p=>H(p)>=minHeat);
+  if(spFloor>0) players=players.filter(p=>(((p.opp_pitcher||{}).hr_score)??0)>=spFloor);
   if(gameSel.size) players=players.filter(p=>gameSel.has(String(p.game_pk)));
   if(teamSel.size) players=players.filter(p=>teamSel.has(p.team));
   if(batFilter) players=players.filter(p=>(p.bats||"R")===batFilter);
@@ -1351,14 +1360,15 @@ document.getElementById("teamList").addEventListener("click",e=>{
   populateTeams(); updateFiltCount(); render();
 });
 function updateFiltCount(){
-  const n=gameSel.size+teamSel.size+traitSel.size+drySel.size+(batFilter?1:0)+(minHeat>0?1:0)+(hideThin?1:0)+(mixView?1:0);
+  const n=gameSel.size+teamSel.size+traitSel.size+drySel.size+(batFilter?1:0)+(minHeat>0?1:0)+(spFloor>0?1:0)+(hideThin?1:0)+(mixView?1:0);
   const el=document.getElementById("filtCount");
   if(!el)return;
   if(n>0){el.textContent=n;el.hidden=false;}else{el.hidden=true;}
 }
 function clearFilters(){
-  gameSel.clear(); teamSel.clear(); batFilter=""; traitSel.clear(); drySel.clear(); minHeat=0; hideThin=false; mixView=false;
+  gameSel.clear(); teamSel.clear(); batFilter=""; traitSel.clear(); drySel.clear(); minHeat=0; spFloor=0; hideThin=false; mixView=false;
   document.querySelectorAll('#floor button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.min==="0"));
+  document.querySelectorAll('#spF button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.sp==="0"));
   document.querySelectorAll('#bats button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.bat===""));
   document.querySelectorAll('#traitF button,#dryF button').forEach(x=>x.setAttribute('aria-pressed','false'));
   document.getElementById('mixBtn').setAttribute('aria-pressed','false');
@@ -1369,6 +1379,12 @@ document.getElementById("floor").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b)return;
   minHeat=+b.dataset.min;
   [...document.querySelectorAll("#floor button")].forEach(x=>x.setAttribute("aria-pressed",x===b));
+  render();
+});
+document.getElementById("spF").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b)return;
+  spFloor=+b.dataset.sp;
+  [...document.querySelectorAll("#spF button")].forEach(x=>x.setAttribute("aria-pressed",x===b));
   render();
 });
 document.getElementById("bats").addEventListener("click",e=>{
