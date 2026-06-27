@@ -148,6 +148,9 @@
   .bats{flex:none;font-size:9px;font-weight:800;min-width:14px;height:15px;padding:0 2px;
     display:inline-flex;align-items:center;justify-content:center;border-radius:4px;color:#0c0f14}
   .b-R{background:#E4572E}.b-L{background:#3E7CB1}.b-S{background:#9B7EDE}.b-undefined{background:#5a6472}
+  .thr{display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;
+    height:15px;padding:0 5px;border-radius:4px;letter-spacing:.02em;color:#0c0f14;vertical-align:middle}
+  .thr.t-R{background:#E4572E}.thr.t-L{background:#3E7CB1;color:#fff}
   .win-tag{display:inline-block;background:var(--panel-2);border:1px solid var(--line);
     border-radius:6px;padding:2px 8px;font-size:11px;color:var(--muted);letter-spacing:.01em}
   .compare-row{gap:8px}
@@ -165,6 +168,15 @@
   .fcount{background:var(--seam);color:#0c0f14;font-size:11px;font-weight:800;border-radius:999px;
     min-width:17px;height:17px;display:inline-flex;align-items:center;justify-content:center;padding:0 4px}
   .fgrp{margin-bottom:16px}
+  .traitf{display:flex;flex-wrap:wrap;gap:7px}
+  .traitf .bdg{cursor:pointer;opacity:.5;border-width:1px;transition:opacity .12s ease,box-shadow .12s ease}
+  .traitf .bdg[aria-pressed="true"]{opacity:1;box-shadow:0 0 0 2px currentColor}
+  .teamlist{display:flex;flex-wrap:wrap;gap:6px}
+  .teamchip{font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:700;letter-spacing:.02em;
+    padding:6px 10px;border-radius:8px;background:var(--panel-2);color:var(--muted);
+    border:1px solid var(--line);cursor:pointer;transition:all .12s ease}
+  .teamchip:hover{border-color:var(--muted)}
+  .teamchip.on{background:var(--seam);color:#fff;border-color:var(--seam)}
   .fgrp>label{display:block;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;
     letter-spacing:.05em;margin-bottom:7px}
   .fhint{text-transform:none;font-weight:400;color:var(--muted);letter-spacing:0}
@@ -378,6 +390,9 @@
         <div class="fgrp"><label>Games <span class="fhint">tap to compare specific matchups · 🔥 = vulnerable starter</span></label>
           <div id="gameList" class="gamelist"></div>
         </div>
+        <div class="fgrp"><label>Teams <span class="fhint">tap to filter to specific teams</span></label>
+          <div id="teamList" class="teamlist"></div>
+        </div>
         <div class="fgrp"><label>Heat floor</label>
           <div class="seg" id="floor">
             <button data-min="0" aria-pressed="true">All</button>
@@ -394,10 +409,16 @@
             <button data-bat="S">S</button>
           </div>
         </div>
-        <div class="fgrp"><label>Contact luck</label>
-          <div class="seg" id="luckF">
-            <button data-luck="due">Due</button>
-            <button data-luck="hot">Hot</button>
+        <div class="fgrp"><label>Traits <span class="fhint">tap a badge to show only those hitters</span></label>
+          <div id="traitF" class="traitf">
+            <button class="bdg bk-arm" data-trait="arm" aria-pressed="false">WEAK ARM</button>
+            <button class="bdg bk-plat" data-trait="plat" aria-pressed="false">PLATOON</button>
+            <button class="bdg bk-mix" data-trait="mix" aria-pressed="false">PITCH EDGE</button>
+            <button class="bdg bk-pow" data-trait="pow" aria-pressed="false">POWER</button>
+            <button class="bdg bk-lock" data-trait="lock" aria-pressed="false">HOT</button>
+            <button class="bdg bk-hot" data-trait="hot" aria-pressed="false">WARMING</button>
+            <button class="bdg bk-due" data-trait="due" aria-pressed="false">DUE</button>
+            <button class="bdg bk-cool" data-trait="cool" aria-pressed="false">MAY COOL</button>
           </div>
         </div>
         <div class="fgrp"><label>HR drought</label>
@@ -428,11 +449,12 @@
       <p>The <b>four cells</b> (Pull / EV / Brl / IAA) show those signals at a glance — orange means it cleared the "good" mark, blue means below. <b>Tap any column header</b> (HEAT, PULL, EV, BRL, IAA) to re-sort the whole slate by that stat — that's how you find a low-Heat guy who's elite in one area.</p>
       <p><b>Tap any row</b> to open full detail: recent/season/career for every signal, the trend windows, the opposing arm, bullpen, pitch matchup, and luck.</p>
 
-      <h3>Badges & arrows</h3>
-      <p><b>R / L / S</b> (orange/blue/purple) = bats right, left, or switch. <b>Tier</b> (LOADED / STRONG / SOLID / LEAN / THIN) = how many of the six signals cleared "good" — a confirmation read independent of Heat. <b>▲ / ▼</b> = trending up or down in power form (recent vs baseline), with % change. <b>proj</b> = lineup not posted yet, using last game's order as a placeholder. <b>#1–#9</b> = batting-order spot.</p>
+      <h3>Badges</h3>
+      <p><b>R / L / S</b> (orange/blue/purple) = a hitter bats right, left, or switch; pitchers show <b>RHP / LHP</b> in the same colors. The trait badges flag why a hitter is interesting — matchup first: <b>WEAK ARM</b> (facing a shellable starter), <b>PLATOON</b> (strong HR history vs this arm's hand), <b>PITCH EDGE</b> (barrels the pitch this arm throws most), <b>POWER</b> (top-end exit velo, 112+ mph).</p>
+      <p>Then one <b>form</b> read per hitter — a simple spectrum so you never see a contradiction: <b>DUE</b> (hitting it hard but unlucky — results lag his contact), <b>WARMING</b> (contact quality trending up), <b>HOT</b> (elite contact and results match — genuinely hot, earned), <b>MAY COOL</b> (results have run well above his contact and may regress). <b>▲ / ▼</b> = power-form trend with % change. <b>proj</b> = lineup not posted, using last game's order. <b>#1–#9</b> = batting-order spot.</p>
 
       <h3>Filters & sorting</h3>
-      <p><b>Heat / Trend / Name / Time</b> sort the list. <b>40+/55+/70+</b> cut the long tail by Heat floor. <b>All games</b> jumps to one matchup. <b>Bats R/L/S</b> shows only that handedness. <b>Hide small samples</b> drops hitters with under ~25 PA in the window (their numbers are noise).</p>
+      <p><b>Heat / Trend / Name / Time</b> sort the list. In <b>⚙ Filters</b>: <b>Games</b> and <b>Teams</b> narrow to specific matchups or clubs, <b>Heat floor</b> (40/55/70+) cuts the long tail, <b>Bats</b> shows one handedness, and <b>Traits</b> lets you tap any badge to show only hitters carrying it (tap several to stack them). <b>Hide small samples</b> drops hitters under ~25 PA in the window.</p>
 
       <h3>Top Plays & Stacks</h3>
       <p><b>Top Plays</b> (panel up top) = the strongest non-thin hitters not facing a sharp arm, each with a one-line "why" — your fast scan. <b>Stacks</b> (view toggle) groups hot hitters by the vulnerable arm they share — built for grand-slam parlays / same-game pairing.</p>
@@ -442,7 +464,7 @@
 
       <h3>Pitch matchup & luck (context only)</h3>
       <p><b>vs Pitch Mix toggle</b> (top controls): re-ranks the board by each hitter's EV/launch-angle/whiff <i>weighted to the opposing starter's pitch mix</i> over the last 2 weeks — a guy who crushes fastballs rises against a fastball-heavy arm. Toggle off to return to standard Heat instantly. Barrel% stays overall. Each card shows the mix-adjusted EV and how Heat shifts.</p>
-      <p><b>Pitch matchup</b> = the hitter's barrel% by pitch family (Fastball/Breaking/Offspeed) crossed with the arm's usage. <b>Contact luck</b> = expected (xwOBAcon) vs actual; positive gap = hitting it well but unlucky ("due"). A negative gap (overperforming) is only a regression risk if the underlying contact is mediocre — if expected contact is itself elite, he's <b>locked in</b> and the heat is earned, not lucky. <b>Starter HRs by hand</b> = actual HRs the starter allowed to RHB vs LHB, over a 2-year sample and this year. None of these affect Heat unless the mix toggle is on.</p>
+      <p><b>Pitch matchup</b> = the hitter's barrel% by pitch family (Fastball/Breaking/Offspeed) crossed with the arm's usage. <b>Contact luck</b> = expected (xwOBAcon) vs actual; a positive gap means he's hitting it well but unlucky (<b>DUE</b>). Overperforming only flags <b>MAY COOL</b> when results run far above his contact; if the underlying contact is itself elite he reads <b>HOT</b> — earned, not lucky. <b>Starter HRs by hand</b> = actual HRs the starter allowed to RHB vs LHB, over a 2-year sample and this year. None of these affect Heat unless the mix toggle is on.</p>
 
       <h3>Tracker</h3>
       <p>Grades the model against reality each morning. <b>Model vs baselines</b> is the one that matters: does Heat's top 10 homer more than just sorting by ISO or barrel%? If yes, the model is genuinely finding HR hitters better than the simple stats. The rest shows HR rate by Heat tier, by arm form, top-N success, which signals correlate to HRs, and a daily log. It needs a few graded days to mean anything.</p>
@@ -479,7 +501,7 @@ const EXTRA = [
   {k:"fb_pct",     label:"FB%",      fmt:v=>fmt(v,1)},
   {k:"pull_pct",   label:"Pull(all)",fmt:v=>fmt(v,1)},
 ];
-let BOARD=null, HISTORY=null, view="board", sortKey="heat", q="", hideThin=false, minHeat=0, gameSel=new Set(), batFilter="", luckSel=new Set(), drySel=new Set(), mixView=false;
+let BOARD=null, HISTORY=null, view="board", sortKey="heat", q="", hideThin=false, minHeat=0, gameSel=new Set(), batFilter="", traitSel=new Set(), teamSel=new Set(), drySel=new Set(), mixView=false;
 // effective heat: vs-pitch-mix variant when the toggle is on, else standard
 function H(p){return (mixView && p.heat_mix!=null) ? p.heat_mix : p.heat;}
 
@@ -571,10 +593,9 @@ function luckBlock(p){
     const elite=x!=null&&x>=0.420, weak=x!=null&&x<0.360;
     let read="", col="var(--muted)";
     if(g!=null){
-      if(g>=0.045){ read="running cold — due to break out"; col="var(--good)"; }
-      else if(g<=-0.090){ read=elite?"red hot — beyond even elite contact; some cooling likely":"red hot but lucky — results far above his contact; regression likely"; col="var(--bad)"; }
-      else if(g<=-0.045){ read=elite?"hot, elite contact backs most of it":weak?"hot on light contact — likely to cool":"hot — a bit above his contact"; col=elite?"var(--ink)":"var(--bad)"; }
-      else if(elite){ read="locked in — elite contact, results match; genuinely hot"; col="var(--good)"; }
+      if(g>=0.045){ read="due — hitting it hard, results lagging"; col="var(--good)"; }
+      else if(g<=-0.090){ read="may cool — results above what his contact supports"; col="var(--bad)"; }
+      else if(elite){ read="hot — elite contact, the heat is earned"; col="var(--good)"; }
       else if(weak){ read="fair — underlying contact is light"; col="var(--muted)"; }
       else { read="fair — results in line with his contact"; col="var(--muted)"; }
     }
@@ -588,11 +609,13 @@ function luckBlock(p){
   if(!r&&!s) return "";
   return `<h4 style="margin-top:16px">Contact luck — expected vs actual (on contact)</h4>${r}${s}`;
 }
+function throwBadge(t){ return (t==="R"||t==="L") ? `<span class="thr t-${t}">${t}HP</span>` : ""; }
 function badgeChips(p,max){
   const bs=(p.badges||[]);
   if(!bs.length) return "";
   const show=max?bs.slice(0,max):bs;
-  const lbl=t=>t==="COOLING"?"REGRESSION":t;   // legacy data shows new label until next build
+  const LBL={"COOLING":"MAY COOL","REGRESSION":"MAY COOL","HEATING":"WARMING","LOCKED IN":"HOT","MIX EDGE":"PITCH EDGE"};
+  const lbl=t=>LBL[t]||t;   // legacy data shows new labels until next build
   return `<div class="badges">${show.map(b=>`<span class="bdg bk-${b.k}">${lbl(b.t)}</span>`).join("")}</div>`;
 }
 function trendBadge(t){
@@ -615,12 +638,12 @@ function render(){
   if(hideThin) players=players.filter(p=>!isThin(p));
   if(minHeat>0) players=players.filter(p=>H(p)>=minHeat);
   if(gameSel.size) players=players.filter(p=>gameSel.has(String(p.game_pk)));
+  if(teamSel.size) players=players.filter(p=>teamSel.has(p.team));
   if(batFilter) players=players.filter(p=>(p.bats||"R")===batFilter);
-  if(luckSel.size){
+  if(traitSel.size){
     players=players.filter(p=>{
-      const g=p.luck&&p.luck.recent?p.luck.recent.luck_gap:null;
-      if(g==null) return false;
-      return (luckSel.has("due")&&g>=0.04) || (luckSel.has("hot")&&g<=-0.04);
+      const ks=new Set((p.badges||[]).map(b=>b.k));
+      return [...traitSel].every(k=>ks.has(k));   // must carry every selected trait
     });
   }
   if(drySel.size){
@@ -706,7 +729,7 @@ function render(){
       const f=a.form||{label:"",color:"#8A95A3"};
       arows+=`<div class="arm-row">
         <div class="arm-sc" style="background:${chipColor(a.hr_score)}">${a.hr_score}</div>
-        <div class="arm-nm"><b>${a.name}</b> <span style="color:var(--muted)">${a.team}→${a.opp} · ${a.park||""}</span>
+        <div class="arm-nm"><b>${a.name}</b> ${throwBadge(a.throws)} <span style="color:var(--muted)">${a.team}→${a.opp} · ${a.park||""}</span>
           ${badgeChips(a,4)}</div>
         <div class="arm-tag" style="color:${f.color};border:1px solid ${f.color}">${f.label}</div>
       </div>`;
@@ -746,8 +769,8 @@ function render(){
     const mdChip=(md!=null)?`<span class="mixd ${md>0?'up':md<0?'down':'flat'}">${md>0?'▲':md<0?'▼':'='}${md?Math.abs(md):''}</span>`:"";
     const armBadge = (op.hr_score!=null)
       ? `<span class="armbadge" style="border-color:${form?form.color:'var(--line)'};color:${form?form.color:'var(--muted)'}">`
-        +`${op.name||'arm'} · HR ${op.hr_score}${form?` · ${form.label}`:''}</span>`
-      : (op.name?`<span class="armbadge">${op.name}</span>`:'');
+        +`${throwBadge(op.throws)} ${op.name||'arm'} · HR ${op.hr_score}${form?` · ${form.label}`:''}</span>`
+      : (op.name?`<span class="armbadge">${throwBadge(op.throws)} ${op.name}</span>`:'');
 
     let strip="";
     CORE.forEach(m=>{
@@ -907,7 +930,7 @@ function renderStacks(){
       <div class="stack-head">
         <div class="sc" style="background:${chipColor(s.arm_score)}">${s.arm_score}</div>
         <div style="flex:1;min-width:0">
-          <div class="nm">${s.arm} <span class="arm-tag" style="color:${f.color};border:1px solid ${f.color}">${f.label}</span></div>
+          <div class="nm">${s.arm} ${throwBadge(arm&&arm.throws)} <span class="arm-tag" style="color:${f.color};border:1px solid ${f.color}">${f.label}</span></div>
           <div class="sub">${s.opp_team} bats · ${timeStr(s.time)} · ${s.hitters.length} in-form facing him</div>
           ${armBadges}
         </div>
@@ -1068,22 +1091,34 @@ document.getElementById("gameList").addEventListener("click",e=>{
   const it=e.target.closest(".gameitem"); if(!it)return;
   const pk=it.dataset.pk;
   if(gameSel.has(pk)) gameSel.delete(pk); else gameSel.add(pk);
-  populateGames(); render();
+  populateGames(); updateFiltCount(); render();
+});
+function populateTeams(){
+  const list=document.getElementById("teamList");
+  if(!BOARD||!BOARD.players){if(list)list.innerHTML="";return;}
+  const teams=[...new Set(BOARD.players.map(p=>p.team).filter(Boolean))].sort();
+  list.innerHTML=teams.map(t=>`<button class="teamchip${teamSel.has(t)?' on':''}" data-team="${t}">${t}</button>`).join("");
+}
+document.getElementById("teamList").addEventListener("click",e=>{
+  const b=e.target.closest(".teamchip"); if(!b)return;
+  const t=b.dataset.team;
+  if(teamSel.has(t)) teamSel.delete(t); else teamSel.add(t);
+  populateTeams(); updateFiltCount(); render();
 });
 function updateFiltCount(){
-  const n=gameSel.size+luckSel.size+drySel.size+(batFilter?1:0)+(minHeat>0?1:0)+(hideThin?1:0)+(mixView?1:0);
+  const n=gameSel.size+teamSel.size+traitSel.size+drySel.size+(batFilter?1:0)+(minHeat>0?1:0)+(hideThin?1:0)+(mixView?1:0);
   const el=document.getElementById("filtCount");
   if(!el)return;
   if(n>0){el.textContent=n;el.hidden=false;}else{el.hidden=true;}
 }
 function clearFilters(){
-  gameSel.clear(); batFilter=""; luckSel.clear(); drySel.clear(); minHeat=0; hideThin=false; mixView=false;
+  gameSel.clear(); teamSel.clear(); batFilter=""; traitSel.clear(); drySel.clear(); minHeat=0; hideThin=false; mixView=false;
   document.querySelectorAll('#floor button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.min==="0"));
   document.querySelectorAll('#bats button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.bat===""));
-  document.querySelectorAll('#luckF button,#dryF button').forEach(x=>x.setAttribute('aria-pressed','false'));
+  document.querySelectorAll('#traitF button,#dryF button').forEach(x=>x.setAttribute('aria-pressed','false'));
   document.getElementById('mixBtn').setAttribute('aria-pressed','false');
   document.getElementById('thinBtn').setAttribute('aria-pressed','false');
-  populateGames(); render();
+  populateGames(); populateTeams(); updateFiltCount(); render();
 }
 document.getElementById("floor").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b)return;
@@ -1097,12 +1132,12 @@ document.getElementById("bats").addEventListener("click",e=>{
   [...document.querySelectorAll("#bats button")].forEach(x=>x.setAttribute("aria-pressed",x===b));
   render();
 });
-document.getElementById("luckF").addEventListener("click",e=>{
+document.getElementById("traitF").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b)return;
-  const k=b.dataset.luck;
-  if(luckSel.has(k)) luckSel.delete(k); else luckSel.add(k);
-  b.setAttribute("aria-pressed", luckSel.has(k));
-  render();
+  const k=b.dataset.trait;
+  if(traitSel.has(k)) traitSel.delete(k); else traitSel.add(k);
+  b.setAttribute("aria-pressed", traitSel.has(k));
+  updateFiltCount(); render();
 });
 document.getElementById("dryF").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b)return;
@@ -1148,6 +1183,7 @@ async function load(){
      ${rw?`<span class="win-tag">Trailing 14 days · ${fmtD(rw.start)} – ${fmtD(rw.end)}</span>`:""}`;
   // build the multi-game selector with per-game starter vulnerability
   populateGames();
+  populateTeams();
   document.getElementById("foot").textContent=
     "All metrics = last 2 weeks. Heat ranks the four signals: Pull% (40%+ good), "+
     "EV (88.5+ good), Barrel%, Ideal Attack Angle% (58%+ good), then nudged by the opposing arm. "+

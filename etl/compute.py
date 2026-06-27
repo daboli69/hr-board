@@ -370,15 +370,17 @@ def player_badges(*, opp_form=None, hand_hr=None, eff_hand=None, pitch_matchup=N
                                         (side["hr"] / side["pa"]) >= 0.035):
             out.append({"t": "PLATOON", "k": "plat"})
     if pitch_matchup and pitch_matchup.get("edge") is not None and pitch_matchup["edge"] >= 2:
-        out.append({"t": "MIX EDGE", "k": "mix"})
+        out.append({"t": "PITCH EDGE", "k": "mix"})
+    # exactly ONE form badge — never contradictory pairs. Temperature spectrum:
+    #   DUE (unlucky) · WARMING (contact rising) · HOT (elite & earned) · MAY COOL (over his contact)
     if luck_gap is not None and luck_gap >= 0.045:
         out.append({"t": "DUE", "k": "due"})
     elif luck_gap is not None and luck_gap <= -0.090:
-        out.append({"t": "REGRESSION", "k": "cool"})      # results far beyond contact — likely to cool
+        out.append({"t": "MAY COOL", "k": "cool"})
     elif xwobacon is not None and xwobacon >= 0.420 and (luck_gap is None or luck_gap > -0.060):
-        out.append({"t": "LOCKED IN", "k": "lock"})       # genuinely elite contact, sustainable hot
-    if trend and trend.get("dir") == "up":
-        out.append({"t": "HEATING", "k": "hot"})
+        out.append({"t": "HOT", "k": "lock"})
+    elif trend and trend.get("dir") == "up":
+        out.append({"t": "WARMING", "k": "hot"})
     if max_ev is not None and max_ev >= 112:
         out.append({"t": "POWER", "k": "pow"})
     if pen_score is not None and pen_score >= 78:
@@ -414,16 +416,13 @@ def read_angle(*, hand=None, trend=None, pitch_matchup=None, luck_gap=None,
     # qualifier: due/hot + trend
     qual = None
     if luck_gap is not None and luck_gap >= 0.045:
-        qual = "running cold — due"
+        qual = "due — hitting it hard, results lagging"
     elif luck_gap is not None and luck_gap <= -0.090:
-        qual = "results far above his contact — regression risk"
-    elif luck_gap is not None and luck_gap <= -0.045:
-        qual = ("hot, elite contact backs it" if (xwobacon and xwobacon >= 0.420)
-                else "hot — a bit above his contact")
-    elif xwobacon is not None and xwobacon >= 0.420 and (luck_gap is None or abs(luck_gap) < 0.045):
-        qual = "locked in — elite contact, genuinely hot"
+        qual = "may cool — results above what his contact supports"
+    elif xwobacon is not None and xwobacon >= 0.420 and (luck_gap is None or luck_gap > -0.060):
+        qual = "hot — elite contact, the heat is earned"
     elif trend and trend.get("dir") == "up" and trend.get("pct"):
-        qual = f"contact heating up (+{trend['pct']}%)"
+        qual = f"warming up — contact rising (+{trend['pct']}%)"
     elif trend and trend.get("dir") == "down" and trend.get("pct"):
         qual = f"contact cooling ({trend['pct']}%)"
     if not bits and not qual:
