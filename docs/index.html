@@ -153,6 +153,14 @@
   .thr.t-R{background:#E4572E}.thr.t-L{background:#3E7CB1;color:#fff}
   .win-tag{display:inline-block;background:var(--panel-2);border:1px solid var(--line);
     border-radius:6px;padding:2px 8px;font-size:11px;color:var(--muted);letter-spacing:.01em}
+  .fdot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:middle}
+  .fdot.ok{background:#3fb950;box-shadow:0 0 6px rgba(63,185,80,.6)}
+  .fdot.warn{background:#d9a23a}
+  .fdot.bad{background:#e5534b;animation:pulseDot 1.6s ease-in-out infinite}
+  @keyframes pulseDot{50%{opacity:.4}}
+  .stale{max-width:760px;margin:9px auto 0;padding:10px 14px;font-size:12.5px;line-height:1.5;
+    color:#f0c9a8;background:rgba(229,83,75,.1);border:1px solid rgba(229,83,75,.35);border-radius:10px}
+  .stale b{color:#f3a26a}
   .compare-row{gap:8px}
   .tgl{background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:9px;
     padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;flex:1;transition:all .12s}
@@ -279,6 +287,67 @@
   .stack{background:var(--panel);border:1px solid var(--line);border-radius:14px;margin:9px 0;overflow:hidden;transition:border-color .15s ease}
   @media (hover:hover){.stack:hover{border-color:#303a47}}
   .stacks-intro{font-size:12px;color:var(--muted);line-height:1.55;padding:6px 4px 10px}
+
+  /* ===== Bet log ===== */
+  .betswrap{max-width:760px;margin:0 auto;padding-top:4px}
+  .bl-intro{font-size:12.5px;color:var(--muted);line-height:1.55;padding:4px 4px 12px}
+  .bl-intro b{color:var(--ink)}
+  .bl-form{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px;margin-bottom:14px}
+  .bl-form select,.bl-form input{background:var(--panel-2);border:1px solid var(--line);border-radius:9px;
+    color:var(--ink);font:inherit;font-size:14px;padding:10px 12px;width:100%}
+  .bl-legs{display:flex;flex-wrap:wrap;gap:6px;margin:11px 0}
+  .bl-empty{font-size:12px;color:var(--faint)}
+  .bl-leg{display:inline-flex;align-items:center;gap:6px;background:var(--panel-2);border:1px solid var(--line);
+    border-radius:8px;padding:5px 9px;font-size:13px;font-weight:600}
+  .bl-leg b{color:var(--seam);font-family:"IBM Plex Mono"}
+  .bl-leg button,.bl-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:0 2px;line-height:1}
+  .bl-search-wrap{position:relative;margin-bottom:11px}
+  .bl-sugg{display:flex;flex-direction:column;gap:2px;margin-top:4px}
+  .bl-opt{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 11px;
+    background:var(--panel-2);border:1px solid var(--line);border-radius:9px;cursor:pointer;font-size:13px}
+  .bl-opt:active{background:var(--line)}
+  .bl-opt-r{color:var(--muted);font-size:11px;font-family:"IBM Plex Mono"}
+  .bl-opt-free{color:var(--seam);justify-content:flex-start}
+  .bl-money{display:flex;gap:9px;margin-bottom:12px}
+  .bl-money label{flex:1;font-size:11px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+  .bl-save{width:100%;background:var(--seam);color:#fff;border:none;border-radius:10px;padding:12px;
+    font-size:14px;font-weight:700;cursor:pointer}
+  .bl-stats{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
+  .bl-stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:6px}
+  .bl-stat{text-align:center;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:10px 4px}
+  .bl-stat .v{font-family:Archivo;font-weight:800;font-size:18px}
+  .bl-stat .v.pos{color:#3fb950}.bl-stat .v.neg{color:#e5534b}
+  .bl-stat .k{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-top:2px}
+  .bl-sub-h{font-family:Archivo;font-weight:800;font-size:12px;letter-spacing:.03em;color:var(--ink);margin:16px 0 9px}
+  .bl-hint{font-size:12px;color:var(--muted);line-height:1.5}
+  .bl-bar{display:flex;align-items:center;gap:9px;margin:7px 0}
+  .bl-bar .bdg{flex:none;min-width:78px;text-align:center}
+  .bl-tier{flex:none;min-width:78px;font-family:"IBM Plex Mono";font-size:12px;font-weight:700;color:var(--muted)}
+  .bl-bartrack{flex:1;height:8px;background:var(--panel-2);border-radius:5px;overflow:hidden}
+  .bl-barfill{height:100%;background:linear-gradient(90deg,var(--cold),var(--hot));border-radius:5px}
+  .bl-barv{flex:none;font-family:"IBM Plex Mono";font-size:11px;color:var(--muted);min-width:62px;text-align:right}
+  .bl-h{font-family:Archivo;font-weight:800;font-size:13px;margin:4px 0 8px;letter-spacing:.02em}
+  .bl-none{color:var(--muted);text-align:center;padding:26px;font-size:13px}
+  .bl-bet{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
+  .bl-bet-head{display:flex;justify-content:space-between;align-items:flex-start}
+  .bl-bet-head b{font-family:Archivo;font-size:14px}
+  .bl-bet-sub{font-size:11px;color:var(--muted);margin-top:2px;font-family:"IBM Plex Mono"}
+  .bl-blegs{margin:10px 0}
+  .bl-bleg{padding:8px 0;border-top:1px solid var(--line)}
+  .bl-bleg-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .bl-bnm{font-weight:700;font-size:13px}
+  .bl-bh{font-family:"IBM Plex Mono";font-size:11px;color:var(--muted)}
+  .bl-bleg .badges{margin-top:5px}
+  .bl-hit{background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:4px 9px;
+    font-size:11px;font-weight:700;cursor:pointer;color:var(--muted);white-space:nowrap}
+  .bl-hit.hit{background:rgba(63,185,80,.18);color:#56c878;border-color:rgba(63,185,80,.45)}
+  .bl-hit.miss{background:rgba(229,83,75,.16);color:#e98980;border-color:rgba(229,83,75,.4)}
+  .bl-result{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .bl-rseg button.on.win{background:#2ea05d;color:#fff}
+  .bl-rseg button.on.loss{background:#c2403a;color:#fff}
+  .bl-pay{font-size:11px;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
+  .bl-pay input{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;color:var(--ink);
+    font:inherit;font-size:13px;padding:6px 9px;width:90px}
   .stack-head{display:flex;align-items:flex-start;gap:11px;padding:12px 13px;border-bottom:1px solid var(--line);background:var(--panel-2)}
   .stack-head .sc{font-family:Archivo;font-weight:900;font-size:16px;width:40px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex:none}
   .stack-head .nm{font-family:Archivo;font-weight:700;font-size:15px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
@@ -345,6 +414,7 @@
     <div class="seg" id="view">
       <button data-view="board" aria-pressed="true">Board</button>
       <button data-view="stacks" aria-pressed="false">Stacks</button>
+      <button data-view="bets" aria-pressed="false">Bets</button>
       <button data-view="tracker" aria-pressed="false">Tracker</button>
     </div>
   </div>
@@ -469,8 +539,14 @@
       <h3>Tracker</h3>
       <p>Grades the model against reality each morning. <b>Model vs baselines</b> is the one that matters: does Heat's top 10 homer more than just sorting by ISO or barrel%? If yes, the model is genuinely finding HR hitters better than the simple stats. The rest shows HR rate by Heat tier, by arm form, top-N success, which signals correlate to HRs, and a daily log. It needs a few graded days to mean anything.</p>
 
+      <h3>Bets</h3>
+      <p>Your private bet log — stored only on this device, nothing leaves your phone. Log each bet, pick the player(s) from today's board (their badges and Heat are captured automatically), then after games mark each as <b>HR ✓</b> or <b>no HR</b> and set the result. Over time it shows your record, net, and ROI — plus the payoff feature: <b>HR rate by badge</b>, so you learn which badges actually convert for you (does HOT homer more than MAY COOL?) and which are noise.</p>
+
+      <h3>Freshness</h3>
+      <p>The dot by the title shows build health: <b>green</b> = fresh, <b>amber</b> = a few hours old, <b>red</b> = likely stale or showing an older slate. The board builds at 6:30am, 10am, 12pm, 3pm, 5pm and 7pm ET; if one is missed or you're viewing yesterday's slate, a banner warns you before you bet.</p>
+
       <h3>How it updates</h3>
-      <p>The board rebuilds hourly through the day as lineups post; the grader runs each morning after games are final. Park factor is shown for context but isn't baked into Heat — the data and matchup drive the ranking. All of it is tunable, and none of it is betting advice.</p>
+      <p>The board rebuilds through the day (6:30am, 10am, 12pm, 3pm, 5pm, 7pm ET) as lineups post; the grader runs each morning after games are final. Park factor is shown for context but isn't baked into Heat — the data and matchup drive the ranking. All of it is tunable, and none of it is betting advice.</p>
     </div>
   </div>
 </div>
@@ -894,11 +970,37 @@ function thead(){
   </div>`;
 }
 function setHH(){const h=document.querySelector("header");if(h)document.documentElement.style.setProperty("--hh",h.offsetHeight+"px");}
+// Build-health: how fresh is the data, and is it even today's slate? Bettors act on this.
+function setFreshness(){
+  if(!BOARD||!BOARD.generated_at) return;
+  const gen=new Date(BOARD.generated_at);
+  const stamp=document.getElementById("stamp"); if(!stamp) return;
+  const mins=Math.max(0,Math.round((Date.now()-gen.getTime())/60000));
+  const ago = mins<60 ? `${mins}m ago` : mins<1440 ? `${Math.floor(mins/60)}h ${mins%60}m ago` : `${Math.floor(mins/1440)}d ago`;
+  // largest scheduled gap is 6:30am→10am (3.5h); flag amber past ~4h, red past ~7h of daytime staleness
+  let dot = mins<240 ? "ok" : mins<420 ? "warn" : "bad";
+  // is the board showing an older slate than today (ET)?
+  const etToday=new Date().toLocaleDateString("en-CA",{timeZone:"America/New_York"});
+  const oldSlate = BOARD.slate_date && BOARD.slate_date < etToday;
+  if(oldSlate) dot="bad";
+  stamp.innerHTML=`<span class="fdot ${dot}"></span>updated ${gen.toLocaleTimeString([],{hour:"numeric",minute:"2-digit"})} · ${ago}`;
+  // stale banner — only when it genuinely warrants a heads-up
+  let banner=document.getElementById("staleBanner");
+  if(oldSlate || dot==="bad"){
+    if(!banner){banner=document.createElement("div");banner.id="staleBanner";banner.className="stale";
+      const h=document.querySelector("header");h.parentNode.insertBefore(banner,h.nextSibling);}
+    banner.innerHTML = oldSlate
+      ? `<b>Heads up:</b> showing the ${fmtSlate(BOARD.slate_date)} board — today's slate hasn't built yet. It fills in through the morning.`
+      : `<b>Heads up:</b> this board last built ${ago}. A scheduled update may have been missed — double-check before betting.`;
+    banner.hidden=false;
+  } else if(banner){ banner.hidden=true; }
+}
+function fmtSlate(s){const t=String(s).split("-").map(Number);return new Date(t[0],t[1]-1,t[2]).toLocaleDateString([],{month:"short",day:"numeric"});}
 window.addEventListener("resize",setHH);
 window.addEventListener("orientationchange",()=>setTimeout(setHH,100));
 window.addEventListener("resize",setHH);
 function setSort(k){ sortKey=k; render(); }
-function renderView(){ if(view==="tracker") renderTracker(); else if(view==="stacks") renderStacks(); else render(); }
+function renderView(){ if(view==="tracker") renderTracker(); else if(view==="stacks") renderStacks(); else if(view==="bets") renderBets(); else render(); }
 
 function renderStacks(){
   const main=document.getElementById("main");
@@ -943,6 +1045,142 @@ function renderStacks(){
 }
 
 function toggle(el){ el.closest(".row").classList.toggle("open"); }
+
+// ===== Personal bet log (stored on this device) + badge-conversion analytics =====
+const BET_TYPES=["Longest HR jackpot","Grand slam parlay","Round robin","Single HR","Other"];
+const BKLABEL={arm:"WEAK ARM",plat:"PLATOON",mix:"PITCH EDGE",pow:"POWER",lock:"HOT",hot:"WARMING",due:"DUE",cool:"MAY COOL"};
+function loadBets(){try{return JSON.parse(localStorage.getItem("gy_bets")||"[]");}catch(e){return[];}}
+function saveBets(b){try{localStorage.setItem("gy_bets",JSON.stringify(b));}catch(e){}}
+let betDraft={type:BET_TYPES[0],stake:"",odds:"",legs:[]};
+
+function renderBets(){
+  const main=document.getElementById("main");
+  const bets=loadBets().sort((a,b)=>(b.date||"").localeCompare(a.date||"")||(b.id-a.id));
+  main.innerHTML=`<div class="betswrap">
+    <div class="bl-intro">Log your daily bets to track <b>your</b> ROI — and learn which badges actually convert to homers. Stored only on this device.</div>
+    ${betFormHTML()}
+    ${betStatsHTML(bets)}
+    ${betListHTML(bets)}
+  </div>`;
+  const s=document.getElementById("betSearch"); if(s) s.oninput=()=>betSearch(s.value);
+}
+function betFormHTML(){
+  const legs=betDraft.legs.map((lg,i)=>`<span class="bl-leg">${lg.name}${lg.heat!=null?` <b>${lg.heat}</b>`:""} <button onclick="betRemoveLeg(${i})" aria-label="remove">✕</button></span>`).join("");
+  return `<div class="bl-form">
+    <select id="betType" onchange="betDraft.type=this.value">
+      ${BET_TYPES.map(t=>`<option ${t===betDraft.type?"selected":""}>${t}</option>`).join("")}
+    </select>
+    <div class="bl-legs">${legs||'<span class="bl-empty">add the player(s) in this bet ↓</span>'}</div>
+    <div class="bl-search-wrap">
+      <input id="betSearch" placeholder="Search today's hitters to add…" autocomplete="off"/>
+      <div id="betSugg" class="bl-sugg"></div>
+    </div>
+    <div class="bl-money">
+      <label>Stake $<input id="betStake" type="number" inputmode="decimal" value="${betDraft.stake}" oninput="betDraft.stake=this.value"/></label>
+      <label>Odds<input id="betOdds" placeholder="+450" value="${betDraft.odds}" oninput="betDraft.odds=this.value"/></label>
+    </div>
+    <button class="bl-save" onclick="betSave()">Log bet</button>
+  </div>`;
+}
+function betSearch(v){
+  const box=document.getElementById("betSugg"); if(!box)return;
+  v=(v||"").trim().toLowerCase();
+  if(!v||!BOARD||!BOARD.players){box.innerHTML="";return;}
+  const hits=BOARD.players.filter(p=>p.name.toLowerCase().includes(v)).slice(0,6);
+  box.innerHTML=hits.map(p=>`<div class="bl-opt" onclick="betAddLeg('${p.id}')"><span>${p.name}</span><span class="bl-opt-r">${p.team} · H ${p.heat??"–"}</span></div>`).join("")
+    +`<div class="bl-opt bl-opt-free" onclick="betAddFree()">+ add as text</div>`;
+}
+function betAddLeg(id){
+  const p=(BOARD.players||[]).find(x=>String(x.id)===String(id)); if(!p)return;
+  betDraft.legs.push({name:p.name,team:p.team,heat:p.heat,badges:(p.badges||[]).map(b=>b.k),hit:"pending"});
+  renderBets();
+}
+function betAddFree(){
+  const s=document.getElementById("betSearch"); const v=s?s.value.trim():"";
+  if(v) betDraft.legs.push({name:v,team:"",heat:null,badges:[],hit:"pending"});
+  renderBets();
+}
+function betRemoveLeg(i){betDraft.legs.splice(i,1);renderBets();}
+function betSave(){
+  if(!betDraft.legs.length){alert("Add at least one player to the bet.");return;}
+  const bets=loadBets();
+  bets.push({id:Date.now(),date:new Date().toLocaleDateString("en-CA",{timeZone:"America/New_York"}),
+    type:betDraft.type,stake:betDraft.stake,odds:betDraft.odds,result:"pending",payout:"",legs:betDraft.legs});
+  saveBets(bets);
+  betDraft={type:betDraft.type,stake:"",odds:"",legs:[]};
+  renderBets();
+}
+function betSetResult(id,r){const bets=loadBets();const b=bets.find(x=>x.id===id);if(!b)return;b.result=r;if(r!=="win")b.payout="";saveBets(bets);renderBets();}
+function betSetPayout(id,v){const bets=loadBets();const b=bets.find(x=>x.id===id);if(b){b.payout=v;saveBets(bets);}}
+function betSetPayoutDone(id,v){betSetPayout(id,v);renderBets();}
+function betCycleHit(id,i){const bets=loadBets();const b=bets.find(x=>x.id===id);if(!b||!b.legs[i])return;const c=b.legs[i].hit;b.legs[i].hit=c==="pending"?"hit":c==="hit"?"miss":"pending";saveBets(bets);renderBets();}
+function betDelete(id){if(!confirm("Delete this bet?"))return;saveBets(loadBets().filter(x=>x.id!==id));renderBets();}
+function betListHTML(bets){
+  if(!bets.length) return `<div class="bl-none">No bets logged yet — log one above to start tracking.</div>`;
+  return `<h3 class="bl-h">Logged bets · ${bets.length}</h3>`+bets.map(b=>{
+    const legs=(b.legs||[]).map((lg,i)=>{
+      const bd=(lg.badges||[]).map(k=>`<span class="bdg bk-${k}">${BKLABEL[k]||k}</span>`).join("");
+      const hc=lg.hit==="hit"?"hit":lg.hit==="miss"?"miss":"";
+      const hl=lg.hit==="hit"?"HR ✓":lg.hit==="miss"?"no HR":"did he homer?";
+      return `<div class="bl-bleg"><div class="bl-bleg-top">
+          <span class="bl-bnm">${lg.name}${lg.heat!=null?` <span class="bl-bh">H${lg.heat}</span>`:""}</span>
+          <button class="bl-hit ${hc}" onclick="betCycleHit(${b.id},${i})">${hl}</button></div>
+        ${bd?`<div class="badges">${bd}</div>`:""}</div>`;
+    }).join("");
+    const r=b.result;
+    return `<div class="bl-bet">
+      <div class="bl-bet-head"><div><b>${b.type}</b><div class="bl-bet-sub">${b.date}${b.stake?` · $${b.stake}`:""}${b.odds?` · ${b.odds}`:""}</div></div>
+        <button class="bl-del" onclick="betDelete(${b.id})" aria-label="delete">✕</button></div>
+      <div class="bl-blegs">${legs}</div>
+      <div class="bl-result"><div class="seg bl-rseg">
+          <button class="${r==='pending'?'on':''}" onclick="betSetResult(${b.id},'pending')">Pending</button>
+          <button class="${r==='win'?'on win':''}" onclick="betSetResult(${b.id},'win')">Won</button>
+          <button class="${r==='loss'?'on loss':''}" onclick="betSetResult(${b.id},'loss')">Lost</button>
+        </div>${r==="win"?`<label class="bl-pay">profit $<input type="number" inputmode="decimal" value="${b.payout||""}" oninput="betSetPayout(${b.id},this.value)" onchange="betSetPayoutDone(${b.id},this.value)"/></label>`:""}</div>
+    </div>`;
+  }).join("");
+}
+function betStats(bets){
+  let staked=0,net=0,w=0,l=0;const byBadge={},byTier={};
+  const TIER=h=>h>=70?"70+":h>=55?"55–69":h>=40?"40–54":"<40";
+  bets.forEach(b=>{
+    const stake=+b.stake||0;
+    if(b.result==="win"){staked+=stake;net+=(+b.payout||0);w++;}
+    else if(b.result==="loss"){staked+=stake;net-=stake;l++;}
+    (b.legs||[]).forEach(lg=>{
+      if(lg.hit!=="hit"&&lg.hit!=="miss")return;
+      const hit=lg.hit==="hit"?1:0;
+      (lg.badges||[]).forEach(k=>{const o=byBadge[k]=byBadge[k]||{h:0,n:0};o.h+=hit;o.n++;});
+      if(lg.heat!=null){const t=TIER(lg.heat);const o=byTier[t]=byTier[t]||{h:0,n:0};o.h+=hit;o.n++;}
+    });
+  });
+  return {staked,net,w,l,byBadge,byTier};
+}
+function betStatsHTML(bets){
+  if(!bets.length) return "";
+  const st=betStats(bets);
+  const roi=st.staked>0?Math.round(st.net/st.staked*100):null;
+  const money=`<div class="bl-stat-grid">
+    <div class="bl-stat"><div class="v">${st.w}-${st.l}</div><div class="k">record</div></div>
+    <div class="bl-stat"><div class="v ${st.net>=0?'pos':'neg'}">${st.net>=0?"+":"−"}$${Math.abs(st.net).toFixed(0)}</div><div class="k">net</div></div>
+    <div class="bl-stat"><div class="v ${roi!=null&&roi>=0?'pos':'neg'}">${roi!=null?(roi>=0?"+":"")+roi+"%":"–"}</div><div class="k">ROI</div></div>
+    <div class="bl-stat"><div class="v">$${st.staked.toFixed(0)}</div><div class="k">staked</div></div>
+  </div>`;
+  const bk=Object.entries(st.byBadge).sort((a,b)=>b[1].n-a[1].n);
+  const badgeRows=bk.length?bk.map(([k,o])=>{const pct=Math.round(o.h/o.n*100);
+    return `<div class="bl-bar"><span class="bdg bk-${k}">${BKLABEL[k]||k}</span>
+      <div class="bl-bartrack"><div class="bl-barfill" style="width:${pct}%"></div></div>
+      <span class="bl-barv">${pct}% · ${o.h}/${o.n}</span></div>`;}).join("")
+    :`<div class="bl-hint">Mark each player “HR ✓” or “no HR” on your logged bets and this fills in — showing which badges actually homer for you.</div>`;
+  const order=["70+","55–69","40–54","<40"];
+  const tierRows=order.filter(t=>st.byTier[t]).map(t=>{const o=st.byTier[t];const pct=Math.round(o.h/o.n*100);
+    return `<div class="bl-bar"><span class="bl-tier">${t}</span>
+      <div class="bl-bartrack"><div class="bl-barfill" style="width:${pct}%"></div></div>
+      <span class="bl-barv">${pct}% · ${o.h}/${o.n}</span></div>`;}).join("");
+  return `<div class="bl-stats">${money}
+    <div class="bl-sub-h">HR rate by badge</div>${badgeRows}
+    ${tierRows?`<div class="bl-sub-h">HR rate by Heat tier</div>${tierRows}`:""}</div>`;
+}
 
 function renderTracker(){
   const main=document.getElementById("main");
@@ -1171,9 +1409,9 @@ async function load(){
       `<div class="empty">The board isn't available right now.<br>It refreshes automatically through the day — check back in a few minutes.</div>`;
     return;
   }
-  const gen=new Date(BOARD.generated_at);
-  document.getElementById("stamp").textContent=
-    "updated "+gen.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});
+  setFreshness();
+  if(window._freshTimer) clearInterval(window._freshTimer);
+  window._freshTimer=setInterval(setFreshness,60000);   // keep "x ago" + stale state live
   const rw=BOARD.recent_window;
   const fmtD=s=>{const t=String(s).split("-").map(Number);return new Date(t[0],t[1]-1,t[2]).toLocaleDateString([],{month:"short",day:"numeric"});};
   document.getElementById("meta").innerHTML=
