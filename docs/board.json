@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-28T15:13:08-04:00",
+  "generated_at": "2026-06-28T16:50:41-04:00",
   "slate_date": "2026-06-28",
   "league_avg": {
     "barrel_pct": 8.0,
@@ -120,13 +120,7 @@
     }
   ],
   "lineups_pending": [],
-  "projected_games": [
-    {
-      "game_pk": 824744,
-      "away": "NYY",
-      "home": "BOS"
-    }
-  ],
+  "projected_games": [],
   "recent_window": {
     "days": 14,
     "start": "2026-06-14",
@@ -4574,7 +4568,7 @@
       "name": "Nate Eaton",
       "bats": "R",
       "lineup_spot": 1,
-      "lineup_status": "projected",
+      "lineup_status": "confirmed",
       "trend": {
         "dir": "up",
         "pct": 38,
@@ -8597,8 +8591,8 @@
       "id": 665862,
       "name": "Jazz Chisholm Jr.",
       "bats": "L",
-      "lineup_spot": 7,
-      "lineup_status": "projected",
+      "lineup_spot": 1,
+      "lineup_status": "confirmed",
       "trend": {
         "dir": "down",
         "pct": -11,
@@ -11002,7 +10996,7 @@
       "name": "Caleb Durbin",
       "bats": "R",
       "lineup_spot": 6,
-      "lineup_status": "projected",
+      "lineup_status": "confirmed",
       "trend": {
         "dir": "down",
         "pct": -43,
@@ -15013,413 +15007,6 @@
         "L5": 2,
         "L15": 2,
         "L30": 2
-      }
-    },
-    {
-      "id": 502671,
-      "name": "Paul Goldschmidt",
-      "bats": "R",
-      "lineup_spot": 1,
-      "lineup_status": "projected",
-      "trend": {
-        "dir": "flat",
-        "pct": 7,
-        "new": false
-      },
-      "angle": "RHB vs an arm that's allowed 32 HR to RHB (2yr) \u2014 may cool \u2014 results above what his contact supports",
-      "badges": [
-        {
-          "t": "PLATOON",
-          "k": "plat"
-        },
-        {
-          "t": "MAY COOL",
-          "k": "cool"
-        }
-      ],
-      "team": "NYY",
-      "opp_team": "BOS",
-      "game_pk": 824744,
-      "time": "2026-06-28T23:20:00Z",
-      "park": "Fenway Park",
-      "park_hr_factor": 1.04,
-      "why": ".308 ISO \u00b7 vs SLIPPING arm",
-      "tier": "LEAN",
-      "cleared": 2,
-      "sample": {
-        "L5": 39,
-        "L15": 102,
-        "L30": 184,
-        "season": 316
-      },
-      "opp_pitcher": {
-        "name": "Sonny Gray",
-        "throws": "R",
-        "hr_score": 48,
-        "recent_score": 52,
-        "season_score": 42,
-        "form": {
-          "label": "SLIPPING",
-          "color": "#E0913A"
-        },
-        "flags": [
-          "HR-prone lately (5.3% of PA)",
-          "hitters timing him up (59.5% ideal AA)",
-          "pulled in the air (52.9%)",
-          "HRs even with Ks",
-          "trending worse vs season"
-        ],
-        "recent": {
-          "barrel_pct_allowed": 2.9,
-          "hardhit_pct_allowed": 27.5,
-          "avg_ev_allowed": 82.6,
-          "hr_per_pa": 5.3,
-          "ideal_aa_allowed": 59.5,
-          "pull_air_allowed": 52.9,
-          "swstr_pct_allowed": 12.6,
-          "fb_velo": 90.5,
-          "velo_trend": -0.2,
-          "bbe": 69
-        },
-        "season": {
-          "barrel_pct_allowed": 4.2,
-          "hardhit_pct_allowed": 24.9,
-          "avg_ev_allowed": 83.0,
-          "hr_per_pa": 2.9,
-          "ideal_aa_allowed": 58.7,
-          "pull_air_allowed": 42.7,
-          "swstr_pct_allowed": 10.8,
-          "fb_velo": 90.7
-        },
-        "platoon": {
-          "R": 45,
-          "L": 47,
-          "worse": "L",
-          "gap": 2
-        },
-        "hr_by_hand": {
-          "R_hr": 3,
-          "R_pa": 122,
-          "L_hr": 6,
-          "L_pa": 191
-        },
-        "hr_by_hand_2yr": {
-          "two_yr": {
-            "R": {
-              "hr": 32,
-              "pa": 742
-            },
-            "L": {
-              "hr": 27,
-              "pa": 803
-            }
-          },
-          "this_yr": {
-            "R": {
-              "hr": 4,
-              "pa": 155
-            },
-            "L": {
-              "hr": 8,
-              "pa": 220
-            }
-          }
-        },
-        "vs_hand": "R",
-        "vs_hand_score": 45,
-        "vs_hand_metrics": {
-          "barrel_pct_allowed": 3.5,
-          "hr_per_pa": 2.5,
-          "bbe": 141
-        }
-      },
-      "opp_bullpen": {
-        "score": 26,
-        "form": {
-          "label": "DEALING",
-          "color": "#5FB97A"
-        },
-        "flags": [],
-        "arms": 18,
-        "vs_hand": 40,
-        "hand": "R",
-        "platoon": {
-          "R": 40,
-          "L": 17,
-          "worse": "R",
-          "gap": 23
-        }
-      },
-      "pitch_splits": {
-        "FB": {
-          "barrel_pct": 7.1,
-          "avg_ev": 83.3,
-          "la": 24.8,
-          "whiff_pct": 22.4,
-          "hr": 10,
-          "bbe": 182
-        },
-        "BR": {
-          "barrel_pct": 3.1,
-          "avg_ev": 80.7,
-          "la": 13.9,
-          "whiff_pct": 25.6,
-          "hr": 3,
-          "bbe": 96
-        },
-        "OFF": {
-          "barrel_pct": 8.1,
-          "avg_ev": 81.8,
-          "la": -0.4,
-          "whiff_pct": 25.0,
-          "hr": 1,
-          "bbe": 37
-        }
-      },
-      "pitch_usage": {
-        "FB": 58.6,
-        "BR": 36.2,
-        "OFF": 5.2
-      },
-      "pitch_matchup": {
-        "weighted_barrel": 5.7,
-        "edge": -0.3,
-        "best": {
-          "fam": "FB",
-          "label": "Fastball",
-          "usage": 58.6,
-          "barrel": 7.1
-        },
-        "fams": {
-          "FB": {
-            "usage": 58.6,
-            "barrel": 7.1
-          },
-          "BR": {
-            "usage": 36.2,
-            "barrel": 3.1
-          },
-          "OFF": {
-            "usage": 5.2,
-            "barrel": 8.1
-          }
-        }
-      },
-      "heat_mix": 55,
-      "mix": {
-        "avg_ev": 80.3,
-        "barrel_pct": 6.0,
-        "la": 13.8,
-        "whiff_pct": 19.9
-      },
-      "ev_overall": 80.2,
-      "luck": {
-        "recent": {
-          "xwobacon": 0.31,
-          "wobacon": 0.533,
-          "luck_gap": -0.223,
-          "barrel_pct": 5.6,
-          "hr": 5,
-          "bb_count": 90
-        },
-        "season": {
-          "xwobacon": 0.389,
-          "wobacon": 0.465,
-          "luck_gap": -0.076,
-          "barrel_pct": 6.0,
-          "hr": 14,
-          "bb_count": 316
-        }
-      },
-      "max_ev": {
-        "recent": 107.8,
-        "season": 109.8
-      },
-      "heat": 55,
-      "score_breakdown": {
-        "barrel_pct": 5.1,
-        "pull_air_pct": 9.9,
-        "iso": 16.0,
-        "avg_ev": 3.3,
-        "ideal_aa_pct": 7.0,
-        "slg": 14.0,
-        "cleared": 2,
-        "signals": {
-          "barrel_pct": "False",
-          "pull_air_pct": "False",
-          "iso": true,
-          "avg_ev": "False",
-          "ideal_aa_pct": "False",
-          "slg": true
-        },
-        "tier": "LEAN",
-        "flags": [
-          "EV below 87 floor"
-        ],
-        "base_four": 55.3,
-        "pitcher_mult": 0.991
-      },
-      "metrics": {
-        "pull_air_pct": {
-          "recent": 35.3,
-          "season": 35.1,
-          "career": null
-        },
-        "avg_ev": {
-          "recent": 80.2,
-          "season": 82.3,
-          "career": null
-        },
-        "barrel_pct": {
-          "recent": 5.6,
-          "season": 6.0,
-          "career": null
-        },
-        "ideal_aa_pct": {
-          "recent": 53.2,
-          "season": 49.5,
-          "career": null
-        },
-        "bat_speed": {
-          "recent": 71.1,
-          "season": 71.0,
-          "career": null
-        },
-        "hardhit_pct": {
-          "recent": 16.7,
-          "season": 23.7,
-          "career": null
-        },
-        "iso": {
-          "recent": 0.308,
-          "season": 0.261,
-          "career": null
-        },
-        "slg": {
-          "recent": 0.615,
-          "season": 0.552,
-          "career": null
-        },
-        "launch_angle": {
-          "recent": 12.1,
-          "season": 18.5,
-          "career": null
-        },
-        "fb_pct": {
-          "recent": 16.7,
-          "season": 13.6,
-          "career": null
-        },
-        "pull_pct": {
-          "recent": 47.4,
-          "season": 38.4,
-          "career": null
-        },
-        "swstr_pct": {
-          "recent": 10.6,
-          "season": 11.6,
-          "career": null
-        },
-        "k_pct": {
-          "recent": 25.9,
-          "season": 20.1,
-          "career": null
-        }
-      },
-      "windows": {
-        "L14d": {
-          "barrel_pct": 5.6,
-          "hardhit_pct": 16.7,
-          "avg_ev": 80.2,
-          "max_ev": 107.8,
-          "launch_angle": 12.1,
-          "fb_pct": 16.7,
-          "pull_pct": 47.4,
-          "pull_air_pct": 35.3,
-          "ideal_aa_pct": 53.2,
-          "bat_speed": 71.1,
-          "iso": 0.308,
-          "slg": 0.615,
-          "xwobacon": 0.31,
-          "wobacon": 0.533,
-          "luck_gap": -0.223,
-          "swstr_pct": 10.6,
-          "k_pct": 25.9,
-          "hr": 5,
-          "pa": 54,
-          "bb_count": 90
-        },
-        "L5": {
-          "barrel_pct": 5.1,
-          "hardhit_pct": 12.8,
-          "avg_ev": 80.2,
-          "max_ev": 105.2,
-          "launch_angle": 19.5,
-          "fb_pct": 12.8,
-          "pull_pct": 50.0,
-          "pull_air_pct": 40.0,
-          "ideal_aa_pct": 48.0,
-          "bat_speed": 71.2,
-          "iso": 0.368,
-          "slg": 0.632,
-          "xwobacon": 0.294,
-          "wobacon": 0.504,
-          "luck_gap": -0.21,
-          "swstr_pct": 12.6,
-          "k_pct": 23.8,
-          "hr": 2,
-          "pa": 21,
-          "bb_count": 39
-        },
-        "L15": {
-          "barrel_pct": 5.9,
-          "hardhit_pct": 17.6,
-          "avg_ev": 80.6,
-          "max_ev": 107.8,
-          "launch_angle": 14.2,
-          "fb_pct": 18.6,
-          "pull_pct": 43.5,
-          "pull_air_pct": 36.4,
-          "ideal_aa_pct": 52.4,
-          "bat_speed": 71.1,
-          "iso": 0.317,
-          "slg": 0.617,
-          "xwobacon": 0.299,
-          "wobacon": 0.503,
-          "luck_gap": -0.204,
-          "swstr_pct": 10.9,
-          "k_pct": 23.8,
-          "hr": 6,
-          "pa": 63,
-          "bb_count": 102
-        },
-        "L30": {
-          "barrel_pct": 4.3,
-          "hardhit_pct": 19.6,
-          "avg_ev": 80.7,
-          "max_ev": 107.8,
-          "launch_angle": 15.9,
-          "fb_pct": 15.2,
-          "pull_pct": 41.2,
-          "pull_air_pct": 35.6,
-          "ideal_aa_pct": 52.3,
-          "bat_speed": 70.8,
-          "iso": 0.256,
-          "slg": 0.57,
-          "xwobacon": 0.329,
-          "wobacon": 0.472,
-          "luck_gap": -0.143,
-          "swstr_pct": 11.6,
-          "k_pct": 19.4,
-          "hr": 9,
-          "pa": 129,
-          "bb_count": 184
-        }
-      },
-      "hr_recent": {
-        "L5": 2,
-        "L15": 6,
-        "L30": 9
       }
     },
     {
@@ -19463,6 +19050,411 @@
         "L5": 0,
         "L15": 4,
         "L30": 7
+      }
+    },
+    {
+      "id": 657136,
+      "name": "Connor Wong",
+      "bats": "R",
+      "lineup_spot": 8,
+      "lineup_status": "confirmed",
+      "trend": {
+        "dir": "up",
+        "pct": 97,
+        "new": false
+      },
+      "angle": "RHB vs an arm that's allowed 39 HR to RHB (2yr) \u2014 due \u2014 hitting it hard, results lagging",
+      "badges": [
+        {
+          "t": "PLATOON",
+          "k": "plat"
+        },
+        {
+          "t": "DUE",
+          "k": "due"
+        }
+      ],
+      "team": "BOS",
+      "opp_team": "NYY",
+      "game_pk": 824744,
+      "time": "2026-06-28T23:20:00Z",
+      "park": "Fenway Park",
+      "park_hr_factor": 1.04,
+      "why": "44% air-pull \u00b7 61% IAA",
+      "tier": "SOLID",
+      "cleared": 3,
+      "sample": {
+        "L5": 17,
+        "L15": 58,
+        "L30": 126,
+        "season": 129
+      },
+      "opp_pitcher": {
+        "name": "Carlos Rod\u00f3n",
+        "throws": "L",
+        "hr_score": 30,
+        "recent_score": 33,
+        "season_score": 27,
+        "form": {
+          "label": "DEALING",
+          "color": "#5FB97A"
+        },
+        "flags": [
+          "pulled in the air (53.3%)"
+        ],
+        "recent": {
+          "barrel_pct_allowed": 3.0,
+          "hardhit_pct_allowed": 24.2,
+          "avg_ev_allowed": 84.1,
+          "hr_per_pa": 2.3,
+          "ideal_aa_allowed": 51.7,
+          "pull_air_allowed": 53.3,
+          "swstr_pct_allowed": 14.5,
+          "fb_velo": 94.3,
+          "velo_trend": 0.1,
+          "bbe": 66
+        },
+        "season": {
+          "barrel_pct_allowed": 2.6,
+          "hardhit_pct_allowed": 21.7,
+          "avg_ev_allowed": 82.8,
+          "hr_per_pa": 1.7,
+          "ideal_aa_allowed": 53.7,
+          "pull_air_allowed": 37.7,
+          "swstr_pct_allowed": 13.4,
+          "fb_velo": 94.2
+        },
+        "platoon": {
+          "R": 30,
+          "L": 37,
+          "worse": "L",
+          "gap": 7
+        },
+        "hr_by_hand": {
+          "R_hr": 1,
+          "R_pa": 126,
+          "L_hr": 2,
+          "L_pa": 47
+        },
+        "hr_by_hand_2yr": {
+          "two_yr": {
+            "R": {
+              "hr": 39,
+              "pa": 1120
+            },
+            "L": {
+              "hr": 9,
+              "pa": 339
+            }
+          },
+          "this_yr": {
+            "R": {
+              "hr": 1,
+              "pa": 126
+            },
+            "L": {
+              "hr": 2,
+              "pa": 47
+            }
+          }
+        },
+        "vs_hand": "R",
+        "vs_hand_score": 30,
+        "vs_hand_metrics": {
+          "barrel_pct_allowed": 1.8,
+          "hr_per_pa": 0.8,
+          "bbe": 171
+        }
+      },
+      "opp_bullpen": {
+        "score": 24,
+        "form": {
+          "label": "DEALING",
+          "color": "#5FB97A"
+        },
+        "flags": [],
+        "arms": 14,
+        "vs_hand": 24,
+        "hand": "R",
+        "platoon": {
+          "R": 24,
+          "L": 31,
+          "worse": "L",
+          "gap": 7
+        }
+      },
+      "pitch_splits": {
+        "FB": {
+          "barrel_pct": 2.3,
+          "avg_ev": 81.6,
+          "la": 13.2,
+          "whiff_pct": 15.0,
+          "hr": 0,
+          "bbe": 87
+        },
+        "BR": {
+          "barrel_pct": 6.1,
+          "avg_ev": 80.1,
+          "la": 15.4,
+          "whiff_pct": 33.3,
+          "hr": 1,
+          "bbe": 33
+        },
+        "OFF": {
+          "barrel_pct": 0.0,
+          "avg_ev": 92.2,
+          "la": -3.9,
+          "whiff_pct": 53.3,
+          "hr": 0,
+          "bbe": 7
+        }
+      },
+      "pitch_usage": {
+        "FB": 59.3,
+        "BR": 26.2,
+        "OFF": 14.5
+      },
+      "pitch_matchup": {
+        "weighted_barrel": 3.0,
+        "edge": -0.1,
+        "best": {
+          "fam": "BR",
+          "label": "Breaking",
+          "usage": 26.2,
+          "barrel": 6.1
+        },
+        "fams": {
+          "FB": {
+            "usage": 59.3,
+            "barrel": 2.3
+          },
+          "BR": {
+            "usage": 26.2,
+            "barrel": 6.1
+          },
+          "OFF": {
+            "usage": 14.5,
+            "barrel": 0.0
+          }
+        }
+      },
+      "heat_mix": 53,
+      "mix": {
+        "avg_ev": 84.9,
+        "barrel_pct": 8.0,
+        "la": 14.4,
+        "whiff_pct": 15.4
+      },
+      "ev_overall": 84.4,
+      "luck": {
+        "recent": {
+          "xwobacon": 0.487,
+          "wobacon": 0.433,
+          "luck_gap": 0.054,
+          "barrel_pct": 8.3,
+          "hr": 1,
+          "bb_count": 24
+        },
+        "season": {
+          "xwobacon": 0.357,
+          "wobacon": 0.39,
+          "luck_gap": -0.033,
+          "barrel_pct": 3.1,
+          "hr": 1,
+          "bb_count": 129
+        }
+      },
+      "max_ev": {
+        "recent": 105.8,
+        "season": 108.3
+      },
+      "heat": 53,
+      "score_breakdown": {
+        "barrel_pct": 9.5,
+        "pull_air_pct": 15.1,
+        "iso": 7.8,
+        "avg_ev": 3.4,
+        "ideal_aa_pct": 10.2,
+        "slg": 12.6,
+        "cleared": 3,
+        "signals": {
+          "barrel_pct": "False",
+          "pull_air_pct": "True",
+          "iso": "False",
+          "avg_ev": "False",
+          "ideal_aa_pct": "True",
+          "slg": "True"
+        },
+        "tier": "SOLID",
+        "flags": [
+          "small sample (21 PA, 24 BBE)",
+          "EV below 87 floor",
+          "empty IAA (no EV behind it)"
+        ],
+        "base_four": 58.6,
+        "pitcher_mult": 0.912
+      },
+      "metrics": {
+        "pull_air_pct": {
+          "recent": 44.4,
+          "season": 37.8,
+          "career": null
+        },
+        "avg_ev": {
+          "recent": 84.4,
+          "season": 81.6,
+          "career": null
+        },
+        "barrel_pct": {
+          "recent": 8.3,
+          "season": 3.1,
+          "career": null
+        },
+        "ideal_aa_pct": {
+          "recent": 60.7,
+          "season": 48.8,
+          "career": null
+        },
+        "bat_speed": {
+          "recent": 72.1,
+          "season": 71.8,
+          "career": null
+        },
+        "hardhit_pct": {
+          "recent": 33.3,
+          "season": 24.8,
+          "career": null
+        },
+        "iso": {
+          "recent": 0.176,
+          "season": 0.121,
+          "career": null
+        },
+        "slg": {
+          "recent": 0.529,
+          "season": 0.396,
+          "career": null
+        },
+        "launch_angle": {
+          "recent": 15.2,
+          "season": 13.3,
+          "career": null
+        },
+        "fb_pct": {
+          "recent": 16.7,
+          "season": 14.0,
+          "career": null
+        },
+        "pull_pct": {
+          "recent": 46.7,
+          "season": 48.6,
+          "career": null
+        },
+        "swstr_pct": {
+          "recent": 7.9,
+          "season": 10.8,
+          "career": null
+        },
+        "k_pct": {
+          "recent": 14.3,
+          "season": 20.6,
+          "career": null
+        }
+      },
+      "windows": {
+        "L14d": {
+          "barrel_pct": 8.3,
+          "hardhit_pct": 33.3,
+          "avg_ev": 84.4,
+          "max_ev": 105.8,
+          "launch_angle": 15.2,
+          "fb_pct": 16.7,
+          "pull_pct": 46.7,
+          "pull_air_pct": 44.4,
+          "ideal_aa_pct": 60.7,
+          "bat_speed": 72.1,
+          "iso": 0.176,
+          "slg": 0.529,
+          "xwobacon": 0.487,
+          "wobacon": 0.433,
+          "luck_gap": 0.054,
+          "swstr_pct": 7.9,
+          "k_pct": 14.3,
+          "hr": 1,
+          "pa": 21,
+          "bb_count": 24
+        },
+        "L5": {
+          "barrel_pct": 11.8,
+          "hardhit_pct": 35.3,
+          "avg_ev": 86.1,
+          "max_ev": 105.8,
+          "launch_angle": 16.9,
+          "fb_pct": 23.5,
+          "pull_pct": 41.7,
+          "pull_air_pct": 42.9,
+          "ideal_aa_pct": 72.2,
+          "bat_speed": 72.1,
+          "iso": 0.25,
+          "slg": 0.583,
+          "xwobacon": 0.428,
+          "wobacon": 0.392,
+          "luck_gap": 0.036,
+          "swstr_pct": 4.4,
+          "k_pct": 6.7,
+          "hr": 1,
+          "pa": 15,
+          "bb_count": 17
+        },
+        "L15": {
+          "barrel_pct": 5.2,
+          "hardhit_pct": 25.9,
+          "avg_ev": 81.9,
+          "max_ev": 108.3,
+          "launch_angle": 13.3,
+          "fb_pct": 10.3,
+          "pull_pct": 62.5,
+          "pull_air_pct": 57.9,
+          "ideal_aa_pct": 51.4,
+          "bat_speed": 72.1,
+          "iso": 0.143,
+          "slg": 0.452,
+          "xwobacon": 0.47,
+          "wobacon": 0.433,
+          "luck_gap": 0.037,
+          "swstr_pct": 9.5,
+          "k_pct": 22.0,
+          "hr": 1,
+          "pa": 50,
+          "bb_count": 58
+        },
+        "L30": {
+          "barrel_pct": 3.2,
+          "hardhit_pct": 23.8,
+          "avg_ev": 81.4,
+          "max_ev": 108.3,
+          "launch_angle": 13.2,
+          "fb_pct": 12.7,
+          "pull_pct": 49.3,
+          "pull_air_pct": 40.0,
+          "ideal_aa_pct": 48.4,
+          "bat_speed": 71.8,
+          "iso": 0.115,
+          "slg": 0.379,
+          "xwobacon": 0.346,
+          "wobacon": 0.375,
+          "luck_gap": -0.029,
+          "swstr_pct": 10.1,
+          "k_pct": 20.4,
+          "hr": 1,
+          "pa": 103,
+          "bb_count": 126
+        }
+      },
+      "hr_recent": {
+        "L5": 1,
+        "L15": 1,
+        "L30": 1
       }
     },
     {
@@ -27527,7 +27519,7 @@
       "name": "Anthony Seigler",
       "bats": "S",
       "lineup_spot": 7,
-      "lineup_status": "projected",
+      "lineup_status": "confirmed",
       "trend": {
         "dir": "up",
         "pct": 10,
@@ -29120,7 +29112,7 @@
       "name": "Ben Rice",
       "bats": "L",
       "lineup_spot": 2,
-      "lineup_status": "projected",
+      "lineup_status": "confirmed",
       "trend": {
         "dir": "down",
         "pct": -64,
@@ -29522,8 +29514,8 @@
       "id": 691176,
       "name": "Jasson Dom\u00ednguez",
       "bats": "S",
-      "lineup_spot": 5,
-      "lineup_status": "projected",
+      "lineup_spot": 3,
+      "lineup_status": "confirmed",
       "trend": {
         "dir": "up",
         "pct": 60,
@@ -31541,7 +31533,7 @@
       "id": 682674,
       "name": "Victor Bericoto",
       "bats": "R",
-      "lineup_spot": 8,
+      "lineup_spot": 6,
       "lineup_status": "confirmed",
       "trend": {
         "dir": "up",
@@ -37979,8 +37971,8 @@
       "id": 676609,
       "name": "Jos\u00e9 Caballero",
       "bats": "R",
-      "lineup_spot": 6,
-      "lineup_status": "projected",
+      "lineup_spot": 9,
+      "lineup_status": "confirmed",
       "trend": {
         "dir": "up",
         "pct": 59,
@@ -40381,411 +40373,6 @@
       }
     },
     {
-      "id": 683011,
-      "name": "Anthony Volpe",
-      "bats": "R",
-      "lineup_spot": 8,
-      "lineup_status": "projected",
-      "trend": {
-        "dir": "up",
-        "pct": 87,
-        "new": false
-      },
-      "angle": "RHB vs an arm that's allowed 32 HR to RHB (2yr) \u2014 hot \u2014 elite contact, the heat is earned",
-      "badges": [
-        {
-          "t": "PLATOON",
-          "k": "plat"
-        },
-        {
-          "t": "HOT",
-          "k": "lock"
-        }
-      ],
-      "team": "NYY",
-      "opp_team": "BOS",
-      "game_pk": 824744,
-      "time": "2026-06-28T23:20:00Z",
-      "park": "Fenway Park",
-      "park_hr_factor": 1.04,
-      "why": "vs SLIPPING arm",
-      "tier": "THIN",
-      "cleared": 0,
-      "sample": {
-        "L5": 18,
-        "L15": 69,
-        "L30": 145,
-        "season": 158
-      },
-      "opp_pitcher": {
-        "name": "Sonny Gray",
-        "throws": "R",
-        "hr_score": 48,
-        "recent_score": 52,
-        "season_score": 42,
-        "form": {
-          "label": "SLIPPING",
-          "color": "#E0913A"
-        },
-        "flags": [
-          "HR-prone lately (5.3% of PA)",
-          "hitters timing him up (59.5% ideal AA)",
-          "pulled in the air (52.9%)",
-          "HRs even with Ks",
-          "trending worse vs season"
-        ],
-        "recent": {
-          "barrel_pct_allowed": 2.9,
-          "hardhit_pct_allowed": 27.5,
-          "avg_ev_allowed": 82.6,
-          "hr_per_pa": 5.3,
-          "ideal_aa_allowed": 59.5,
-          "pull_air_allowed": 52.9,
-          "swstr_pct_allowed": 12.6,
-          "fb_velo": 90.5,
-          "velo_trend": -0.2,
-          "bbe": 69
-        },
-        "season": {
-          "barrel_pct_allowed": 4.2,
-          "hardhit_pct_allowed": 24.9,
-          "avg_ev_allowed": 83.0,
-          "hr_per_pa": 2.9,
-          "ideal_aa_allowed": 58.7,
-          "pull_air_allowed": 42.7,
-          "swstr_pct_allowed": 10.8,
-          "fb_velo": 90.7
-        },
-        "platoon": {
-          "R": 45,
-          "L": 47,
-          "worse": "L",
-          "gap": 2
-        },
-        "hr_by_hand": {
-          "R_hr": 3,
-          "R_pa": 122,
-          "L_hr": 6,
-          "L_pa": 191
-        },
-        "hr_by_hand_2yr": {
-          "two_yr": {
-            "R": {
-              "hr": 32,
-              "pa": 742
-            },
-            "L": {
-              "hr": 27,
-              "pa": 803
-            }
-          },
-          "this_yr": {
-            "R": {
-              "hr": 4,
-              "pa": 155
-            },
-            "L": {
-              "hr": 8,
-              "pa": 220
-            }
-          }
-        },
-        "vs_hand": "R",
-        "vs_hand_score": 45,
-        "vs_hand_metrics": {
-          "barrel_pct_allowed": 3.5,
-          "hr_per_pa": 2.5,
-          "bbe": 141
-        }
-      },
-      "opp_bullpen": {
-        "score": 26,
-        "form": {
-          "label": "DEALING",
-          "color": "#5FB97A"
-        },
-        "flags": [],
-        "arms": 18,
-        "vs_hand": 40,
-        "hand": "R",
-        "platoon": {
-          "R": 40,
-          "L": 17,
-          "worse": "R",
-          "gap": 23
-        }
-      },
-      "pitch_splits": {
-        "FB": {
-          "barrel_pct": 3.3,
-          "avg_ev": 82.9,
-          "la": 26.0,
-          "whiff_pct": 22.0,
-          "hr": 1,
-          "bbe": 90
-        },
-        "BR": {
-          "barrel_pct": 0.0,
-          "avg_ev": 81.9,
-          "la": 21.6,
-          "whiff_pct": 32.1,
-          "hr": 0,
-          "bbe": 51
-        },
-        "OFF": {
-          "barrel_pct": 6.2,
-          "avg_ev": 81.3,
-          "la": 11.1,
-          "whiff_pct": 36.0,
-          "hr": 0,
-          "bbe": 16
-        }
-      },
-      "pitch_usage": {
-        "FB": 58.6,
-        "BR": 36.2,
-        "OFF": 5.2
-      },
-      "pitch_matchup": {
-        "weighted_barrel": 2.3,
-        "edge": -0.2,
-        "best": {
-          "fam": "FB",
-          "label": "Fastball",
-          "usage": 58.6,
-          "barrel": 3.3
-        },
-        "fams": {
-          "FB": {
-            "usage": 58.6,
-            "barrel": 3.3
-          },
-          "BR": {
-            "usage": 36.2,
-            "barrel": 0.0
-          },
-          "OFF": {
-            "usage": 5.2,
-            "barrel": 6.2
-          }
-        }
-      },
-      "heat_mix": 39,
-      "mix": {
-        "avg_ev": 87.0,
-        "barrel_pct": 2.6,
-        "la": 17.2,
-        "whiff_pct": 29.8
-      },
-      "ev_overall": 86.6,
-      "luck": {
-        "recent": {
-          "xwobacon": 0.429,
-          "wobacon": 0.481,
-          "luck_gap": -0.052,
-          "barrel_pct": 3.6,
-          "hr": 0,
-          "bb_count": 56
-        },
-        "season": {
-          "xwobacon": 0.341,
-          "wobacon": 0.366,
-          "luck_gap": -0.025,
-          "barrel_pct": 2.5,
-          "hr": 1,
-          "bb_count": 158
-        }
-      },
-      "max_ev": {
-        "recent": 106.6,
-        "season": 106.6
-      },
-      "heat": 39,
-      "score_breakdown": {
-        "barrel_pct": 3.3,
-        "pull_air_pct": 12.3,
-        "iso": 2.7,
-        "avg_ev": 4.8,
-        "ideal_aa_pct": 7.7,
-        "slg": 8.5,
-        "cleared": 0,
-        "signals": {
-          "barrel_pct": "False",
-          "pull_air_pct": "False",
-          "iso": "False",
-          "avg_ev": "False",
-          "ideal_aa_pct": "False",
-          "slg": "False"
-        },
-        "tier": "THIN",
-        "flags": [],
-        "base_four": 39.3,
-        "pitcher_mult": 0.991
-      },
-      "metrics": {
-        "pull_air_pct": {
-          "recent": 38.9,
-          "season": 28.6,
-          "career": null
-        },
-        "avg_ev": {
-          "recent": 86.6,
-          "season": 82.5,
-          "career": null
-        },
-        "barrel_pct": {
-          "recent": 3.6,
-          "season": 2.5,
-          "career": null
-        },
-        "ideal_aa_pct": {
-          "recent": 54.7,
-          "season": 59.3,
-          "career": null
-        },
-        "bat_speed": {
-          "recent": 72.2,
-          "season": 71.4,
-          "career": null
-        },
-        "hardhit_pct": {
-          "recent": 32.1,
-          "season": 20.9,
-          "career": null
-        },
-        "iso": {
-          "recent": 0.093,
-          "season": 0.1,
-          "career": null
-        },
-        "slg": {
-          "recent": 0.442,
-          "season": 0.355,
-          "career": null
-        },
-        "launch_angle": {
-          "recent": 17.3,
-          "season": 22.9,
-          "career": null
-        },
-        "fb_pct": {
-          "recent": 7.1,
-          "season": 10.8,
-          "career": null
-        },
-        "pull_pct": {
-          "recent": 35.5,
-          "season": 37.5,
-          "career": null
-        },
-        "swstr_pct": {
-          "recent": 13.5,
-          "season": 11.9,
-          "career": null
-        },
-        "k_pct": {
-          "recent": 24.5,
-          "season": 22.8,
-          "career": null
-        }
-      },
-      "windows": {
-        "L14d": {
-          "barrel_pct": 3.6,
-          "hardhit_pct": 32.1,
-          "avg_ev": 86.6,
-          "max_ev": 106.6,
-          "launch_angle": 17.3,
-          "fb_pct": 7.1,
-          "pull_pct": 35.5,
-          "pull_air_pct": 38.9,
-          "ideal_aa_pct": 54.7,
-          "bat_speed": 72.2,
-          "iso": 0.093,
-          "slg": 0.442,
-          "xwobacon": 0.429,
-          "wobacon": 0.481,
-          "luck_gap": -0.052,
-          "swstr_pct": 13.5,
-          "k_pct": 24.5,
-          "hr": 0,
-          "pa": 49,
-          "bb_count": 56
-        },
-        "L5": {
-          "barrel_pct": 5.6,
-          "hardhit_pct": 16.7,
-          "avg_ev": 87.9,
-          "max_ev": 106.5,
-          "launch_angle": 21.6,
-          "fb_pct": 16.7,
-          "pull_pct": 45.5,
-          "pull_air_pct": 57.1,
-          "ideal_aa_pct": 55.6,
-          "bat_speed": 73.1,
-          "iso": 0.059,
-          "slg": 0.235,
-          "xwobacon": 0.346,
-          "wobacon": 0.277,
-          "luck_gap": 0.069,
-          "swstr_pct": 15.5,
-          "k_pct": 33.3,
-          "hr": 0,
-          "pa": 18,
-          "bb_count": 18
-        },
-        "L15": {
-          "barrel_pct": 2.9,
-          "hardhit_pct": 27.5,
-          "avg_ev": 85.0,
-          "max_ev": 106.6,
-          "launch_angle": 20.1,
-          "fb_pct": 5.8,
-          "pull_pct": 40.5,
-          "pull_air_pct": 42.1,
-          "ideal_aa_pct": 52.2,
-          "bat_speed": 71.7,
-          "iso": 0.098,
-          "slg": 0.412,
-          "xwobacon": 0.376,
-          "wobacon": 0.461,
-          "luck_gap": -0.085,
-          "swstr_pct": 12.2,
-          "k_pct": 24.1,
-          "hr": 0,
-          "pa": 58,
-          "bb_count": 69
-        },
-        "L30": {
-          "barrel_pct": 2.8,
-          "hardhit_pct": 22.1,
-          "avg_ev": 83.1,
-          "max_ev": 106.6,
-          "launch_angle": 22.1,
-          "fb_pct": 10.3,
-          "pull_pct": 38.2,
-          "pull_air_pct": 30.0,
-          "ideal_aa_pct": 59.2,
-          "bat_speed": 71.4,
-          "iso": 0.106,
-          "slg": 0.375,
-          "xwobacon": 0.351,
-          "wobacon": 0.385,
-          "luck_gap": -0.034,
-          "swstr_pct": 12.4,
-          "k_pct": 23.3,
-          "hr": 1,
-          "pa": 116,
-          "bb_count": 145
-        }
-      },
-      "hr_recent": {
-        "L5": 0,
-        "L15": 0,
-        "L30": 1
-      }
-    },
-    {
       "id": 660688,
       "name": "Keibert Ruiz",
       "bats": "S",
@@ -42777,7 +42364,7 @@
       "name": "Wilyer Abreu",
       "bats": "L",
       "lineup_spot": 3,
-      "lineup_status": "projected",
+      "lineup_status": "confirmed",
       "trend": {
         "dir": "up",
         "pct": 21,
@@ -45600,7 +45187,7 @@
       "name": "Cody Bellinger",
       "bats": "L",
       "lineup_spot": 4,
-      "lineup_status": "projected",
+      "lineup_status": "confirmed",
       "trend": {
         "dir": "down",
         "pct": -8,
@@ -46008,7 +45595,7 @@
       "name": "Tsung-Che Cheng",
       "bats": "L",
       "lineup_spot": 9,
-      "lineup_status": "projected",
+      "lineup_status": "confirmed",
       "trend": {
         "dir": "flat",
         "pct": null,
@@ -51648,7 +51235,7 @@
       "name": "Willson Contreras",
       "bats": "R",
       "lineup_spot": 4,
-      "lineup_status": "projected",
+      "lineup_status": "confirmed",
       "trend": {
         "dir": "up",
         "pct": 8,
@@ -66888,412 +66475,11 @@
       }
     },
     {
-      "id": 669477,
-      "name": "Casey Schmitt",
-      "bats": "R",
-      "lineup_spot": 3,
-      "lineup_status": "confirmed",
-      "trend": {
-        "dir": "up",
-        "pct": 14,
-        "new": false
-      },
-      "angle": "RHB \u2014 hot \u2014 elite contact, the heat is earned",
-      "badges": [
-        {
-          "t": "HOT",
-          "k": "lock"
-        },
-        {
-          "t": "POWER",
-          "k": "pow"
-        }
-      ],
-      "team": "SF",
-      "opp_team": "ATL",
-      "game_pk": 823204,
-      "time": "2026-06-28T20:05:00Z",
-      "park": "Oracle Park",
-      "park_hr_factor": 0.95,
-      "why": "",
-      "tier": "THIN",
-      "cleared": 1,
-      "sample": {
-        "L5": 34,
-        "L15": 101,
-        "L30": 218,
-        "season": 448
-      },
-      "opp_pitcher": {
-        "name": "Chris Sale",
-        "throws": "L",
-        "hr_score": 15,
-        "recent_score": 12,
-        "season_score": 19,
-        "form": {
-          "label": "DEALING",
-          "color": "#5FB97A"
-        },
-        "flags": [],
-        "recent": {
-          "barrel_pct_allowed": 0.0,
-          "hardhit_pct_allowed": 23.3,
-          "avg_ev_allowed": 83.2,
-          "hr_per_pa": 0.0,
-          "ideal_aa_allowed": 38.5,
-          "pull_air_allowed": 25.0,
-          "swstr_pct_allowed": 11.9,
-          "fb_velo": 96.3,
-          "velo_trend": 0.5,
-          "bbe": 30
-        },
-        "season": {
-          "barrel_pct_allowed": 2.8,
-          "hardhit_pct_allowed": 17.9,
-          "avg_ev_allowed": 80.9,
-          "hr_per_pa": 1.8,
-          "ideal_aa_allowed": 44.6,
-          "pull_air_allowed": 32.4,
-          "swstr_pct_allowed": 14.4,
-          "fb_velo": 95.8
-        },
-        "platoon": {
-          "R": 19,
-          "L": 15,
-          "worse": "R",
-          "gap": 4
-        },
-        "hr_by_hand": {
-          "R_hr": 5,
-          "R_pa": 259,
-          "L_hr": 1,
-          "L_pa": 83
-        },
-        "hr_by_hand_2yr": {
-          "two_yr": {
-            "R": {
-              "hr": 19,
-              "pa": 1055
-            },
-            "L": {
-              "hr": 6,
-              "pa": 285
-            }
-          },
-          "this_yr": {
-            "R": {
-              "hr": 7,
-              "pa": 308
-            },
-            "L": {
-              "hr": 2,
-              "pa": 111
-            }
-          }
-        },
-        "vs_hand": "R",
-        "vs_hand_score": 19,
-        "vs_hand_metrics": {
-          "barrel_pct_allowed": 2.4,
-          "hr_per_pa": 1.9,
-          "bbe": 340
-        }
-      },
-      "opp_bullpen": {
-        "score": 27,
-        "form": {
-          "label": "DEALING",
-          "color": "#5FB97A"
-        },
-        "flags": [],
-        "arms": 23,
-        "vs_hand": 27,
-        "hand": "R",
-        "platoon": {
-          "R": 27,
-          "L": 27,
-          "worse": "R",
-          "gap": 0
-        }
-      },
-      "pitch_splits": {
-        "FB": {
-          "barrel_pct": 4.5,
-          "avg_ev": 83.9,
-          "la": 25.2,
-          "whiff_pct": 15.9,
-          "hr": 8,
-          "bbe": 286
-        },
-        "BR": {
-          "barrel_pct": 9.4,
-          "avg_ev": 83.2,
-          "la": 19.4,
-          "whiff_pct": 30.9,
-          "hr": 4,
-          "bbe": 127
-        },
-        "OFF": {
-          "barrel_pct": 11.4,
-          "avg_ev": 80.5,
-          "la": 12.8,
-          "whiff_pct": 30.2,
-          "hr": 4,
-          "bbe": 35
-        }
-      },
-      "pitch_usage": {
-        "FB": 47.6,
-        "BR": 40.7,
-        "OFF": 11.7
-      },
-      "pitch_matchup": {
-        "weighted_barrel": 7.3,
-        "edge": 0.8,
-        "best": {
-          "fam": "BR",
-          "label": "Breaking",
-          "usage": 40.7,
-          "barrel": 9.4
-        },
-        "fams": {
-          "FB": {
-            "usage": 47.6,
-            "barrel": 4.5
-          },
-          "BR": {
-            "usage": 40.7,
-            "barrel": 9.4
-          },
-          "OFF": {
-            "usage": 11.7,
-            "barrel": 11.4
-          }
-        }
-      },
-      "heat_mix": 29,
-      "mix": {
-        "avg_ev": 85.3,
-        "barrel_pct": 6.1,
-        "la": 25.8,
-        "whiff_pct": 22.6
-      },
-      "ev_overall": 85.6,
-      "luck": {
-        "recent": {
-          "xwobacon": 0.525,
-          "wobacon": 0.485,
-          "luck_gap": 0.04,
-          "barrel_pct": 6.1,
-          "hr": 1,
-          "bb_count": 66
-        },
-        "season": {
-          "xwobacon": 0.434,
-          "wobacon": 0.435,
-          "luck_gap": -0.001,
-          "barrel_pct": 6.5,
-          "hr": 16,
-          "bb_count": 448
-        }
-      },
-      "max_ev": {
-        "recent": 107.3,
-        "season": 112.5
-      },
-      "heat": 29,
-      "score_breakdown": {
-        "barrel_pct": 5.7,
-        "pull_air_pct": 4.8,
-        "iso": 4.0,
-        "avg_ev": 3.5,
-        "ideal_aa_pct": 3.5,
-        "slg": 12.9,
-        "cleared": 1,
-        "signals": {
-          "barrel_pct": "False",
-          "pull_air_pct": "False",
-          "iso": "False",
-          "avg_ev": "False",
-          "ideal_aa_pct": "False",
-          "slg": "True"
-        },
-        "tier": "THIN",
-        "flags": [
-          "EV below 87 floor"
-        ],
-        "base_four": 34.4,
-        "pitcher_mult": 0.846
-      },
-      "metrics": {
-        "pull_air_pct": {
-          "recent": 26.9,
-          "season": 40.0,
-          "career": null
-        },
-        "avg_ev": {
-          "recent": 85.6,
-          "season": 83.5,
-          "career": null
-        },
-        "barrel_pct": {
-          "recent": 6.1,
-          "season": 6.5,
-          "career": null
-        },
-        "ideal_aa_pct": {
-          "recent": 44.6,
-          "season": 49.2,
-          "career": null
-        },
-        "bat_speed": {
-          "recent": 72.7,
-          "season": 72.0,
-          "career": null
-        },
-        "hardhit_pct": {
-          "recent": 34.8,
-          "season": 28.1,
-          "career": null
-        },
-        "iso": {
-          "recent": 0.14,
-          "season": 0.221,
-          "career": null
-        },
-        "slg": {
-          "recent": 0.535,
-          "season": 0.514,
-          "career": null
-        },
-        "launch_angle": {
-          "recent": 26.6,
-          "season": 22.6,
-          "career": null
-        },
-        "fb_pct": {
-          "recent": 21.2,
-          "season": 17.9,
-          "career": null
-        },
-        "pull_pct": {
-          "recent": 27.8,
-          "season": 40.4,
-          "career": null
-        },
-        "swstr_pct": {
-          "recent": 12.5,
-          "season": 11.9,
-          "career": null
-        },
-        "k_pct": {
-          "recent": 15.9,
-          "season": 19.7,
-          "career": null
-        }
-      },
-      "windows": {
-        "L14d": {
-          "barrel_pct": 6.1,
-          "hardhit_pct": 34.8,
-          "avg_ev": 85.6,
-          "max_ev": 107.3,
-          "launch_angle": 26.6,
-          "fb_pct": 21.2,
-          "pull_pct": 27.8,
-          "pull_air_pct": 26.9,
-          "ideal_aa_pct": 44.6,
-          "bat_speed": 72.7,
-          "iso": 0.14,
-          "slg": 0.535,
-          "xwobacon": 0.525,
-          "wobacon": 0.485,
-          "luck_gap": 0.04,
-          "swstr_pct": 12.5,
-          "k_pct": 15.9,
-          "hr": 1,
-          "pa": 44,
-          "bb_count": 66
-        },
-        "L5": {
-          "barrel_pct": 0.0,
-          "hardhit_pct": 26.5,
-          "avg_ev": 83.5,
-          "max_ev": 107.3,
-          "launch_angle": 23.7,
-          "fb_pct": 17.6,
-          "pull_pct": 31.2,
-          "pull_air_pct": 45.5,
-          "ideal_aa_pct": 47.6,
-          "bat_speed": 72.0,
-          "iso": 0.0,
-          "slg": 0.2,
-          "xwobacon": 0.364,
-          "wobacon": 0.225,
-          "luck_gap": 0.139,
-          "swstr_pct": 12.5,
-          "k_pct": 20.0,
-          "hr": 0,
-          "pa": 20,
-          "bb_count": 34
-        },
-        "L15": {
-          "barrel_pct": 4.0,
-          "hardhit_pct": 26.7,
-          "avg_ev": 82.3,
-          "max_ev": 107.3,
-          "launch_angle": 22.4,
-          "fb_pct": 14.9,
-          "pull_pct": 28.6,
-          "pull_air_pct": 30.3,
-          "ideal_aa_pct": 44.9,
-          "bat_speed": 72.4,
-          "iso": 0.098,
-          "slg": 0.41,
-          "xwobacon": 0.475,
-          "wobacon": 0.393,
-          "luck_gap": 0.082,
-          "swstr_pct": 11.6,
-          "k_pct": 19.4,
-          "hr": 1,
-          "pa": 62,
-          "bb_count": 101
-        },
-        "L30": {
-          "barrel_pct": 4.6,
-          "hardhit_pct": 24.8,
-          "avg_ev": 83.3,
-          "max_ev": 109.1,
-          "launch_angle": 22.1,
-          "fb_pct": 15.1,
-          "pull_pct": 31.5,
-          "pull_air_pct": 32.9,
-          "ideal_aa_pct": 47.2,
-          "bat_speed": 72.1,
-          "iso": 0.189,
-          "slg": 0.477,
-          "xwobacon": 0.431,
-          "wobacon": 0.401,
-          "luck_gap": 0.03,
-          "swstr_pct": 12.2,
-          "k_pct": 18.5,
-          "hr": 6,
-          "pa": 135,
-          "bb_count": 218
-        }
-      },
-      "hr_recent": {
-        "L5": 0,
-        "L15": 1,
-        "L30": 6
-      }
-    },
-    {
       "id": 642708,
       "name": "Amed Rosario",
       "bats": "R",
-      "lineup_spot": 3,
-      "lineup_status": "projected",
+      "lineup_spot": 6,
+      "lineup_status": "confirmed",
       "trend": {
         "dir": "down",
         "pct": -28,
@@ -76121,6 +75307,418 @@
       }
     },
     {
+      "id": 682987,
+      "name": "Spencer Jones",
+      "bats": "L",
+      "lineup_spot": 5,
+      "lineup_status": "confirmed",
+      "trend": {
+        "dir": "flat",
+        "pct": 3,
+        "new": false
+      },
+      "angle": "LHB vs an arm that's allowed 27 HR to LHB (2yr) \u2014 may cool \u2014 results above what his contact supports",
+      "badges": [
+        {
+          "t": "PLATOON",
+          "k": "plat"
+        },
+        {
+          "t": "MAY COOL",
+          "k": "cool"
+        },
+        {
+          "t": "POWER",
+          "k": "pow"
+        }
+      ],
+      "team": "NYY",
+      "opp_team": "BOS",
+      "game_pk": 824744,
+      "time": "2026-06-28T23:20:00Z",
+      "park": "Fenway Park",
+      "park_hr_factor": 0.96,
+      "why": ".200 ISO \u00b7 vs SLIPPING arm",
+      "tier": "THIN",
+      "cleared": 1,
+      "sample": {
+        "L5": 17,
+        "L15": 58,
+        "L30": 91,
+        "season": 91
+      },
+      "opp_pitcher": {
+        "name": "Sonny Gray",
+        "throws": "R",
+        "hr_score": 48,
+        "recent_score": 52,
+        "season_score": 42,
+        "form": {
+          "label": "SLIPPING",
+          "color": "#E0913A"
+        },
+        "flags": [
+          "HR-prone lately (5.3% of PA)",
+          "hitters timing him up (59.5% ideal AA)",
+          "pulled in the air (52.9%)",
+          "HRs even with Ks",
+          "trending worse vs season"
+        ],
+        "recent": {
+          "barrel_pct_allowed": 2.9,
+          "hardhit_pct_allowed": 27.5,
+          "avg_ev_allowed": 82.6,
+          "hr_per_pa": 5.3,
+          "ideal_aa_allowed": 59.5,
+          "pull_air_allowed": 52.9,
+          "swstr_pct_allowed": 12.6,
+          "fb_velo": 90.5,
+          "velo_trend": -0.2,
+          "bbe": 69
+        },
+        "season": {
+          "barrel_pct_allowed": 4.2,
+          "hardhit_pct_allowed": 24.9,
+          "avg_ev_allowed": 83.0,
+          "hr_per_pa": 2.9,
+          "ideal_aa_allowed": 58.7,
+          "pull_air_allowed": 42.7,
+          "swstr_pct_allowed": 10.8,
+          "fb_velo": 90.7
+        },
+        "platoon": {
+          "R": 45,
+          "L": 47,
+          "worse": "L",
+          "gap": 2
+        },
+        "hr_by_hand": {
+          "R_hr": 3,
+          "R_pa": 122,
+          "L_hr": 6,
+          "L_pa": 191
+        },
+        "hr_by_hand_2yr": {
+          "two_yr": {
+            "R": {
+              "hr": 32,
+              "pa": 742
+            },
+            "L": {
+              "hr": 27,
+              "pa": 803
+            }
+          },
+          "this_yr": {
+            "R": {
+              "hr": 4,
+              "pa": 155
+            },
+            "L": {
+              "hr": 8,
+              "pa": 220
+            }
+          }
+        },
+        "vs_hand": "L",
+        "vs_hand_score": 47,
+        "vs_hand_metrics": {
+          "barrel_pct_allowed": 4.6,
+          "hr_per_pa": 3.1,
+          "bbe": 237
+        }
+      },
+      "opp_bullpen": {
+        "score": 26,
+        "form": {
+          "label": "DEALING",
+          "color": "#5FB97A"
+        },
+        "flags": [],
+        "arms": 18,
+        "vs_hand": 17,
+        "hand": "L",
+        "platoon": {
+          "R": 40,
+          "L": 17,
+          "worse": "R",
+          "gap": 23
+        }
+      },
+      "pitch_splits": {
+        "FB": {
+          "barrel_pct": 1.8,
+          "avg_ev": 86.3,
+          "la": 32.2,
+          "whiff_pct": 35.4,
+          "hr": 1,
+          "bbe": 57
+        },
+        "BR": {
+          "barrel_pct": 0.0,
+          "avg_ev": 87.0,
+          "la": 16.1,
+          "whiff_pct": 43.4,
+          "hr": 0,
+          "bbe": 25
+        },
+        "OFF": {
+          "barrel_pct": 0.0,
+          "avg_ev": 79.4,
+          "la": 18.3,
+          "whiff_pct": 43.8,
+          "hr": 0,
+          "bbe": 9
+        }
+      },
+      "pitch_usage": {
+        "FB": 58.6,
+        "BR": 36.2,
+        "OFF": 5.2
+      },
+      "pitch_matchup": {
+        "weighted_barrel": 1.1,
+        "edge": 0.0,
+        "best": {
+          "fam": "FB",
+          "label": "Fastball",
+          "usage": 58.6,
+          "barrel": 1.8
+        },
+        "fams": {
+          "FB": {
+            "usage": 58.6,
+            "barrel": 1.8
+          },
+          "BR": {
+            "usage": 36.2,
+            "barrel": 0.0
+          },
+          "OFF": {
+            "usage": 5.2,
+            "barrel": 0.0
+          }
+        }
+      },
+      "heat_mix": 25,
+      "mix": {
+        "avg_ev": 85.2,
+        "barrel_pct": 0.0,
+        "la": 29.1,
+        "whiff_pct": 47.3
+      },
+      "ev_overall": 84.9,
+      "luck": {
+        "recent": {
+          "xwobacon": 0.21,
+          "wobacon": 0.339,
+          "luck_gap": -0.129,
+          "barrel_pct": 0.0,
+          "hr": 1,
+          "bb_count": 24
+        },
+        "season": {
+          "xwobacon": 0.356,
+          "wobacon": 0.422,
+          "luck_gap": -0.066,
+          "barrel_pct": 1.1,
+          "hr": 2,
+          "bb_count": 91
+        }
+      },
+      "max_ev": {
+        "recent": 105.5,
+        "season": 112.2
+      },
+      "heat": 25,
+      "score_breakdown": {
+        "barrel_pct": 0.0,
+        "pull_air_pct": 3.0,
+        "iso": 10.4,
+        "avg_ev": 3.5,
+        "ideal_aa_pct": 3.6,
+        "slg": 5.1,
+        "cleared": 1,
+        "signals": {
+          "barrel_pct": false,
+          "pull_air_pct": "False",
+          "iso": "True",
+          "avg_ev": "False",
+          "ideal_aa_pct": "False",
+          "slg": "False"
+        },
+        "tier": "THIN",
+        "flags": [
+          "small sample (24 PA, 24 BBE)",
+          "EV below 87 floor"
+        ],
+        "base_four": 25.6,
+        "pitcher_mult": 0.991
+      },
+      "metrics": {
+        "pull_air_pct": {
+          "recent": 16.7,
+          "season": 11.8,
+          "career": null
+        },
+        "avg_ev": {
+          "recent": 84.9,
+          "season": 85.8,
+          "career": null
+        },
+        "barrel_pct": {
+          "recent": 0.0,
+          "season": 1.1,
+          "career": null
+        },
+        "ideal_aa_pct": {
+          "recent": 45.3,
+          "season": 40.3,
+          "career": null
+        },
+        "bat_speed": {
+          "recent": 76.9,
+          "season": 77.0,
+          "career": null
+        },
+        "hardhit_pct": {
+          "recent": 25.0,
+          "season": 28.6,
+          "career": null
+        },
+        "iso": {
+          "recent": 0.2,
+          "season": 0.129,
+          "career": null
+        },
+        "slg": {
+          "recent": 0.4,
+          "season": 0.355,
+          "career": null
+        },
+        "launch_angle": {
+          "recent": 29.2,
+          "season": 26.4,
+          "career": null
+        },
+        "fb_pct": {
+          "recent": 20.8,
+          "season": 13.2,
+          "career": null
+        },
+        "pull_pct": {
+          "recent": 33.3,
+          "season": 34.4,
+          "career": null
+        },
+        "swstr_pct": {
+          "recent": 23.3,
+          "season": 20.2,
+          "career": null
+        },
+        "k_pct": {
+          "recent": 41.7,
+          "season": 40.8,
+          "career": null
+        }
+      },
+      "windows": {
+        "L14d": {
+          "barrel_pct": 0.0,
+          "hardhit_pct": 25.0,
+          "avg_ev": 84.9,
+          "max_ev": 105.5,
+          "launch_angle": 29.2,
+          "fb_pct": 20.8,
+          "pull_pct": 33.3,
+          "pull_air_pct": 16.7,
+          "ideal_aa_pct": 45.3,
+          "bat_speed": 76.9,
+          "iso": 0.2,
+          "slg": 0.4,
+          "xwobacon": 0.21,
+          "wobacon": 0.339,
+          "luck_gap": -0.129,
+          "swstr_pct": 23.3,
+          "k_pct": 41.7,
+          "hr": 1,
+          "pa": 24,
+          "bb_count": 24
+        },
+        "L5": {
+          "barrel_pct": 0.0,
+          "hardhit_pct": 23.5,
+          "avg_ev": 85.0,
+          "max_ev": 105.5,
+          "launch_angle": 25.5,
+          "fb_pct": 23.5,
+          "pull_pct": 42.9,
+          "pull_air_pct": 20.0,
+          "ideal_aa_pct": 43.8,
+          "bat_speed": 76.5,
+          "iso": 0.0,
+          "slg": 0.154,
+          "xwobacon": null,
+          "wobacon": null,
+          "luck_gap": null,
+          "swstr_pct": 20.0,
+          "k_pct": 40.0,
+          "hr": 0,
+          "pa": 15,
+          "bb_count": 17
+        },
+        "L15": {
+          "barrel_pct": 1.7,
+          "hardhit_pct": 31.0,
+          "avg_ev": 85.9,
+          "max_ev": 112.2,
+          "launch_angle": 25.4,
+          "fb_pct": 15.5,
+          "pull_pct": 31.8,
+          "pull_air_pct": 8.3,
+          "ideal_aa_pct": 50.5,
+          "bat_speed": 77.2,
+          "iso": 0.195,
+          "slg": 0.463,
+          "xwobacon": 0.357,
+          "wobacon": 0.491,
+          "luck_gap": -0.134,
+          "swstr_pct": 18.9,
+          "k_pct": 38.3,
+          "hr": 2,
+          "pa": 47,
+          "bb_count": 58
+        },
+        "L30": {
+          "barrel_pct": 1.1,
+          "hardhit_pct": 28.6,
+          "avg_ev": 85.8,
+          "max_ev": 112.2,
+          "launch_angle": 26.4,
+          "fb_pct": 13.2,
+          "pull_pct": 34.4,
+          "pull_air_pct": 11.8,
+          "ideal_aa_pct": 40.3,
+          "bat_speed": 77.0,
+          "iso": 0.129,
+          "slg": 0.355,
+          "xwobacon": 0.356,
+          "wobacon": 0.422,
+          "luck_gap": -0.066,
+          "swstr_pct": 20.2,
+          "k_pct": 40.8,
+          "hr": 2,
+          "pa": 71,
+          "bb_count": 91
+        }
+      },
+      "hr_recent": {
+        "L5": 0,
+        "L15": 2,
+        "L30": 2
+      }
+    },
+    {
       "id": 695490,
       "name": "Edwin Arroyo",
       "bats": "S",
@@ -80525,410 +80123,6 @@
       }
     },
     {
-      "id": 665966,
-      "name": "Carlos Narv\u00e1ez",
-      "bats": "R",
-      "lineup_spot": 8,
-      "lineup_status": "projected",
-      "trend": {
-        "dir": "up",
-        "pct": 46,
-        "new": false
-      },
-      "angle": "RHB vs an arm that's allowed 39 HR to RHB (2yr) \u2014 due \u2014 hitting it hard, results lagging",
-      "badges": [
-        {
-          "t": "PLATOON",
-          "k": "plat"
-        },
-        {
-          "t": "DUE",
-          "k": "due"
-        }
-      ],
-      "team": "BOS",
-      "opp_team": "NYY",
-      "game_pk": 824744,
-      "time": "2026-06-28T23:20:00Z",
-      "park": "Fenway Park",
-      "park_hr_factor": 1.04,
-      "why": "",
-      "tier": "THIN",
-      "cleared": 0,
-      "sample": {
-        "L5": 20,
-        "L15": 68,
-        "L30": 136,
-        "season": 208
-      },
-      "opp_pitcher": {
-        "name": "Carlos Rod\u00f3n",
-        "throws": "L",
-        "hr_score": 30,
-        "recent_score": 33,
-        "season_score": 27,
-        "form": {
-          "label": "DEALING",
-          "color": "#5FB97A"
-        },
-        "flags": [
-          "pulled in the air (53.3%)"
-        ],
-        "recent": {
-          "barrel_pct_allowed": 3.0,
-          "hardhit_pct_allowed": 24.2,
-          "avg_ev_allowed": 84.1,
-          "hr_per_pa": 2.3,
-          "ideal_aa_allowed": 51.7,
-          "pull_air_allowed": 53.3,
-          "swstr_pct_allowed": 14.5,
-          "fb_velo": 94.3,
-          "velo_trend": 0.1,
-          "bbe": 66
-        },
-        "season": {
-          "barrel_pct_allowed": 2.6,
-          "hardhit_pct_allowed": 21.7,
-          "avg_ev_allowed": 82.8,
-          "hr_per_pa": 1.7,
-          "ideal_aa_allowed": 53.7,
-          "pull_air_allowed": 37.7,
-          "swstr_pct_allowed": 13.4,
-          "fb_velo": 94.2
-        },
-        "platoon": {
-          "R": 30,
-          "L": 37,
-          "worse": "L",
-          "gap": 7
-        },
-        "hr_by_hand": {
-          "R_hr": 1,
-          "R_pa": 126,
-          "L_hr": 2,
-          "L_pa": 47
-        },
-        "hr_by_hand_2yr": {
-          "two_yr": {
-            "R": {
-              "hr": 39,
-              "pa": 1120
-            },
-            "L": {
-              "hr": 9,
-              "pa": 339
-            }
-          },
-          "this_yr": {
-            "R": {
-              "hr": 1,
-              "pa": 126
-            },
-            "L": {
-              "hr": 2,
-              "pa": 47
-            }
-          }
-        },
-        "vs_hand": "R",
-        "vs_hand_score": 30,
-        "vs_hand_metrics": {
-          "barrel_pct_allowed": 1.8,
-          "hr_per_pa": 0.8,
-          "bbe": 171
-        }
-      },
-      "opp_bullpen": {
-        "score": 24,
-        "form": {
-          "label": "DEALING",
-          "color": "#5FB97A"
-        },
-        "flags": [],
-        "arms": 14,
-        "vs_hand": 24,
-        "hand": "R",
-        "platoon": {
-          "R": 24,
-          "L": 31,
-          "worse": "L",
-          "gap": 7
-        }
-      },
-      "pitch_splits": {
-        "FB": {
-          "barrel_pct": 3.8,
-          "avg_ev": 82.1,
-          "la": 26.2,
-          "whiff_pct": 27.8,
-          "hr": 1,
-          "bbe": 131
-        },
-        "BR": {
-          "barrel_pct": 3.6,
-          "avg_ev": 80.4,
-          "la": 13.4,
-          "whiff_pct": 38.8,
-          "hr": 1,
-          "bbe": 55
-        },
-        "OFF": {
-          "barrel_pct": 0.0,
-          "avg_ev": 88.5,
-          "la": 0.2,
-          "whiff_pct": 29.4,
-          "hr": 0,
-          "bbe": 22
-        }
-      },
-      "pitch_usage": {
-        "FB": 59.3,
-        "BR": 26.2,
-        "OFF": 14.5
-      },
-      "pitch_matchup": {
-        "weighted_barrel": 3.2,
-        "edge": -0.2,
-        "best": {
-          "fam": "FB",
-          "label": "Fastball",
-          "usage": 59.3,
-          "barrel": 3.8
-        },
-        "fams": {
-          "FB": {
-            "usage": 59.3,
-            "barrel": 3.8
-          },
-          "BR": {
-            "usage": 26.2,
-            "barrel": 3.6
-          },
-          "OFF": {
-            "usage": 14.5,
-            "barrel": 0.0
-          }
-        }
-      },
-      "heat_mix": 27,
-      "mix": {
-        "avg_ev": 80.9,
-        "barrel_pct": 12.5,
-        "la": 26.0,
-        "whiff_pct": 48.5
-      },
-      "ev_overall": 83.6,
-      "luck": {
-        "recent": {
-          "xwobacon": 0.558,
-          "wobacon": 0.381,
-          "luck_gap": 0.177,
-          "barrel_pct": 9.1,
-          "hr": 0,
-          "bb_count": 22
-        },
-        "season": {
-          "xwobacon": 0.375,
-          "wobacon": 0.36,
-          "luck_gap": 0.015,
-          "barrel_pct": 3.4,
-          "hr": 2,
-          "bb_count": 208
-        }
-      },
-      "max_ev": {
-        "recent": 110.1,
-        "season": 110.1
-      },
-      "heat": 23,
-      "score_breakdown": {
-        "barrel_pct": 11.0,
-        "pull_air_pct": 3.0,
-        "iso": 1.7,
-        "avg_ev": 3.4,
-        "ideal_aa_pct": 4.1,
-        "slg": 1.6,
-        "cleared": 0,
-        "signals": {
-          "barrel_pct": "False",
-          "pull_air_pct": "False",
-          "iso": "False",
-          "avg_ev": "False",
-          "ideal_aa_pct": "False",
-          "slg": "False"
-        },
-        "tier": "THIN",
-        "flags": [
-          "small sample (21 PA, 22 BBE)",
-          "EV below 87 floor"
-        ],
-        "base_four": 24.8,
-        "pitcher_mult": 0.912
-      },
-      "metrics": {
-        "pull_air_pct": {
-          "recent": 16.7,
-          "season": 22.9,
-          "career": null
-        },
-        "avg_ev": {
-          "recent": 83.6,
-          "season": 82.3,
-          "career": null
-        },
-        "barrel_pct": {
-          "recent": 9.1,
-          "season": 3.4,
-          "career": null
-        },
-        "ideal_aa_pct": {
-          "recent": 46.5,
-          "season": 45.8,
-          "career": null
-        },
-        "bat_speed": {
-          "recent": 70.8,
-          "season": 71.1,
-          "career": null
-        },
-        "hardhit_pct": {
-          "recent": 22.7,
-          "season": 20.2,
-          "career": null
-        },
-        "iso": {
-          "recent": 0.059,
-          "season": 0.089,
-          "career": null
-        },
-        "slg": {
-          "recent": 0.176,
-          "season": 0.289,
-          "career": null
-        },
-        "launch_angle": {
-          "recent": 20.1,
-          "season": 20.0,
-          "career": null
-        },
-        "fb_pct": {
-          "recent": 9.1,
-          "season": 11.1,
-          "career": null
-        },
-        "pull_pct": {
-          "recent": 44.4,
-          "season": 38.2,
-          "career": null
-        },
-        "swstr_pct": {
-          "recent": 27.8,
-          "season": 16.5,
-          "career": null
-        },
-        "k_pct": {
-          "recent": 47.6,
-          "season": 32.2,
-          "career": null
-        }
-      },
-      "windows": {
-        "L14d": {
-          "barrel_pct": 9.1,
-          "hardhit_pct": 22.7,
-          "avg_ev": 83.6,
-          "max_ev": 110.1,
-          "launch_angle": 20.1,
-          "fb_pct": 9.1,
-          "pull_pct": 44.4,
-          "pull_air_pct": 16.7,
-          "ideal_aa_pct": 46.5,
-          "bat_speed": 70.8,
-          "iso": 0.059,
-          "slg": 0.176,
-          "xwobacon": 0.558,
-          "wobacon": 0.381,
-          "luck_gap": 0.177,
-          "swstr_pct": 27.8,
-          "k_pct": 47.6,
-          "hr": 0,
-          "pa": 21,
-          "bb_count": 22
-        },
-        "L5": {
-          "barrel_pct": 10.0,
-          "hardhit_pct": 25.0,
-          "avg_ev": 85.2,
-          "max_ev": 110.1,
-          "launch_angle": 25.6,
-          "fb_pct": 10.0,
-          "pull_pct": 37.5,
-          "pull_air_pct": 16.7,
-          "ideal_aa_pct": 51.4,
-          "bat_speed": 70.8,
-          "iso": 0.071,
-          "slg": 0.214,
-          "xwobacon": null,
-          "wobacon": null,
-          "luck_gap": null,
-          "swstr_pct": 26.9,
-          "k_pct": 44.4,
-          "hr": 0,
-          "pa": 18,
-          "bb_count": 20
-        },
-        "L15": {
-          "barrel_pct": 2.9,
-          "hardhit_pct": 19.1,
-          "avg_ev": 82.5,
-          "max_ev": 110.1,
-          "launch_angle": 24.9,
-          "fb_pct": 7.4,
-          "pull_pct": 42.3,
-          "pull_air_pct": 21.4,
-          "ideal_aa_pct": 47.7,
-          "bat_speed": 71.1,
-          "iso": 0.022,
-          "slg": 0.174,
-          "xwobacon": 0.383,
-          "wobacon": 0.302,
-          "luck_gap": 0.081,
-          "swstr_pct": 19.3,
-          "k_pct": 40.7,
-          "hr": 0,
-          "pa": 54,
-          "bb_count": 68
-        },
-        "L30": {
-          "barrel_pct": 3.7,
-          "hardhit_pct": 17.6,
-          "avg_ev": 82.9,
-          "max_ev": 110.1,
-          "launch_angle": 21.8,
-          "fb_pct": 10.3,
-          "pull_pct": 45.5,
-          "pull_air_pct": 28.1,
-          "ideal_aa_pct": 45.9,
-          "bat_speed": 71.1,
-          "iso": 0.114,
-          "slg": 0.295,
-          "xwobacon": 0.404,
-          "wobacon": 0.367,
-          "luck_gap": 0.037,
-          "swstr_pct": 17.7,
-          "k_pct": 34.3,
-          "hr": 2,
-          "pa": 102,
-          "bb_count": 136
-        }
-      },
-      "hr_recent": {
-        "L5": 0,
-        "L15": 0,
-        "L30": 2
-      }
-    },
-    {
       "id": 695578,
       "name": "James Wood",
       "bats": "L",
@@ -84526,8 +83720,8 @@
       "id": 669224,
       "name": "Austin Wells",
       "bats": "L",
-      "lineup_spot": 9,
-      "lineup_status": "projected",
+      "lineup_spot": 8,
+      "lineup_status": "confirmed",
       "trend": {
         "dir": "down",
         "pct": -23,
@@ -93294,7 +92488,7 @@
       "id": 606992,
       "name": "Eric Haase",
       "bats": "R",
-      "lineup_spot": 9,
+      "lineup_spot": 8,
       "lineup_status": "confirmed",
       "trend": {
         "dir": "down",
@@ -93688,7 +92882,7 @@
       "name": "Ceddanne Rafaela",
       "bats": "R",
       "lineup_spot": 2,
-      "lineup_status": "projected",
+      "lineup_status": "confirmed",
       "trend": {
         "dir": "down",
         "pct": -27,
@@ -97618,409 +96812,6 @@
         "L5": 0,
         "L15": 0,
         "L30": 5
-      }
-    },
-    {
-      "id": 680776,
-      "name": "Jarren Duran",
-      "bats": "L",
-      "lineup_spot": 5,
-      "lineup_status": "projected",
-      "trend": {
-        "dir": "down",
-        "pct": -70,
-        "new": false
-      },
-      "angle": "LHB \u2014 due \u2014 hitting it hard, results lagging",
-      "badges": [
-        {
-          "t": "DUE",
-          "k": "due"
-        },
-        {
-          "t": "POWER",
-          "k": "pow"
-        }
-      ],
-      "team": "BOS",
-      "opp_team": "NYY",
-      "game_pk": 824744,
-      "time": "2026-06-28T23:20:00Z",
-      "park": "Fenway Park",
-      "park_hr_factor": 0.96,
-      "why": "",
-      "tier": "THIN",
-      "cleared": 0,
-      "sample": {
-        "L5": 25,
-        "L15": 79,
-        "L30": 149,
-        "season": 359
-      },
-      "opp_pitcher": {
-        "name": "Carlos Rod\u00f3n",
-        "throws": "L",
-        "hr_score": 30,
-        "recent_score": 33,
-        "season_score": 27,
-        "form": {
-          "label": "DEALING",
-          "color": "#5FB97A"
-        },
-        "flags": [
-          "pulled in the air (53.3%)"
-        ],
-        "recent": {
-          "barrel_pct_allowed": 3.0,
-          "hardhit_pct_allowed": 24.2,
-          "avg_ev_allowed": 84.1,
-          "hr_per_pa": 2.3,
-          "ideal_aa_allowed": 51.7,
-          "pull_air_allowed": 53.3,
-          "swstr_pct_allowed": 14.5,
-          "fb_velo": 94.3,
-          "velo_trend": 0.1,
-          "bbe": 66
-        },
-        "season": {
-          "barrel_pct_allowed": 2.6,
-          "hardhit_pct_allowed": 21.7,
-          "avg_ev_allowed": 82.8,
-          "hr_per_pa": 1.7,
-          "ideal_aa_allowed": 53.7,
-          "pull_air_allowed": 37.7,
-          "swstr_pct_allowed": 13.4,
-          "fb_velo": 94.2
-        },
-        "platoon": {
-          "R": 30,
-          "L": 37,
-          "worse": "L",
-          "gap": 7
-        },
-        "hr_by_hand": {
-          "R_hr": 1,
-          "R_pa": 126,
-          "L_hr": 2,
-          "L_pa": 47
-        },
-        "hr_by_hand_2yr": {
-          "two_yr": {
-            "R": {
-              "hr": 39,
-              "pa": 1120
-            },
-            "L": {
-              "hr": 9,
-              "pa": 339
-            }
-          },
-          "this_yr": {
-            "R": {
-              "hr": 1,
-              "pa": 126
-            },
-            "L": {
-              "hr": 2,
-              "pa": 47
-            }
-          }
-        },
-        "vs_hand": "L",
-        "vs_hand_score": 37,
-        "vs_hand_metrics": {
-          "barrel_pct_allowed": 4.7,
-          "hr_per_pa": 4.3,
-          "bbe": 64
-        }
-      },
-      "opp_bullpen": {
-        "score": 24,
-        "form": {
-          "label": "DEALING",
-          "color": "#5FB97A"
-        },
-        "flags": [],
-        "arms": 14,
-        "vs_hand": 31,
-        "hand": "L",
-        "platoon": {
-          "R": 24,
-          "L": 31,
-          "worse": "L",
-          "gap": 7
-        }
-      },
-      "pitch_splits": {
-        "FB": {
-          "barrel_pct": 6.9,
-          "avg_ev": 84.3,
-          "la": 24.1,
-          "whiff_pct": 31.3,
-          "hr": 9,
-          "bbe": 202
-        },
-        "BR": {
-          "barrel_pct": 4.5,
-          "avg_ev": 82.2,
-          "la": 17.5,
-          "whiff_pct": 43.3,
-          "hr": 1,
-          "bbe": 89
-        },
-        "OFF": {
-          "barrel_pct": 5.9,
-          "avg_ev": 80.3,
-          "la": 0.8,
-          "whiff_pct": 33.9,
-          "hr": 2,
-          "bbe": 68
-        }
-      },
-      "pitch_usage": {
-        "FB": 59.3,
-        "BR": 26.2,
-        "OFF": 14.5
-      },
-      "pitch_matchup": {
-        "weighted_barrel": 6.1,
-        "edge": 0.0,
-        "best": {
-          "fam": "FB",
-          "label": "Fastball",
-          "usage": 59.3,
-          "barrel": 6.9
-        },
-        "fams": {
-          "FB": {
-            "usage": 59.3,
-            "barrel": 6.9
-          },
-          "BR": {
-            "usage": 26.2,
-            "barrel": 4.5
-          },
-          "OFF": {
-            "usage": 14.5,
-            "barrel": 5.9
-          }
-        }
-      },
-      "heat_mix": 14,
-      "mix": {
-        "avg_ev": 79.3,
-        "barrel_pct": 2.7,
-        "la": 20.5,
-        "whiff_pct": 32.7
-      },
-      "ev_overall": 79.5,
-      "luck": {
-        "recent": {
-          "xwobacon": 0.335,
-          "wobacon": 0.186,
-          "luck_gap": 0.149,
-          "barrel_pct": 3.2,
-          "hr": 1,
-          "bb_count": 62
-        },
-        "season": {
-          "xwobacon": 0.377,
-          "wobacon": 0.343,
-          "luck_gap": 0.034,
-          "barrel_pct": 6.1,
-          "hr": 12,
-          "bb_count": 359
-        }
-      },
-      "max_ev": {
-        "recent": 110.7,
-        "season": 114.7
-      },
-      "heat": 15,
-      "score_breakdown": {
-        "barrel_pct": 2.9,
-        "pull_air_pct": 3.8,
-        "iso": 1.9,
-        "avg_ev": 3.2,
-        "ideal_aa_pct": 2.6,
-        "slg": 1.8,
-        "cleared": 0,
-        "signals": {
-          "barrel_pct": "False",
-          "pull_air_pct": "False",
-          "iso": "False",
-          "avg_ev": "False",
-          "ideal_aa_pct": "False",
-          "slg": "False"
-        },
-        "tier": "THIN",
-        "flags": [
-          "EV below 87 floor"
-        ],
-        "base_four": 16.2,
-        "pitcher_mult": 0.912
-      },
-      "metrics": {
-        "pull_air_pct": {
-          "recent": 21.4,
-          "season": 33.3,
-          "career": null
-        },
-        "avg_ev": {
-          "recent": 79.5,
-          "season": 83.0,
-          "career": null
-        },
-        "barrel_pct": {
-          "recent": 3.2,
-          "season": 6.1,
-          "career": null
-        },
-        "ideal_aa_pct": {
-          "recent": 33.0,
-          "season": 45.0,
-          "career": null
-        },
-        "bat_speed": {
-          "recent": 74.0,
-          "season": 74.6,
-          "career": null
-        },
-        "hardhit_pct": {
-          "recent": 17.7,
-          "season": 25.6,
-          "career": null
-        },
-        "iso": {
-          "recent": 0.065,
-          "season": 0.162,
-          "career": null
-        },
-        "slg": {
-          "recent": 0.196,
-          "season": 0.36,
-          "career": null
-        },
-        "launch_angle": {
-          "recent": 17.5,
-          "season": 18.0,
-          "career": null
-        },
-        "fb_pct": {
-          "recent": 6.5,
-          "season": 11.7,
-          "career": null
-        },
-        "pull_pct": {
-          "recent": 45.5,
-          "season": 46.8,
-          "career": null
-        },
-        "swstr_pct": {
-          "recent": 19.2,
-          "season": 17.6,
-          "career": null
-        },
-        "k_pct": {
-          "recent": 28.0,
-          "season": 29.7,
-          "career": null
-        }
-      },
-      "windows": {
-        "L14d": {
-          "barrel_pct": 3.2,
-          "hardhit_pct": 17.7,
-          "avg_ev": 79.5,
-          "max_ev": 110.7,
-          "launch_angle": 17.5,
-          "fb_pct": 6.5,
-          "pull_pct": 45.5,
-          "pull_air_pct": 21.4,
-          "ideal_aa_pct": 33.0,
-          "bat_speed": 74.0,
-          "iso": 0.065,
-          "slg": 0.196,
-          "xwobacon": 0.335,
-          "wobacon": 0.186,
-          "luck_gap": 0.149,
-          "swstr_pct": 19.2,
-          "k_pct": 28.0,
-          "hr": 1,
-          "pa": 50,
-          "bb_count": 62
-        },
-        "L5": {
-          "barrel_pct": 0.0,
-          "hardhit_pct": 12.0,
-          "avg_ev": 77.9,
-          "max_ev": 99.9,
-          "launch_angle": 16.9,
-          "fb_pct": 16.0,
-          "pull_pct": 46.7,
-          "pull_air_pct": 12.5,
-          "ideal_aa_pct": 22.2,
-          "bat_speed": 72.4,
-          "iso": 0.0,
-          "slg": 0.105,
-          "xwobacon": 0.283,
-          "wobacon": 0.12,
-          "luck_gap": 0.163,
-          "swstr_pct": 18.5,
-          "k_pct": 23.8,
-          "hr": 0,
-          "pa": 21,
-          "bb_count": 25
-        },
-        "L15": {
-          "barrel_pct": 3.8,
-          "hardhit_pct": 19.0,
-          "avg_ev": 80.2,
-          "max_ev": 110.7,
-          "launch_angle": 18.5,
-          "fb_pct": 7.6,
-          "pull_pct": 46.2,
-          "pull_air_pct": 27.8,
-          "ideal_aa_pct": 34.1,
-          "bat_speed": 74.3,
-          "iso": 0.102,
-          "slg": 0.254,
-          "xwobacon": 0.359,
-          "wobacon": 0.251,
-          "luck_gap": 0.108,
-          "swstr_pct": 21.3,
-          "k_pct": 33.3,
-          "hr": 2,
-          "pa": 63,
-          "bb_count": 79
-        },
-        "L30": {
-          "barrel_pct": 5.4,
-          "hardhit_pct": 25.5,
-          "avg_ev": 82.7,
-          "max_ev": 111.7,
-          "launch_angle": 18.5,
-          "fb_pct": 10.7,
-          "pull_pct": 50.6,
-          "pull_air_pct": 39.0,
-          "ideal_aa_pct": 43.0,
-          "bat_speed": 75.2,
-          "iso": 0.16,
-          "slg": 0.368,
-          "xwobacon": 0.392,
-          "wobacon": 0.37,
-          "luck_gap": 0.022,
-          "swstr_pct": 19.2,
-          "k_pct": 33.8,
-          "hr": 6,
-          "pa": 133,
-          "bb_count": 149
-        }
-      },
-      "hr_recent": {
-        "L5": 0,
-        "L15": 2,
-        "L30": 6
       }
     },
     {
@@ -104816,6 +103607,387 @@
       }
     },
     {
+      "id": 813841,
+      "name": "Jonah Cox",
+      "bats": "R",
+      "lineup_spot": 9,
+      "lineup_status": "confirmed",
+      "trend": {
+        "dir": "down",
+        "pct": -15,
+        "new": false
+      },
+      "angle": "RHB \u2014 contact cooling (-15%)",
+      "badges": [],
+      "team": "SF",
+      "opp_team": "ATL",
+      "game_pk": 823204,
+      "time": "2026-06-28T20:05:00Z",
+      "park": "Oracle Park",
+      "park_hr_factor": 0.95,
+      "why": "",
+      "tier": "THIN",
+      "cleared": 0,
+      "sample": {
+        "L5": 10,
+        "L15": 20,
+        "L30": 20,
+        "season": 20
+      },
+      "opp_pitcher": {
+        "name": "Chris Sale",
+        "throws": "L",
+        "hr_score": 15,
+        "recent_score": 12,
+        "season_score": 19,
+        "form": {
+          "label": "DEALING",
+          "color": "#5FB97A"
+        },
+        "flags": [],
+        "recent": {
+          "barrel_pct_allowed": 0.0,
+          "hardhit_pct_allowed": 23.3,
+          "avg_ev_allowed": 83.2,
+          "hr_per_pa": 0.0,
+          "ideal_aa_allowed": 38.5,
+          "pull_air_allowed": 25.0,
+          "swstr_pct_allowed": 11.9,
+          "fb_velo": 96.3,
+          "velo_trend": 0.5,
+          "bbe": 30
+        },
+        "season": {
+          "barrel_pct_allowed": 2.8,
+          "hardhit_pct_allowed": 17.9,
+          "avg_ev_allowed": 80.9,
+          "hr_per_pa": 1.8,
+          "ideal_aa_allowed": 44.6,
+          "pull_air_allowed": 32.4,
+          "swstr_pct_allowed": 14.4,
+          "fb_velo": 95.8
+        },
+        "platoon": {
+          "R": 19,
+          "L": 15,
+          "worse": "R",
+          "gap": 4
+        },
+        "hr_by_hand": {
+          "R_hr": 5,
+          "R_pa": 259,
+          "L_hr": 1,
+          "L_pa": 83
+        },
+        "hr_by_hand_2yr": {
+          "two_yr": {
+            "R": {
+              "hr": 19,
+              "pa": 1055
+            },
+            "L": {
+              "hr": 6,
+              "pa": 285
+            }
+          },
+          "this_yr": {
+            "R": {
+              "hr": 7,
+              "pa": 308
+            },
+            "L": {
+              "hr": 2,
+              "pa": 111
+            }
+          }
+        },
+        "vs_hand": "R",
+        "vs_hand_score": 19,
+        "vs_hand_metrics": {
+          "barrel_pct_allowed": 2.4,
+          "hr_per_pa": 1.9,
+          "bbe": 340
+        }
+      },
+      "opp_bullpen": {
+        "score": 27,
+        "form": {
+          "label": "DEALING",
+          "color": "#5FB97A"
+        },
+        "flags": [],
+        "arms": 23,
+        "vs_hand": 27,
+        "hand": "R",
+        "platoon": {
+          "R": 27,
+          "L": 27,
+          "worse": "R",
+          "gap": 0
+        }
+      },
+      "pitch_splits": {
+        "FB": {
+          "barrel_pct": 9.1,
+          "avg_ev": 74.6,
+          "la": 28.8,
+          "whiff_pct": 58.1,
+          "hr": 1,
+          "bbe": 11
+        },
+        "BR": {
+          "barrel_pct": 0.0,
+          "avg_ev": 75.6,
+          "la": 27.8,
+          "whiff_pct": 38.5,
+          "hr": 0,
+          "bbe": 6
+        }
+      },
+      "pitch_usage": {
+        "FB": 47.6,
+        "BR": 40.7,
+        "OFF": 11.7
+      },
+      "pitch_matchup": {
+        "weighted_barrel": 4.9,
+        "edge": -0.1,
+        "best": {
+          "fam": "FB",
+          "label": "Fastball",
+          "usage": 47.6,
+          "barrel": 9.1
+        },
+        "fams": {
+          "FB": {
+            "usage": 47.6,
+            "barrel": 9.1
+          },
+          "BR": {
+            "usage": 40.7,
+            "barrel": 0.0
+          }
+        }
+      },
+      "heat_mix": 8,
+      "mix": {
+        "avg_ev": 69.7,
+        "barrel_pct": 0.0,
+        "la": 23.6,
+        "whiff_pct": 50.0
+      },
+      "ev_overall": 75.2,
+      "luck": {
+        "recent": {
+          "xwobacon": null,
+          "wobacon": null,
+          "luck_gap": null,
+          "barrel_pct": 0.0,
+          "hr": 0,
+          "bb_count": 7
+        },
+        "season": {
+          "xwobacon": 0.663,
+          "wobacon": 0.845,
+          "luck_gap": -0.182,
+          "barrel_pct": 5.0,
+          "hr": 1,
+          "bb_count": 20
+        }
+      },
+      "max_ev": {
+        "recent": 102.3,
+        "season": 104.7
+      },
+      "heat": 9,
+      "score_breakdown": {
+        "barrel_pct": 0.0,
+        "pull_air_pct": 0.0,
+        "iso": 0.0,
+        "avg_ev": 3.1,
+        "ideal_aa_pct": 5.7,
+        "slg": 1.3,
+        "cleared": 0,
+        "signals": {
+          "barrel_pct": false,
+          "pull_air_pct": false,
+          "iso": false,
+          "avg_ev": "False",
+          "ideal_aa_pct": "False",
+          "slg": "False"
+        },
+        "tier": "THIN",
+        "flags": [
+          "small sample (8 PA, 7 BBE)",
+          "EV below 87 floor"
+        ],
+        "base_four": 10.1,
+        "pitcher_mult": 0.846
+      },
+      "metrics": {
+        "pull_air_pct": {
+          "recent": 0.0,
+          "season": 0.0,
+          "career": null
+        },
+        "avg_ev": {
+          "recent": 75.2,
+          "season": 76.6,
+          "career": null
+        },
+        "barrel_pct": {
+          "recent": 0.0,
+          "season": 5.0,
+          "career": null
+        },
+        "ideal_aa_pct": {
+          "recent": 50.0,
+          "season": 42.5,
+          "career": null
+        },
+        "bat_speed": {
+          "recent": 69.3,
+          "season": 69.7,
+          "career": null
+        },
+        "hardhit_pct": {
+          "recent": 14.3,
+          "season": 30.0,
+          "career": null
+        },
+        "iso": {
+          "recent": 0.0,
+          "season": 0.273,
+          "career": null
+        },
+        "slg": {
+          "recent": 0.143,
+          "season": 0.591,
+          "career": null
+        },
+        "launch_angle": {
+          "recent": 22.6,
+          "season": 27.2,
+          "career": null
+        },
+        "fb_pct": {
+          "recent": 14.3,
+          "season": 25.0,
+          "career": null
+        },
+        "pull_pct": {
+          "recent": 33.3,
+          "season": 8.3,
+          "career": null
+        },
+        "swstr_pct": {
+          "recent": 26.7,
+          "season": 29.3,
+          "career": null
+        },
+        "k_pct": {
+          "recent": 62.5,
+          "season": 50.0,
+          "career": null
+        }
+      },
+      "windows": {
+        "L14d": {
+          "barrel_pct": 0.0,
+          "hardhit_pct": 14.3,
+          "avg_ev": 75.2,
+          "max_ev": 102.3,
+          "launch_angle": 22.6,
+          "fb_pct": 14.3,
+          "pull_pct": 33.3,
+          "pull_air_pct": 0.0,
+          "ideal_aa_pct": 50.0,
+          "bat_speed": 69.3,
+          "iso": 0.0,
+          "slg": 0.143,
+          "xwobacon": null,
+          "wobacon": null,
+          "luck_gap": null,
+          "swstr_pct": 26.7,
+          "k_pct": 62.5,
+          "hr": 0,
+          "pa": 8,
+          "bb_count": 7
+        },
+        "L5": {
+          "barrel_pct": 0.0,
+          "hardhit_pct": 20.0,
+          "avg_ev": 76.5,
+          "max_ev": 102.3,
+          "launch_angle": 26.0,
+          "fb_pct": 30.0,
+          "pull_pct": 20.0,
+          "pull_air_pct": 0.0,
+          "ideal_aa_pct": 48.1,
+          "bat_speed": 69.3,
+          "iso": 0.167,
+          "slg": 0.417,
+          "xwobacon": null,
+          "wobacon": null,
+          "luck_gap": null,
+          "swstr_pct": 30.6,
+          "k_pct": 61.5,
+          "hr": 0,
+          "pa": 13,
+          "bb_count": 10
+        },
+        "L15": {
+          "barrel_pct": 5.0,
+          "hardhit_pct": 30.0,
+          "avg_ev": 76.6,
+          "max_ev": 104.7,
+          "launch_angle": 27.2,
+          "fb_pct": 25.0,
+          "pull_pct": 8.3,
+          "pull_air_pct": 0.0,
+          "ideal_aa_pct": 42.5,
+          "bat_speed": 69.7,
+          "iso": 0.273,
+          "slg": 0.591,
+          "xwobacon": 0.663,
+          "wobacon": 0.845,
+          "luck_gap": -0.182,
+          "swstr_pct": 29.3,
+          "k_pct": 50.0,
+          "hr": 1,
+          "pa": 24,
+          "bb_count": 20
+        },
+        "L30": {
+          "barrel_pct": 5.0,
+          "hardhit_pct": 30.0,
+          "avg_ev": 76.6,
+          "max_ev": 104.7,
+          "launch_angle": 27.2,
+          "fb_pct": 25.0,
+          "pull_pct": 8.3,
+          "pull_air_pct": 0.0,
+          "ideal_aa_pct": 42.5,
+          "bat_speed": 69.7,
+          "iso": 0.273,
+          "slg": 0.591,
+          "xwobacon": 0.663,
+          "wobacon": 0.845,
+          "luck_gap": -0.182,
+          "swstr_pct": 29.3,
+          "k_pct": 50.0,
+          "hr": 1,
+          "pa": 24,
+          "bb_count": 20
+        }
+      },
+      "hr_recent": {
+        "L5": 0,
+        "L15": 1,
+        "L30": 1
+      }
+    },
+    {
       "id": 668939,
       "name": "Adley Rutschman",
       "bats": "S",
@@ -107822,7 +106994,7 @@
       "id": 671218,
       "name": "Heliot Ramos",
       "bats": "R",
-      "lineup_spot": 6,
+      "lineup_spot": 3,
       "lineup_status": "confirmed",
       "trend": {
         "dir": "up",
@@ -108168,6 +107340,484 @@
         "L15": 1,
         "L30": 4
       }
+    },
+    {
+      "id": 665828,
+      "name": "Oswaldo Cabrera",
+      "bats": "S",
+      "lineup_spot": 7,
+      "lineup_status": "confirmed",
+      "trend": {
+        "dir": "flat",
+        "pct": null,
+        "new": true
+      },
+      "angle": "Switch vs an arm that's allowed 27 HR to LHB (2yr)",
+      "badges": [
+        {
+          "t": "PLATOON",
+          "k": "plat"
+        }
+      ],
+      "team": "NYY",
+      "opp_team": "BOS",
+      "game_pk": 824744,
+      "time": "2026-06-28T23:20:00Z",
+      "park": "Fenway Park",
+      "park_hr_factor": 0.96,
+      "why": "vs SLIPPING arm",
+      "tier": null,
+      "cleared": null,
+      "sample": {
+        "L5": null,
+        "L15": null,
+        "L30": null,
+        "season": null
+      },
+      "opp_pitcher": {
+        "name": "Sonny Gray",
+        "throws": "R",
+        "hr_score": 48,
+        "recent_score": 52,
+        "season_score": 42,
+        "form": {
+          "label": "SLIPPING",
+          "color": "#E0913A"
+        },
+        "flags": [
+          "HR-prone lately (5.3% of PA)",
+          "hitters timing him up (59.5% ideal AA)",
+          "pulled in the air (52.9%)",
+          "HRs even with Ks",
+          "trending worse vs season"
+        ],
+        "recent": {
+          "barrel_pct_allowed": 2.9,
+          "hardhit_pct_allowed": 27.5,
+          "avg_ev_allowed": 82.6,
+          "hr_per_pa": 5.3,
+          "ideal_aa_allowed": 59.5,
+          "pull_air_allowed": 52.9,
+          "swstr_pct_allowed": 12.6,
+          "fb_velo": 90.5,
+          "velo_trend": -0.2,
+          "bbe": 69
+        },
+        "season": {
+          "barrel_pct_allowed": 4.2,
+          "hardhit_pct_allowed": 24.9,
+          "avg_ev_allowed": 83.0,
+          "hr_per_pa": 2.9,
+          "ideal_aa_allowed": 58.7,
+          "pull_air_allowed": 42.7,
+          "swstr_pct_allowed": 10.8,
+          "fb_velo": 90.7
+        },
+        "platoon": {
+          "R": 45,
+          "L": 47,
+          "worse": "L",
+          "gap": 2
+        },
+        "hr_by_hand": {
+          "R_hr": 3,
+          "R_pa": 122,
+          "L_hr": 6,
+          "L_pa": 191
+        },
+        "hr_by_hand_2yr": {
+          "two_yr": {
+            "R": {
+              "hr": 32,
+              "pa": 742
+            },
+            "L": {
+              "hr": 27,
+              "pa": 803
+            }
+          },
+          "this_yr": {
+            "R": {
+              "hr": 4,
+              "pa": 155
+            },
+            "L": {
+              "hr": 8,
+              "pa": 220
+            }
+          }
+        },
+        "vs_hand": "L",
+        "vs_hand_score": 47,
+        "vs_hand_metrics": {
+          "barrel_pct_allowed": 4.6,
+          "hr_per_pa": 3.1,
+          "bbe": 237
+        }
+      },
+      "opp_bullpen": {
+        "score": 26,
+        "form": {
+          "label": "DEALING",
+          "color": "#5FB97A"
+        },
+        "flags": [],
+        "arms": 18,
+        "vs_hand": 17,
+        "hand": "L",
+        "platoon": {
+          "R": 40,
+          "L": 17,
+          "worse": "R",
+          "gap": 23
+        }
+      },
+      "pitch_splits": null,
+      "pitch_usage": {
+        "FB": 58.6,
+        "BR": 36.2,
+        "OFF": 5.2
+      },
+      "pitch_matchup": null,
+      "heat_mix": 0,
+      "mix": null,
+      "ev_overall": null,
+      "luck": {
+        "recent": {
+          "xwobacon": null,
+          "wobacon": null,
+          "luck_gap": null,
+          "barrel_pct": null,
+          "hr": null,
+          "bb_count": null
+        },
+        "season": {
+          "xwobacon": null,
+          "wobacon": null,
+          "luck_gap": null,
+          "barrel_pct": null,
+          "hr": null,
+          "bb_count": null
+        }
+      },
+      "max_ev": {
+        "recent": null,
+        "season": null
+      },
+      "heat": 0,
+      "score_breakdown": {
+        "note": "no recent data"
+      },
+      "metrics": {
+        "pull_air_pct": {
+          "recent": null,
+          "season": null,
+          "career": null
+        },
+        "avg_ev": {
+          "recent": null,
+          "season": null,
+          "career": null
+        },
+        "barrel_pct": {
+          "recent": null,
+          "season": null,
+          "career": null
+        },
+        "ideal_aa_pct": {
+          "recent": null,
+          "season": null,
+          "career": null
+        },
+        "bat_speed": {
+          "recent": null,
+          "season": null,
+          "career": null
+        },
+        "hardhit_pct": {
+          "recent": null,
+          "season": null,
+          "career": null
+        },
+        "iso": {
+          "recent": null,
+          "season": null,
+          "career": null
+        },
+        "slg": {
+          "recent": null,
+          "season": null,
+          "career": null
+        },
+        "launch_angle": {
+          "recent": null,
+          "season": null,
+          "career": null
+        },
+        "fb_pct": {
+          "recent": null,
+          "season": null,
+          "career": null
+        },
+        "pull_pct": {
+          "recent": null,
+          "season": null,
+          "career": null
+        },
+        "swstr_pct": {
+          "recent": null,
+          "season": null,
+          "career": null
+        },
+        "k_pct": {
+          "recent": null,
+          "season": null,
+          "career": null
+        }
+      },
+      "windows": {},
+      "hr_recent": {
+        "L5": null,
+        "L15": null,
+        "L30": null
+      }
+    },
+    {
+      "id": 663853,
+      "name": "Romy Gonzalez",
+      "bats": "R",
+      "lineup_spot": 5,
+      "lineup_status": "confirmed",
+      "trend": {
+        "dir": "flat",
+        "pct": null,
+        "new": true
+      },
+      "angle": "RHB vs an arm that's allowed 39 HR to RHB (2yr)",
+      "badges": [
+        {
+          "t": "PLATOON",
+          "k": "plat"
+        }
+      ],
+      "team": "BOS",
+      "opp_team": "NYY",
+      "game_pk": 824744,
+      "time": "2026-06-28T23:20:00Z",
+      "park": "Fenway Park",
+      "park_hr_factor": 1.04,
+      "why": "",
+      "tier": null,
+      "cleared": null,
+      "sample": {
+        "L5": null,
+        "L15": null,
+        "L30": null,
+        "season": null
+      },
+      "opp_pitcher": {
+        "name": "Carlos Rod\u00f3n",
+        "throws": "L",
+        "hr_score": 30,
+        "recent_score": 33,
+        "season_score": 27,
+        "form": {
+          "label": "DEALING",
+          "color": "#5FB97A"
+        },
+        "flags": [
+          "pulled in the air (53.3%)"
+        ],
+        "recent": {
+          "barrel_pct_allowed": 3.0,
+          "hardhit_pct_allowed": 24.2,
+          "avg_ev_allowed": 84.1,
+          "hr_per_pa": 2.3,
+          "ideal_aa_allowed": 51.7,
+          "pull_air_allowed": 53.3,
+          "swstr_pct_allowed": 14.5,
+          "fb_velo": 94.3,
+          "velo_trend": 0.1,
+          "bbe": 66
+        },
+        "season": {
+          "barrel_pct_allowed": 2.6,
+          "hardhit_pct_allowed": 21.7,
+          "avg_ev_allowed": 82.8,
+          "hr_per_pa": 1.7,
+          "ideal_aa_allowed": 53.7,
+          "pull_air_allowed": 37.7,
+          "swstr_pct_allowed": 13.4,
+          "fb_velo": 94.2
+        },
+        "platoon": {
+          "R": 30,
+          "L": 37,
+          "worse": "L",
+          "gap": 7
+        },
+        "hr_by_hand": {
+          "R_hr": 1,
+          "R_pa": 126,
+          "L_hr": 2,
+          "L_pa": 47
+        },
+        "hr_by_hand_2yr": {
+          "two_yr": {
+            "R": {
+              "hr": 39,
+              "pa": 1120
+            },
+            "L": {
+              "hr": 9,
+              "pa": 339
+            }
+          },
+          "this_yr": {
+            "R": {
+              "hr": 1,
+              "pa": 126
+            },
+            "L": {
+              "hr": 2,
+              "pa": 47
+            }
+          }
+        },
+        "vs_hand": "R",
+        "vs_hand_score": 30,
+        "vs_hand_metrics": {
+          "barrel_pct_allowed": 1.8,
+          "hr_per_pa": 0.8,
+          "bbe": 171
+        }
+      },
+      "opp_bullpen": {
+        "score": 24,
+        "form": {
+          "label": "DEALING",
+          "color": "#5FB97A"
+        },
+        "flags": [],
+        "arms": 14,
+        "vs_hand": 24,
+        "hand": "R",
+        "platoon": {
+          "R": 24,
+          "L": 31,
+          "worse": "L",
+          "gap": 7
+        }
+      },
+      "pitch_splits": null,
+      "pitch_usage": {
+        "FB": 59.3,
+        "BR": 26.2,
+        "OFF": 14.5
+      },
+      "pitch_matchup": null,
+      "heat_mix": 0,
+      "mix": null,
+      "ev_overall": null,
+      "luck": {
+        "recent": {
+          "xwobacon": null,
+          "wobacon": null,
+          "luck_gap": null,
+          "barrel_pct": null,
+          "hr": null,
+          "bb_count": null
+        },
+        "season": {
+          "xwobacon": null,
+          "wobacon": null,
+          "luck_gap": null,
+          "barrel_pct": null,
+          "hr": null,
+          "bb_count": null
+        }
+      },
+      "max_ev": {
+        "recent": null,
+        "season": null
+      },
+      "heat": 0,
+      "score_breakdown": {
+        "note": "no recent data"
+      },
+      "metrics": {
+        "pull_air_pct": {
+          "recent": null,
+          "season": null,
+          "career": null
+        },
+        "avg_ev": {
+          "recent": null,
+          "season": null,
+          "career": null
+        },
+        "barrel_pct": {
+          "recent": null,
+          "season": null,
+          "career": null
+        },
+        "ideal_aa_pct": {
+          "recent": null,
+          "season": null,
+          "career": null
+        },
+        "bat_speed": {
+          "recent": null,
+          "season": null,
+          "career": null
+        },
+        "hardhit_pct": {
+          "recent": null,
+          "season": null,
+          "career": null
+        },
+        "iso": {
+          "recent": null,
+          "season": null,
+          "career": null
+        },
+        "slg": {
+          "recent": null,
+          "season": null,
+          "career": null
+        },
+        "launch_angle": {
+          "recent": null,
+          "season": null,
+          "career": null
+        },
+        "fb_pct": {
+          "recent": null,
+          "season": null,
+          "career": null
+        },
+        "pull_pct": {
+          "recent": null,
+          "season": null,
+          "career": null
+        },
+        "swstr_pct": {
+          "recent": null,
+          "season": null,
+          "career": null
+        },
+        "k_pct": {
+          "recent": null,
+          "season": null,
+          "career": null
+        }
+      },
+      "windows": {},
+      "hr_recent": {
+        "L5": null,
+        "L15": null,
+        "L30": null
+      }
     }
   ],
   "top_plays": [
@@ -108295,7 +107945,7 @@
       "heat": 61,
       "tier": "LEAN",
       "why": "56% air-pull \u00b7 .225 ISO \u00b7 vs SLIPPING arm",
-      "spot": 7,
+      "spot": 1,
       "time": "2026-06-28T23:20:00Z",
       "arm": "Sonny Gray",
       "arm_form": "SLIPPING",
@@ -108354,34 +108004,6 @@
           "heat": 59,
           "tier": "LEAN",
           "spot": 5,
-          "bats": "R"
-        }
-      ]
-    },
-    {
-      "arm": "Sonny Gray",
-      "form": {
-        "label": "SLIPPING",
-        "color": "#E0913A"
-      },
-      "arm_score": 48,
-      "game_pk": 824744,
-      "team": "NYY",
-      "opp_team": "BOS",
-      "time": "2026-06-28T23:20:00Z",
-      "hitters": [
-        {
-          "name": "Jazz Chisholm Jr.",
-          "heat": 61,
-          "tier": "LEAN",
-          "spot": 7,
-          "bats": "L"
-        },
-        {
-          "name": "Paul Goldschmidt",
-          "heat": 55,
-          "tier": "LEAN",
-          "spot": 1,
           "bats": "R"
         }
       ]
