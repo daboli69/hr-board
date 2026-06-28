@@ -426,6 +426,7 @@
       <button data-sort="heat" aria-pressed="true">Heat</button>
       <button data-sort="trend" aria-pressed="false">Trend</button>
       <button data-sort="bp" aria-pressed="false">BP</button>
+      <button data-sort="bomb" aria-pressed="false">Bomb</button>
       <button data-sort="name">Name</button>
       <button data-sort="time">Time</button>
     </div>
@@ -535,7 +536,7 @@
       <p>Then one <b>form</b> read per hitter — a simple spectrum so you never see a contradiction: <b>DUE</b> (hitting it hard but unlucky — results lag his contact), <b>WARMING</b> (contact quality trending up), <b>HOT</b> (elite contact and results match — genuinely hot, earned), <b>MAY COOL</b> (results have run well above his contact and may regress). <b>▲ / ▼</b> = power-form trend with % change. <b>proj</b> = lineup not posted, using last game's order. <b>#1–#9</b> = batting-order spot.</p>
 
       <h3>Filters & sorting</h3>
-      <p><b>Heat / Trend / BP / Name / Time</b> sort the list — <b>BP</b> ranks by how vulnerable the opposing bullpen is to each hitter's hand (a weak pen means more late-game HR chances; the "pen NN" chip shows the score). In <b>⚙ Filters</b>: <b>Games</b> and <b>Teams</b> narrow to specific matchups or clubs, <b>Heat floor</b> (40/55/70+) cuts the long tail, <b>Opposing starter</b> drops strong SP so you only see hitters facing a vulnerable one, <b>Bats</b> shows one handedness, and <b>Traits</b> lets you tap any badge to show only hitters carrying it (tap several to stack them). Every filter combines, so you can stack (say) a vulnerable starter + weak bullpen sort + a trait + a team at once. <b>Hide small samples</b> drops hitters under ~25 PA in the window.</p>
+      <p><b>Heat / Trend / BP / Bomb / Name / Time</b> sort the list — <b>BP</b> ranks by how vulnerable the opposing bullpen is to each hitter's hand, and <b>Bomb</b> ranks by raw long-ball ceiling: how hard he can hit it (season max exit velo), nudged by recent form — matchup-independent, for finding who can flat-out crush one the farthest (the "NNN EV" chip shows the ceiling). In <b>⚙ Filters</b>: <b>Games</b> and <b>Teams</b> narrow to specific matchups or clubs, <b>Heat floor</b> (40/55/70+) cuts the long tail, <b>Opposing starter</b> drops strong SP so you only see hitters facing a vulnerable one, <b>Bats</b> shows one handedness, and <b>Traits</b> lets you tap any badge to show only hitters carrying it (tap several to stack them). Every filter combines, so you can stack (say) a vulnerable starter + weak bullpen sort + a trait + a team at once. <b>Hide small samples</b> drops hitters under ~25 PA in the window.</p>
 
       <h3>Top Plays & Stacks</h3>
       <p><b>Top Plays</b> (panel up top) = the strongest non-thin hitters not facing a sharp arm, each with a one-line "why" — your fast scan. <b>Stacks</b> (view toggle) groups hot hitters by the vulnerable arm they share — built for grand-slam parlays / same-game pairing.</p>
@@ -717,6 +718,17 @@ function trendVal(t){
   return 0;
 }
 function bpVal(p){const bp=p.opp_bullpen||{}; const v=bp.vs_hand!=null?bp.vs_hand:bp.score; return v!=null?v:-1;}
+// Long-ball / distance ceiling: how hard he CAN hit it (season max EV), nudged by recent form.
+function lbCeil(p){const mx=p.max_ev||{}; return mx.season!=null?mx.season:mx.recent;}
+function lbVal(p){
+  const mx=p.max_ev||{};
+  const ceil=lbCeil(p);
+  const reMax=mx.recent;
+  const reAvg=(p.metrics&&p.metrics.avg_ev)?p.metrics.avg_ev.recent:null;
+  if(ceil==null&&reAvg==null) return -1;
+  return (ceil??98)*0.6 + (reMax??ceil??98)*0.25 + (reAvg??88)*0.15;
+}
+function evColor(mx){ if(mx==null) return "var(--panel-2)"; return chipColor(Math.max(0,Math.min(100,(mx-100)/16*100))); }
 
 function render(){
   const main=document.getElementById("main");
@@ -756,6 +768,7 @@ function render(){
     if(sortKey==="time") return (a.time||"").localeCompare(b.time||"")|| b.heat-a.heat;
     if(sortKey==="trend") return trendVal(b.trend)-trendVal(a.trend)|| b.heat-a.heat;
     if(sortKey==="bp") return bpVal(b)-bpVal(a)|| b.heat-a.heat;
+    if(sortKey==="bomb") return lbVal(b)-lbVal(a)|| b.heat-a.heat;
     return sortVal(b,sortKey)-sortVal(a,sortKey);
   });
   const sc=document.getElementById("shown"); if(sc) sc.textContent=players.length+" shown";
@@ -859,6 +872,8 @@ function render(){
     const mdChip=(md!=null)?`<span class="mixd ${md>0?'up':md<0?'down':'flat'}">${md>0?'▲':md<0?'▼':'='}${md?Math.abs(md):''}</span>`:"";
     const bpv=(sortKey==="bp")?bpVal(p):null;
     const bpChip=(bpv!=null&&bpv>=0)?`<span class="bpchip" style="background:${chipColor(bpv)}">pen ${bpv}</span> `:"";
+    const lbc=(sortKey==="bomb")?lbCeil(p):null;
+    const lbChip=(lbc!=null)?`<span class="bpchip" style="background:${evColor(lbc)}">${lbc.toFixed(0)} EV</span> `:"";
     const armBadge = (op.hr_score!=null)
       ? `<span class="armbadge" style="border-color:${form?form.color:'var(--line)'};color:${form?form.color:'var(--muted)'}">`
         +`${throwBadge(op.throws)} ${op.name||'arm'} · HR ${op.hr_score}${form?` · ${form.label}`:''}</span>`
@@ -945,7 +960,7 @@ function render(){
           <div class="cheat" style="background:${col}">${H(p)}</div>
           <div class="cwho">
             <div class="name"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span class="nm-txt">${p.name}</span></div>
-            <div class="cmini">${bpChip}${mdChip}${trendBadge(p.trend)?trendBadge(p.trend)+" ":""}${p.lineup_status==="projected"?`<span class="spot" style="color:var(--seam);border-color:var(--seam)">proj</span> `:""}${p.lineup_spot?`#${p.lineup_spot} · `:""}${p.team}→${p.opp_team} · ${timeStr(p.time)}${armSc!=null?` · arm <b style="color:${armCol}">${armSc}</b>`:""} · ${(p.windows&&p.windows.L14d&&p.windows.L14d.pa!=null)?`${p.windows.L14d.pa}PA`:"–"}</div>
+            <div class="cmini">${bpChip}${lbChip}${mdChip}${trendBadge(p.trend)?trendBadge(p.trend)+" ":""}${p.lineup_status==="projected"?`<span class="spot" style="color:var(--seam);border-color:var(--seam)">proj</span> `:""}${p.lineup_spot?`#${p.lineup_spot} · `:""}${p.team}→${p.opp_team} · ${timeStr(p.time)}${armSc!=null?` · arm <b style="color:${armCol}">${armSc}</b>`:""} · ${(p.windows&&p.windows.L14d&&p.windows.L14d.pa!=null)?`${p.windows.L14d.pa}PA`:"–"}</div>
           </div>
           <div class="cmetrics">${mini}</div>
         </div>
