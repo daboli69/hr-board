@@ -38,6 +38,9 @@ def _load_day(date):
                 "heat": p.get("heat"), "tier": p.get("tier"),
                 "signals": p.get("score_breakdown", {}).get("signals", {}),
                 "opp_form": (p.get("opp_pitcher") or {}).get("form", {}).get("label"),
+                "iso": (p.get("windows", {}).get("L14d", {}) or {}).get("iso"),
+                "barrel_pct": (p.get("windows", {}).get("L14d", {}) or {}).get("barrel_pct"),
+                "badges": [bd["k"] for bd in (p.get("badges") or [])],
             } for p in b.get("players", [])]
     return None
 
@@ -92,7 +95,9 @@ def grade():
 
     tiers, forms = {}, {}
     by_signal = {k: {"cleared": {"n": 0, "hr": 0}, "not": {"n": 0, "hr": 0}} for k in SIGNALS}
+    by_badge = {}
     sp_hr = bp_hr = total_hr = 0
+    badge_hits = 0   # total badges carried by HR hitters, for "badges per HR"
     hr_log = []
     for p in players:
         hit = homered(p)
@@ -105,12 +110,18 @@ def grade():
             b = "cleared" if sig.get(k) else "not"
             by_signal[k][b]["n"] += 1
             by_signal[k][b]["hr"] += 1 if hit else 0
+        badges = p.get("badges") or []
+        for k in badges:
+            bb = by_badge.setdefault(k, {"n": 0, "hr": 0})
+            bb["n"] += 1; bb["hr"] += 1 if hit else 0
         if hit:
             res = hrmap[p["id"]]
             total_hr += res["hr"]; sp_hr += res["sp"]; bp_hr += res["bp"]
+            badge_hits += len(badges)
             hr_log.append({"name": p["name"], "heat": p.get("heat"), "tier": p.get("tier"),
                            "arm_form": p.get("opp_form"),
-                           "off": "SP" if res["sp"] else "BP", "hr": res["hr"]})
+                           "off": "SP" if res["sp"] else "BP", "hr": res["hr"],
+                           "badges": badges, "n_badges": len(badges)})
 
     # ---- the validation that matters: does Heat beat simple baselines? ----
     # Rank the same hitter pool by each method and check top-N HR rates head to head.
@@ -137,7 +148,8 @@ def grade():
         "date": yesterday, "players": len(players),
         "hitters_homered": n_hit,
         "total_hr": total_hr, "sp_hr": sp_hr, "bp_hr": bp_hr,
-        "by_tier": tiers, "by_form": forms, "by_signal": by_signal, "top_n": topN,
+        "by_tier": tiers, "by_form": forms, "by_signal": by_signal, "by_badge": by_badge,
+        "badges_on_hr": badge_hits, "top_n": topN,
         "ranks": ranks,
         "hr_log": sorted(hr_log, key=lambda x: (x["heat"] or 0), reverse=True),
     }

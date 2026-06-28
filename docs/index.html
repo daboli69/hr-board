@@ -1207,13 +1207,14 @@ function renderTracker(){
   const days=HISTORY.days.slice();
   // cumulative aggregates
   const TIER_ORDER=["70+","55-69","40-54","<40"];
-  const tiers={}, forms={}, sigAgg={}, topAgg={}, rankAgg={heat:{},iso:{},barrel:{},base:{}}; let sp=0,bp=0,tot=0,homered=0,players=0;
+  const tiers={}, forms={}, sigAgg={}, badgeAgg={}, topAgg={}, rankAgg={heat:{},iso:{},barrel:{},base:{}}; let sp=0,bp=0,tot=0,homered=0,players=0,badgesOnHr=0;
   days.forEach(d=>{
     players+=d.players||0; homered+=d.hitters_homered||0; tot+=d.total_hr||0;
-    sp+=d.sp_hr||0; bp+=d.bp_hr||0;
+    sp+=d.sp_hr||0; bp+=d.bp_hr||0; badgesOnHr+=d.badges_on_hr||0;
     Object.entries(d.by_tier||{}).forEach(([k,v])=>{const t=tiers[k]||(tiers[k]={n:0,hr:0});t.n+=v.n;t.hr+=v.hr;});
     Object.entries(d.by_form||{}).forEach(([k,v])=>{const t=forms[k]||(forms[k]={n:0,hr:0});t.n+=v.n;t.hr+=v.hr;});
     Object.entries(d.by_signal||{}).forEach(([k,v])=>{const a=sigAgg[k]||(sigAgg[k]={cleared:{n:0,hr:0},not:{n:0,hr:0}});a.cleared.n+=v.cleared.n;a.cleared.hr+=v.cleared.hr;a.not.n+=v.not.n;a.not.hr+=v.not.hr;});
+    Object.entries(d.by_badge||{}).forEach(([k,v])=>{const a=badgeAgg[k]||(badgeAgg[k]={n:0,hr:0});a.n+=v.n;a.hr+=v.hr;});
     Object.entries(d.top_n||{}).forEach(([k,v])=>{const a=topAgg[k]||(topAgg[k]={n:0,hr:0});a.n+=v.n;a.hr+=v.hr;});
     if(d.ranks){["heat","iso","barrel","base"].forEach(m=>{Object.entries(d.ranks[m]||{}).forEach(([k,v])=>{const a=rankAgg[m][k]||(rankAgg[m][k]={n:0,hr:0});a.n+=v.n;a.hr+=v.hr;});});}
   });
@@ -1274,8 +1275,19 @@ function renderTracker(){
     </div>`;
   }).join("");
 
+  // Badge -> HR correlation (across ALL ranked hitters, every day — high power)
+  const baseRate=players?100*homered/players:0;
+  const badgeOrder=Object.entries(badgeAgg).filter(([k,o])=>o.n).sort((a,b)=>rate(b[1])-rate(a[1]));
+  const maxBadgeRate=Math.max(1,baseRate,...badgeOrder.map(([k,o])=>rate(o)));
+  let badgeRows=badgeOrder.map(([k,o])=>{
+    const lift=rate(o)-baseRate;
+    return `<div class="trk-row"><div class="lab"><span class="bdg bk-${k}">${(typeof BKLABEL!=="undefined"&&BKLABEL[k])||k}</span></div>${bar(o,maxBadgeRate)}
+      <div class="val" style="color:${lift>=0?'var(--good)':'var(--bad)'};font-weight:700;min-width:42px">${lift>=0?"+":""}${lift.toFixed(1)}</div></div>`;
+  }).join("");
+  const avgBadgesHr = tot ? (badgesOnHr/tot) : 0;
+
   let dayRows=days.slice().reverse().map(d=>{
-    const top=(d.hr_log||[]).slice(0,4).map(h=>`${h.name} (${h.heat}, ${h.off})`).join(" · ");
+    const top=(d.hr_log||[]).slice(0,4).map(h=>`${h.name} (${h.heat}, ${h.off}${h.n_badges?`, ${h.n_badges} tag${h.n_badges>1?"s":""}`:""})`).join(" · ");
     return `<div class="trk-day"><div class="d">${d.date}</div>
       <div class="ln"><b style="color:var(--ink)">${d.hitters_homered}/${d.players}</b> ranked hitters homered ·
         ${d.total_hr} HR · ${d.sp_hr} off SP / ${d.bp_hr} off BP</div>
@@ -1302,6 +1314,9 @@ function renderTracker(){
     <h3>Signal → HR correlation</h3>
     <div style="font-size:11px;color:var(--muted);margin-bottom:4px">HR rate when a signal cleared "good" vs below — bigger lift = more predictive</div>
     ${sigRows||'<div class="ln" style="color:var(--muted)">—</div>'}
+    <h3>HR rate by badge</h3>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">how often hitters carrying each badge homered, across every ranked hitter. Right column = lift vs the ${baseRate.toFixed(1)}% base rate. ${tot?`HR hitters carried <b style="color:var(--ink)">${avgBadgesHr.toFixed(1)}</b> badges on average.`:""}</div>
+    ${badgeRows||'<div class="ln" style="color:var(--muted)">— needs a few graded days —</div>'}
     <h3>Daily log</h3>
     ${dayRows}
   </div>`;

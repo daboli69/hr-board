@@ -500,6 +500,13 @@ def main():
                 "opp_form": (p["opp_pitcher"].get("form") or {}).get("label"),
                 "iso": (p.get("windows", {}).get("L14d", {}) or {}).get("iso"),
                 "barrel_pct": (p.get("windows", {}).get("L14d", {}) or {}).get("barrel_pct"),
+                # ---- enrichment: context that can't be backfilled later ----
+                "badges": [b["k"] for b in (p.get("badges") or [])],
+                "bp_score": (p.get("opp_bullpen") or {}).get("score"),
+                "sp_vuln": (p["opp_pitcher"].get("hr_score")),
+                "luck_gap": (((p.get("luck") or {}).get("recent")) or {}).get("luck_gap"),
+                "heat_mix": p.get("heat_mix"),
+                "spot": p.get("lineup_spot"),
             } for p in board["players"]],
         }
         with open(os.path.join(snap_dir, f"{board['slate_date']}.json"), "w") as f:
