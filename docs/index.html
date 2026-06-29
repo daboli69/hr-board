@@ -720,13 +720,25 @@ function trendVal(t){
 function bpVal(p){const bp=p.opp_bullpen||{}; const v=bp.vs_hand!=null?bp.vs_hand:bp.score; return v!=null?v:-1;}
 // Long-ball / distance ceiling: how hard he CAN hit it (season max EV), nudged by recent form.
 function lbCeil(p){const mx=p.max_ev||{}; return mx.season!=null?mx.season:mx.recent;}
+function _lbn(v,lo,hi){ if(v==null) return null; return Math.max(0,Math.min(100,(v-lo)/(hi-lo)*100)); }
+// loft: distance needs launch in the long-ball band (~10-30°); penalize too flat / too steep
+function _lbLoft(la){ if(la==null) return null; if(la>=12&&la<=28) return 100; if(la<12) return Math.max(0,100-(12-la)*9); return Math.max(0,100-(la-28)*7); }
 function lbVal(p){
-  const mx=p.max_ev||{};
-  const ceil=lbCeil(p);
-  const reMax=mx.recent;
-  const reAvg=(p.metrics&&p.metrics.avg_ev)?p.metrics.avg_ev.recent:null;
-  if(ceil==null&&reAvg==null) return -1;
-  return (ceil??98)*0.6 + (reMax??ceil??98)*0.25 + (reAvg??88)*0.15;
+  const mx=p.max_ev||{}, m=p.metrics||{};
+  const ceil=lbCeil(p), reMax=mx.recent;
+  const reAvg=(m.avg_ev||{}).recent, brl=(m.barrel_pct||{}).recent, iso=(m.iso||{}).recent, la=(m.launch_angle||{}).recent;
+  if(ceil==null&&reAvg==null&&brl==null) return -1;
+  // 0-100 composite: raw ceiling leads, but barrels (EV+angle), loft, form & ISO all drive distance
+  const parts=[
+    [_lbn(ceil,105,118), 0.38],   // how hard he CAN hit it
+    [_lbn(brl,5,20),     0.20],   // how often he barrels it (EV + ideal angle)
+    [_lbn(reAvg,86,93),  0.15],   // current contact form
+    [_lbLoft(la),        0.12],   // launch in the long-ball band
+    [_lbn(iso,0.130,0.320), 0.10],// power output
+    [_lbn(reMax,105,118),0.05],   // recent peak
+  ];
+  let s=0,w=0; for(const pr of parts){ if(pr[0]!=null){ s+=pr[0]*pr[1]; w+=pr[1]; } }
+  return w?s/w:-1;
 }
 function evColor(mx){ if(mx==null) return "var(--panel-2)"; return chipColor(Math.max(0,Math.min(100,(mx-100)/16*100))); }
 
