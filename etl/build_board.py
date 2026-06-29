@@ -14,10 +14,11 @@ from __future__ import annotations
 import json
 import os
 import time
+import numpy as np
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from etl import statsapi, statcast_data, parks, compute
+from etl import statsapi, statcast_data, parks, compute, park_model
 
 try:                       # cache Savant pulls to disk so repeat runs are fast
     from pybaseball import cache as pyb_cache
@@ -121,6 +122,7 @@ def build(date_str: str | None = None) -> dict:
         raise statcast_data.StatcastUnavailable(len(df))
 
     profiles = statcast_data.batter_profiles(df, batter_ids, date_str)
+    bb_samples = statcast_data.batted_ball_sample(df, batter_ids)
     pitch_profiles = statcast_data.pitcher_profiles(df, pitcher_ids, date_str)
     bullpens = statcast_data.bullpen_profiles(df, date_str)
     career = statcast_data.career_table(2015, now.year)
@@ -366,6 +368,36 @@ def build(date_str: str | None = None) -> dict:
         })
 
     players.sort(key=lambda p: p["heat"], reverse=True)
+
+    # ---- park + weather HR model: a separate lens, computed per game in one vectorized
+    # pass, attached as p["park_hr"]. Never feeds the heat score or the grader. Wrapped so
+    # a weather outage or a bad venue degrades gracefully instead of breaking the board.
+    try:
+        by_game = {}
+        for p in players:
+            by_game.setdefault((p["park"], p["time"], p["game_pk"]), []).append(p)
+        for (venue, gtime, pk), ps in by_game.items():
+            evs, las, sprays, spans = [], [], [], []
+            for p in ps:
+                s = bb_samples.get(p["id"])
+                n = 0 if (s is None) else len(s["ev"])
+                spans.append((p, n))
+                if n:
+                    evs.append(s["ev"]); las.append(s["la"]); sprays.append(s["spray"])
+            if not evs:
+                continue
+            ev_all = np.concatenate(evs); la_all = np.concatenate(las); sp_all = np.concatenate(sprays)
+            hr_park, hr_neut, meta = park_model.evaluate_game(ev_all, la_all, sp_all, venue, gtime)
+            i = 0
+            for p, n in spans:
+                if not n:
+                    continue
+                agg = park_model.aggregate_hitter(hr_park[i:i+n], hr_neut[i:i+n], meta)
+                if agg:
+                    p["park_hr"] = agg
+                i += n
+    except Exception as e:
+        print(f"[build] park model skipped: {e}")
 
     # ---- decision helpers ----
     def _thin(p):

@@ -96,6 +96,9 @@
   .seg button{background:none;border:none;color:var(--muted);font:inherit;font-size:12px;
     padding:7px 12px;cursor:pointer;font-weight:500}
   .seg button[aria-pressed="true"]{background:var(--panel-2);color:var(--ink)}
+  #sort{max-width:100%;overflow-x:auto;scrollbar-width:none}
+  #sort::-webkit-scrollbar{display:none}
+  #sort button{white-space:nowrap}
   .seg-lab{color:var(--muted);font-size:11px;font-weight:600;padding:7px 10px;
     border-right:1px solid var(--line);text-transform:uppercase;letter-spacing:.03em;
     align-self:center;cursor:default;user-select:none}
@@ -215,6 +218,14 @@
   .mixd.flat{background:var(--panel-2);color:var(--faint)}
   .bpchip{display:inline-block;font-family:"IBM Plex Mono";font-weight:800;font-size:10px;color:#0c0f14;
     padding:1px 6px;border-radius:5px;vertical-align:middle}
+  .parkbox{background:var(--panel-2);border:1px solid var(--line);border-radius:11px;padding:11px 13px;margin:0 0 12px}
+  .parkbox-h{font-family:Archivo;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .pk-boost{font-family:"IBM Plex Mono";font-weight:800;font-size:13px;padding:2px 8px;border-radius:6px}
+  .pk-boost.pos{color:#56c878;background:rgba(63,185,80,.14)}
+  .pk-boost.neg{color:#e98980;background:rgba(229,83,75,.14)}
+  .parkbox-sub{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5}
+  .parkbox-cond{font-family:"IBM Plex Mono";font-size:11.5px;color:var(--seam);margin-top:5px;font-weight:600}
+  .parkbox-note{font-size:11px;color:var(--faint);margin-top:6px;line-height:1.45}
   .arm-nm .badges{margin-top:4px}
   .cmini{font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.45;
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -427,6 +438,7 @@
       <button data-sort="trend" aria-pressed="false">Trend</button>
       <button data-sort="bp" aria-pressed="false">BP</button>
       <button data-sort="bomb" aria-pressed="false">Bomb</button>
+      <button data-sort="park" aria-pressed="false">Park</button>
       <button data-sort="name">Name</button>
       <button data-sort="time">Time</button>
     </div>
@@ -536,7 +548,12 @@
       <p>Then one <b>form</b> read per hitter — a simple spectrum so you never see a contradiction: <b>DUE</b> (hitting it hard but unlucky — results lag his contact), <b>WARMING</b> (contact quality trending up), <b>HOT</b> (elite contact and results match — genuinely hot, earned), <b>MAY COOL</b> (results have run well above his contact and may regress). <b>▲ / ▼</b> = power-form trend with % change. <b>proj</b> = lineup not posted, using last game's order. <b>#1–#9</b> = batting-order spot.</p>
 
       <h3>Filters & sorting</h3>
-      <p><b>Heat / Trend / BP / Bomb / Name / Time</b> sort the list — <b>BP</b> ranks by how vulnerable the opposing bullpen is to each hitter's hand, and <b>Bomb</b> ranks by raw long-ball ceiling: how hard he can hit it (season max exit velo), nudged by recent form — matchup-independent, for finding who can flat-out crush one the farthest (the "NNN EV" chip shows the ceiling). In <b>⚙ Filters</b>: <b>Games</b> and <b>Teams</b> narrow to specific matchups or clubs, <b>Heat floor</b> (40/55/70+) cuts the long tail, <b>Opposing starter</b> drops strong SP so you only see hitters facing a vulnerable one, <b>Bats</b> shows one handedness, and <b>Traits</b> lets you tap any badge to show only hitters carrying it (tap several to stack them). Every filter combines, so you can stack (say) a vulnerable starter + weak bullpen sort + a trait + a team at once. <b>Hide small samples</b> drops hitters under ~25 PA in the window.</p>
+      <p><b>Heat / Trend / BP / Bomb / Park / Name / Time</b> sort the list — <b>BP</b> ranks by how vulnerable the opposing bullpen is to each hitter's hand, <b>Bomb</b> ranks by raw long-ball ceiling (season max exit velo nudged by recent form; the "NNN EV" chip shows the ceiling), and <b>Park</b> ranks by today's park &amp; weather HR boost (the chip shows the % swing plus wind).</p>
+
+      <h3>Park &amp; weather model</h3>
+      <p>A separate, physics-based read — its own lens that <b>never touches the Heat score</b>. It flies each hitter's actual batted balls (exit velocity, launch angle, spray direction) through the real wall distances and heights of today's park, under today's temperature and wind, and counts how many clear the fence versus a neutral park. That gives a <b>per-hitter</b> boost, not a flat park factor: a dead-pull hitter gets more from a short porch on his side, and wind/heat scale with how often he already lives near the wall. Tap any row for the full read — expected HR per 100 batted balls here vs neutral, plus the conditions used. Two honest limits, shared by every public version of this (Ballpark Pal included): batted-ball backspin is estimated from launch conditions, not measured, and closed retractable roofs can't be detected, so treat it as a strong secondary signal — and for the final per-hitter precision, Ballpark Pal is still the authority.</p>
+
+      <p>In <b>⚙ Filters</b>: <b>Games</b> and <b>Teams</b> narrow to specific matchups or clubs, <b>Heat floor</b> (40/55/70+) cuts the long tail, <b>Opposing starter</b> drops strong SP so you only see hitters facing a vulnerable one, <b>Bats</b> shows one handedness, and <b>Traits</b> lets you tap any badge to show only hitters carrying it (tap several to stack them). Every filter combines, so you can stack (say) a vulnerable starter + weak bullpen sort + a trait + a team at once. <b>Hide small samples</b> drops hitters under ~25 PA in the window.</p>
 
       <h3>Top Plays & Stacks</h3>
       <p><b>Top Plays</b> (panel up top) = the strongest non-thin hitters not facing a sharp arm, each with a one-line "why" — your fast scan. <b>Stacks</b> (view toggle) groups hot hitters by the vulnerable arm they share — built for grand-slam parlays / same-game pairing.</p>
@@ -741,6 +758,9 @@ function lbVal(p){
   return w?s/w:-1;
 }
 function evColor(mx){ if(mx==null) return "var(--panel-2)"; return chipColor(Math.max(0,Math.min(100,(mx-100)/16*100))); }
+// Park+weather lens: rank by the park/weather HR boost vs neutral (the conditions edge,
+// like Ballpark Pal's headline) — exp100 breaks ties so power shows through.
+function pkVal(p){const k=p.park_hr; if(!k||k.boost==null) return -999; return k.boost*1000+(k.exp100||0);}
 
 function render(){
   const main=document.getElementById("main");
@@ -781,6 +801,7 @@ function render(){
     if(sortKey==="trend") return trendVal(b.trend)-trendVal(a.trend)|| b.heat-a.heat;
     if(sortKey==="bp") return bpVal(b)-bpVal(a)|| b.heat-a.heat;
     if(sortKey==="bomb") return lbVal(b)-lbVal(a)|| b.heat-a.heat;
+    if(sortKey==="park") return pkVal(b)-pkVal(a)|| b.heat-a.heat;
     return sortVal(b,sortKey)-sortVal(a,sortKey);
   });
   const sc=document.getElementById("shown"); if(sc) sc.textContent=players.length+" shown";
@@ -886,6 +907,8 @@ function render(){
     const bpChip=(bpv!=null&&bpv>=0)?`<span class="bpchip" style="background:${chipColor(bpv)}">pen ${bpv}</span> `:"";
     const lbc=(sortKey==="bomb")?lbCeil(p):null;
     const lbChip=(lbc!=null)?`<span class="bpchip" style="background:${evColor(lbc)}">${lbc.toFixed(0)} EV</span> `:"";
+    const pk=(sortKey==="park")?p.park_hr:null;
+    const pkChip=(pk&&pk.exp100!=null)?`<span class="bpchip" style="background:${chipColor(pk.score)}">${pk.boost>=0?"+":""}${pk.boost}%${pk.wind_mph?` · ${pk.wind_mph}mph`:""}</span> `:"";
     const armBadge = (op.hr_score!=null)
       ? `<span class="armbadge" style="border-color:${form?form.color:'var(--line)'};color:${form?form.color:'var(--muted)'}">`
         +`${throwBadge(op.throws)} ${op.name||'arm'} · HR ${op.hr_score}${form?` · ${form.label}`:''}</span>`
@@ -972,7 +995,7 @@ function render(){
           <div class="cheat" style="background:${col}">${H(p)}</div>
           <div class="cwho">
             <div class="name"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span class="nm-txt">${p.name}</span></div>
-            <div class="cmini">${bpChip}${lbChip}${mdChip}${trendBadge(p.trend)?trendBadge(p.trend)+" ":""}${p.lineup_status==="projected"?`<span class="spot" style="color:var(--seam);border-color:var(--seam)">proj</span> `:""}${p.lineup_spot?`#${p.lineup_spot} · `:""}${p.team}→${p.opp_team} · ${timeStr(p.time)}${armSc!=null?` · arm <b style="color:${armCol}">${armSc}</b>`:""} · ${(p.windows&&p.windows.L14d&&p.windows.L14d.pa!=null)?`${p.windows.L14d.pa}PA`:"–"}</div>
+            <div class="cmini">${bpChip}${lbChip}${pkChip}${mdChip}${trendBadge(p.trend)?trendBadge(p.trend)+" ":""}${p.lineup_status==="projected"?`<span class="spot" style="color:var(--seam);border-color:var(--seam)">proj</span> `:""}${p.lineup_spot?`#${p.lineup_spot} · `:""}${p.team}→${p.opp_team} · ${timeStr(p.time)}${armSc!=null?` · arm <b style="color:${armCol}">${armSc}</b>`:""} · ${(p.windows&&p.windows.L14d&&p.windows.L14d.pa!=null)?`${p.windows.L14d.pa}PA`:"–"}</div>
           </div>
           <div class="cmetrics">${mini}</div>
         </div>
@@ -984,6 +1007,12 @@ function render(){
         ${badgeChips(p)}
         <div class="matchup" style="margin-bottom:10px">${p.team} vs ${p.opp_team} · ${timeStr(p.time)} · ${p.park||""} · park ${fmt(p.park_hr_factor,2)}× · ${armBadge}</div>
         ${(p.max_ev&&p.max_ev.season!=null)?`<div class="arm" style="margin:-4px 0 8px">💥 <b>${p.name.split(' ').slice(-1)[0]}'s max EV:</b> <b style="color:var(--hot)">${p.max_ev.season}</b> mph season${p.max_ev.recent!=null?` · ${p.max_ev.recent} last 2wk`:""}</div>`:""}
+        ${p.park_hr?`<div class="parkbox">
+          <div class="parkbox-h">Park &amp; weather model <span class="pk-boost ${p.park_hr.boost>=0?'pos':'neg'}">${p.park_hr.boost>=0?'+':''}${p.park_hr.boost}% HR</span></div>
+          <div class="parkbox-sub"><b style="color:var(--ink)">${p.park_hr.exp100}</b> expected HR per 100 batted balls here vs <b style="color:var(--ink)">${p.park_hr.neutral100}</b> in a neutral park · ${p.park_hr.n} batted balls modeled</div>
+          <div class="parkbox-cond">${p.park_hr.indoor?"indoor — roof / climate controlled":(p.park_hr.weather?`${p.park_hr.temp_f!=null?p.park_hr.temp_f+"°F":""}${p.park_hr.wind_mph!=null?` · wind ${p.park_hr.wind_mph} mph`:""}`:"park geometry only · live weather unavailable")}</div>
+          <div class="parkbox-note">His real batted balls flown through this park's walls under today's conditions. Secondary read — separate from Heat.</div>
+        </div>`:""}
         <h4>Four signals — recent · season · career</h4>
         <div class="strip" style="border:1px solid var(--line);border-radius:10px">${strip}</div>
         <h4 style="margin-top:14px">Trend (last 2 wk vs game windows)</h4>

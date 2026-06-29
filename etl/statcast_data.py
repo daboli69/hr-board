@@ -58,6 +58,34 @@ def pull_season(start: str, end: str) -> pd.DataFrame:
     return df[keep].copy()
 
 
+def batted_ball_sample(df: pd.DataFrame, batter_ids) -> dict:
+    """
+    Per-batter raw batted-ball arrays for the park/weather trajectory model:
+      {batter_id: {"ev": [...], "la": [...], "spray": [...]}}
+    Spray is the field spray angle in degrees (negative = LF / 3B side, positive =
+    RF / 1B side), same convention the trajectory engine and pull metrics use.
+    Only batted balls with exit velocity, launch angle, and hit coordinates are kept.
+    """
+    out = {}
+    need = {"launch_speed", "launch_angle", "hc_x", "hc_y", "batter"}
+    if df.empty or not need.issubset(df.columns):
+        return out
+    d = df.dropna(subset=["launch_speed", "launch_angle", "hc_x", "hc_y"])
+    if d.empty:
+        return out
+    spray = np.degrees(np.arctan2(d["hc_x"].to_numpy() - 125.42, 198.27 - d["hc_y"].to_numpy()))
+    bat = d["batter"].to_numpy()
+    ev = d["launch_speed"].to_numpy(dtype=float)
+    la = d["launch_angle"].to_numpy(dtype=float)
+    wanted = set(batter_ids)
+    for bid in wanted:
+        m = bat == bid
+        if not m.any():
+            continue
+        out[bid] = {"ev": ev[m], "la": la[m], "spray": spray[m]}
+    return out
+
+
 def _pull_metrics(bb: pd.DataFrame) -> tuple:
     """
     Returns (pull_pct, pull_air_pct):
