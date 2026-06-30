@@ -51,7 +51,8 @@ jobs:
         run: |
           git config user.name  "hr-board-bot"
           git config user.email "actions@github.com"
-          git add docs/board.json docs/snapshots docs/park_factors.json
+          git add docs/board.json docs/snapshots
+          git add docs/park_factors.json 2>/dev/null || true
           if git diff --staged --quiet; then
             echo "No change to commit"
           else
