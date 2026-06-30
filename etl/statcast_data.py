@@ -472,3 +472,46 @@ def career_table(start_season: int, end_season: int) -> dict:
                     rec[dst] = round(val * 100, 1) if val < 1.5 else round(val, 1)
         out[name] = rec
     return out
+
+
+def bvp_table(df: pd.DataFrame) -> dict:
+    """Season batter-vs-pitcher from the slate frame -> {(batter,pitcher): [pa, hr]}.
+    PAs are rows where `events` is set (the last pitch of a plate appearance)."""
+    if df is None or df.empty or "events" not in df.columns:
+        return {}
+    pa = df[df["events"].notna()]
+    if pa.empty:
+        return {}
+    grp = pa.groupby(["batter", "pitcher"])["events"]
+    agg = grp.agg(pa="size", hr=lambda s: int((s == "home_run").sum()))
+    out = {}
+    for (b, p), row in agg.iterrows():
+        try:
+            out[(int(b), int(p))] = [int(row["pa"]), int(row["hr"])]
+        except Exception:
+            continue
+    return out
+
+
+def bullpen_arms(df: pd.DataFrame, asof: str, recent_days: int = 21, min_pitches: int = 8) -> dict:
+    """Active relievers per team in the trailing window -> {team_abbr: [pitcher_id, ...]}.
+    Same starter-exclusion logic as bullpen_profiles."""
+    from datetime import timedelta
+    if df is None or df.empty or "inning" not in df.columns:
+        return {}
+    work = df.copy()
+    work["_gd"] = pd.to_datetime(work["game_date"], errors="coerce")
+    cutoff = pd.to_datetime(asof) - timedelta(days=recent_days)
+    inn1 = work[work["inning"] == 1].sort_values(["game_pk", "inning_topbot", "at_bat_number", "pitch_number"])
+    starter_df = (inn1.groupby(["game_pk", "inning_topbot"], as_index=False).first()
+                  [["game_pk", "inning_topbot", "pitcher"]].rename(columns={"pitcher": "_starter"}))
+    work["pitch_team"] = np.where(work["inning_topbot"].eq("Top"), work["home_team"], work["away_team"])
+    work = work.merge(starter_df, on=["game_pk", "inning_topbot"], how="left")
+    pen = work[(work["pitcher"] != work["_starter"]) & (work["_gd"] >= cutoff)]
+    out = {}
+    for team, g in pen.groupby("pitch_team"):
+        if not isinstance(team, str):
+            continue
+        counts = g.groupby("pitcher").size()
+        out[team] = [int(pid) for pid, n in counts.items() if n >= min_pitches]
+    return out

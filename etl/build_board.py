@@ -127,6 +127,25 @@ def build(date_str: str | None = None) -> dict:
     bullpens = statcast_data.bullpen_profiles(df, date_str)
     career = statcast_data.career_table(2015, now.year)
 
+    # season batter-vs-pitcher (for the Matchup tab): has this hitter homered off today's
+    # starter, or off any active arm in the opponent's pen? Computed from the slate frame.
+    bvp = {}
+    pen_arms = {}
+    pen_names = {}
+    try:
+        bvp = statcast_data.bvp_table(df)
+        pen_arms = statcast_data.bullpen_arms(df, date_str)
+        all_arms = sorted({pid for arms in pen_arms.values() for pid in arms})
+        if all_arms:
+            try:
+                pen_names = {int(k): v.get("name", "") for k, v in
+                             statsapi.get_handedness(all_arms).items()}
+            except Exception as e:
+                print(f"[build] bullpen name lookup skipped: {e}")
+        print(f"[build] BvP: {len(bvp)} matchups, {sum(len(a) for a in pen_arms.values())} active arms")
+    except Exception as e:
+        print(f"[build] BvP skipped: {e}")
+
     # statsapi and Statcast mostly share team abbreviations; a few differ.
     _TEAM_ALIAS = {"AZ": "ARI", "ARI": "AZ", "CWS": "CHW", "CHW": "CWS",
                    "WSH": "WSN", "WSN": "WSH", "KC": "KCR", "KCR": "KC",
@@ -323,10 +342,26 @@ def build(date_str: str | None = None) -> dict:
         if oform in ("SHELLABLE", "STEADY-BAD", "SLIPPING", "HITTABLE"):
             why = (why + " · " if why else "") + f"vs {oform} arm"
 
+        opp_abbr = g["home"] if side == "away" else g["away"]
+        sp_bvp = bvp.get((bid, pid)) if pid else None
+        bp_list = []
+        for apid in pen_arms.get(opp_abbr, []):
+            rec = bvp.get((bid, apid))
+            if rec and rec[0] > 0:
+                bp_list.append({"name": pen_names.get(apid, ""), "pa": rec[0], "hr": rec[1]})
+        bp_list.sort(key=lambda x: (x["hr"], x["pa"]), reverse=True)
+        player_bvp = {
+            "sp": {"name": opp_pitcher_obj.get("name", ""),
+                   "pa": sp_bvp[0] if sp_bvp else 0, "hr": sp_bvp[1] if sp_bvp else 0},
+            "bp": [a for a in bp_list if a["name"]][:12],
+            "bp_hr": any(a["hr"] > 0 for a in bp_list),
+        }
+
         players.append({
             "id": bid,
             "name": name,
             "bats": bats,
+            "bvp": player_bvp,
             "lineup_spot": spot_of_batter.get(bid),
             "lineup_status": status_of_batter.get(bid, "confirmed"),
             "trend": tr,

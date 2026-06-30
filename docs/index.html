@@ -226,6 +226,9 @@
   .parkbox-sub{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5}
   .parkbox-cond{font-family:"IBM Plex Mono";font-size:11.5px;color:var(--seam);margin-top:5px;font-weight:600}
   .parkbox-note{font-size:11px;color:var(--faint);margin-top:6px;line-height:1.45}
+  .liststar{color:#f4c84a;margin-left:5px;font-size:12px}
+  .listbtn{display:inline-block;margin:2px 0 10px;padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--muted);font-family:Archivo;font-weight:700;font-size:12px;cursor:pointer}
+  .listbtn.on{color:#f4c84a;border-color:#f4c84a}
   .pl-wrap{padding:4px 0 20px}
   .pl-conf{background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:13px 14px;margin-bottom:14px}
   .pl-conf-h{font-family:Archivo;font-weight:800;font-size:13px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
@@ -253,6 +256,23 @@
   .pl-tag.lb{color:var(--seam);border:1px solid var(--seam)}
   .pl-tag.up{color:var(--hot);border:1px solid var(--hot)}
   .pl-tag.dn{color:var(--cool);border:1px solid var(--cool)}
+  .pl-tag.sl{color:var(--good);border:1px solid var(--good)}
+  .pl-tag.mx{color:var(--warm);border:1px solid var(--warm)}
+  .pl-tag.tg{color:var(--seam);border:1px solid var(--line)}
+  .pl-sub{font-size:10.5px;color:var(--muted);margin:-2px 0 6px}
+  .mu-wrap{padding:4px 0 20px}
+  .mu-head{font-family:Archivo;font-weight:800;font-size:14px;display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:12px}
+  .mu-head span{font-family:"IBM Plex Mono";font-size:10.5px;font-weight:600;color:var(--muted)}
+  .mu-card{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-bottom:8px}
+  .mu-card.mu-on{border-color:var(--hot)}
+  .mu-top{display:flex;align-items:baseline;gap:7px;margin-bottom:6px;flex-wrap:wrap}
+  .mu-top b{font-family:Archivo;font-weight:800;font-size:14px}
+  .mu-meta{font-size:10.5px;color:var(--muted)}
+  .mu-row{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:3px 0;border-top:1px solid var(--line)}
+  .mu-lab{color:var(--muted);font-size:11px}
+  .mu-hr{color:var(--hot);font-weight:700;font-family:"IBM Plex Mono";font-size:11px}
+  .mu-faced{color:var(--ink);font-family:"IBM Plex Mono";font-size:11px}
+  .mu-none{color:var(--faint);font-size:11px}
   .pl-note{font-size:11.5px;color:var(--muted);line-height:1.55;margin-top:6px;padding:0 2px}
   .arm-nm .badges{margin-top:4px}
   .cmini{font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.45;
@@ -458,6 +478,7 @@
       <button data-view="bets" aria-pressed="false">Bets</button>
       <button data-view="tracker" aria-pressed="false">Tracker</button>
       <button data-view="parlays" aria-pressed="false">Parlays</button>
+      <button data-view="matchup" aria-pressed="false">Matchup</button>
     </div>
   </div>
   <div id="boardControls">
@@ -478,6 +499,7 @@
   <div class="controls compare-row" style="margin-top:8px">
     <button id="mixBtn" class="tgl" aria-pressed="false" title="Re-rank by EV/barrel vs this pitcher's mix">⚙ vs Pitch Mix</button>
     <button id="thinBtn" class="tgl" aria-pressed="false" title="Hide hitters with thin recent samples">Hide small samples</button>
+    <button id="listBtn" class="tgl" aria-pressed="false" title="Show only players on your list">★ My List</button>
   </div>
   <div class="legend">
     <span class="lg-scale"><span>cool</span><div class="grad"></div><span>elite</span></span>
@@ -635,7 +657,7 @@ const EXTRA = [
   {k:"fb_pct",     label:"FB%",      fmt:v=>fmt(v,1)},
   {k:"pull_pct",   label:"Pull(all)",fmt:v=>fmt(v,1)},
 ];
-let BOARD=null, HISTORY=null, view="board", sortKey="heat", q="", hideThin=false, minHeat=0, spFloor=0, gameSel=new Set(), batFilter="", traitSel=new Set(), teamSel=new Set(), drySel=new Set(), mixView=false;
+let BOARD=null, HISTORY=null, view="board", sortKey="heat", q="", hideThin=false, minHeat=0, spFloor=0, gameSel=new Set(), batFilter="", traitSel=new Set(), teamSel=new Set(), drySel=new Set(), mixView=false, listFilter=false;
 // effective heat: vs-pitch-mix variant when the toggle is on, else standard
 function H(p){return (mixView && p.heat_mix!=null) ? p.heat_mix : p.heat;}
 
@@ -794,9 +816,11 @@ function pkVal(p){const k=p.park_hr; if(!k||k.boost==null) return -999; return k
 function render(){
   const main=document.getElementById("main");
   if(!BOARD){return;}
+  const _lb=document.getElementById("listBtn"); if(_lb) _lb.textContent="★ My List"+(listCount()?` (${listCount()})`:"");
   let players=BOARD.players.slice();
   const isThin=p=>((p.score_breakdown&&p.score_breakdown.flags)||[]).some(f=>f.indexOf("small sample")===0);
   if(hideThin) players=players.filter(p=>!isThin(p));
+  if(listFilter) players=players.filter(p=>listHas(p.id));
   if(minHeat>0) players=players.filter(p=>H(p)>=minHeat);
   if(spFloor>0) players=players.filter(p=>(((p.opp_pitcher||{}).hr_score)??0)>=spFloor);
   if(gameSel.size) players=players.filter(p=>gameSel.has(String(p.game_pk)));
@@ -1023,7 +1047,7 @@ function render(){
           <div class="rank mono">${i+1}</div>
           <div class="cheat" style="background:${col}">${H(p)}</div>
           <div class="cwho">
-            <div class="name"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span class="nm-txt">${p.name}</span></div>
+            <div class="name"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span class="nm-txt">${p.name}</span><span class="liststar"${listHas(p.id)?"":" hidden"}>★</span></div>
             <div class="cmini">${bpChip}${lbChip}${pkChip}${mdChip}${trendBadge(p.trend)?trendBadge(p.trend)+" ":""}${p.lineup_status==="projected"?`<span class="spot" style="color:var(--seam);border-color:var(--seam)">proj</span> `:""}${p.lineup_spot?`#${p.lineup_spot} · `:""}${p.team}→${p.opp_team} · ${timeStr(p.time)}${armSc!=null?` · arm <b style="color:${armCol}">${armSc}</b>`:""} · ${(p.windows&&p.windows.L14d&&p.windows.L14d.pa!=null)?`${p.windows.L14d.pa}PA`:"–"}</div>
           </div>
           <div class="cmetrics">${mini}</div>
@@ -1032,6 +1056,7 @@ function render(){
       </div>
       <div class="detail">
         <div class="dname"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span>${p.name}</span>${p.lineup_spot?`<span class="dspot">#${p.lineup_spot}</span>`:""}</div>
+        <button class="listbtn${listHas(p.id)?" on":""}" data-pid="${p.id}" data-nm="${encodeURIComponent(p.name)}" onclick="toggleListBtn(this,event)">${listHas(p.id)?"★ On your list — tap to remove":"☆ Add to my list"}</button>
         ${p.angle?`<div class="angle">${p.angle}</div>`:""}
         ${badgeChips(p)}
         <div class="matchup" style="margin-bottom:10px">${p.team} vs ${p.opp_team} · ${timeStr(p.time)} · ${p.park||""} · park ${fmt(p.park_hr_factor,2)}× · ${armBadge}</div>
@@ -1101,7 +1126,7 @@ window.addEventListener("resize",setHH);
 window.addEventListener("orientationchange",()=>setTimeout(setHH,100));
 window.addEventListener("resize",setHH);
 function setSort(k){ sortKey=k; render(); }
-function renderView(){ if(view==="tracker") renderTracker(); else if(view==="parlays") renderParlays(); else if(view==="stacks") renderStacks(); else if(view==="bets") renderBets(); else render(); }
+function renderView(){ if(view==="tracker") renderTracker(); else if(view==="parlays") renderParlays(); else if(view==="matchup") renderMatchup(); else if(view==="stacks") renderStacks(); else if(view==="bets") renderBets(); else render(); }
 
 function renderStacks(){
   const main=document.getElementById("main");
@@ -1152,6 +1177,22 @@ const BET_TYPES=["Longest HR jackpot","Grand slam parlay","Round robin","Single 
 const BKLABEL={arm:"WEAK ARM",plat:"PLATOON",mix:"PITCH EDGE",pow:"POWER",lock:"HOT",hot:"WARMING",due:"DUE",cool:"MAY COOL"};
 function loadBets(){try{return JSON.parse(localStorage.getItem("gy_bets")||"[]");}catch(e){return[];}}
 function saveBets(b){try{localStorage.setItem("gy_bets",JSON.stringify(b));}catch(e){}}
+// --- My List: players you're keen on, kept by MLBAM id so it persists across days ---
+function listGet(){try{return JSON.parse(localStorage.getItem("gy_list")||"[]");}catch(e){return[];}}
+function listSet(a){try{localStorage.setItem("gy_list",JSON.stringify(a));}catch(e){}}
+function listHas(id){return listGet().some(x=>x.id===id);}
+function listCount(){return listGet().length;}
+function listToggle(id,name){const a=listGet();const i=a.findIndex(x=>x.id===id);if(i>=0)a.splice(i,1);else a.push({id,name});listSet(a);return i<0;}
+function toggleListBtn(btn,ev){
+  if(ev) ev.stopPropagation();
+  const id=+btn.dataset.pid, nm=decodeURIComponent(btn.dataset.nm||"");
+  const added=listToggle(id,nm);
+  btn.classList.toggle("on",added);
+  btn.textContent=added?"★ On your list — tap to remove":"☆ Add to my list";
+  const row=btn.closest(".row"); if(row){const st=row.querySelector(".liststar"); if(st) st.hidden=!added;}
+  const lb=document.getElementById("listBtn"); if(lb){lb.textContent=`★ My List${listCount()?` (${listCount()})`:""}`;}
+  if(listFilter) render();
+}
 let betDraft={type:BET_TYPES[0],stake:"",odds:"",legs:[]};
 
 function renderBets(){
@@ -1322,49 +1363,42 @@ function betRates(){
   return B;
 }
 
-function betMult(badges, BR){
-  if(!BR.legs || BR.base<=0 || !badges || !badges.length) return 1;
-  const K=4;                                     // heavy shrink — your tag samples are small
-  let lift=1, used=0;
+// Combined tag lift from BOTH the tracker tab and your bet tab — rewards the TAGS that
+// actually homer (never the individual player). Geometric mean across a hitter's tags so a
+// long tag list can't run away.
+function tagLift(badges, R, BR){
+  if(!badges || !badges.length) return 1;
+  let prod=1, used=0;
   badges.forEach(b=>{
-    const a=BR.badges[b.k]; if(!a || !a.n) return;
-    const rate=(a.hit + BR.base*K)/(a.n + K);
-    lift *= rate/BR.base; used++;
+    const lifts=[];
+    if(R.days && R.badges[b.k]!=null && R.base>0) lifts.push(R.badges[b.k]/R.base);          // tracker tab
+    if(BR.legs && BR.badges[b.k] && BR.base>0){                                               // bet tab
+      const a=BR.badges[b.k], K=4;
+      lifts.push(((a.hit + BR.base*K)/(a.n + K))/BR.base);
+    }
+    if(!lifts.length) return;
+    prod *= lifts.reduce((s,x)=>s+x,0)/lifts.length; used++;
   });
-  return used ? Math.max(0.7, Math.min(1.4, lift)) : 1;
+  return used ? Math.max(0.75, Math.min(1.5, Math.pow(prod, 1/used))) : 1;
 }
 
-// Leaderboard ("top 14") component: where the hitter sits on today's trailing-14-day board
-// by Heat. Magnitude is tracker-validated when we have top-N conversion data, else a mild
-// structural prior. rank is 0-indexed.
-function lbMult(rank, R){
-  const t=R.topn||{};
-  const fromTrk=(k,def)=> (t[k] && R.base>0) ? Math.max(0.8,Math.min(1.8,t[k]/R.base)) : def;
-  if(rank<5)  return fromTrk("5",1.15);
-  if(rank<10) return fromTrk("10",1.08);
-  if(rank<25) return fromTrk("25",1.00);
-  return 0.95;
-}
-
-// per-hitter HR probability for the slate, blending all four tools:
-//   heat score (model prior) · top-14 leaderboard rank · tracker empirics · your bet log
-function hitterHRProb(p, R, w, BR, rank){
-  // model prior: Heat-driven, nudged by the park+weather lens, lifted by leaderboard rank
-  let pm = 0.05 + (Math.max(0,Math.min(100,p.heat))/100)*0.12;
-  if(p.park_hr && p.park_hr.boost!=null) pm *= (1 + p.park_hr.boost/200);
-  const lb = lbMult(rank, R);
-  const model_side = Math.max(0.03, Math.min(0.40, pm*lb));
-  // tracker empirical: tier rate times badge lifts (meaningful once tracker has data)
-  let pe = R.tiers[tierOf(p.heat)] ?? R.base;
-  let lift=1;
-  (p.badges||[]).forEach(b=>{ if(R.badges[b.k]!=null && R.base>0) lift *= (R.badges[b.k]/R.base); });
-  pe *= Math.max(0.5, Math.min(2.5, lift));
-  pe = Math.max(0.01, Math.min(0.40, pe));
-  // confidence-weighted blend, then a personal nudge from your own bet results
-  const blended = (1-w)*model_side + w*pe;
-  const bt = betMult(p.badges, BR);
-  const prob = Math.max(0.02, Math.min(0.45, blended*bt));
-  return {prob, pm, pe, lb, bt};
+// Composite "parlay value" — every signal you named, combined:
+//   data quality (Heat) · trending up (rescues a cold-tag guy who's playing hot) · good
+//   pitch mix · most-hit tags (bet+tracker) · tracker tier rate · park · sample confidence.
+function hitterScore(p, R, BR){
+  const base = (Math.max(0, Math.min(100, p.heat||0)))/100;                 // data quality
+  const tv = trendVal(p.trend);                                            // trend: up rescues, down dampens (never kills)
+  const trend = 1 + Math.max(-0.15, Math.min(0.18, tv/200));
+  const mixd = (p.heat_mix!=null && p.heat!=null) ? (p.heat_mix - p.heat) : 0;  // good pitch mix
+  const mix = 1 + Math.max(-0.10, Math.min(0.15, mixd/100));
+  const tags = tagLift(p.badges, R, BR);                                   // tags most hit (both tabs)
+  const tier = R.days ? Math.max(0.8, Math.min(1.3, (R.tiers[tierOf(p.heat)] ?? R.base)/R.base)) : 1;  // tracker
+  const park = (p.park_hr && p.park_hr.boost!=null) ? (1 + p.park_hr.boost/300) : 1;
+  const n = (p.sample && (p.sample.season || p.sample.L30)) || 0;          // downweight thin-sample noise
+  const conf = 0.6 + 0.4*Math.max(0, Math.min(1, n/60));
+  const score = base*trend*mix*tags*tier*park*conf;
+  const prob = Math.max(0.03, Math.min(0.42, 0.05 + score*0.16));          // for fair-odds display only
+  return {score, prob, trend, mix, tags, conf};
 }
 
 function americanFair(prob){
@@ -1373,14 +1407,62 @@ function americanFair(prob){
   return dec>=2 ? "+"+Math.round((dec-1)*100) : "-"+Math.round(100/(dec-1));
 }
 
-function buildParlay(ranked, legs){
-  const used=new Set(), out=[];
-  for(const p of ranked){
-    if(out.length>=legs) break;
-    if(used.has(p.game_pk)) continue;     // different game per leg (no same-game stacks)
-    used.add(p.game_pk); out.push(p);
+// Variety-first selection: one hitter per game, a cap on how many "chalk" (top-of-board)
+// legs are allowed, and optional odds bands so a parlay spreads across safe/medium/longshot
+// instead of stacking the obvious names.
+function buildVariety(ranked, legs, opts){
+  opts = opts || {};
+  const chalkN = opts.chalkN ?? 6, maxChalk = opts.maxChalk ?? 1, bands = opts.bands;
+  const usedG = new Set(), out = []; let chalk = 0;
+  const isChalk = p => p._rank < chalkN;
+  const tryPick = (pred) => {
+    for(const p of ranked){
+      if(out.indexOf(p) >= 0 || usedG.has(p.game_pk)) continue;
+      if(pred && !pred(p)) continue;
+      if(isChalk(p) && chalk >= maxChalk) continue;
+      out.push(p); usedG.add(p.game_pk); if(isChalk(p)) chalk++; return true;
+    }
+    return false;
+  };
+  if(bands){
+    const probs = ranked.map(p=>p._prob).slice().sort((a,b)=>b-a);
+    const hi = probs[Math.floor(probs.length*0.33)] ?? 1, lo = probs[Math.floor(probs.length*0.66)] ?? 0;
+    const predOf = b => b==="short" ? (p=>p._prob>=hi) : b==="long" ? (p=>p._prob<=lo) : (p=>p._prob<hi && p._prob>lo);
+    bands.forEach(b => { if(out.length<legs && !tryPick(predOf(b))) tryPick(null); });
   }
+  while(out.length < legs){ if(!tryPick(null)) break; }
   return out;
+}
+
+// ---------- Matchup tab: historical batter-vs-pitcher (season to date) ----------
+function renderMatchup(){
+  const main=document.getElementById("main");
+  if(!BOARD||!BOARD.players){ main.innerHTML=`<div class="empty">Board not loaded.</div>`; return; }
+  const ps=BOARD.players.filter(p=>p.lineup_status!=="out" && p.bvp);
+  if(!ps.length){ main.innerHTML=`<div class="empty">No matchup data yet — rebuild the board to populate batter-vs-pitcher history.</div>`; return; }
+  const sc=p=>{const b=p.bvp; return b.sp.hr*1000 + (b.bp_hr?500:0) + b.sp.pa*5 + (p.heat||0)/100;};
+  const withHist=ps.filter(p=>p.bvp.sp.pa>0 || p.bvp.bp.length).sort((a,b)=>sc(b)-sc(a));
+  const none=ps.length-withHist.length;
+  const card=p=>{
+    const b=p.bvp, spHot=b.sp.hr>0;
+    const spLine = b.sp.pa>0
+      ? `<span class="${spHot?'mu-hr':'mu-faced'}">${spHot?`🔥 ${b.sp.hr} HR`:`${b.sp.hr} HR`} · ${b.sp.pa} PA</span>`
+      : `<span class="mu-none">not faced this year</span>`;
+    const bpHr=b.bp.filter(a=>a.hr>0);
+    const bpLine = bpHr.length
+      ? bpHr.map(a=>`<span class="mu-hr">🔥 ${a.name} <b>${a.hr}</b>HR/${a.pa}PA</span>`).join(" ")
+      : (b.bp.length? `<span class="mu-faced">faced ${b.bp.length} of their pen · 0 HR</span>` : `<span class="mu-none">no pen history</span>`);
+    return `<div class="mu-card${(spHot||bpHr.length)?' mu-on':''}">
+      <div class="mu-top"><b>${p.name}</b> ${listHas(p.id)?'<span class="liststar">★</span>':''}<span class="mu-meta">${p.team}→${p.opp_team} · ${timeStr(p.time)}</span></div>
+      <div class="mu-row"><span class="mu-lab">vs SP ${b.sp.name||"—"}</span>${spLine}</div>
+      <div class="mu-row"><span class="mu-lab">vs their pen</span>${bpLine}</div>
+    </div>`;
+  };
+  main.innerHTML=`<div class="mu-wrap">
+    <div class="mu-head">Historical matchups<span>${withHist.length} hitters with history${none?` · ${none} not faced`:""}</span></div>
+    ${withHist.map(card).join("")}
+    <div class="pl-note">Season-to-date batter-vs-pitcher from Statcast: HR &amp; PA off today's starter, and off any active arm in the opponent's bullpen. 🔥 = has gone deep off him. Hitters who haven't faced today's arms this season are hidden. Career-long history vs the starter is the next add.</div>
+  </div>`;
 }
 
 function renderParlays(){
@@ -1388,59 +1470,60 @@ function renderParlays(){
   if(!BOARD||!BOARD.players){ main.innerHTML=`<div class="empty">Board not loaded.</div>`; return; }
   const R=trackerRates();
   const BR=betRates();
-  const W0=150;                            // HR tracked before tracker gets half the weight
-  const w=R.totalHR/(R.totalHR+W0);
-  const confPct=Math.round(w*100);
-  // leaderboard rank = position on today's trailing-14 board by Heat (the "top 14" tool)
+  const w=R.totalHR/(R.totalHR+150);
   const rankMap={};
   BOARD.players.slice().sort((a,b)=>(b.heat||0)-(a.heat||0)).forEach((p,i)=>{ rankMap[p.id]=i; });
-  const elig=BOARD.players.filter(p=>p.lineup_status!=="out");
-  const scored=elig.map(p=>({p, ...hitterHRProb(p,R,w,BR,rankMap[p.id]??99)}))
-                   .sort((a,b)=>b.prob-a.prob);
-  const ranked=scored.map(s=>Object.assign({}, s.p, {_prob:s.prob, _bt:s.bt, _rank:rankMap[s.p.id]??99}));
+  const ranked=BOARD.players.filter(p=>p.lineup_status!=="out")
+    .map(p=>{ const s=hitterScore(p,R,BR);
+      return Object.assign({}, p, {_score:s.score,_prob:s.prob,_trend:s.trend,_mix:s.mix,_tags:s.tags,_rank:rankMap[p.id]??99}); })
+    .sort((a,b)=>b._score-a._score);
 
-  const leg=(s)=>{
-    const p=s; const pr=p._prob;
+  const leg=(p)=>{
     const tags=[];
     if(p._rank<14) tags.push(`<span class="pl-tag lb">#${p._rank+1} board</span>`);
-    if(p._bt>1.05) tags.push(`<span class="pl-tag up">↑ your tags</span>`);
-    else if(p._bt<0.95) tags.push(`<span class="pl-tag dn">↓ your tags</span>`);
+    else if(p._rank>=20) tags.push(`<span class="pl-tag sl">sleeper</span>`);
+    if(p.trend && p.trend.dir==="up") tags.push(`<span class="pl-tag up">▲ trending</span>`);
+    if(p._mix>1.03) tags.push(`<span class="pl-tag mx">mix+</span>`);
+    if(p._tags>1.05) tags.push(`<span class="pl-tag tg">tags+</span>`);
     return `<div class="pl-leg">
-      <div class="pl-leg-main"><b>${p.name}</b> <span class="pl-meta">${p.team}→${p.opp_team} · ${timeStr(p.time)}</span>${tags.length?`<div class="pl-tags">${tags.join("")}</div>`:""}</div>
-      <div class="pl-leg-prob">${(pr*100).toFixed(0)}%<span>${americanFair(pr)}</span></div>
+      <div class="pl-leg-main"><b>${p.name}</b> <span class="pl-meta">${p.team}→${p.opp_team} · ${timeStr(p.time)}${p.why?` · ${p.why}`:""}</span>${tags.length?`<div class="pl-tags">${tags.join("")}</div>`:""}</div>
+      <div class="pl-leg-prob">${(p._prob*100).toFixed(0)}%<span>${americanFair(p._prob)}</span></div>
     </div>`;
   };
-  const card=(title,legs)=>{
-    const picks=buildParlay(ranked,legs);
-    if(picks.length<legs) return `<div class="pl-card pl-card-thin"><div class="pl-card-h"><b>${title}</b></div><div class="pl-foot">Only ${picks.length} game${picks.length===1?"":"s"} on the board with eligible hitters — need ${legs} for one-per-game. Comes back on a fuller slate.</div></div>`;
+  const card=(title,legs,opts,sub)=>{
+    const picks=buildVariety(ranked,legs,opts);
+    if(picks.length<legs) return `<div class="pl-card pl-card-thin"><div class="pl-card-h"><b>${title}</b></div><div class="pl-foot">Only ${picks.length} game${picks.length===1?"":"s"} with eligible hitters — need ${legs}. Comes back on a fuller slate.</div></div>`;
     const combined=picks.reduce((a,p)=>a*p._prob,1);
     return `<div class="pl-card">
       <div class="pl-card-h"><b>${title}</b><span class="pl-comb">${(combined*100).toFixed(1)}% · ${americanFair(combined)}</span></div>
+      ${sub?`<div class="pl-sub">${sub}</div>`:""}
       ${picks.map(leg).join("")}
-      <div class="pl-foot">combined model probability if legs were independent · fair odds, not book odds</div>
+      <div class="pl-foot">combined model probability if independent · fair odds, not book odds</div>
     </div>`;
   };
 
+  const confPct=Math.round(w*100);
   const confColor = w<0.15?"var(--cool)":w<0.5?"var(--warm)":"var(--hot)";
   main.innerHTML=`
     <div class="pl-wrap">
       <div class="pl-conf">
-        <div class="pl-conf-h">Selection confidence
+        <div class="pl-conf-h">Suggestion engine
           <span style="color:${confColor}">${R.days?`${R.days} graded day${R.days>1?"s":""} · ${R.totalHR} HR tracked`:"no tracker data yet"}</span></div>
         <div class="pl-conf-bar"><span style="width:${Math.max(4,confPct)}%;background:${confColor}"></span></div>
-        <div class="pl-conf-sub">Leaning <b>${100-confPct}%</b> on the model, <b>${confPct}%</b> on what's actually converting in your tracker.
-        ${w<0.3?"Still early — these are model-driven for now and will sharpen as graded days pile up.":"The tracker is now meaningfully steering picks."}</div>
+        <div class="pl-conf-sub">Blends every signal — not just the top names. ${w<0.3?"Tracker is still thin, so tag/tier weighting is light for now and sharpens as graded days pile up.":"Tracker is now meaningfully steering the tag and tier weighting."}</div>
         <div class="pl-inputs">
-          <span class="pl-in on">Heat score</span>
-          <span class="pl-in on">Top-14 leaderboard</span>
-          <span class="pl-in ${R.days?"on":"off"}">Tracker${R.days?` · ${R.days}d`:" · empty"}</span>
-          <span class="pl-in ${BR.legs?"on":"off"}">Your tags${BR.legs?` · ${BR.legs} legs`:" · none yet"}</span>
+          <span class="pl-in on">Heat / data</span>
+          <span class="pl-in on">Trend</span>
+          <span class="pl-in on">Pitch mix</span>
+          <span class="pl-in ${(R.days||BR.legs)?"on":"off"}">Tags: tracker+bets</span>
+          <span class="pl-in ${R.days?"on":"off"}">Tracker${R.days?` · ${R.days}d`:""}</span>
+          <span class="pl-in on">Variety</span>
         </div>
       </div>
-      ${card("2-leg",2)}
-      ${card("3-leg",3)}
-      ${card("5-leg round robin base",5)}
-      <div class="pl-note">Legs are the highest blended-probability hitters, one per game (no same-game stacks). As the tracker learns which Heat tiers and badges actually homer, the same board produces different — better — parlays. This is groundwork: trust it more as the confidence bar fills.</div>
+      ${card("Core · 2-leg",2,{chalkN:5,maxChalk:1},"highest combined value, lightly capped on chalk")}
+      ${card("Balanced · 3-leg",3,{chalkN:6,maxChalk:1},"one chalk max, the rest value + a sleeper")}
+      ${card("Spread · 5-leg round-robin base",5,{chalkN:6,maxChalk:2,bands:["short","short","medium","medium","long"]},"odds spread: 2 short · 2 medium · 1 longshot, one per game")}
+      <div class="pl-note">Each leg blends data quality, upward trend (a cold tag won't sink a hitter who's playing hot), pitch-mix matchup, the tags most likely to homer across your tracker <i>and</i> bet history, tracker tier rates, and Heat — then the build deliberately caps chalk and mixes in sleepers and longshots so you get variety, not the same top names every time. Leg notes show what's driving each pick.</div>
     </div>`;
 }
 
@@ -1577,6 +1660,9 @@ document.getElementById("sort").addEventListener("click",e=>{
 document.getElementById("search").addEventListener("input",e=>{q=e.target.value;render();});
 document.getElementById("thinBtn").addEventListener("click",e=>{
   hideThin=!hideThin; e.target.setAttribute("aria-pressed",hideThin); render();
+});
+document.getElementById("listBtn").addEventListener("click",e=>{
+  listFilter=!listFilter; e.target.setAttribute("aria-pressed",listFilter); render();
 });
 document.getElementById("mixBtn").addEventListener("click",e=>{
   mixView=!mixView; e.target.setAttribute("aria-pressed",mixView); render();
