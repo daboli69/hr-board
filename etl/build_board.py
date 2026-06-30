@@ -146,6 +146,15 @@ def build(date_str: str | None = None) -> dict:
     except Exception as e:
         print(f"[build] BvP skipped: {e}")
 
+    # career BvP vs the starter (MLB Stats API), cached so the day's builds share one fetch
+    import time as _t
+    bvp_cache_path = os.path.join(os.path.dirname(__file__), "..", "docs", "bvp_career.json")
+    try:
+        bvp_career_cache = json.load(open(bvp_cache_path)).get("pairs", {})
+    except Exception:
+        bvp_career_cache = {}
+    _bvp_now = _t.time(); _bvp_ttl = 64800; _bvp_fetched = [0]; _BVP_MAX = 340
+
     # statsapi and Statcast mostly share team abbreviations; a few differ.
     _TEAM_ALIAS = {"AZ": "ARI", "ARI": "AZ", "CWS": "CHW", "CHW": "CWS",
                    "WSH": "WSN", "WSN": "WSH", "KC": "KCR", "KCR": "KC",
@@ -356,6 +365,21 @@ def build(date_str: str | None = None) -> dict:
             "bp": [a for a in bp_list if a["name"]][:12],
             "bp_hr": any(a["hr"] > 0 for a in bp_list),
         }
+        if pid:                                   # career vs today's starter (cached)
+            _k = f"{bid}-{pid}"
+            _c = bvp_career_cache.get(_k)
+            _sc = None
+            if _c and (_bvp_now - _c.get("ts", 0) < _bvp_ttl):
+                _sc = {"pa": _c["pa"], "hr": _c["hr"]}
+            elif _bvp_fetched[0] < _BVP_MAX:
+                _r = statsapi.bvp_career(bid, pid)
+                _bvp_fetched[0] += 1
+                if _r is not None:
+                    bvp_career_cache[_k] = {"pa": _r["pa"], "hr": _r["hr"], "ts": _bvp_now}
+                    _sc = {"pa": _r["pa"], "hr": _r["hr"]}
+                _t.sleep(0.02)
+            if _sc is not None:
+                player_bvp["sp_career"] = {"name": opp_pitcher_obj.get("name", ""), **_sc}
 
         players.append({
             "id": bid,
@@ -403,6 +427,12 @@ def build(date_str: str | None = None) -> dict:
         })
 
     players.sort(key=lambda p: p["heat"], reverse=True)
+
+    try:                                           # persist career-BvP cache for the next build
+        json.dump({"pairs": bvp_career_cache, "updated": _bvp_now}, open(bvp_cache_path, "w"))
+        print(f"[build] career BvP: {_bvp_fetched[0]} fetched this run, {len(bvp_career_cache)} cached")
+    except Exception as e:
+        print(f"[build] bvp cache write failed: {e}")
 
     # ---- park + weather HR model: a separate lens, computed per game in one vectorized
     # pass, attached as p["park_hr"]. Never feeds the heat score or the grader. The park's

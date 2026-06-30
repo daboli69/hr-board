@@ -99,6 +99,9 @@
   #sort{max-width:100%;overflow-x:auto;scrollbar-width:none}
   #sort::-webkit-scrollbar{display:none}
   #sort button{white-space:nowrap}
+  #view{max-width:100%;overflow-x:auto;scrollbar-width:none}
+  #view::-webkit-scrollbar{display:none}
+  #view button{white-space:nowrap}
   .seg-lab{color:var(--muted);font-size:11px;font-weight:600;padding:7px 10px;
     border-right:1px solid var(--line);text-transform:uppercase;letter-spacing:.03em;
     align-self:center;cursor:default;user-select:none}
@@ -273,6 +276,11 @@
   .mu-hr{color:var(--hot);font-weight:700;font-family:"IBM Plex Mono";font-size:11px}
   .mu-faced{color:var(--ink);font-family:"IBM Plex Mono";font-size:11px}
   .mu-none{color:var(--faint);font-size:11px}
+  .mu-heat{font-family:"IBM Plex Mono";font-weight:800;font-size:12px;color:#0c1116;padding:2px 6px;border-radius:6px;min-width:24px;text-align:center}
+  .mu-src{font-size:9.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.03em}
+  .mu-yr{font-size:9.5px;color:var(--muted);margin-left:4px}
+  .mu-sort{margin-bottom:12px}
+  .mu-sort button[aria-pressed="true"]{background:var(--panel-2);color:var(--ink)}
   .pl-note{font-size:11.5px;color:var(--muted);line-height:1.55;margin-top:6px;padding:0 2px}
   .arm-nm .badges{margin-top:4px}
   .cmini{font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.45;
@@ -657,7 +665,7 @@ const EXTRA = [
   {k:"fb_pct",     label:"FB%",      fmt:v=>fmt(v,1)},
   {k:"pull_pct",   label:"Pull(all)",fmt:v=>fmt(v,1)},
 ];
-let BOARD=null, HISTORY=null, view="board", sortKey="heat", q="", hideThin=false, minHeat=0, spFloor=0, gameSel=new Set(), batFilter="", traitSel=new Set(), teamSel=new Set(), drySel=new Set(), mixView=false, listFilter=false;
+let BOARD=null, HISTORY=null, view="board", sortKey="heat", q="", hideThin=false, minHeat=0, spFloor=0, gameSel=new Set(), batFilter="", traitSel=new Set(), teamSel=new Set(), drySel=new Set(), mixView=false, listFilter=false, muSort="hist";
 // effective heat: vs-pitch-mix variant when the toggle is on, else standard
 function H(p){return (mixView && p.heat_mix!=null) ? p.heat_mix : p.heat;}
 
@@ -1434,34 +1442,47 @@ function buildVariety(ranked, legs, opts){
   return out;
 }
 
-// ---------- Matchup tab: historical batter-vs-pitcher (season to date) ----------
+// ---------- Matchup tab: historical batter-vs-pitcher ----------
+function setMuSort(k){ muSort=k; renderMatchup(); }
 function renderMatchup(){
   const main=document.getElementById("main");
   if(!BOARD||!BOARD.players){ main.innerHTML=`<div class="empty">Board not loaded.</div>`; return; }
   const ps=BOARD.players.filter(p=>p.lineup_status!=="out" && p.bvp);
   if(!ps.length){ main.innerHTML=`<div class="empty">No matchup data yet — rebuild the board to populate batter-vs-pitcher history.</div>`; return; }
-  const sc=p=>{const b=p.bvp; return b.sp.hr*1000 + (b.bp_hr?500:0) + b.sp.pa*5 + (p.heat||0)/100;};
-  const withHist=ps.filter(p=>p.bvp.sp.pa>0 || p.bvp.bp.length).sort((a,b)=>sc(b)-sc(a));
+  const spRec=p=>p.bvp.sp_career||p.bvp.sp;                 // prefer career, fall back to season
+  const bpHrN=p=>p.bvp.bp.filter(a=>a.hr>0).length;
+  const histScore=p=>spRec(p).hr*1000 + (bpHrN(p)?500:0) + spRec(p).pa*5 + (p.heat||0)/100;
+  const sorters={
+    hist:(a,b)=>histScore(b)-histScore(a),
+    sphr:(a,b)=>(spRec(b).hr-spRec(a).hr)||(spRec(b).pa-spRec(a).pa),
+    sppa:(a,b)=>(spRec(b).pa-spRec(a).pa)||(spRec(b).hr-spRec(a).hr),
+    bphr:(a,b)=>(bpHrN(b)-bpHrN(a))||(b.bvp.bp.length-a.bvp.bp.length),
+    heat:(a,b)=>(b.heat||0)-(a.heat||0),
+  };
+  const withHist=ps.filter(p=>spRec(p).pa>0 || p.bvp.bp.length).sort(sorters[muSort]||sorters.hist);
   const none=ps.length-withHist.length;
+  const sbtn=(k,lab)=>`<button onclick="setMuSort('${k}')" aria-pressed="${muSort===k}">${lab}</button>`;
   const card=p=>{
-    const b=p.bvp, spHot=b.sp.hr>0;
-    const spLine = b.sp.pa>0
-      ? `<span class="${spHot?'mu-hr':'mu-faced'}">${spHot?`🔥 ${b.sp.hr} HR`:`${b.sp.hr} HR`} · ${b.sp.pa} PA</span>`
-      : `<span class="mu-none">not faced this year</span>`;
+    const b=p.bvp, sp=spRec(p), career=!!b.sp_career, spHot=sp.hr>0;
+    const seasonTag=(career && b.sp && (b.sp.pa>0) ) ? `<span class="mu-yr">${b.sp.hr}/${b.sp.pa} this yr</span>` : "";
+    const spLine = sp.pa>0
+      ? `<span class="${spHot?'mu-hr':'mu-faced'}">${spHot?`🔥 ${sp.hr} HR`:`${sp.hr} HR`} · ${sp.pa} PA</span> <span class="mu-src">${career?"career":"season"}</span>${seasonTag}`
+      : `<span class="mu-none">not faced${career?" (career)":" this year"}</span>`;
     const bpHr=b.bp.filter(a=>a.hr>0);
     const bpLine = bpHr.length
       ? bpHr.map(a=>`<span class="mu-hr">🔥 ${a.name} <b>${a.hr}</b>HR/${a.pa}PA</span>`).join(" ")
       : (b.bp.length? `<span class="mu-faced">faced ${b.bp.length} of their pen · 0 HR</span>` : `<span class="mu-none">no pen history</span>`);
     return `<div class="mu-card${(spHot||bpHr.length)?' mu-on':''}">
-      <div class="mu-top"><b>${p.name}</b> ${listHas(p.id)?'<span class="liststar">★</span>':''}<span class="mu-meta">${p.team}→${p.opp_team} · ${timeStr(p.time)}</span></div>
-      <div class="mu-row"><span class="mu-lab">vs SP ${b.sp.name||"—"}</span>${spLine}</div>
-      <div class="mu-row"><span class="mu-lab">vs their pen</span>${bpLine}</div>
+      <div class="mu-top"><span class="mu-heat" style="background:${chipColor(p.heat||0)}">${p.heat??"–"}</span><b>${p.name}</b> ${listHas(p.id)?'<span class="liststar">★</span>':''}<span class="mu-meta">${p.team}→${p.opp_team} · ${timeStr(p.time)}</span></div>
+      <div class="mu-row"><span class="mu-lab">vs SP ${sp.name||b.sp.name||"—"}</span><span>${spLine}</span></div>
+      <div class="mu-row"><span class="mu-lab">vs their pen</span><span>${bpLine}</span></div>
     </div>`;
   };
   main.innerHTML=`<div class="mu-wrap">
-    <div class="mu-head">Historical matchups<span>${withHist.length} hitters with history${none?` · ${none} not faced`:""}</span></div>
+    <div class="mu-head">Historical matchups<span>${withHist.length} with history${none?` · ${none} not faced`:""}</span></div>
+    <div class="seg mu-sort" id="muSort">${sbtn("hist","Best")}${sbtn("sphr","SP HR")}${sbtn("sppa","SP PA")}${sbtn("bphr","Pen HR")}${sbtn("heat","Heat")}</div>
     ${withHist.map(card).join("")}
-    <div class="pl-note">Season-to-date batter-vs-pitcher from Statcast: HR &amp; PA off today's starter, and off any active arm in the opponent's bullpen. 🔥 = has gone deep off him. Hitters who haven't faced today's arms this season are hidden. Career-long history vs the starter is the next add.</div>
+    <div class="pl-note">Batter-vs-pitcher: HR &amp; PA off today's starter (career when available, season otherwise) and off active arms in the opponent's bullpen. 🔥 = has gone deep off him. Heat chip on the left. Hitters with no history vs today's arms are hidden.</div>
   </div>`;
 }
 
