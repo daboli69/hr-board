@@ -1039,8 +1039,8 @@ function render(){
         ${p.park_hr?`<div class="parkbox">
           <div class="parkbox-h">Park &amp; weather model <span class="pk-boost ${p.park_hr.boost>=0?'pos':'neg'}">${p.park_hr.boost>=0?'+':''}${p.park_hr.boost}% HR</span></div>
           <div class="parkbox-sub"><b style="color:var(--ink)">${p.park_hr.exp100}</b> expected HR per 100 batted balls here vs <b style="color:var(--ink)">${p.park_hr.neutral100}</b> in a neutral park · ${p.park_hr.n} batted balls modeled</div>
-          <div class="parkbox-cond">${p.park_hr.indoor?"indoor — roof / climate controlled":(p.park_hr.weather?`${p.park_hr.temp_f!=null?p.park_hr.temp_f+"°F":""}${p.park_hr.wind_mph!=null?` · wind ${p.park_hr.wind_mph} mph`:""}`:"park geometry only · live weather unavailable")}${p.park_hr.savant_pf!=null?` · Savant park ${p.park_hr.savant_pf}×`:""}</div>
-          <div class="parkbox-note">${p.park_hr.savant_pf!=null?"Anchored to Baseball Savant's park factor; physics adds this hitter's spray + today's weather on top. ":""}His real batted balls flown through this park's walls. Secondary read — separate from Heat.</div>
+          <div class="parkbox-cond">${p.park_hr.indoor?"indoor — roof / climate controlled":(p.park_hr.weather?`${p.park_hr.temp_f!=null?p.park_hr.temp_f+"°F":""}${p.park_hr.wind_mph!=null?` · wind ${p.park_hr.wind_mph} mph`:""}`:"park geometry only · live weather unavailable")}${p.park_hr.savant_pf!=null?` · park ${p.park_hr.savant_pf}×`:""}</div>
+          <div class="parkbox-note">${p.park_hr.savant_pf!=null?"Anchored to this season's empirical HR park factor (computed from Statcast batted balls); physics adds this hitter's spray + today's weather on top. ":""}His real batted balls flown through this park's walls. Secondary read — separate from Heat.</div>
         </div>`:""}
         <h4>Four signals — recent · season · career</h4>
         <div class="strip" style="border:1px solid var(--line);border-radius:10px">${strip}</div>
@@ -1307,28 +1307,31 @@ function trackerRates(){
   return R;
 }
 
-// Your own bet log -> per-player hit rate, for a personalized nudge. Only legs you've
-// marked hit/miss count. Small and shrunk, so it tilts rather than dominates.
+// Your own bet log -> per-TAG hit rate. We don't care which player it was, only which
+// tags were on the legs that hit. Aggregated across all your graded legs and shrunk, so
+// today's hitters get nudged by the tag combos that have actually worked for YOU.
 function betRates(){
-  const B={players:{}, base:0.0, legs:0};
+  const B={badges:{}, base:0.0, legs:0};
   let hit=0, n=0;
   (loadBets()||[]).forEach(b=>(b.legs||[]).forEach(l=>{
     if(l.hit!=="hit" && l.hit!=="miss") return;
     const win=l.hit==="hit"; n++; if(win) hit++;
-    const key=(l.name||"").trim().toLowerCase(); if(!key) return;
-    const a=B.players[key]||(B.players[key]={n:0,hit:0}); a.n++; if(win) a.hit++;
+    (l.badges||[]).forEach(k=>{ const a=B.badges[k]||(B.badges[k]={n:0,hit:0}); a.n++; if(win) a.hit++; });
   }));
   B.legs=n; B.base = n? hit/n : 0.0;
   return B;
 }
 
-function betMult(name, BR){
-  if(!BR.legs || BR.base<=0) return 1;          // no graded legs yet -> no effect
-  const a=BR.players[(name||"").trim().toLowerCase()];
-  if(!a || !a.n) return 1;
-  const K=4;                                     // heavy shrink (your samples are tiny)
-  const rate=(a.hit + BR.base*K)/(a.n + K);
-  return Math.max(0.7, Math.min(1.4, rate/BR.base));
+function betMult(badges, BR){
+  if(!BR.legs || BR.base<=0 || !badges || !badges.length) return 1;
+  const K=4;                                     // heavy shrink — your tag samples are small
+  let lift=1, used=0;
+  badges.forEach(b=>{
+    const a=BR.badges[b.k]; if(!a || !a.n) return;
+    const rate=(a.hit + BR.base*K)/(a.n + K);
+    lift *= rate/BR.base; used++;
+  });
+  return used ? Math.max(0.7, Math.min(1.4, lift)) : 1;
 }
 
 // Leaderboard ("top 14") component: where the hitter sits on today's trailing-14-day board
@@ -1359,7 +1362,7 @@ function hitterHRProb(p, R, w, BR, rank){
   pe = Math.max(0.01, Math.min(0.40, pe));
   // confidence-weighted blend, then a personal nudge from your own bet results
   const blended = (1-w)*model_side + w*pe;
-  const bt = betMult(p.name, BR);
+  const bt = betMult(p.badges, BR);
   const prob = Math.max(0.02, Math.min(0.45, blended*bt));
   return {prob, pm, pe, lb, bt};
 }
@@ -1400,8 +1403,8 @@ function renderParlays(){
     const p=s; const pr=p._prob;
     const tags=[];
     if(p._rank<14) tags.push(`<span class="pl-tag lb">#${p._rank+1} board</span>`);
-    if(p._bt>1.05) tags.push(`<span class="pl-tag up">↑ your bets</span>`);
-    else if(p._bt<0.95) tags.push(`<span class="pl-tag dn">↓ your bets</span>`);
+    if(p._bt>1.05) tags.push(`<span class="pl-tag up">↑ your tags</span>`);
+    else if(p._bt<0.95) tags.push(`<span class="pl-tag dn">↓ your tags</span>`);
     return `<div class="pl-leg">
       <div class="pl-leg-main"><b>${p.name}</b> <span class="pl-meta">${p.team}→${p.opp_team} · ${timeStr(p.time)}</span>${tags.length?`<div class="pl-tags">${tags.join("")}</div>`:""}</div>
       <div class="pl-leg-prob">${(pr*100).toFixed(0)}%<span>${americanFair(pr)}</span></div>
@@ -1431,7 +1434,7 @@ function renderParlays(){
           <span class="pl-in on">Heat score</span>
           <span class="pl-in on">Top-14 leaderboard</span>
           <span class="pl-in ${R.days?"on":"off"}">Tracker${R.days?` · ${R.days}d`:" · empty"}</span>
-          <span class="pl-in ${BR.legs?"on":"off"}">Your bets${BR.legs?` · ${BR.legs} legs`:" · none yet"}</span>
+          <span class="pl-in ${BR.legs?"on":"off"}">Your tags${BR.legs?` · ${BR.legs} legs`:" · none yet"}</span>
         </div>
       </div>
       ${card("2-leg",2)}

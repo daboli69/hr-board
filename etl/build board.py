@@ -378,7 +378,7 @@ def build(date_str: str | None = None) -> dict:
     try:
         from etl import park_factors
         pf_cache = os.path.join(os.path.dirname(__file__), "..", "docs", "park_factors.json")
-        savant = park_factors.load_park_factors(pf_cache, now.year)
+        savant = park_factors.load_park_factors(pf_cache, df=df, year=now.year)
         by_game = {}
         for p in players:
             by_game.setdefault((p["park"], p["time"], p["game_pk"]), []).append(p)

@@ -1,118 +1,138 @@
 """
-Baseball Savant park factors — pulled automatically, zero manual entry.
+In-house empirical HR park factors, computed from the season's Statcast batted balls — the
+same raw data Baseball Savant builds its park factors on. Zero manual entry, self-updating,
+and it reflects each park's CURRENT configuration because it's this season's actual outcomes
+(walls that moved this year show up immediately).
 
-Savant publishes empirical HR park factors built from actual batted-ball outcomes,
-on a rolling multi-year window and split by batter handedness. Because it's empirical
-and continuously refreshed, it (a) reflects each park's CURRENT configuration as walls
-move year to year, and (b) needs no hand-entered dimensions. We use it as the source of
-truth for each park's HR-friendliness, and anchor the physics/weather model to it so the
-per-hitter spray and live-weather nuance ride on top of a number that's always current.
+Method (controls for hitter quality so a good offense can't inflate its own park):
+for every batted ball league-wide we know exit velocity, launch angle, and whether it left
+the yard. We build an expected-HR baseline = the league HR rate for balls of that EV/LA.
+A park's factor = actual HR / expected HR there — "balls of this quality became homers N x
+the league rate in this park" — which isolates the park (short porch, altitude, marine
+layer) from who was hitting. Split by batter hand, shrunk toward 1.0 on small samples.
 
-Output: {venue_name: {"all": mult, "R": mult, "L": mult}} where mult is a multiplier
-around 1.00 (1.18 = 18% more HR than league average). Falls back to the last cached
-pull, then to neutral (1.0), so the board never breaks.
-
-NOTE: this runs in GitHub Actions (open network). It can't be exercised from the build
-sandbox, so the Savant endpoint/columns below are parsed defensively and the first live
-run logs exactly what it pulled.
+Output: {venue_name: {"all": mult, "R": mult, "L": mult}}, 1.00 = league average.
 """
-import csv
-import io
 import json
 import os
 import time
-import urllib.request
+import numpy as np
+import pandas as pd
 
-BASE = "https://baseballsavant.mlb.com/leaderboard/statcast-park-factors"
-UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36"
-CACHE_MAX_AGE_DAYS = 7
+# Statcast home_team abbreviation -> venue name (matches the board's statsapi names).
+# This is fixed plumbing (only changes when a team relocates), not hand-entered factors.
+TEAM_VENUE = {
+    "ARI": "Chase Field", "ATL": "Truist Park", "BAL": "Oriole Park at Camden Yards",
+    "BOS": "Fenway Park", "CHC": "Wrigley Field", "CWS": "Rate Field", "CHW": "Rate Field",
+    "CIN": "Great American Ball Park", "CLE": "Progressive Field", "COL": "Coors Field",
+    "DET": "Comerica Park", "HOU": "Daikin Park", "KC": "Kauffman Stadium", "KCR": "Kauffman Stadium",
+    "LAA": "Angel Stadium", "LAD": "Dodger Stadium", "MIA": "loanDepot park",
+    "MIL": "American Family Field", "MIN": "Target Field", "NYM": "Citi Field",
+    "NYY": "Yankee Stadium", "OAK": "Sutter Health Park", "ATH": "Sutter Health Park",
+    "PHI": "Citizens Bank Park", "PIT": "PNC Park", "SD": "Petco Park", "SDP": "Petco Park",
+    "SEA": "T-Mobile Park", "SF": "Oracle Park", "SFG": "Oracle Park", "STL": "Busch Stadium",
+    "TB": "George M. Steinbrenner Field", "TBR": "George M. Steinbrenner Field",
+    "TEX": "Globe Life Field", "TOR": "Rogers Centre", "WSH": "Nationals Park", "WSN": "Nationals Park",
+}
+
+EV_BINS = np.arange(20.0, 126.0, 4.0)     # exit velocity bins (mph)
+LA_BINS = np.arange(-40.0, 76.0, 4.0)     # launch angle bins (deg)
+PARK_SHRINK = 12.0    # HR-equivalent pseudo-count pulling a park toward 1.0 on small samples
+BIN_SHRINK = 60.0     # smooths the EV/LA baseline cells toward the global HR rate
+
+
+def _xhr(ev, la, hr):
+    """Expected-HR per batted ball = league HR rate in its EV/LA cell (smoothed)."""
+    glob = float(hr.mean()) if len(hr) else 0.0
+    tot, _, _ = np.histogram2d(ev, la, bins=[EV_BINS, LA_BINS])
+    hrh, _, _ = np.histogram2d(ev[hr], la[hr], bins=[EV_BINS, LA_BINS])
+    rate = (hrh + glob * BIN_SHRINK) / (tot + BIN_SHRINK)        # per-cell smoothed HR rate
+    ix = np.clip(np.digitize(ev, EV_BINS) - 1, 0, rate.shape[0] - 1)
+    iy = np.clip(np.digitize(la, LA_BINS) - 1, 0, rate.shape[1] - 1)
+    return rate[ix, iy]
+
+
+def compute_park_factors(df):
+    """Build {venue: {all,R,L}} from a season Statcast frame. {} if data is too thin."""
+    if df is None or len(df) == 0:
+        return {}
+    need = {"launch_speed", "launch_angle", "events", "home_team"}
+    if not need.issubset(df.columns):
+        print(f"[park_factors] missing columns {need - set(df.columns)}; skipping.")
+        return {}
+    d = df[df["launch_speed"].notna() & df["launch_angle"].notna()].copy()  # batted balls only
+    if len(d) < 5000:
+        print(f"[park_factors] only {len(d)} batted balls; too thin, skipping.")
+        return {}
+    ev = d["launch_speed"].to_numpy(float)
+    la = d["launch_angle"].to_numpy(float)
+    hr = (d["events"] == "home_run").to_numpy()
+    stand = d["stand"].to_numpy(str) if "stand" in d.columns else np.array(["R"] * len(d))
+    park = d["home_team"].astype(str).to_numpy()
+    xhr = _xhr(ev, la, hr)
+
+    def _factors(mask):
+        raw, xs = {}, {}
+        for abbr in np.unique(park[mask]):
+            sel = mask & (park == abbr)
+            a = float(hr[sel].sum())
+            x = float(xhr[sel].sum())
+            if x <= 0:
+                continue
+            raw[abbr] = (a + PARK_SHRINK) / (x + PARK_SHRINK)   # shrunk toward 1.0
+            xs[abbr] = x
+        if not raw:
+            return {}
+        wsum = sum(xs.values())
+        norm = sum(raw[k] * xs[k] for k in raw) / wsum if wsum else 1.0   # exposure-weighted mean
+        if norm <= 0:
+            norm = 1.0
+        return {k: round(raw[k] / norm, 3) for k in raw}                  # league mean -> 1.00
+
+    allm = _factors(np.ones(len(d), bool))
+    rm = _factors(stand == "R")
+    lm = _factors(stand == "L")
+
+    venues = {}
+    for abbr, m in allm.items():
+        venue = TEAM_VENUE.get(abbr)
+        if not venue:
+            continue
+        venues[venue] = {"all": m, "R": rm.get(abbr, m), "L": lm.get(abbr, m)}
+    print(f"[park_factors] computed {len(venues)} parks from {len(d)} batted balls "
+          f"(season HR park factors, hand-split).")
+    return venues
+
+
+def load_park_factors(cache_path, df=None, year=None):
+    """Compute from the season frame when given one (always, each build) and cache it.
+    With no frame, read the last cache. Always leaves a file behind so the commit can't
+    fail on a missing path. Returns {venue: {...}} ({} -> physics-only fallback)."""
+    venues = {}
+    if df is not None:
+        try:
+            venues = compute_park_factors(df)
+        except Exception as e:
+            print(f"[park_factors] compute failed: {e}")
+            venues = {}
+    if not venues and os.path.exists(cache_path):
+        try:
+            venues = json.load(open(cache_path)).get("venues", {})  # fall back to last good
+            if venues:
+                print(f"[park_factors] using {len(venues)} cached parks.")
+        except Exception:
+            venues = {}
+    try:
+        os.makedirs(os.path.dirname(cache_path) or ".", exist_ok=True)
+        json.dump({"year": year, "computed": time.time(), "method": "statcast_xhr",
+                   "venues": venues}, open(cache_path, "w"))
+    except Exception as e:
+        print(f"[park_factors] cache write failed: {e}")
+    return venues
 
 
 def _normalize(name):
     return "".join(c for c in (name or "").lower() if c.isalnum())
-
-
-def _fetch_csv(year, bat_side="", rolling=3, timeout=20):
-    """Pull the park-factors CSV for one handedness ('' = all, 'R', 'L')."""
-    params = (f"?type=year&year={year}&batSide={bat_side}&stat=index_hr"
-              f"&condition=All&rolling={rolling}&sortColumn=hr&sortDir=desc&csv=true")
-    req = urllib.request.Request(BASE + params, headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return r.read().decode("utf-8", "replace")
-
-
-def _parse(text):
-    """Flexible parse: find the venue-name column and the HR-factor column by header."""
-    rows = list(csv.DictReader(io.StringIO(text)))
-    if not rows:
-        return {}
-    headers = list(rows[0].keys())
-    low = {h: h.lower() for h in headers}
-    venue_col = next((h for h in headers if low[h] in ("venue_name", "name", "venue")), None) \
-        or next((h for h in headers if "venue" in low[h] or "name" in low[h]), None)
-    hr_col = next((h for h in headers if low[h] in ("index_hr", "hr_factor", "hr")), None) \
-        or next((h for h in headers if "hr" in low[h]), None)
-    if not venue_col or not hr_col:
-        return {}
-    out = {}
-    for row in rows:
-        v = (row.get(venue_col) or "").strip()
-        raw = (row.get(hr_col) or "").strip()
-        if not v or not raw:
-            continue
-        try:
-            val = float(raw)
-        except ValueError:
-            continue
-        # Savant publishes an index where 100 = average; normalize to a multiplier.
-        mult = val / 100.0 if val > 5 else val
-        out[v] = round(mult, 3)
-    return out
-
-
-def fetch_park_factors(year, rolling=3):
-    """Pull all/R/L HR park factors. Returns {venue: {'all','R','L'}} or {} on failure."""
-    try:
-        all_pf = _parse(_fetch_csv(year, "", rolling))
-        if not all_pf:
-            return {}
-        r_pf = _parse(_fetch_csv(year, "R", rolling))
-        l_pf = _parse(_fetch_csv(year, "L", rolling))
-        merged = {}
-        for v, m in all_pf.items():
-            merged[v] = {"all": m, "R": r_pf.get(v, m), "L": l_pf.get(v, m)}
-        print(f"[park_factors] pulled {len(merged)} venues from Savant (year={year}, rolling={rolling})")
-        return merged
-    except Exception as e:
-        print(f"[park_factors] Savant fetch failed: {e}")
-        return {}
-
-
-def load_park_factors(cache_path, year, rolling=3):
-    """
-    Fresh cache -> use it. Otherwise fetch from Savant and rewrite the cache. If the fetch
-    fails, fall back to whatever cache exists (even if stale). Returns the venue dict.
-    """
-    cache = {}
-    if os.path.exists(cache_path):
-        try:
-            cache = json.load(open(cache_path))
-        except Exception:
-            cache = {}
-    fresh = (cache.get("year") == year
-             and (time.time() - cache.get("fetched", 0)) < CACHE_MAX_AGE_DAYS * 86400
-             and cache.get("venues"))
-    if fresh:
-        return cache["venues"]
-    venues = fetch_park_factors(year, rolling)
-    if venues:
-        try:
-            json.dump({"year": year, "rolling": rolling, "fetched": time.time(),
-                       "venues": venues}, open(cache_path, "w"))
-        except Exception:
-            pass
-        return venues
-    return cache.get("venues", {})   # stale cache beats nothing
 
 
 def factor_for(venues, venue_name, hand="all"):
