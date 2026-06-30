@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-29T19:52:24-04:00",
+  "generated_at": "2026-06-29T20:26:37-04:00",
   "slate_date": "2026-06-29",
   "league_avg": {
     "barrel_pct": 8.0,
@@ -520,15 +520,17 @@
         "L30": 7
       },
       "park_hr": {
-        "exp100": 23.8,
+        "exp100": 18.7,
         "neutral100": 17.9,
-        "boost": 33,
+        "boost": 5,
         "score": 100,
         "n": 84,
         "weather": true,
         "temp_f": 89,
         "wind_mph": 6,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -931,15 +933,17 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 2.8,
+        "exp100": 2.9,
         "neutral100": 4.7,
-        "boost": -40,
-        "score": 23,
+        "boost": -39,
+        "score": 24,
         "n": 107,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -1339,15 +1343,17 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 41.7,
+        "exp100": 38.8,
         "neutral100": 37.5,
-        "boost": 11,
+        "boost": 4,
         "score": 100,
         "n": 24,
         "weather": true,
         "temp_f": 86,
         "wind_mph": 0,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -1753,15 +1759,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 9.8,
+        "exp100": 14.8,
         "neutral100": 14.8,
-        "boost": -33,
-        "score": 82,
+        "boost": 0,
+        "score": 100,
         "n": 61,
-        "weather": true,
-        "temp_f": 87,
-        "wind_mph": 6,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -2171,15 +2179,17 @@
         "L30": 7
       },
       "park_hr": {
-        "exp100": 22.9,
+        "exp100": 19.1,
         "neutral100": 16.9,
-        "boost": 35,
+        "boost": 13,
         "score": 100,
         "n": 236,
         "weather": true,
         "temp_f": 89,
         "wind_mph": 6,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -2587,15 +2597,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 14.1,
+        "exp100": 10.5,
         "neutral100": 10.9,
-        "boost": 30,
-        "score": 100,
+        "boost": -4,
+        "score": 87,
         "n": 92,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
-        "indoor": false
+        "weather": true,
+        "temp_f": 89,
+        "wind_mph": 2,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -2680,7 +2692,28 @@
           "L_hr": 9,
           "L_pa": 278
         },
-        "hr_by_hand_2yr": null,
+        "hr_by_hand_2yr": {
+          "two_yr": {
+            "R": {
+              "hr": 13,
+              "pa": 604
+            },
+            "L": {
+              "hr": 22,
+              "pa": 697
+            }
+          },
+          "this_yr": {
+            "R": {
+              "hr": 4,
+              "pa": 205
+            },
+            "L": {
+              "hr": 9,
+              "pa": 306
+            }
+          }
+        },
         "vs_hand": "R",
         "vs_hand_score": 22,
         "vs_hand_metrics": {
@@ -2978,15 +3011,17 @@
         "L30": 14
       },
       "park_hr": {
-        "exp100": 21.1,
+        "exp100": 17.8,
         "neutral100": 18.4,
-        "boost": 14,
+        "boost": -3,
         "score": 100,
         "n": 190,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
-        "indoor": false
+        "weather": true,
+        "temp_f": 89,
+        "wind_mph": 2,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -3390,15 +3425,17 @@
         "L30": 10
       },
       "park_hr": {
-        "exp100": 25.3,
+        "exp100": 25.8,
         "neutral100": 22.5,
-        "boost": 12,
+        "boost": 15,
         "score": 100,
         "n": 178,
         "weather": true,
         "temp_f": 86,
         "wind_mph": 0,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": false
       }
     },
     {
@@ -3805,15 +3842,17 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 14.6,
+        "exp100": 12.0,
         "neutral100": 11.1,
-        "boost": 31,
+        "boost": 8,
         "score": 100,
         "n": 144,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
-        "indoor": false
+        "weather": true,
+        "temp_f": 89,
+        "wind_mph": 2,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -4215,15 +4254,17 @@
         "L30": 7
       },
       "park_hr": {
-        "exp100": 11.6,
+        "exp100": 16.9,
         "neutral100": 10.1,
-        "boost": 15,
-        "score": 97,
+        "boost": 67,
+        "score": 100,
         "n": 267,
         "weather": true,
         "temp_f": 100,
         "wind_mph": 9,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -4628,15 +4669,17 @@
         "L30": 13
       },
       "park_hr": {
-        "exp100": 7.0,
+        "exp100": 10.0,
         "neutral100": 13.0,
-        "boost": -46,
-        "score": 58,
+        "boost": -23,
+        "score": 83,
         "n": 215,
-        "weather": true,
-        "temp_f": 71,
-        "wind_mph": 7,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -5046,15 +5089,17 @@
         "L30": 6
       },
       "park_hr": {
-        "exp100": 20.0,
+        "exp100": 19.3,
         "neutral100": 15.0,
-        "boost": 33,
+        "boost": 29,
         "score": 100,
         "n": 120,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 12,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -5462,15 +5507,17 @@
         "L30": 7
       },
       "park_hr": {
-        "exp100": 18.3,
+        "exp100": 17.7,
         "neutral100": 12.1,
-        "boost": 52,
+        "boost": 47,
         "score": 100,
         "n": 224,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 12,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -6267,15 +6314,17 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 14.0,
+        "exp100": 13.8,
         "neutral100": 14.7,
-        "boost": -5,
+        "boost": -6,
         "score": 100,
         "n": 150,
         "weather": false,
         "temp_f": null,
         "wind_mph": null,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -6685,15 +6734,17 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 3.4,
+        "exp100": 4.7,
         "neutral100": 3.8,
-        "boost": -12,
-        "score": 28,
+        "boost": 23,
+        "score": 40,
         "n": 208,
-        "weather": true,
-        "temp_f": 71,
-        "wind_mph": 7,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -7100,15 +7151,17 @@
         "L30": 8
       },
       "park_hr": {
-        "exp100": 13.7,
+        "exp100": 15.4,
         "neutral100": 8.5,
-        "boost": 62,
+        "boost": 82,
         "score": 100,
         "n": 248,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 11,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -7524,7 +7577,9 @@
         "weather": true,
         "temp_f": 86,
         "wind_mph": 0,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": false
       }
     },
     {
@@ -7930,15 +7985,17 @@
         "L30": 9
       },
       "park_hr": {
-        "exp100": 19.3,
+        "exp100": 16.0,
         "neutral100": 14.2,
-        "boost": 36,
+        "boost": 13,
         "score": 100,
         "n": 233,
         "weather": true,
         "temp_f": 89,
         "wind_mph": 6,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -8342,15 +8399,17 @@
         "L30": 9
       },
       "park_hr": {
-        "exp100": 15.7,
+        "exp100": 15.2,
         "neutral100": 16.2,
-        "boost": -3,
+        "boost": -7,
         "score": 100,
         "n": 191,
         "weather": true,
         "temp_f": 75,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -8764,15 +8823,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 9.2,
+        "exp100": 8.5,
         "neutral100": 7.7,
-        "boost": 18,
-        "score": 76,
+        "boost": 10,
+        "score": 71,
         "n": 142,
         "weather": true,
         "temp_f": 86,
         "wind_mph": 0,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -9178,15 +9239,17 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 26.2,
+        "exp100": 7.2,
         "neutral100": 15.7,
-        "boost": 67,
-        "score": 100,
+        "boost": -54,
+        "score": 60,
         "n": 229,
         "weather": true,
         "temp_f": 93,
         "wind_mph": 13,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -9597,15 +9660,17 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 14.5,
+        "exp100": 16.8,
         "neutral100": 11.8,
-        "boost": 22,
+        "boost": 42,
         "score": 100,
         "n": 76,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 11,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -10005,15 +10070,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 10.3,
+        "exp100": 10.6,
         "neutral100": 10.3,
-        "boost": 0,
-        "score": 86,
+        "boost": 2,
+        "score": 88,
         "n": 97,
         "weather": false,
         "temp_f": null,
         "wind_mph": null,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -10421,15 +10488,17 @@
         "L30": 11
       },
       "park_hr": {
-        "exp100": 21.4,
+        "exp100": 21.9,
         "neutral100": 13.4,
-        "boost": 60,
+        "boost": 63,
         "score": 100,
         "n": 224,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 12,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": false
       }
     },
     {
@@ -10835,15 +10904,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 7.5,
+        "exp100": 11.3,
         "neutral100": 5.7,
-        "boost": 33,
-        "score": 63,
+        "boost": 100,
+        "score": 94,
         "n": 53,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 11,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": false
       }
     },
     {
@@ -11243,15 +11314,17 @@
         "L30": 7
       },
       "park_hr": {
-        "exp100": 16.2,
+        "exp100": 15.9,
         "neutral100": 17.6,
-        "boost": -8,
+        "boost": -10,
         "score": 100,
         "n": 204,
         "weather": false,
         "temp_f": null,
         "wind_mph": null,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -11657,15 +11730,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 29.0,
+        "exp100": 11.3,
         "neutral100": 15.2,
-        "boost": 90,
-        "score": 100,
+        "boost": -26,
+        "score": 94,
         "n": 138,
         "weather": true,
         "temp_f": 93,
         "wind_mph": 13,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -12073,15 +12148,17 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 22.0,
+        "exp100": 5.0,
         "neutral100": 10.6,
-        "boost": 107,
-        "score": 100,
+        "boost": -52,
+        "score": 42,
         "n": 255,
         "weather": true,
         "temp_f": 93,
         "wind_mph": 13,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -12481,15 +12558,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 18.9,
+        "exp100": 18.2,
         "neutral100": 8.2,
-        "boost": 131,
+        "boost": 123,
         "score": 100,
         "n": 196,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 12,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -12895,15 +12974,17 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 14.6,
+        "exp100": 18.8,
         "neutral100": 9.6,
-        "boost": 53,
+        "boost": 96,
         "score": 100,
         "n": 157,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 11,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -13306,15 +13387,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 14.5,
+        "exp100": 15.1,
         "neutral100": 12.7,
-        "boost": 14,
+        "boost": 18,
         "score": 100,
         "n": 55,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
-        "indoor": false
+        "weather": true,
+        "temp_f": 89,
+        "wind_mph": 2,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -13715,15 +13798,17 @@
         "L30": 6
       },
       "park_hr": {
-        "exp100": 15.6,
+        "exp100": 19.2,
         "neutral100": 12.1,
-        "boost": 30,
+        "boost": 59,
         "score": 100,
         "n": 224,
         "weather": true,
         "temp_f": 100,
         "wind_mph": 9,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -14131,7 +14216,9 @@
         "weather": true,
         "temp_f": 86,
         "wind_mph": 0,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": false
       }
     },
     {
@@ -14535,15 +14622,17 @@
         "L30": 6
       },
       "park_hr": {
-        "exp100": 20.1,
+        "exp100": 22.6,
         "neutral100": 16.7,
-        "boost": 21,
+        "boost": 35,
         "score": 100,
         "n": 174,
         "weather": true,
         "temp_f": 84,
         "wind_mph": 8,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -14953,15 +15042,17 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 10.5,
+        "exp100": 12.3,
         "neutral100": 6.4,
-        "boost": 64,
-        "score": 88,
+        "boost": 91,
+        "score": 100,
         "n": 171,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 11,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": false
       }
     },
     {
@@ -15363,15 +15454,17 @@
         "L30": 6
       },
       "park_hr": {
-        "exp100": 15.3,
+        "exp100": 17.1,
         "neutral100": 10.2,
-        "boost": 50,
+        "boost": 68,
         "score": 100,
         "n": 235,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 11,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -15776,15 +15869,17 @@
         "L30": 9
       },
       "park_hr": {
-        "exp100": 14.8,
+        "exp100": 19.6,
         "neutral100": 18.7,
-        "boost": -21,
+        "boost": 5,
         "score": 100,
         "n": 209,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": false
       }
     },
     {
@@ -16190,15 +16285,17 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 23.8,
+        "exp100": 18.8,
         "neutral100": 15.9,
-        "boost": 50,
+        "boost": 18,
         "score": 100,
         "n": 63,
         "weather": true,
         "temp_f": 89,
         "wind_mph": 6,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -16606,15 +16703,17 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 13.6,
+        "exp100": 12.6,
         "neutral100": 11.9,
-        "boost": 14,
+        "boost": 7,
         "score": 100,
         "n": 59,
         "weather": true,
         "temp_f": 86,
         "wind_mph": 0,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -17018,15 +17117,17 @@
         "L30": 9
       },
       "park_hr": {
-        "exp100": 15.6,
+        "exp100": 17.5,
         "neutral100": 12.5,
-        "boost": 25,
+        "boost": 40,
         "score": 100,
         "n": 160,
         "weather": true,
         "temp_f": 84,
         "wind_mph": 8,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -17427,15 +17528,17 @@
         "L30": 6
       },
       "park_hr": {
-        "exp100": 6.1,
+        "exp100": 10.2,
         "neutral100": 11.7,
-        "boost": -48,
-        "score": 51,
+        "boost": -13,
+        "score": 85,
         "n": 230,
-        "weather": true,
-        "temp_f": 71,
-        "wind_mph": 7,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -17853,7 +17956,9 @@
         "weather": true,
         "temp_f": 86,
         "wind_mph": 0,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": false
       }
     },
     {
@@ -18255,15 +18360,17 @@
         "L30": 7
       },
       "park_hr": {
-        "exp100": 13.8,
+        "exp100": 14.8,
         "neutral100": 10.1,
-        "boost": 37,
+        "boost": 47,
         "score": 100,
         "n": 189,
         "weather": true,
         "temp_f": 84,
         "wind_mph": 8,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -18675,15 +18782,17 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 16.8,
+        "exp100": 16.2,
         "neutral100": 9.6,
-        "boost": 75,
+        "boost": 69,
         "score": 100,
         "n": 250,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 12,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -18764,7 +18873,28 @@
           "L_hr": 9,
           "L_pa": 278
         },
-        "hr_by_hand_2yr": null,
+        "hr_by_hand_2yr": {
+          "two_yr": {
+            "R": {
+              "hr": 13,
+              "pa": 604
+            },
+            "L": {
+              "hr": 22,
+              "pa": 697
+            }
+          },
+          "this_yr": {
+            "R": {
+              "hr": 4,
+              "pa": 205
+            },
+            "L": {
+              "hr": 9,
+              "pa": 306
+            }
+          }
+        },
         "vs_hand": "R",
         "vs_hand_score": 22,
         "vs_hand_metrics": {
@@ -19065,10 +19195,12 @@
         "boost": 0,
         "score": 73,
         "n": 171,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
-        "indoor": false
+        "weather": true,
+        "temp_f": 89,
+        "wind_mph": 2,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -19476,15 +19608,17 @@
         "L30": 8
       },
       "park_hr": {
-        "exp100": 11.2,
+        "exp100": 11.4,
         "neutral100": 16.2,
-        "boost": -31,
-        "score": 93,
+        "boost": -30,
+        "score": 95,
         "n": 197,
         "weather": true,
         "temp_f": 75,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -19887,15 +20021,17 @@
         "L30": 7
       },
       "park_hr": {
-        "exp100": 4.2,
+        "exp100": 7.9,
         "neutral100": 8.9,
-        "boost": -53,
-        "score": 35,
+        "boost": -12,
+        "score": 66,
         "n": 168,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -20294,15 +20430,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 9.9,
+        "exp100": 9.6,
         "neutral100": 11.1,
-        "boost": -11,
-        "score": 83,
+        "boost": -14,
+        "score": 80,
         "n": 171,
         "weather": true,
         "temp_f": 75,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -20710,15 +20848,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 9.7,
+        "exp100": 9.3,
         "neutral100": 14.5,
-        "boost": -33,
-        "score": 81,
+        "boost": -36,
+        "score": 78,
         "n": 124,
         "weather": true,
         "temp_f": 75,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -21127,7 +21267,9 @@
         "weather": true,
         "temp_f": 88,
         "wind_mph": 12,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": false
       }
     },
     {
@@ -21537,15 +21679,17 @@
         "L30": 9
       },
       "park_hr": {
-        "exp100": 20.5,
+        "exp100": 24.6,
         "neutral100": 14.9,
-        "boost": 38,
+        "boost": 66,
         "score": 100,
         "n": 195,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 11,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": false
       }
     },
     {
@@ -21952,15 +22096,17 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 14.9,
+        "exp100": 17.1,
         "neutral100": 12.9,
-        "boost": 15,
+        "boost": 32,
         "score": 100,
         "n": 201,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 11,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -22371,15 +22517,17 @@
         "L30": 11
       },
       "park_hr": {
-        "exp100": 13.4,
+        "exp100": 15.5,
         "neutral100": 19.8,
-        "boost": -32,
+        "boost": -22,
         "score": 100,
         "n": 187,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": false
       }
     },
     {
@@ -22779,15 +22927,17 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 13.8,
+        "exp100": 13.1,
         "neutral100": 7.2,
-        "boost": 92,
+        "boost": 82,
         "score": 100,
         "n": 181,
         "weather": true,
         "temp_f": 89,
         "wind_mph": 6,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -23199,15 +23349,17 @@
         "L30": 7
       },
       "park_hr": {
-        "exp100": 12.0,
+        "exp100": 11.2,
         "neutral100": 10.7,
-        "boost": 12,
-        "score": 100,
+        "boost": 5,
+        "score": 93,
         "n": 225,
         "weather": true,
         "temp_f": 86,
         "wind_mph": 0,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -23611,15 +23763,17 @@
         "L30": 10
       },
       "park_hr": {
-        "exp100": 19.2,
+        "exp100": 21.5,
         "neutral100": 16.4,
-        "boost": 17,
+        "boost": 31,
         "score": 100,
         "n": 219,
         "weather": true,
         "temp_f": 84,
         "wind_mph": 8,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -24029,15 +24183,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 2.2,
+        "exp100": 3.8,
         "neutral100": 3.7,
-        "boost": -40,
-        "score": 18,
+        "boost": 2,
+        "score": 31,
         "n": 136,
-        "weather": true,
-        "temp_f": 71,
-        "wind_mph": 7,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -24441,15 +24597,17 @@
         "L30": 8
       },
       "park_hr": {
-        "exp100": 13.1,
+        "exp100": 11.7,
         "neutral100": 10.7,
-        "boost": 23,
-        "score": 100,
+        "boost": 10,
+        "score": 98,
         "n": 122,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
-        "indoor": false
+        "weather": true,
+        "temp_f": 89,
+        "wind_mph": 2,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -24861,15 +25019,17 @@
         "L30": 8
       },
       "park_hr": {
-        "exp100": 15.6,
+        "exp100": 16.0,
         "neutral100": 15.6,
-        "boost": 0,
+        "boost": 2,
         "score": 100,
         "n": 147,
         "weather": false,
         "temp_f": null,
         "wind_mph": null,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -25275,15 +25435,17 @@
         "L30": 7
       },
       "park_hr": {
-        "exp100": 15.9,
+        "exp100": 25.0,
         "neutral100": 13.1,
-        "boost": 21,
+        "boost": 91,
         "score": 100,
         "n": 214,
         "weather": true,
         "temp_f": 100,
         "wind_mph": 9,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -25691,7 +25853,9 @@
         "weather": true,
         "temp_f": 86,
         "wind_mph": 0,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": false
       }
     },
     {
@@ -26100,15 +26264,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 9.0,
+        "exp100": 11.5,
         "neutral100": 11.8,
-        "boost": -24,
-        "score": 75,
+        "boost": -3,
+        "score": 96,
         "n": 212,
-        "weather": true,
-        "temp_f": 87,
-        "wind_mph": 6,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -26517,15 +26683,17 @@
         "L30": 6
       },
       "park_hr": {
-        "exp100": 11.5,
+        "exp100": 11.8,
         "neutral100": 15.4,
-        "boost": -25,
-        "score": 96,
+        "boost": -23,
+        "score": 98,
         "n": 78,
         "weather": true,
         "temp_f": 75,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -26924,15 +27092,17 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 5.4,
+        "exp100": 9.2,
         "neutral100": 7.4,
-        "boost": -27,
-        "score": 45,
+        "boost": 24,
+        "score": 77,
         "n": 148,
-        "weather": true,
-        "temp_f": 87,
-        "wind_mph": 6,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -27338,15 +27508,17 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 12.9,
+        "exp100": 14.3,
         "neutral100": 8.6,
-        "boost": 50,
+        "boost": 67,
         "score": 100,
         "n": 70,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 11,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": false
       }
     },
     {
@@ -27755,15 +27927,17 @@
         "L30": 7
       },
       "park_hr": {
-        "exp100": 23.5,
+        "exp100": 18.8,
         "neutral100": 18.0,
-        "boost": 30,
+        "boost": 4,
         "score": 100,
         "n": 183,
         "weather": true,
         "temp_f": 89,
         "wind_mph": 6,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -28167,15 +28341,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 7.5,
+        "exp100": 7.3,
         "neutral100": 9.7,
-        "boost": -22,
-        "score": 63,
+        "boost": -25,
+        "score": 61,
         "n": 186,
         "weather": true,
         "temp_f": 75,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -28585,15 +28761,17 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 3.8,
+        "exp100": 5.4,
         "neutral100": 3.8,
-        "boost": 0,
-        "score": 32,
+        "boost": 21,
+        "score": 45,
         "n": 26,
-        "weather": true,
-        "temp_f": 71,
-        "wind_mph": 7,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -29001,15 +29179,17 @@
         "L30": 6
       },
       "park_hr": {
-        "exp100": 26.2,
+        "exp100": 8.0,
         "neutral100": 14.4,
-        "boost": 82,
-        "score": 100,
+        "boost": -44,
+        "score": 67,
         "n": 195,
         "weather": true,
         "temp_f": 93,
         "wind_mph": 13,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -29404,15 +29584,17 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 9.6,
+        "exp100": 9.4,
         "neutral100": 9.6,
-        "boost": 0,
-        "score": 80,
+        "boost": -2,
+        "score": 79,
         "n": 52,
         "weather": false,
         "temp_f": null,
         "wind_mph": null,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -29819,15 +30001,17 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 13.6,
+        "exp100": 15.0,
         "neutral100": 13.6,
-        "boost": 0,
+        "boost": 10,
         "score": 100,
         "n": 22,
         "weather": true,
         "temp_f": 100,
         "wind_mph": 9,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -30237,15 +30421,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 16.7,
+        "exp100": 19.5,
         "neutral100": 11.5,
-        "boost": 46,
+        "boost": 70,
         "score": 100,
         "n": 227,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 11,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -30649,15 +30835,17 @@
         "L30": 9
       },
       "park_hr": {
-        "exp100": 5.9,
+        "exp100": 14.9,
         "neutral100": 13.5,
-        "boost": -57,
-        "score": 49,
+        "boost": 10,
+        "score": 100,
         "n": 170,
-        "weather": true,
-        "temp_f": 71,
-        "wind_mph": 7,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -31068,15 +31256,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 12.6,
+        "exp100": 12.1,
         "neutral100": 7.2,
-        "boost": 75,
+        "boost": 69,
         "score": 100,
         "n": 167,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 12,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -31480,15 +31670,17 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 17.5,
+        "exp100": 16.9,
         "neutral100": 11.9,
-        "boost": 48,
+        "boost": 42,
         "score": 100,
         "n": 177,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 12,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -31899,15 +32091,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 16.9,
+        "exp100": 20.4,
         "neutral100": 10.0,
-        "boost": 69,
+        "boost": 104,
         "score": 100,
         "n": 130,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 11,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -32304,15 +32498,17 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 14.0,
+        "exp100": 14.8,
         "neutral100": 8.9,
-        "boost": 56,
+        "boost": 66,
         "score": 100,
         "n": 179,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 11,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -32712,15 +32908,17 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 13.4,
+        "exp100": 14.5,
         "neutral100": 9.1,
-        "boost": 48,
+        "boost": 59,
         "score": 100,
         "n": 253,
         "weather": true,
         "temp_f": 84,
         "wind_mph": 8,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -33122,13 +33320,15 @@
       "park_hr": {
         "exp100": 2.3,
         "neutral100": 4.6,
-        "boost": -50,
-        "score": 19,
+        "boost": -49,
+        "score": 20,
         "n": 131,
         "weather": true,
         "temp_f": 75,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -33529,15 +33729,17 @@
         "L30": 0
       },
       "park_hr": {
-        "exp100": 6.9,
+        "exp100": 19.5,
         "neutral100": 17.2,
-        "boost": -60,
-        "score": 57,
+        "boost": 13,
+        "score": 100,
         "n": 29,
-        "weather": true,
-        "temp_f": 71,
-        "wind_mph": 7,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -34293,15 +34495,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 16.9,
+        "exp100": 16.3,
         "neutral100": 7.2,
-        "boost": 133,
+        "boost": 125,
         "score": 100,
         "n": 83,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 12,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -34703,15 +34907,17 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 14.7,
+        "exp100": 14.1,
         "neutral100": 12.0,
-        "boost": 23,
+        "boost": 18,
         "score": 100,
         "n": 259,
         "weather": true,
         "temp_f": 89,
         "wind_mph": 6,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -35116,15 +35322,17 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 13.7,
+        "exp100": 14.7,
         "neutral100": 8.8,
-        "boost": 55,
+        "boost": 66,
         "score": 100,
         "n": 249,
         "weather": true,
         "temp_f": 84,
         "wind_mph": 8,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -35528,15 +35736,17 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 7.9,
+        "exp100": 8.9,
         "neutral100": 6.3,
-        "boost": 25,
-        "score": 66,
+        "boost": 40,
+        "score": 74,
         "n": 63,
         "weather": true,
         "temp_f": 84,
         "wind_mph": 8,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -35945,15 +36155,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 4.9,
+        "exp100": 9.7,
         "neutral100": 12.7,
-        "boost": -60,
-        "score": 41,
+        "boost": -24,
+        "score": 80,
         "n": 244,
-        "weather": true,
-        "temp_f": 71,
-        "wind_mph": 7,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -35967,7 +36179,7 @@
         "pct": 6,
         "new": false
       },
-      "angle": "LHB \u2014 may cool \u2014 results above what his contact supports",
+      "angle": "LHB vs an arm that's allowed 22 HR to LHB (2yr) \u2014 may cool \u2014 results above what his contact supports",
       "badges": [
         {
           "t": "MAY COOL",
@@ -36034,7 +36246,28 @@
           "L_hr": 9,
           "L_pa": 278
         },
-        "hr_by_hand_2yr": null,
+        "hr_by_hand_2yr": {
+          "two_yr": {
+            "R": {
+              "hr": 13,
+              "pa": 604
+            },
+            "L": {
+              "hr": 22,
+              "pa": 697
+            }
+          },
+          "this_yr": {
+            "R": {
+              "hr": 4,
+              "pa": 205
+            },
+            "L": {
+              "hr": 9,
+              "pa": 306
+            }
+          }
+        },
         "vs_hand": "L",
         "vs_hand_score": 20,
         "vs_hand_metrics": {
@@ -36332,15 +36565,17 @@
         "L30": 6
       },
       "park_hr": {
-        "exp100": 13.8,
+        "exp100": 10.3,
         "neutral100": 9.2,
-        "boost": 50,
-        "score": 100,
+        "boost": 13,
+        "score": 86,
         "n": 240,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
-        "indoor": false
+        "weather": true,
+        "temp_f": 89,
+        "wind_mph": 2,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -36747,15 +36982,17 @@
         "L30": 7
       },
       "park_hr": {
-        "exp100": 5.9,
+        "exp100": 10.1,
         "neutral100": 9.9,
-        "boost": -40,
-        "score": 50,
+        "boost": 2,
+        "score": 84,
         "n": 101,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -37163,15 +37400,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 12.8,
+        "exp100": 13.7,
         "neutral100": 10.6,
-        "boost": 20,
+        "boost": 29,
         "score": 100,
         "n": 47,
         "weather": true,
         "temp_f": 84,
         "wind_mph": 8,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -37573,15 +37812,17 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 8.6,
+        "exp100": 9.7,
         "neutral100": 3.7,
-        "boost": 133,
-        "score": 72,
+        "boost": 150,
+        "score": 81,
         "n": 81,
         "weather": true,
         "temp_f": 84,
         "wind_mph": 8,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -37993,15 +38234,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 12.7,
+        "exp100": 8.7,
         "neutral100": 11.1,
-        "boost": 14,
-        "score": 100,
+        "boost": -21,
+        "score": 73,
         "n": 63,
         "weather": true,
         "temp_f": 93,
         "wind_mph": 13,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -38015,7 +38258,7 @@
         "pct": 47,
         "new": false
       },
-      "angle": "LHB \u2014 may cool \u2014 results above what his contact supports",
+      "angle": "LHB vs an arm that's allowed 22 HR to LHB (2yr) \u2014 may cool \u2014 results above what his contact supports",
       "badges": [
         {
           "t": "MAY COOL",
@@ -38082,7 +38325,28 @@
           "L_hr": 9,
           "L_pa": 278
         },
-        "hr_by_hand_2yr": null,
+        "hr_by_hand_2yr": {
+          "two_yr": {
+            "R": {
+              "hr": 13,
+              "pa": 604
+            },
+            "L": {
+              "hr": 22,
+              "pa": 697
+            }
+          },
+          "this_yr": {
+            "R": {
+              "hr": 4,
+              "pa": 205
+            },
+            "L": {
+              "hr": 9,
+              "pa": 306
+            }
+          }
+        },
         "vs_hand": "L",
         "vs_hand_score": 20,
         "vs_hand_metrics": {
@@ -38380,15 +38644,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 8.2,
+        "exp100": 6.4,
         "neutral100": 7.1,
-        "boost": 15,
-        "score": 68,
+        "boost": -10,
+        "score": 53,
         "n": 184,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
-        "indoor": false
+        "weather": true,
+        "temp_f": 89,
+        "wind_mph": 2,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -38796,15 +39062,17 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 7.3,
+        "exp100": 7.1,
         "neutral100": 10.3,
-        "boost": -29,
-        "score": 61,
+        "boost": -31,
+        "score": 59,
         "n": 273,
         "weather": true,
         "temp_f": 75,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -39208,15 +39476,17 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 5.8,
+        "exp100": 7.5,
         "neutral100": 7.7,
-        "boost": -25,
-        "score": 48,
+        "boost": -2,
+        "score": 63,
         "n": 208,
-        "weather": true,
-        "temp_f": 87,
-        "wind_mph": 6,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -39617,15 +39887,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 12.1,
+        "exp100": 11.7,
         "neutral100": 7.2,
-        "boost": 68,
-        "score": 100,
+        "boost": 63,
+        "score": 97,
         "n": 264,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 12,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -40025,15 +40297,17 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 10.1,
+        "exp100": 12.8,
         "neutral100": 8.7,
-        "boost": 17,
-        "score": 85,
+        "boost": 47,
+        "score": 100,
         "n": 69,
         "weather": true,
         "temp_f": 100,
         "wind_mph": 9,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -40438,15 +40712,17 @@
         "L30": 6
       },
       "park_hr": {
-        "exp100": 21.6,
+        "exp100": 23.3,
         "neutral100": 16.0,
-        "boost": 35,
+        "boost": 46,
         "score": 100,
         "n": 213,
         "weather": true,
         "temp_f": 84,
         "wind_mph": 8,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -40850,15 +41126,17 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 8.3,
+        "exp100": 8.5,
         "neutral100": 9.3,
-        "boost": -10,
-        "score": 69,
+        "boost": -8,
+        "score": 71,
         "n": 108,
         "weather": true,
         "temp_f": 75,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -41263,15 +41541,17 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 18.5,
+        "exp100": 2.5,
         "neutral100": 6.5,
-        "boost": 150,
-        "score": 100,
+        "boost": -60,
+        "score": 21,
         "n": 108,
         "weather": true,
         "temp_f": 93,
         "wind_mph": 13,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -41285,7 +41565,7 @@
         "pct": -15,
         "new": false
       },
-      "angle": "Switch \u2014 contact cooling (-15%)",
+      "angle": "Switch vs an arm that's allowed 22 HR to LHB (2yr) \u2014 contact cooling (-15%)",
       "badges": [],
       "team": "COL",
       "opp_team": "MIA",
@@ -41347,7 +41627,28 @@
           "L_hr": 9,
           "L_pa": 278
         },
-        "hr_by_hand_2yr": null,
+        "hr_by_hand_2yr": {
+          "two_yr": {
+            "R": {
+              "hr": 13,
+              "pa": 604
+            },
+            "L": {
+              "hr": 22,
+              "pa": 697
+            }
+          },
+          "this_yr": {
+            "R": {
+              "hr": 4,
+              "pa": 205
+            },
+            "L": {
+              "hr": 9,
+              "pa": 306
+            }
+          }
+        },
         "vs_hand": "L",
         "vs_hand_score": 20,
         "vs_hand_metrics": {
@@ -41645,15 +41946,17 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 11.4,
+        "exp100": 8.6,
         "neutral100": 9.1,
-        "boost": 25,
-        "score": 95,
+        "boost": -6,
+        "score": 71,
         "n": 44,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
-        "indoor": false
+        "weather": true,
+        "temp_f": 89,
+        "wind_mph": 2,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -42064,15 +42367,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 2.8,
+        "exp100": 5.7,
         "neutral100": 6.4,
-        "boost": -56,
-        "score": 24,
+        "boost": -11,
+        "score": 47,
         "n": 141,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": false
       }
     },
     {
@@ -42467,15 +42772,17 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 6.2,
+        "exp100": 6.4,
         "neutral100": 6.2,
-        "boost": 0,
-        "score": 52,
+        "boost": 2,
+        "score": 53,
         "n": 209,
         "weather": false,
         "temp_f": null,
         "wind_mph": null,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -42881,13 +43188,15 @@
       "park_hr": {
         "exp100": 3.6,
         "neutral100": 3.6,
-        "boost": 0,
+        "boost": -2,
         "score": 30,
         "n": 55,
         "weather": false,
         "temp_f": null,
         "wind_mph": null,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -43289,15 +43598,17 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 13.7,
+        "exp100": 10.6,
         "neutral100": 10.8,
-        "boost": 27,
-        "score": 100,
+        "boost": -2,
+        "score": 88,
         "n": 139,
         "weather": true,
         "temp_f": 89,
         "wind_mph": 6,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -43711,7 +44022,9 @@
         "weather": true,
         "temp_f": 86,
         "wind_mph": 0,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": false
       }
     },
     {
@@ -44115,15 +44428,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 8.0,
+        "exp100": 8.9,
         "neutral100": 6.8,
-        "boost": 17,
-        "score": 66,
+        "boost": 31,
+        "score": 74,
         "n": 176,
         "weather": true,
         "temp_f": 84,
         "wind_mph": 8,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -44524,15 +44839,17 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 6.9,
+        "exp100": 7.1,
         "neutral100": 7.9,
-        "boost": -12,
-        "score": 58,
+        "boost": -10,
+        "score": 59,
         "n": 101,
         "weather": true,
         "temp_f": 75,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -44946,7 +45263,9 @@
         "weather": true,
         "temp_f": 88,
         "wind_mph": 12,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": false
       }
     },
     {
@@ -45351,15 +45670,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 16.7,
+        "exp100": 18.3,
         "neutral100": 10.9,
-        "boost": 53,
+        "boost": 68,
         "score": 100,
         "n": 156,
         "weather": true,
         "temp_f": 100,
         "wind_mph": 9,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -45751,15 +46072,17 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 15.0,
+        "exp100": 19.5,
         "neutral100": 20.0,
-        "boost": -25,
+        "boost": -2,
         "score": 100,
         "n": 20,
-        "weather": true,
-        "temp_f": 87,
-        "wind_mph": 6,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -46163,15 +46486,17 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 17.3,
+        "exp100": 9.4,
         "neutral100": 11.2,
-        "boost": 55,
-        "score": 100,
+        "boost": -17,
+        "score": 78,
         "n": 98,
         "weather": true,
         "temp_f": 93,
         "wind_mph": 13,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -46574,15 +46899,17 @@
         "L30": 7
       },
       "park_hr": {
-        "exp100": 6.0,
+        "exp100": 12.0,
         "neutral100": 11.6,
-        "boost": -48,
-        "score": 50,
+        "boost": 3,
+        "score": 100,
         "n": 249,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": false
       }
     },
     {
@@ -46985,15 +47312,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 5.9,
+        "exp100": 12.7,
         "neutral100": 10.8,
-        "boost": -45,
-        "score": 49,
+        "boost": 18,
+        "score": 100,
         "n": 102,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": false
       }
     },
     {
@@ -47398,15 +47727,17 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 9.0,
+        "exp100": 8.9,
         "neutral100": 9.0,
-        "boost": 0,
-        "score": 75,
+        "boost": -2,
+        "score": 74,
         "n": 133,
         "weather": false,
         "temp_f": null,
         "wind_mph": null,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -47813,15 +48144,17 @@
         "L30": 6
       },
       "park_hr": {
-        "exp100": 11.5,
+        "exp100": 11.2,
         "neutral100": 10.7,
-        "boost": 7,
-        "score": 95,
+        "boost": 5,
+        "score": 94,
         "n": 131,
         "weather": false,
         "temp_f": null,
         "wind_mph": null,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -48222,15 +48555,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 5.0,
+        "exp100": 4.8,
         "neutral100": 5.0,
-        "boost": 0,
-        "score": 42,
+        "boost": -4,
+        "score": 40,
         "n": 279,
         "weather": true,
         "temp_f": 75,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -48630,15 +48965,17 @@
         "L30": 0
       },
       "park_hr": {
-        "exp100": 0.6,
+        "exp100": 3.2,
         "neutral100": 2.3,
-        "boost": -60,
-        "score": 5,
+        "boost": 41,
+        "score": 27,
         "n": 175,
-        "weather": true,
-        "temp_f": 71,
-        "wind_mph": 7,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -49046,15 +49383,17 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 11.3,
+        "exp100": 13.1,
         "neutral100": 14.5,
-        "boost": -22,
-        "score": 94,
+        "boost": -10,
+        "score": 100,
         "n": 124,
-        "weather": true,
-        "temp_f": 87,
-        "wind_mph": 6,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -49460,15 +49799,17 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 7.9,
+        "exp100": 12.1,
         "neutral100": 3.5,
-        "boost": 125,
-        "score": 66,
+        "boost": 150,
+        "score": 100,
         "n": 228,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 11,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -49869,15 +50210,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 6.5,
+        "exp100": 6.3,
         "neutral100": 9.3,
-        "boost": -30,
-        "score": 55,
+        "boost": -32,
+        "score": 53,
         "n": 107,
         "weather": true,
         "temp_f": 75,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -50272,15 +50615,17 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 3.9,
+        "exp100": 12.3,
         "neutral100": 8.7,
-        "boost": -56,
-        "score": 32,
+        "boost": 41,
+        "score": 100,
         "n": 103,
-        "weather": true,
-        "temp_f": 71,
-        "wind_mph": 7,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -50686,15 +51031,17 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 18.2,
+        "exp100": 4.2,
         "neutral100": 4.5,
-        "boost": 150,
-        "score": 100,
+        "boost": -8,
+        "score": 35,
         "n": 66,
         "weather": true,
         "temp_f": 93,
         "wind_mph": 13,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -51101,15 +51448,17 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 6.8,
+        "exp100": 5.7,
         "neutral100": 4.8,
-        "boost": 40,
-        "score": 56,
+        "boost": 17,
+        "score": 47,
         "n": 207,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
-        "indoor": false
+        "weather": true,
+        "temp_f": 89,
+        "wind_mph": 2,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -51521,15 +51870,17 @@
         "L30": 7
       },
       "park_hr": {
-        "exp100": 8.5,
+        "exp100": 14.1,
         "neutral100": 14.2,
-        "boost": -40,
-        "score": 71,
+        "boost": -1,
+        "score": 100,
         "n": 246,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -51937,15 +52288,17 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 4.9,
+        "exp100": 5.0,
         "neutral100": 7.3,
-        "boost": -33,
+        "boost": -32,
         "score": 41,
         "n": 41,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -52345,15 +52698,17 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 7.4,
+        "exp100": 11.4,
         "neutral100": 6.2,
-        "boost": 20,
-        "score": 62,
+        "boost": 83,
+        "score": 95,
         "n": 242,
         "weather": true,
         "temp_f": 100,
         "wind_mph": 9,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -52755,15 +53110,17 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 9.3,
+        "exp100": 7.5,
         "neutral100": 6.4,
-        "boost": 47,
-        "score": 78,
+        "boost": 18,
+        "score": 62,
         "n": 236,
         "weather": true,
         "temp_f": 89,
         "wind_mph": 6,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -53173,15 +53530,17 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 15.3,
+        "exp100": 15.2,
         "neutral100": 12.9,
-        "boost": 18,
+        "boost": 17,
         "score": 100,
         "n": 170,
         "weather": true,
         "temp_f": 89,
         "wind_mph": 6,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -53586,15 +53945,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 11.2,
+        "exp100": 12.6,
         "neutral100": 9.0,
-        "boost": 25,
-        "score": 94,
+        "boost": 40,
+        "score": 100,
         "n": 89,
         "weather": true,
         "temp_f": 84,
         "wind_mph": 8,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -54000,15 +54361,17 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 6.9,
+        "exp100": 8.8,
         "neutral100": 8.3,
-        "boost": -17,
-        "score": 58,
+        "boost": 5,
+        "score": 73,
         "n": 72,
-        "weather": true,
-        "temp_f": 87,
-        "wind_mph": 6,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -54417,15 +54780,17 @@
         "L30": 10
       },
       "park_hr": {
-        "exp100": 22.8,
+        "exp100": 8.0,
         "neutral100": 16.1,
-        "boost": 42,
-        "score": 100,
+        "boost": -50,
+        "score": 67,
         "n": 149,
         "weather": true,
         "temp_f": 93,
         "wind_mph": 13,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -54831,15 +55196,17 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 18.2,
+        "exp100": 21.5,
         "neutral100": 13.2,
-        "boost": 38,
+        "boost": 63,
         "score": 100,
         "n": 242,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 11,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -55242,15 +55609,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 12.1,
+        "exp100": 9.9,
         "neutral100": 8.5,
-        "boost": 42,
-        "score": 100,
+        "boost": 16,
+        "score": 83,
         "n": 281,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
-        "indoor": false
+        "weather": true,
+        "temp_f": 89,
+        "wind_mph": 2,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -55658,15 +56027,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 7.7,
+        "exp100": 9.8,
         "neutral100": 11.5,
-        "boost": -33,
-        "score": 64,
+        "boost": -15,
+        "score": 82,
         "n": 52,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -56069,15 +56440,17 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 7.4,
+        "exp100": 10.8,
         "neutral100": 11.7,
-        "boost": -36,
-        "score": 62,
+        "boost": -7,
+        "score": 90,
         "n": 94,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -56479,15 +56852,17 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 10.4,
+        "exp100": 14.4,
         "neutral100": 4.2,
-        "boost": 146,
-        "score": 87,
+        "boost": 150,
+        "score": 100,
         "n": 307,
         "weather": true,
         "temp_f": 100,
         "wind_mph": 9,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -56897,15 +57272,17 @@
         "L30": 6
       },
       "park_hr": {
-        "exp100": 17.0,
+        "exp100": 21.5,
         "neutral100": 14.0,
-        "boost": 21,
+        "boost": 53,
         "score": 100,
         "n": 235,
         "weather": true,
         "temp_f": 100,
         "wind_mph": 9,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -57679,15 +58056,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 15.2,
+        "exp100": 9.4,
         "neutral100": 6.5,
-        "boost": 133,
-        "score": 100,
+        "boost": 44,
+        "score": 78,
         "n": 46,
         "weather": true,
         "temp_f": 89,
         "wind_mph": 6,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -58093,15 +58472,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 5.8,
+        "exp100": 5.6,
         "neutral100": 9.3,
-        "boost": -38,
-        "score": 48,
+        "boost": -40,
+        "score": 47,
         "n": 86,
         "weather": true,
         "temp_f": 75,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -58511,15 +58892,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 1.1,
+        "exp100": 6.3,
         "neutral100": 6.7,
-        "boost": -60,
-        "score": 9,
+        "boost": -6,
+        "score": 53,
         "n": 89,
-        "weather": true,
-        "temp_f": 71,
-        "wind_mph": 7,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -58923,15 +59306,17 @@
         "L30": 0
       },
       "park_hr": {
-        "exp100": 11.1,
+        "exp100": 4.1,
         "neutral100": 2.2,
-        "boost": 150,
-        "score": 93,
+        "boost": 42,
+        "score": 34,
         "n": 45,
         "weather": true,
         "temp_f": 93,
         "wind_mph": 13,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -59335,15 +59720,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 9.7,
+        "exp100": 9.5,
         "neutral100": 9.7,
-        "boost": 0,
-        "score": 81,
+        "boost": -2,
+        "score": 80,
         "n": 247,
         "weather": false,
         "temp_f": null,
         "wind_mph": null,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -59746,15 +60133,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 7.1,
+        "exp100": 7.3,
         "neutral100": 7.1,
-        "boost": 0,
-        "score": 59,
+        "boost": 2,
+        "score": 61,
         "n": 253,
         "weather": false,
         "temp_f": null,
         "wind_mph": null,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -60161,15 +60550,17 @@
         "L30": 6
       },
       "park_hr": {
-        "exp100": 12.5,
+        "exp100": 12.8,
         "neutral100": 12.5,
-        "boost": 0,
+        "boost": 2,
         "score": 100,
         "n": 72,
         "weather": false,
         "temp_f": null,
         "wind_mph": null,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -60564,15 +60955,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 6.0,
+        "exp100": 13.2,
         "neutral100": 8.7,
-        "boost": -31,
-        "score": 50,
+        "boost": 52,
+        "score": 100,
         "n": 150,
-        "weather": true,
-        "temp_f": 71,
-        "wind_mph": 7,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -60983,15 +61376,17 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 15.2,
+        "exp100": 18.2,
         "neutral100": 10.1,
-        "boost": 50,
+        "boost": 80,
         "score": 100,
         "n": 99,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 11,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": false
       }
     },
     {
@@ -61401,15 +61796,17 @@
         "L30": 9
       },
       "park_hr": {
-        "exp100": 26.9,
+        "exp100": 30.3,
         "neutral100": 19.7,
-        "boost": 36,
+        "boost": 53,
         "score": 100,
         "n": 238,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 11,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": false
       }
     },
     {
@@ -61812,15 +62209,17 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 6.0,
+        "exp100": 9.2,
         "neutral100": 7.8,
-        "boost": -24,
-        "score": 50,
+        "boost": 18,
+        "score": 76,
         "n": 218,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": false
       }
     },
     {
@@ -62223,15 +62622,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 11.3,
+        "exp100": 17.2,
         "neutral100": 15.6,
-        "boost": -28,
-        "score": 94,
+        "boost": 10,
+        "score": 100,
         "n": 186,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": false
       }
     },
     {
@@ -62641,15 +63042,17 @@
         "L30": 6
       },
       "park_hr": {
-        "exp100": 10.6,
+        "exp100": 16.2,
         "neutral100": 9.2,
-        "boost": 15,
-        "score": 88,
+        "boost": 76,
+        "score": 100,
         "n": 217,
         "weather": true,
         "temp_f": 100,
         "wind_mph": 9,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -63050,15 +63453,17 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 4.3,
+        "exp100": 5.9,
         "neutral100": 6.5,
-        "boost": -33,
-        "score": 36,
+        "boost": -10,
+        "score": 49,
         "n": 92,
-        "weather": true,
-        "temp_f": 87,
-        "wind_mph": 6,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -63466,15 +63871,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 20.5,
+        "exp100": 6.8,
         "neutral100": 11.9,
-        "boost": 71,
-        "score": 100,
+        "boost": -43,
+        "score": 56,
         "n": 176,
         "weather": true,
         "temp_f": 93,
         "wind_mph": 13,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -63885,15 +64292,17 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 11.0,
+        "exp100": 10.6,
         "neutral100": 7.0,
-        "boost": 57,
-        "score": 92,
+        "boost": 52,
+        "score": 88,
         "n": 100,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 12,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -64296,15 +64705,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 18.6,
+        "exp100": 20.5,
         "neutral100": 14.0,
-        "boost": 33,
+        "boost": 47,
         "score": 100,
         "n": 43,
         "weather": true,
         "temp_f": 100,
         "wind_mph": 9,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -65083,15 +65494,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 11.0,
+        "exp100": 10.3,
         "neutral100": 8.4,
-        "boost": 31,
-        "score": 92,
+        "boost": 22,
+        "score": 86,
         "n": 154,
         "weather": true,
         "temp_f": 86,
         "wind_mph": 0,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -65486,15 +65899,17 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 4.4,
+        "exp100": 9.3,
         "neutral100": 4.4,
-        "boost": 0,
-        "score": 37,
+        "boost": 110,
+        "score": 78,
         "n": 45,
         "weather": true,
         "temp_f": 100,
         "wind_mph": 9,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -65895,15 +66310,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 8.6,
+        "exp100": 8.0,
         "neutral100": 7.4,
-        "boost": 16,
-        "score": 72,
+        "boost": 8,
+        "score": 67,
         "n": 256,
         "weather": true,
         "temp_f": 86,
         "wind_mph": 0,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -66299,15 +66716,17 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 5.0,
+        "exp100": 14.1,
         "neutral100": 10.0,
-        "boost": -50,
-        "score": 42,
+        "boost": 41,
+        "score": 100,
         "n": 200,
-        "weather": true,
-        "temp_f": 71,
-        "wind_mph": 7,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -66713,15 +67132,17 @@
         "L30": 6
       },
       "park_hr": {
-        "exp100": 19.4,
+        "exp100": 17.4,
         "neutral100": 11.3,
-        "boost": 71,
+        "boost": 54,
         "score": 100,
         "n": 124,
         "weather": true,
         "temp_f": 89,
         "wind_mph": 6,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -67116,15 +67537,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 8.6,
+        "exp100": 9.5,
         "neutral100": 7.2,
-        "boost": 19,
-        "score": 72,
+        "boost": 31,
+        "score": 79,
         "n": 221,
         "weather": true,
         "temp_f": 86,
         "wind_mph": 0,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": false
       }
     },
     {
@@ -67528,15 +67951,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 7.1,
+        "exp100": 7.6,
         "neutral100": 4.3,
-        "boost": 67,
-        "score": 59,
+        "boost": 79,
+        "score": 64,
         "n": 141,
         "weather": true,
         "temp_f": 84,
         "wind_mph": 8,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -67936,15 +68361,17 @@
         "L30": 0
       },
       "park_hr": {
-        "exp100": 7.5,
+        "exp100": 1.4,
         "neutral100": 2.4,
-        "boost": 150,
-        "score": 63,
+        "boost": -43,
+        "score": 11,
         "n": 212,
         "weather": true,
         "temp_f": 93,
         "wind_mph": 13,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -68352,15 +68779,17 @@
         "L30": 7
       },
       "park_hr": {
-        "exp100": 24.5,
+        "exp100": 23.6,
         "neutral100": 16.5,
-        "boost": 48,
+        "boost": 43,
         "score": 100,
         "n": 188,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 12,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -68374,7 +68803,7 @@
         "pct": -46,
         "new": false
       },
-      "angle": "LHB \u2014 due \u2014 hitting it hard, results lagging",
+      "angle": "LHB vs an arm that's allowed 22 HR to LHB (2yr) \u2014 due \u2014 hitting it hard, results lagging",
       "badges": [
         {
           "t": "DUE",
@@ -68441,7 +68870,28 @@
           "L_hr": 9,
           "L_pa": 278
         },
-        "hr_by_hand_2yr": null,
+        "hr_by_hand_2yr": {
+          "two_yr": {
+            "R": {
+              "hr": 13,
+              "pa": 604
+            },
+            "L": {
+              "hr": 22,
+              "pa": 697
+            }
+          },
+          "this_yr": {
+            "R": {
+              "hr": 4,
+              "pa": 205
+            },
+            "L": {
+              "hr": 9,
+              "pa": 306
+            }
+          }
+        },
         "vs_hand": "L",
         "vs_hand_score": 20,
         "vs_hand_metrics": {
@@ -68740,15 +69190,17 @@
         "L30": 6
       },
       "park_hr": {
-        "exp100": 18.0,
+        "exp100": 13.5,
         "neutral100": 16.4,
-        "boost": 10,
+        "boost": -17,
         "score": 100,
         "n": 122,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
-        "indoor": false
+        "weather": true,
+        "temp_f": 89,
+        "wind_mph": 2,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -69148,15 +69600,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 10.7,
+        "exp100": 9.6,
         "neutral100": 9.5,
-        "boost": 12,
-        "score": 89,
+        "boost": 1,
+        "score": 80,
         "n": 169,
         "weather": true,
         "temp_f": 89,
         "wind_mph": 6,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -69555,15 +70009,17 @@
         "L30": 6
       },
       "park_hr": {
-        "exp100": 6.1,
+        "exp100": 6.2,
         "neutral100": 9.6,
-        "boost": -36,
-        "score": 51,
+        "boost": -35,
+        "score": 52,
         "n": 230,
         "weather": true,
         "temp_f": 75,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -69970,15 +70426,17 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 10.1,
+        "exp100": 9.9,
         "neutral100": 10.5,
-        "boost": -4,
-        "score": 84,
+        "boost": -5,
+        "score": 82,
         "n": 258,
         "weather": false,
         "temp_f": null,
         "wind_mph": null,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -70389,15 +70847,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 4.5,
+        "exp100": 8.0,
         "neutral100": 7.9,
-        "boost": -43,
-        "score": 37,
+        "boost": 2,
+        "score": 67,
         "n": 89,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -70803,15 +71263,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 10.0,
+        "exp100": 7.2,
         "neutral100": 5.9,
-        "boost": 69,
-        "score": 84,
+        "boost": 21,
+        "score": 60,
         "n": 219,
         "weather": true,
         "temp_f": 89,
         "wind_mph": 6,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -71219,15 +71681,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 12.5,
+        "exp100": 13.5,
         "neutral100": 6.2,
-        "boost": 100,
+        "boost": 115,
         "score": 100,
         "n": 32,
         "weather": true,
         "temp_f": 84,
         "wind_mph": 8,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -71639,15 +72103,17 @@
         "L30": 7
       },
       "park_hr": {
-        "exp100": 25.3,
+        "exp100": 6.4,
         "neutral100": 13.3,
-        "boost": 90,
-        "score": 100,
+        "boost": -52,
+        "score": 53,
         "n": 150,
         "weather": true,
         "temp_f": 93,
         "wind_mph": 13,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -72042,15 +72508,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 23.6,
+        "exp100": 11.5,
         "neutral100": 11.1,
-        "boost": 113,
-        "score": 100,
+        "boost": 4,
+        "score": 96,
         "n": 208,
         "weather": true,
         "temp_f": 93,
         "wind_mph": 13,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -72456,15 +72924,17 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 6.4,
+        "exp100": 6.2,
         "neutral100": 2.1,
-        "boost": 100,
-        "score": 53,
+        "boost": 95,
+        "score": 51,
         "n": 47,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 12,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -72871,15 +73341,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 9.9,
+        "exp100": 9.7,
         "neutral100": 11.3,
-        "boost": -12,
-        "score": 83,
+        "boost": -14,
+        "score": 81,
         "n": 212,
         "weather": false,
         "temp_f": null,
         "wind_mph": null,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -73284,15 +73756,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 10.9,
+        "exp100": 10.7,
         "neutral100": 8.7,
-        "boost": 25,
-        "score": 91,
+        "boost": 23,
+        "score": 89,
         "n": 46,
         "weather": true,
         "temp_f": 89,
         "wind_mph": 6,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -73696,15 +74170,17 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 3.9,
+        "exp100": 6.2,
         "neutral100": 5.2,
-        "boost": -25,
-        "score": 32,
+        "boost": 20,
+        "score": 52,
         "n": 231,
-        "weather": true,
-        "temp_f": 87,
-        "wind_mph": 6,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -74116,7 +74592,9 @@
         "weather": true,
         "temp_f": 88,
         "wind_mph": 12,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": false
       }
     },
     {
@@ -74518,15 +74996,17 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 20.4,
+        "exp100": 23.4,
         "neutral100": 14.6,
-        "boost": 40,
+        "boost": 61,
         "score": 100,
         "n": 103,
         "weather": true,
         "temp_f": 100,
         "wind_mph": 9,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -74921,15 +75401,17 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 7.7,
+        "exp100": 11.2,
         "neutral100": 6.3,
-        "boost": 23,
-        "score": 64,
+        "boost": 78,
+        "score": 93,
         "n": 207,
         "weather": true,
         "temp_f": 100,
         "wind_mph": 9,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -75339,15 +75821,17 @@
         "L30": 0
       },
       "park_hr": {
-        "exp100": 3.6,
+        "exp100": 3.4,
         "neutral100": 2.7,
-        "boost": 33,
-        "score": 30,
+        "boost": 24,
+        "score": 28,
         "n": 110,
         "weather": true,
         "temp_f": 86,
         "wind_mph": 0,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -75757,15 +76241,17 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 2.7,
+        "exp100": 2.5,
         "neutral100": 2.7,
-        "boost": 0,
-        "score": 22,
+        "boost": -7,
+        "score": 21,
         "n": 150,
         "weather": true,
         "temp_f": 86,
         "wind_mph": 0,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -76169,15 +76655,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 10.3,
+        "exp100": 11.6,
         "neutral100": 8.6,
-        "boost": 20,
-        "score": 86,
+        "boost": 35,
+        "score": 97,
         "n": 174,
         "weather": true,
         "temp_f": 84,
         "wind_mph": 8,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -76582,15 +77070,17 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 12.4,
+        "exp100": 13.3,
         "neutral100": 6.2,
-        "boost": 100,
+        "boost": 115,
         "score": 100,
         "n": 113,
         "weather": true,
         "temp_f": 84,
         "wind_mph": 8,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -76990,15 +77480,17 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 6.9,
+        "exp100": 9.5,
         "neutral100": 9.3,
-        "boost": -26,
-        "score": 57,
+        "boost": 2,
+        "score": 79,
         "n": 247,
-        "weather": true,
-        "temp_f": 87,
-        "wind_mph": 6,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -77398,15 +77890,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 6.4,
+        "exp100": 8.2,
         "neutral100": 9.0,
-        "boost": -29,
-        "score": 53,
+        "boost": -10,
+        "score": 68,
         "n": 188,
-        "weather": true,
-        "temp_f": 87,
-        "wind_mph": 6,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -77810,15 +78304,17 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 6.0,
+        "exp100": 9.5,
         "neutral100": 2.2,
         "boost": 150,
-        "score": 50,
+        "score": 79,
         "n": 134,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 11,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -77899,7 +78395,28 @@
           "L_hr": 9,
           "L_pa": 278
         },
-        "hr_by_hand_2yr": null,
+        "hr_by_hand_2yr": {
+          "two_yr": {
+            "R": {
+              "hr": 13,
+              "pa": 604
+            },
+            "L": {
+              "hr": 22,
+              "pa": 697
+            }
+          },
+          "this_yr": {
+            "R": {
+              "hr": 4,
+              "pa": 205
+            },
+            "L": {
+              "hr": 9,
+              "pa": 306
+            }
+          }
+        },
         "vs_hand": "R",
         "vs_hand_score": 22,
         "vs_hand_metrics": {
@@ -78197,15 +78714,17 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 13.0,
+        "exp100": 11.3,
         "neutral100": 10.4,
-        "boost": 25,
-        "score": 100,
+        "boost": 9,
+        "score": 94,
         "n": 193,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
-        "indoor": false
+        "weather": true,
+        "temp_f": 89,
+        "wind_mph": 2,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -78618,15 +79137,17 @@
         "L30": 7
       },
       "park_hr": {
-        "exp100": 8.0,
+        "exp100": 17.0,
         "neutral100": 14.1,
-        "boost": -43,
-        "score": 67,
+        "boost": 21,
+        "score": 100,
         "n": 199,
-        "weather": true,
-        "temp_f": 71,
-        "wind_mph": 7,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -79034,13 +79555,15 @@
       "park_hr": {
         "exp100": 1.4,
         "neutral100": 1.4,
-        "boost": 0,
-        "score": 12,
+        "boost": -1,
+        "score": 11,
         "n": 71,
-        "weather": true,
-        "temp_f": 87,
-        "wind_mph": 6,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -79440,15 +79963,17 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 9.5,
+        "exp100": 9.7,
         "neutral100": 9.5,
-        "boost": 0,
-        "score": 79,
+        "boost": 2,
+        "score": 81,
         "n": 74,
         "weather": false,
         "temp_f": null,
         "wind_mph": null,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -79856,15 +80381,17 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 4.2,
+        "exp100": 4.0,
         "neutral100": 6.5,
-        "boost": -35,
-        "score": 35,
+        "boost": -38,
+        "score": 34,
         "n": 263,
         "weather": true,
         "temp_f": 75,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -80269,15 +80796,17 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 4.4,
+        "exp100": 11.2,
         "neutral100": 8.8,
-        "boost": -50,
-        "score": 37,
+        "boost": 27,
+        "score": 94,
         "n": 226,
-        "weather": true,
-        "temp_f": 71,
-        "wind_mph": 7,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -80690,15 +81219,17 @@
         "L30": 6
       },
       "park_hr": {
-        "exp100": 7.3,
+        "exp100": 9.4,
         "neutral100": 12.1,
-        "boost": -40,
-        "score": 61,
+        "boost": -22,
+        "score": 79,
         "n": 206,
-        "weather": true,
-        "temp_f": 71,
-        "wind_mph": 7,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -81110,15 +81641,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 24.1,
+        "exp100": 9.9,
         "neutral100": 14.5,
-        "boost": 67,
-        "score": 100,
+        "boost": -31,
+        "score": 83,
         "n": 166,
         "weather": true,
         "temp_f": 93,
         "wind_mph": 13,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -81510,15 +82043,17 @@
         "L30": 0
       },
       "park_hr": {
-        "exp100": 7.7,
+        "exp100": 3.5,
         "neutral100": 3.8,
-        "boost": 50,
-        "score": 64,
+        "boost": -4,
+        "score": 29,
         "n": 26,
         "weather": true,
         "temp_f": 93,
         "wind_mph": 13,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -81924,7 +82459,7 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 14.4,
+        "exp100": 14.3,
         "neutral100": 5.6,
         "boost": 150,
         "score": 100,
@@ -81932,7 +82467,9 @@
         "weather": true,
         "temp_f": 88,
         "wind_mph": 12,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -82327,15 +82864,17 @@
         "L30": 0
       },
       "park_hr": {
-        "exp100": 6.9,
+        "exp100": 6.7,
         "neutral100": 2.3,
         "boost": 150,
-        "score": 58,
+        "score": 56,
         "n": 304,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 12,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -82736,15 +83275,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 13.8,
+        "exp100": 18.0,
         "neutral100": 12.9,
-        "boost": 7,
+        "boost": 39,
         "score": 100,
         "n": 116,
         "weather": true,
         "temp_f": 100,
         "wind_mph": 9,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -83142,15 +83683,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 13.0,
+        "exp100": 11.2,
         "neutral100": 9.1,
-        "boost": 43,
-        "score": 100,
+        "boost": 23,
+        "score": 93,
         "n": 77,
         "weather": true,
         "temp_f": 89,
         "wind_mph": 6,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -83545,15 +84088,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 8.1,
+        "exp100": 7.5,
         "neutral100": 6.9,
-        "boost": 18,
-        "score": 67,
+        "boost": 10,
+        "score": 63,
         "n": 247,
         "weather": true,
         "temp_f": 86,
         "wind_mph": 0,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -83958,15 +84503,17 @@
         "L30": 0
       },
       "park_hr": {
-        "exp100": 2.7,
+        "exp100": 2.6,
         "neutral100": 3.6,
-        "boost": -25,
+        "boost": -28,
         "score": 22,
         "n": 112,
         "weather": true,
         "temp_f": 75,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -84361,15 +84908,17 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 8.7,
+        "exp100": 14.8,
         "neutral100": 3.8,
-        "boost": 125,
-        "score": 72,
+        "boost": 150,
+        "score": 100,
         "n": 104,
         "weather": true,
         "temp_f": 100,
         "wind_mph": 9,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -84773,15 +85322,17 @@
         "L30": 6
       },
       "park_hr": {
-        "exp100": 14.6,
+        "exp100": 21.4,
         "neutral100": 23.3,
-        "boost": -38,
+        "boost": -8,
         "score": 100,
         "n": 206,
-        "weather": true,
-        "temp_f": 71,
-        "wind_mph": 7,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -85182,15 +85733,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 4.9,
+        "exp100": 9.5,
         "neutral100": 7.6,
-        "boost": -36,
-        "score": 41,
+        "boost": 24,
+        "score": 79,
         "n": 144,
-        "weather": true,
-        "temp_f": 87,
-        "wind_mph": 6,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -85588,15 +86141,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 4.9,
+        "exp100": 4.2,
         "neutral100": 3.7,
-        "boost": 33,
-        "score": 41,
+        "boost": 13,
+        "score": 35,
         "n": 163,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
-        "indoor": false
+        "weather": true,
+        "temp_f": 89,
+        "wind_mph": 2,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -85994,15 +86549,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 6.6,
+        "exp100": 11.9,
         "neutral100": 11.3,
-        "boost": -41,
-        "score": 55,
+        "boost": 5,
+        "score": 99,
         "n": 256,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -86405,15 +86962,17 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 7.2,
+        "exp100": 7.3,
         "neutral100": 7.5,
-        "boost": -5,
-        "score": 60,
+        "boost": -3,
+        "score": 61,
         "n": 265,
         "weather": false,
         "temp_f": null,
         "wind_mph": null,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -86818,15 +87377,17 @@
         "L30": 0
       },
       "park_hr": {
-        "exp100": 0.0,
+        "exp100": 0.9,
         "neutral100": 0.0,
-        "boost": 0,
-        "score": 0,
+        "boost": 49,
+        "score": 7,
         "n": 112,
-        "weather": true,
-        "temp_f": 87,
-        "wind_mph": 6,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -87231,15 +87792,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 25.0,
+        "exp100": 8.4,
         "neutral100": 15.8,
-        "boost": 58,
-        "score": 100,
+        "boost": -47,
+        "score": 70,
         "n": 76,
         "weather": true,
         "temp_f": 93,
         "wind_mph": 13,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -87646,15 +88209,17 @@
         "L30": 0
       },
       "park_hr": {
-        "exp100": 7.5,
+        "exp100": 8.0,
         "neutral100": 6.0,
-        "boost": 25,
-        "score": 63,
+        "boost": 32,
+        "score": 66,
         "n": 265,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
-        "indoor": false
+        "weather": true,
+        "temp_f": 89,
+        "wind_mph": 2,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -88054,15 +88619,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 8.5,
+        "exp100": 8.3,
         "neutral100": 8.5,
-        "boost": 0,
-        "score": 71,
+        "boost": -2,
+        "score": 69,
         "n": 165,
         "weather": false,
         "temp_f": null,
         "wind_mph": null,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -88466,15 +89033,17 @@
         "L30": 0
       },
       "park_hr": {
-        "exp100": 7.7,
+        "exp100": 7.9,
         "neutral100": 8.3,
-        "boost": -7,
-        "score": 64,
+        "boost": -5,
+        "score": 66,
         "n": 168,
         "weather": true,
         "temp_f": 75,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -88488,7 +89057,7 @@
         "pct": -25,
         "new": false
       },
-      "angle": "LHB \u2014 contact cooling (-25%)",
+      "angle": "LHB vs an arm that's allowed 22 HR to LHB (2yr) \u2014 contact cooling (-25%)",
       "badges": [],
       "team": "COL",
       "opp_team": "MIA",
@@ -88550,7 +89119,28 @@
           "L_hr": 9,
           "L_pa": 278
         },
-        "hr_by_hand_2yr": null,
+        "hr_by_hand_2yr": {
+          "two_yr": {
+            "R": {
+              "hr": 13,
+              "pa": 604
+            },
+            "L": {
+              "hr": 22,
+              "pa": 697
+            }
+          },
+          "this_yr": {
+            "R": {
+              "hr": 4,
+              "pa": 205
+            },
+            "L": {
+              "hr": 9,
+              "pa": 306
+            }
+          }
+        },
         "vs_hand": "L",
         "vs_hand_score": 20,
         "vs_hand_metrics": {
@@ -88848,15 +89438,17 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 8.4,
+        "exp100": 6.8,
         "neutral100": 6.4,
-        "boost": 31,
-        "score": 70,
+        "boost": 6,
+        "score": 57,
         "n": 203,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
-        "indoor": false
+        "weather": true,
+        "temp_f": 89,
+        "wind_mph": 2,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -89259,7 +89851,9 @@
         "weather": true,
         "temp_f": 86,
         "wind_mph": 0,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": false
       }
     },
     {
@@ -89273,7 +89867,7 @@
         "pct": 3,
         "new": false
       },
-      "angle": "LHB \u2014 due \u2014 hitting it hard, results lagging",
+      "angle": "LHB vs an arm that's allowed 22 HR to LHB (2yr) \u2014 due \u2014 hitting it hard, results lagging",
       "badges": [
         {
           "t": "DUE",
@@ -89340,7 +89934,28 @@
           "L_hr": 9,
           "L_pa": 278
         },
-        "hr_by_hand_2yr": null,
+        "hr_by_hand_2yr": {
+          "two_yr": {
+            "R": {
+              "hr": 13,
+              "pa": 604
+            },
+            "L": {
+              "hr": 22,
+              "pa": 697
+            }
+          },
+          "this_yr": {
+            "R": {
+              "hr": 4,
+              "pa": 205
+            },
+            "L": {
+              "hr": 9,
+              "pa": 306
+            }
+          }
+        },
         "vs_hand": "L",
         "vs_hand_score": 20,
         "vs_hand_metrics": {
@@ -89638,15 +90253,17 @@
         "L30": 0
       },
       "park_hr": {
-        "exp100": 10.8,
+        "exp100": 11.7,
         "neutral100": 9.2,
-        "boost": 17,
-        "score": 90,
+        "boost": 26,
+        "score": 97,
         "n": 130,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
-        "indoor": false
+        "weather": true,
+        "temp_f": 89,
+        "wind_mph": 2,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -90049,15 +90666,17 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 9.2,
+        "exp100": 9.5,
         "neutral100": 9.2,
-        "boost": 0,
-        "score": 77,
+        "boost": 2,
+        "score": 79,
         "n": 184,
         "weather": false,
         "temp_f": null,
         "wind_mph": null,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -90460,7 +91079,9 @@
         "weather": true,
         "temp_f": 86,
         "wind_mph": 0,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": false
       }
     },
     {
@@ -90864,15 +91485,17 @@
         "L30": 0
       },
       "park_hr": {
-        "exp100": 0.4,
+        "exp100": 0.8,
         "neutral100": 0.4,
-        "boost": 0,
-        "score": 4,
+        "boost": 48,
+        "score": 7,
         "n": 232,
-        "weather": true,
-        "temp_f": 87,
-        "wind_mph": 6,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -91276,15 +91899,17 @@
         "L30": 0
       },
       "park_hr": {
-        "exp100": 14.7,
+        "exp100": 2.0,
         "neutral100": 2.2,
-        "boost": 150,
-        "score": 100,
+        "boost": -8,
+        "score": 17,
         "n": 136,
         "weather": true,
         "temp_f": 93,
         "wind_mph": 13,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -91683,15 +92308,17 @@
         "L30": 0
       },
       "park_hr": {
-        "exp100": 5.1,
+        "exp100": 3.8,
         "neutral100": 3.4,
-        "boost": 50,
-        "score": 42,
+        "boost": 13,
+        "score": 32,
         "n": 59,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
-        "indoor": false
+        "weather": true,
+        "temp_f": 89,
+        "wind_mph": 2,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -92090,15 +92717,17 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 6.7,
+        "exp100": 9.0,
         "neutral100": 10.0,
-        "boost": -33,
-        "score": 56,
+        "boost": -10,
+        "score": 75,
         "n": 30,
-        "weather": true,
-        "temp_f": 87,
-        "wind_mph": 6,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -92494,15 +93123,17 @@
         "L30": 0
       },
       "park_hr": {
-        "exp100": 13.6,
+        "exp100": 15.2,
         "neutral100": 8.5,
-        "boost": 60,
+        "boost": 80,
         "score": 100,
         "n": 59,
         "weather": true,
         "temp_f": 84,
         "wind_mph": 8,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -93665,15 +94296,17 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 4.3,
+        "exp100": 6.7,
         "neutral100": 6.4,
-        "boost": -33,
-        "score": 35,
+        "boost": 5,
+        "score": 56,
         "n": 94,
-        "weather": true,
-        "temp_f": 87,
-        "wind_mph": 6,
-        "indoor": false
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -94080,15 +94713,17 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 13.9,
+        "exp100": 10.8,
         "neutral100": 9.2,
-        "boost": 50,
-        "score": 100,
+        "boost": 17,
+        "score": 90,
         "n": 173,
         "weather": true,
         "temp_f": 89,
         "wind_mph": 6,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -94691,7 +95326,9 @@
         "weather": true,
         "temp_f": 88,
         "wind_mph": 12,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": false
       }
     },
     {
@@ -95047,15 +95684,17 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 5.8,
+        "exp100": 7.6,
         "neutral100": 3.8,
-        "boost": 50,
-        "score": 48,
+        "boost": 96,
+        "score": 63,
         "n": 52,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 11,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
@@ -95412,15 +96051,17 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 5.5,
+        "exp100": 9.6,
         "neutral100": 10.2,
-        "boost": -46,
-        "score": 46,
+        "boost": -6,
+        "score": 80,
         "n": 127,
         "weather": true,
         "temp_f": 88,
         "wind_mph": 7,
-        "indoor": false
+        "indoor": false,
+        "savant_pf": 1.0,
+        "anchored": true
       }
     },
     {
