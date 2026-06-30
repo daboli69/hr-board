@@ -226,6 +226,25 @@
   .parkbox-sub{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5}
   .parkbox-cond{font-family:"IBM Plex Mono";font-size:11.5px;color:var(--seam);margin-top:5px;font-weight:600}
   .parkbox-note{font-size:11px;color:var(--faint);margin-top:6px;line-height:1.45}
+  .pl-wrap{padding:4px 0 20px}
+  .pl-conf{background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:13px 14px;margin-bottom:14px}
+  .pl-conf-h{font-family:Archivo;font-weight:800;font-size:13px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+  .pl-conf-h span{font-family:"IBM Plex Mono";font-size:11px;font-weight:700}
+  .pl-conf-bar{height:7px;background:var(--panel);border-radius:5px;overflow:hidden;margin:9px 0 8px}
+  .pl-conf-bar span{display:block;height:100%;border-radius:5px;transition:width .4s}
+  .pl-conf-sub{font-size:11.5px;color:var(--muted);line-height:1.5}
+  .pl-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 13px;margin-bottom:11px}
+  .pl-card-h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+  .pl-card-h b{font-family:Archivo;font-weight:800;font-size:14px}
+  .pl-comb{font-family:"IBM Plex Mono";font-weight:800;font-size:13px;color:var(--seam)}
+  .pl-leg{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--line)}
+  .pl-leg-main b{font-size:13px}
+  .pl-meta{font-size:10.5px;color:var(--muted);display:block;margin-top:1px}
+  .pl-leg-prob{font-family:"IBM Plex Mono";font-weight:800;font-size:14px;text-align:right;white-space:nowrap}
+  .pl-leg-prob span{display:block;font-size:10px;font-weight:600;color:var(--faint)}
+  .pl-foot{font-size:10px;color:var(--faint);margin-top:7px}
+  .pl-card-thin{opacity:.6}
+  .pl-note{font-size:11.5px;color:var(--muted);line-height:1.55;margin-top:6px;padding:0 2px}
   .arm-nm .badges{margin-top:4px}
   .cmini{font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.45;
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -429,6 +448,7 @@
       <button data-view="stacks" aria-pressed="false">Stacks</button>
       <button data-view="bets" aria-pressed="false">Bets</button>
       <button data-view="tracker" aria-pressed="false">Tracker</button>
+      <button data-view="parlays" aria-pressed="false">Parlays</button>
     </div>
   </div>
   <div id="boardControls">
@@ -1010,8 +1030,8 @@ function render(){
         ${p.park_hr?`<div class="parkbox">
           <div class="parkbox-h">Park &amp; weather model <span class="pk-boost ${p.park_hr.boost>=0?'pos':'neg'}">${p.park_hr.boost>=0?'+':''}${p.park_hr.boost}% HR</span></div>
           <div class="parkbox-sub"><b style="color:var(--ink)">${p.park_hr.exp100}</b> expected HR per 100 batted balls here vs <b style="color:var(--ink)">${p.park_hr.neutral100}</b> in a neutral park · ${p.park_hr.n} batted balls modeled</div>
-          <div class="parkbox-cond">${p.park_hr.indoor?"indoor — roof / climate controlled":(p.park_hr.weather?`${p.park_hr.temp_f!=null?p.park_hr.temp_f+"°F":""}${p.park_hr.wind_mph!=null?` · wind ${p.park_hr.wind_mph} mph`:""}`:"park geometry only · live weather unavailable")}</div>
-          <div class="parkbox-note">His real batted balls flown through this park's walls under today's conditions. Secondary read — separate from Heat.</div>
+          <div class="parkbox-cond">${p.park_hr.indoor?"indoor — roof / climate controlled":(p.park_hr.weather?`${p.park_hr.temp_f!=null?p.park_hr.temp_f+"°F":""}${p.park_hr.wind_mph!=null?` · wind ${p.park_hr.wind_mph} mph`:""}`:"park geometry only · live weather unavailable")}${p.park_hr.savant_pf!=null?` · Savant park ${p.park_hr.savant_pf}×`:""}</div>
+          <div class="parkbox-note">${p.park_hr.savant_pf!=null?"Anchored to Baseball Savant's park factor; physics adds this hitter's spray + today's weather on top. ":""}His real batted balls flown through this park's walls. Secondary read — separate from Heat.</div>
         </div>`:""}
         <h4>Four signals — recent · season · career</h4>
         <div class="strip" style="border:1px solid var(--line);border-radius:10px">${strip}</div>
@@ -1072,7 +1092,7 @@ window.addEventListener("resize",setHH);
 window.addEventListener("orientationchange",()=>setTimeout(setHH,100));
 window.addEventListener("resize",setHH);
 function setSort(k){ sortKey=k; render(); }
-function renderView(){ if(view==="tracker") renderTracker(); else if(view==="stacks") renderStacks(); else if(view==="bets") renderBets(); else render(); }
+function renderView(){ if(view==="tracker") renderTracker(); else if(view==="parlays") renderParlays(); else if(view==="stacks") renderStacks(); else if(view==="bets") renderBets(); else render(); }
 
 function renderStacks(){
   const main=document.getElementById("main");
@@ -1252,6 +1272,107 @@ function betStatsHTML(bets){
   return `<div class="bl-stats">${money}
     <div class="bl-sub-h">HR rate by badge</div>${badgeRows}
     ${tierRows?`<div class="bl-sub-h">HR rate by Heat tier</div>${tierRows}`:""}</div>`;
+}
+
+// ---------- Parlay generator (groundwork) ----------
+// Blends the model's prior (Heat + park) with the tracker's EMPIRICAL HR rates, leaning
+// further toward what's actually converting as graded days accumulate. Thin now, sharper later.
+function tierOf(h){ return h>=70?"70+":h>=55?"55-69":h>=40?"40-54":"<40"; }
+
+function trackerRates(){
+  const R={base:0.10, tiers:{}, badges:{}, totalHR:0, players:0, days:0};
+  if(!HISTORY||!HISTORY.days||!HISTORY.days.length) return R;
+  const tiers={}, badges={}; let hr=0, players=0;
+  HISTORY.days.forEach(d=>{
+    players+=d.players||0; hr+=d.total_hr||0;
+    Object.entries(d.by_tier||{}).forEach(([k,v])=>{const t=tiers[k]||(tiers[k]={n:0,hr:0});t.n+=v.n;t.hr+=v.hr;});
+    Object.entries(d.by_badge||{}).forEach(([k,v])=>{const a=badges[k]||(badges[k]={n:0,hr:0});a.n+=v.n;a.hr+=v.hr;});
+  });
+  R.totalHR=hr; R.players=players; R.days=HISTORY.days.length;
+  R.base = players? hr/players : 0.10;
+  const K=30;  // shrink small samples toward the base rate
+  Object.entries(tiers).forEach(([k,o])=>{ R.tiers[k]=(o.hr + R.base*K)/(o.n + K); });
+  Object.entries(badges).forEach(([k,o])=>{ R.badges[k]=(o.hr + R.base*K)/(o.n + K); });
+  return R;
+}
+
+// per-hitter HR probability for the slate, blended by tracker confidence
+function hitterHRProb(p, R, w){
+  // model prior: Heat-driven, nudged by the park+weather lens
+  let pm = 0.05 + (Math.max(0,Math.min(100,p.heat))/100)*0.12;
+  if(p.park_hr && p.park_hr.boost!=null) pm *= (1 + p.park_hr.boost/200);
+  pm = Math.max(0.03, Math.min(0.35, pm));
+  // empirical: tier rate times badge lifts (only meaningful once tracker has data)
+  let pe = R.tiers[tierOf(p.heat)] ?? R.base;
+  let lift=1;
+  (p.badges||[]).forEach(b=>{ if(R.badges[b.k]!=null && R.base>0) lift *= (R.badges[b.k]/R.base); });
+  pe *= Math.max(0.5, Math.min(2.5, lift));
+  pe = Math.max(0.01, Math.min(0.40, pe));
+  const prob = (1-w)*pm + w*pe;
+  return {prob, pm, pe};
+}
+
+function americanFair(prob){
+  if(prob<=0) return "—";
+  const dec=1/prob;
+  return dec>=2 ? "+"+Math.round((dec-1)*100) : "-"+Math.round(100/(dec-1));
+}
+
+function buildParlay(ranked, legs){
+  const used=new Set(), out=[];
+  for(const p of ranked){
+    if(out.length>=legs) break;
+    if(used.has(p.game_pk)) continue;     // different game per leg (no same-game stacks)
+    used.add(p.game_pk); out.push(p);
+  }
+  return out;
+}
+
+function renderParlays(){
+  const main=document.getElementById("main");
+  if(!BOARD||!BOARD.players){ main.innerHTML=`<div class="empty">Board not loaded.</div>`; return; }
+  const R=trackerRates();
+  const W0=150;                            // HR tracked before tracker gets half the weight
+  const w=R.totalHR/(R.totalHR+W0);
+  const confPct=Math.round(w*100);
+  const elig=BOARD.players.filter(p=>p.lineup_status!=="out");
+  const scored=elig.map(p=>({p, ...hitterHRProb(p,R,w)}))
+                   .sort((a,b)=>b.prob-a.prob);
+  const ranked=scored.map(s=>Object.assign({}, s.p, {_prob:s.prob}));
+
+  const leg=(s)=>{
+    const p=s; const pr=p._prob;
+    return `<div class="pl-leg">
+      <div class="pl-leg-main"><b>${p.name}</b> <span class="pl-meta">${p.team}→${p.opp_team} · ${timeStr(p.time)}</span></div>
+      <div class="pl-leg-prob">${(pr*100).toFixed(0)}%<span>${americanFair(pr)}</span></div>
+    </div>`;
+  };
+  const card=(title,legs)=>{
+    const picks=buildParlay(ranked,legs);
+    if(picks.length<legs) return `<div class="pl-card pl-card-thin"><div class="pl-card-h"><b>${title}</b></div><div class="pl-foot">Only ${picks.length} game${picks.length===1?"":"s"} on the board with eligible hitters — need ${legs} for one-per-game. Comes back on a fuller slate.</div></div>`;
+    const combined=picks.reduce((a,p)=>a*p._prob,1);
+    return `<div class="pl-card">
+      <div class="pl-card-h"><b>${title}</b><span class="pl-comb">${(combined*100).toFixed(1)}% · ${americanFair(combined)}</span></div>
+      ${picks.map(leg).join("")}
+      <div class="pl-foot">combined model probability if legs were independent · fair odds, not book odds</div>
+    </div>`;
+  };
+
+  const confColor = w<0.15?"var(--cool)":w<0.5?"var(--warm)":"var(--hot)";
+  main.innerHTML=`
+    <div class="pl-wrap">
+      <div class="pl-conf">
+        <div class="pl-conf-h">Selection confidence
+          <span style="color:${confColor}">${R.days?`${R.days} graded day${R.days>1?"s":""} · ${R.totalHR} HR tracked`:"no tracker data yet"}</span></div>
+        <div class="pl-conf-bar"><span style="width:${Math.max(4,confPct)}%;background:${confColor}"></span></div>
+        <div class="pl-conf-sub">Leaning <b>${100-confPct}%</b> on the model, <b>${confPct}%</b> on what's actually converting in your tracker.
+        ${w<0.3?"Still early — these are model-driven for now and will sharpen as graded days pile up.":"The tracker is now meaningfully steering picks."}</div>
+      </div>
+      ${card("2-leg",2)}
+      ${card("3-leg",3)}
+      ${card("5-leg round robin base",5)}
+      <div class="pl-note">Legs are the highest blended-probability hitters, one per game (no same-game stacks). As the tracker learns which Heat tiers and badges actually homer, the same board produces different — better — parlays. This is groundwork: trust it more as the confidence bar fills.</div>
+    </div>`;
 }
 
 function renderTracker(){
@@ -1483,7 +1604,7 @@ document.getElementById("view").addEventListener("click",async e=>{
   view=b.dataset.view;
   [...document.querySelectorAll("#view button")].forEach(x=>x.setAttribute("aria-pressed",x===b));
   document.getElementById("boardControls").style.display = view==="board"?"":"none";
-  if(view==="tracker" && !HISTORY){ await loadHistory(); }
+  if((view==="tracker"||view==="parlays") && !HISTORY){ await loadHistory(); }
   renderView();
 });
 

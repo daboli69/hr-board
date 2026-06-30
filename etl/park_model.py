@@ -24,6 +24,57 @@ from etl import trajectory as T, park_geometry as PG, weather as W
 MIN_BALLS = 20          # need a real sample to model a hitter
 NEUTRAL_VENUE = "__neutral__"   # not in PARK_GEO -> falls back to neutral geometry
 
+# A fixed league-average batted-ball reference per handedness, used only to measure the
+# physics-implied GEOMETRY factor of a park (so we can rescale it to match Savant's
+# empirical factor). R hitters pull to LF (negative spray), L hitters to RF (positive).
+def _ref_sample(hand, n=900, seed=17):
+    rng = np.random.default_rng(seed + (1 if hand == "L" else 0))
+    ev = np.clip(rng.normal(88, 13, n), 40, 118)
+    la = rng.normal(12, 24, n)
+    center = 8.0 if hand == "L" else -8.0
+    spray = rng.normal(center, 20, n)
+    return ev, la, spray
+
+_REF = {"R": _ref_sample("R"), "L": _ref_sample("L")}
+_GEOM_CACHE = {}
+
+
+def geometry_factor(venue, hand):
+    """
+    Physics-implied PERSISTENT park factor vs neutral, for a league-average hitter of this
+    hand, at the park's real elevation but average weather (70F, calm). It captures what
+    physics CAN see — wall geometry + altitude — so that anchoring to Savant corrects only
+    the residual physics can't see (foul territory, marine layer, batter's eye, microclimate)
+    and never double-counts altitude or today's wind. Cached per (venue, hand).
+    """
+    key = (venue, hand if hand in ("R", "L") else "R")
+    if key in _GEOM_CACHE:
+        return _GEOM_CACHE[key]
+    ev, la, spray = _REF[key[1]]
+    _, _, elev = PG.park_coords(venue)
+    rho_park = T.air_density(70.0, elev, None)         # real altitude, average weather
+    rho_neut = T.air_density(70.0, 0.0, None)          # fixed sea-level neutral
+    calm = np.zeros(3)
+    park = _clears(ev, la, spray, venue, rho_park, calm).sum()
+    neut = _clears(ev, la, spray, NEUTRAL_VENUE, rho_neut, calm).sum()
+    f = float(park) / max(float(neut), 1.0)
+    _GEOM_CACHE[key] = f
+    return f
+
+
+def savant_anchor(venue, hand, savant_factor):
+    """
+    Correction c so that physics geometry rescaled by c matches Savant's empirical factor.
+    c = savant_factor / physics_geometry_factor, clamped so a single park can't swing wildly.
+    Returns 1.0 (no anchor) when Savant has no number for the park.
+    """
+    if not savant_factor or savant_factor <= 0:
+        return 1.0
+    g = geometry_factor(venue, hand)
+    if g <= 0:
+        return 1.0
+    return float(np.clip(savant_factor / g, 0.5, 2.0))
+
 
 def _conditions(venue, iso_time):
     """Return (air_density, field_wind_vec, used_weather, temp_f, wind_mph) for a park."""
@@ -62,12 +113,16 @@ def evaluate_game(ev, la, spray, venue, iso_time):
     return hr_park, hr_neut, meta
 
 
-def aggregate_hitter(hr_park_slice, hr_neutral_slice, meta):
-    """Turn a hitter's slice of the game arrays into the park_hr output dict."""
+def aggregate_hitter(hr_park_slice, hr_neutral_slice, meta, anchor=1.0, savant_factor=None):
+    """Turn a hitter's slice of the game arrays into the park_hr output dict.
+
+    `anchor` rescales the physics park expectation onto Savant's empirical park factor
+    (1.0 = no Savant number available, physics only). `savant_factor` is stored for display.
+    """
     n = len(hr_park_slice)
     if n < MIN_BALLS:
         return None
-    park_exp = float(hr_park_slice.sum())
+    park_exp = float(hr_park_slice.sum()) * anchor
     neut_exp = float(hr_neutral_slice.sum())
     exp100 = 100.0 * park_exp / n
     neutral100 = 100.0 * neut_exp / n
@@ -82,4 +137,6 @@ def aggregate_hitter(hr_park_slice, hr_neutral_slice, meta):
         "temp_f": meta["temp_f"],
         "wind_mph": meta["wind_mph"],
         "indoor": meta["indoor"],
+        "savant_pf": round(savant_factor, 2) if savant_factor else None,
+        "anchored": anchor != 1.0,
     }

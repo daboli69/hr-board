@@ -370,9 +370,15 @@ def build(date_str: str | None = None) -> dict:
     players.sort(key=lambda p: p["heat"], reverse=True)
 
     # ---- park + weather HR model: a separate lens, computed per game in one vectorized
-    # pass, attached as p["park_hr"]. Never feeds the heat score or the grader. Wrapped so
-    # a weather outage or a bad venue degrades gracefully instead of breaking the board.
+    # pass, attached as p["park_hr"]. Never feeds the heat score or the grader. The park's
+    # overall HR level comes from Baseball Savant (auto-pulled, rolling, handedness-split);
+    # the physics only adds per-hitter spray + live weather on top, anchored to Savant so a
+    # dimension/orientation that's slightly off can't make the park factor wrong. Wrapped so
+    # a Savant/weather outage degrades gracefully instead of breaking the board.
     try:
+        from etl import park_factors
+        pf_cache = os.path.join(os.path.dirname(__file__), "..", "docs", "park_factors.json")
+        savant = park_factors.load_park_factors(pf_cache, now.year)
         by_game = {}
         for p in players:
             by_game.setdefault((p["park"], p["time"], p["game_pk"]), []).append(p)
@@ -392,7 +398,11 @@ def build(date_str: str | None = None) -> dict:
             for p, n in spans:
                 if not n:
                     continue
-                agg = park_model.aggregate_hitter(hr_park[i:i+n], hr_neut[i:i+n], meta)
+                hand = p.get("bats", "R")
+                sav = park_factors.factor_for(savant, venue, hand)
+                anchor = park_model.savant_anchor(venue, hand, sav)
+                agg = park_model.aggregate_hitter(hr_park[i:i+n], hr_neut[i:i+n], meta,
+                                                  anchor=anchor, savant_factor=sav)
                 if agg:
                     p["park_hr"] = agg
                 i += n
