@@ -244,6 +244,15 @@
   .pl-leg-prob span{display:block;font-size:10px;font-weight:600;color:var(--faint)}
   .pl-foot{font-size:10px;color:var(--faint);margin-top:7px}
   .pl-card-thin{opacity:.6}
+  .pl-inputs{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .pl-in{font-family:"IBM Plex Mono";font-size:9.5px;font-weight:700;padding:3px 7px;border-radius:20px;border:1px solid var(--line);letter-spacing:.02em}
+  .pl-in.on{color:var(--ink);border-color:var(--seam)}
+  .pl-in.off{color:var(--faint)}
+  .pl-tags{display:flex;gap:5px;margin-top:3px}
+  .pl-tag{font-family:"IBM Plex Mono";font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px}
+  .pl-tag.lb{color:var(--seam);border:1px solid var(--seam)}
+  .pl-tag.up{color:var(--hot);border:1px solid var(--hot)}
+  .pl-tag.dn{color:var(--cool);border:1px solid var(--cool)}
   .pl-note{font-size:11.5px;color:var(--muted);line-height:1.55;margin-top:6px;padding:0 2px}
   .arm-nm .badges{margin-top:4px}
   .cmini{font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.45;
@@ -1280,36 +1289,79 @@ function betStatsHTML(bets){
 function tierOf(h){ return h>=70?"70+":h>=55?"55-69":h>=40?"40-54":"<40"; }
 
 function trackerRates(){
-  const R={base:0.10, tiers:{}, badges:{}, totalHR:0, players:0, days:0};
+  const R={base:0.10, tiers:{}, badges:{}, topn:{}, totalHR:0, players:0, days:0};
   if(!HISTORY||!HISTORY.days||!HISTORY.days.length) return R;
-  const tiers={}, badges={}; let hr=0, players=0;
+  const tiers={}, badges={}, topn={}; let hr=0, players=0;
   HISTORY.days.forEach(d=>{
     players+=d.players||0; hr+=d.total_hr||0;
     Object.entries(d.by_tier||{}).forEach(([k,v])=>{const t=tiers[k]||(tiers[k]={n:0,hr:0});t.n+=v.n;t.hr+=v.hr;});
     Object.entries(d.by_badge||{}).forEach(([k,v])=>{const a=badges[k]||(badges[k]={n:0,hr:0});a.n+=v.n;a.hr+=v.hr;});
+    Object.entries(d.top_n||{}).forEach(([k,v])=>{const a=topn[k]||(topn[k]={n:0,hr:0});a.n+=v.n;a.hr+=v.hr;});
   });
   R.totalHR=hr; R.players=players; R.days=HISTORY.days.length;
   R.base = players? hr/players : 0.10;
   const K=30;  // shrink small samples toward the base rate
   Object.entries(tiers).forEach(([k,o])=>{ R.tiers[k]=(o.hr + R.base*K)/(o.n + K); });
   Object.entries(badges).forEach(([k,o])=>{ R.badges[k]=(o.hr + R.base*K)/(o.n + K); });
+  Object.entries(topn).forEach(([k,o])=>{ R.topn[k]=o.n?(o.hr + R.base*K)/(o.n + K):R.base; });
   return R;
 }
 
-// per-hitter HR probability for the slate, blended by tracker confidence
-function hitterHRProb(p, R, w){
-  // model prior: Heat-driven, nudged by the park+weather lens
+// Your own bet log -> per-player hit rate, for a personalized nudge. Only legs you've
+// marked hit/miss count. Small and shrunk, so it tilts rather than dominates.
+function betRates(){
+  const B={players:{}, base:0.0, legs:0};
+  let hit=0, n=0;
+  (loadBets()||[]).forEach(b=>(b.legs||[]).forEach(l=>{
+    if(l.hit!=="hit" && l.hit!=="miss") return;
+    const win=l.hit==="hit"; n++; if(win) hit++;
+    const key=(l.name||"").trim().toLowerCase(); if(!key) return;
+    const a=B.players[key]||(B.players[key]={n:0,hit:0}); a.n++; if(win) a.hit++;
+  }));
+  B.legs=n; B.base = n? hit/n : 0.0;
+  return B;
+}
+
+function betMult(name, BR){
+  if(!BR.legs || BR.base<=0) return 1;          // no graded legs yet -> no effect
+  const a=BR.players[(name||"").trim().toLowerCase()];
+  if(!a || !a.n) return 1;
+  const K=4;                                     // heavy shrink (your samples are tiny)
+  const rate=(a.hit + BR.base*K)/(a.n + K);
+  return Math.max(0.7, Math.min(1.4, rate/BR.base));
+}
+
+// Leaderboard ("top 14") component: where the hitter sits on today's trailing-14-day board
+// by Heat. Magnitude is tracker-validated when we have top-N conversion data, else a mild
+// structural prior. rank is 0-indexed.
+function lbMult(rank, R){
+  const t=R.topn||{};
+  const fromTrk=(k,def)=> (t[k] && R.base>0) ? Math.max(0.8,Math.min(1.8,t[k]/R.base)) : def;
+  if(rank<5)  return fromTrk("5",1.15);
+  if(rank<10) return fromTrk("10",1.08);
+  if(rank<25) return fromTrk("25",1.00);
+  return 0.95;
+}
+
+// per-hitter HR probability for the slate, blending all four tools:
+//   heat score (model prior) · top-14 leaderboard rank · tracker empirics · your bet log
+function hitterHRProb(p, R, w, BR, rank){
+  // model prior: Heat-driven, nudged by the park+weather lens, lifted by leaderboard rank
   let pm = 0.05 + (Math.max(0,Math.min(100,p.heat))/100)*0.12;
   if(p.park_hr && p.park_hr.boost!=null) pm *= (1 + p.park_hr.boost/200);
-  pm = Math.max(0.03, Math.min(0.35, pm));
-  // empirical: tier rate times badge lifts (only meaningful once tracker has data)
+  const lb = lbMult(rank, R);
+  const model_side = Math.max(0.03, Math.min(0.40, pm*lb));
+  // tracker empirical: tier rate times badge lifts (meaningful once tracker has data)
   let pe = R.tiers[tierOf(p.heat)] ?? R.base;
   let lift=1;
   (p.badges||[]).forEach(b=>{ if(R.badges[b.k]!=null && R.base>0) lift *= (R.badges[b.k]/R.base); });
   pe *= Math.max(0.5, Math.min(2.5, lift));
   pe = Math.max(0.01, Math.min(0.40, pe));
-  const prob = (1-w)*pm + w*pe;
-  return {prob, pm, pe};
+  // confidence-weighted blend, then a personal nudge from your own bet results
+  const blended = (1-w)*model_side + w*pe;
+  const bt = betMult(p.name, BR);
+  const prob = Math.max(0.02, Math.min(0.45, blended*bt));
+  return {prob, pm, pe, lb, bt};
 }
 
 function americanFair(prob){
@@ -1332,18 +1384,26 @@ function renderParlays(){
   const main=document.getElementById("main");
   if(!BOARD||!BOARD.players){ main.innerHTML=`<div class="empty">Board not loaded.</div>`; return; }
   const R=trackerRates();
+  const BR=betRates();
   const W0=150;                            // HR tracked before tracker gets half the weight
   const w=R.totalHR/(R.totalHR+W0);
   const confPct=Math.round(w*100);
+  // leaderboard rank = position on today's trailing-14 board by Heat (the "top 14" tool)
+  const rankMap={};
+  BOARD.players.slice().sort((a,b)=>(b.heat||0)-(a.heat||0)).forEach((p,i)=>{ rankMap[p.id]=i; });
   const elig=BOARD.players.filter(p=>p.lineup_status!=="out");
-  const scored=elig.map(p=>({p, ...hitterHRProb(p,R,w)}))
+  const scored=elig.map(p=>({p, ...hitterHRProb(p,R,w,BR,rankMap[p.id]??99)}))
                    .sort((a,b)=>b.prob-a.prob);
-  const ranked=scored.map(s=>Object.assign({}, s.p, {_prob:s.prob}));
+  const ranked=scored.map(s=>Object.assign({}, s.p, {_prob:s.prob, _bt:s.bt, _rank:rankMap[s.p.id]??99}));
 
   const leg=(s)=>{
     const p=s; const pr=p._prob;
+    const tags=[];
+    if(p._rank<14) tags.push(`<span class="pl-tag lb">#${p._rank+1} board</span>`);
+    if(p._bt>1.05) tags.push(`<span class="pl-tag up">↑ your bets</span>`);
+    else if(p._bt<0.95) tags.push(`<span class="pl-tag dn">↓ your bets</span>`);
     return `<div class="pl-leg">
-      <div class="pl-leg-main"><b>${p.name}</b> <span class="pl-meta">${p.team}→${p.opp_team} · ${timeStr(p.time)}</span></div>
+      <div class="pl-leg-main"><b>${p.name}</b> <span class="pl-meta">${p.team}→${p.opp_team} · ${timeStr(p.time)}</span>${tags.length?`<div class="pl-tags">${tags.join("")}</div>`:""}</div>
       <div class="pl-leg-prob">${(pr*100).toFixed(0)}%<span>${americanFair(pr)}</span></div>
     </div>`;
   };
@@ -1367,6 +1427,12 @@ function renderParlays(){
         <div class="pl-conf-bar"><span style="width:${Math.max(4,confPct)}%;background:${confColor}"></span></div>
         <div class="pl-conf-sub">Leaning <b>${100-confPct}%</b> on the model, <b>${confPct}%</b> on what's actually converting in your tracker.
         ${w<0.3?"Still early — these are model-driven for now and will sharpen as graded days pile up.":"The tracker is now meaningfully steering picks."}</div>
+        <div class="pl-inputs">
+          <span class="pl-in on">Heat score</span>
+          <span class="pl-in on">Top-14 leaderboard</span>
+          <span class="pl-in ${R.days?"on":"off"}">Tracker${R.days?` · ${R.days}d`:" · empty"}</span>
+          <span class="pl-in ${BR.legs?"on":"off"}">Your bets${BR.legs?` · ${BR.legs} legs`:" · none yet"}</span>
+        </div>
       </div>
       ${card("2-leg",2)}
       ${card("3-leg",3)}

@@ -70,25 +70,25 @@ def _tier(h):
     return "70+" if h >= 70 else "55-69" if h >= 55 else "40-54" if h >= 40 else "<40"
 
 
-def grade():
-    yesterday = (datetime.now(ZoneInfo("America/New_York")) - timedelta(days=1)).strftime("%Y-%m-%d")
-    print(f"[track] grading {yesterday}")
-    players = _load_day(yesterday)
+def grade_date(date):
+    """Grade a single date -> record dict, or None if it can't be graded yet (no snapshot,
+    or results not posted). Pure: does not read or write history.json."""
+    players = _load_day(date)
     if not players:
-        print(f"[track] no snapshot/board for {yesterday}; skipping.")
-        return
+        print(f"[track] no snapshot for {date}; skip.")
+        return None
 
     sc = None
     for attempt in range(1, 4):
         try:
-            sc = statcast(start_dt=yesterday, end_dt=yesterday)
+            sc = statcast(start_dt=date, end_dt=date)
         except Exception as e:
-            print(f"[track] statcast attempt {attempt} failed: {e}"); sc = None
+            print(f"[track] {date} statcast attempt {attempt} failed: {e}"); sc = None
         if sc is not None and len(sc) >= MIN_ROWS:
             break
         time.sleep(20 * attempt)
     if sc is None or len(sc) < MIN_ROWS:
-        print(f"[track] insufficient data for {yesterday}; skipping."); return
+        print(f"[track] insufficient data for {date}; will retry next run."); return None
 
     hrmap = _hr_map(sc)
     def homered(p): return hrmap.get(p["id"], {}).get("hr", 0) > 0
@@ -145,7 +145,7 @@ def grade():
     }
 
     record = {
-        "date": yesterday, "players": len(players),
+        "date": date, "players": len(players),
         "hitters_homered": n_hit,
         "total_hr": total_hr, "sp_hr": sp_hr, "bp_hr": bp_hr,
         "by_tier": tiers, "by_form": forms, "by_signal": by_signal, "by_badge": by_badge,
@@ -154,6 +154,22 @@ def grade():
         "hr_log": sorted(hr_log, key=lambda x: (x["heat"] or 0), reverse=True),
     }
 
+    print(f"[track] {date}: {record['hitters_homered']}/{record['players']} homered, "
+          f"{total_hr} HR ({sp_hr} SP / {bp_hr} BP).")
+    return record
+
+
+LOOKBACK_DAYS = 10   # backfill any ungraded day this far back that still has a snapshot
+
+
+def grade():
+    """Backfill grader. Grades every past day within LOOKBACK that has a committed snapshot
+    and isn't already in history. Idempotent and self-healing: a missed or failed day is
+    picked up on the next run, so one skipped/delayed cron can never silently drop a day.
+    Run it a few times a day and it stays caught up on its own."""
+    tz = ZoneInfo("America/New_York")
+    today = datetime.now(tz).date()
+
     history = []
     if os.path.exists(HISTORY_PATH):
         try:
@@ -161,14 +177,29 @@ def grade():
                 history = json.load(f).get("days", [])
         except Exception:
             history = []
-    history = [d for d in history if d.get("date") != yesterday]
-    history.append(record)
+    graded = {d.get("date") for d in history}
+
+    added = []
+    for off in range(1, LOOKBACK_DAYS + 1):     # offset 1 = yesterday (first complete day)
+        date = (today - timedelta(days=off)).strftime("%Y-%m-%d")
+        if date in graded:
+            continue
+        rec = grade_date(date)                  # only returns a record if it CAN be graded
+        if rec:
+            history.append(rec)
+            graded.add(date)
+            added.append(date)
+
+    if not added:
+        print("[track] nothing new to grade — all caught up (or snapshots not ready).")
+        return
+
     history.sort(key=lambda d: d["date"])
     os.makedirs(os.path.dirname(HISTORY_PATH) or ".", exist_ok=True)
     with open(HISTORY_PATH, "w") as f:
-        json.dump({"updated": yesterday, "days": history}, f, indent=2, default=str)
-    print(f"[track] {yesterday}: {record['hitters_homered']}/{record['players']} homered, "
-          f"{total_hr} HR ({sp_hr} SP / {bp_hr} BP). history={len(history)} days.")
+        json.dump({"updated": max(graded), "days": history}, f, indent=2, default=str)
+    print(f"[track] graded {len(added)} day(s): {', '.join(sorted(added))}. "
+          f"history={len(history)} days.")
 
 
 if __name__ == "__main__":

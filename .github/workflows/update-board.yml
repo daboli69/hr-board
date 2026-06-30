@@ -5,11 +5,12 @@ name: Update HR Board
 on:
   workflow_dispatch:          # manual "Run workflow" button
   schedule:
-    # times are UTC. EDT = UTC-4 in summer. Hourly 11am-8pm ET keeps pace with
-    # lineup/probable confirmations; the build preserves the last good board if
-    # Savant throttles, so frequent runs are safe.
-    - cron: "0 15-23 * * *"     # 11am - 7pm ET, top of each hour
-    - cron: "30 21-23 * * *"    # extra :30 passes 5:30/6:30/7:30 ET for late lineups
+    # Times are UTC; the MLB season runs on EDT (UTC-4). Requested ET build times:
+    #   6:30am, 10am, 12pm, 3pm, 5pm, 7pm ET  ->  10:30, 14, 16, 19, 21, 23 UTC
+    # The build preserves the last good board if Savant throttles, so this is safe.
+    # (In EST/winter these land one hour earlier ET; the season is almost entirely EDT.)
+    - cron: "30 10 * * *"            # 6:30am ET — early lineups + overnight refresh
+    - cron: "0 14,16,19,21,23 * * *" # 10am, 12pm, 3pm, 5pm, 7pm ET
 
 permissions:
   contents: write             # allow committing the refreshed board.json
@@ -50,10 +51,13 @@ jobs:
         run: |
           git config user.name  "hr-board-bot"
           git config user.email "actions@github.com"
-          git add docs/board.json
+          git add docs/board.json docs/snapshots docs/park_factors.json
           if git diff --staged --quiet; then
-            echo "No change in board.json"
+            echo "No change to commit"
           else
             git commit -m "board: ${{ github.run_id }} [skip ci]"
+            # another scheduled job (e.g. the grader) may push at the same minute;
+            # rebase onto remote first so this push can't lose the race.
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}" || true
             git push
           fi
