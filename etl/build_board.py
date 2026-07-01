@@ -160,6 +160,12 @@ def build(date_str: str | None = None) -> dict:
     except Exception as e:
         hr_spot = {}; print(f"[build] hr_by_spot skipped: {e}")
 
+    try:                                           # opener detection: how deep starters really go
+        start_lens = statcast_data.starter_lengths(df)
+        p_apps = statcast_data.pitcher_appearances(df)
+    except Exception as e:
+        start_lens, p_apps = {}, {}; print(f"[build] starter lengths skipped: {e}")
+
     # statsapi and Statcast mostly share team abbreviations; a few differ.
     _TEAM_ALIAS = {"AZ": "ARI", "ARI": "AZ", "CWS": "CHW", "CHW": "CWS",
                    "WSH": "WSN", "WSN": "WSH", "KC": "KCR", "KCR": "KC",
@@ -302,6 +308,20 @@ def build(date_str: str | None = None) -> dict:
                 "fb_velo": ps.get("fb_velo"),
             },
         }
+
+        # opener detection: listed SP whose real starts run 1-2 innings, or a pure
+        # reliever getting the "start". Downstream, BvP-vs-SP matters less (one look)
+        # and the bullpen matters much more.
+        _sl = start_lens.get(pid)
+        if _sl and _sl["starts"] >= 2 and _sl["med_len"] <= 2.0:
+            opp_pitcher_obj["opener"] = True
+            opp_pitcher_obj["start_len"] = round(_sl["med_len"], 1)
+        elif _sl is None and p_apps.get(pid, 0) >= 5:
+            opp_pitcher_obj["opener"] = True          # relieves all year, "starting" today
+            opp_pitcher_obj["start_len"] = None
+        else:
+            opp_pitcher_obj["opener"] = False
+            opp_pitcher_obj["start_len"] = round(_sl["med_len"], 1) if _sl else None
 
         # pitcher platoon splits — what he allows vs this hitter's hand
         eff_hand = eff_side if bats == "S" else bats

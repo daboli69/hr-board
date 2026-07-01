@@ -154,6 +154,11 @@
   .row{position:relative}
   .row::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
     background:var(--tc,transparent);border-radius:10px 0 0 10px;pointer-events:none}
+  .opener-tag{display:inline-block;font-family:"IBM Plex Mono";font-weight:700;font-size:8.5px;
+    letter-spacing:.05em;color:#9aa4b2;background:rgba(120,134,150,.12);
+    border:1px solid rgba(120,134,150,.3);padding:1px 5px;border-radius:4px;vertical-align:middle}
+  .opener-note{background:rgba(120,134,150,.08);border:1px solid rgba(120,134,150,.22);
+    border-radius:8px;padding:8px 10px;margin:6px 0 8px;font-size:11.5px;color:var(--muted);line-height:1.5}
   .lg-scale{display:inline-flex;align-items:center;gap:8px}
   .lg-note{color:var(--faint)}
   .grad{height:7px;width:120px;border-radius:4px;
@@ -166,6 +171,7 @@
     border:1px dashed var(--line);border-radius:10px;padding:10px 12px;margin:8px 0}
 
   .row{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    content-visibility:auto;contain-intrinsic-size:auto 92px;
     margin:5px 0;overflow:hidden;transition:border-color .15s ease,box-shadow .15s ease}
   @media (hover:hover){.row:hover{border-color:#303a47}}
   .crow{transition:background .12s ease}
@@ -551,7 +557,7 @@
 <header>
   <div class="brand">
     <h1>Going <span class="yard">Yard</span></h1>
-    <span class="stamp mono" id="stamp">—</span>
+    <span class="stamp mono" id="stamp" title="Tap to refresh the board" style="cursor:pointer">—</span>
     <button id="helpBtn" onclick="document.getElementById('faq').classList.add('show')" aria-label="How to use">?</button>
   </div>
   <div class="meta" id="meta"></div>
@@ -940,9 +946,11 @@ function smashConviction(p){
   // park + weather
   const pb=(p.park_hr && p.park_hr.boost!=null)?p.park_hr.boost:0;
   if(pb>=12){ s+=1.5; r.push("park + weather"); } else if(pb>=6){ s+=0.75; r.push("park lean"); }
-  // historical BvP
-  if(ks.has("hrsp")){ s+=1.5; r.push("owns the starter"); }
-  if(ks.has("hrbp")){ s+=1.0; r.push("HR off their pen"); }
+  // historical BvP — vs an opener you get one look, so owning him matters less and
+  // the pen (7-8 innings of the game) matters more
+  const opnr=!!(p.opp_pitcher&&p.opp_pitcher.opener);
+  if(ks.has("hrsp")){ s+=(opnr?0.75:1.5); r.push(opnr?"owns the opener (1x look)":"owns the starter"); }
+  if(ks.has("hrbp")){ s+=(opnr?1.5:1.0); r.push(opnr?"HR off their pen (bulk of game)":"HR off their pen"); }
   // lineup-spot power
   const spotHR=(p.hr_by_spot && p.lineup_spot)?(p.hr_by_spot[p.lineup_spot]||0):0;
   if(spotHR>=3){ s+=1.5; r.push(`${spotHR} HR from spot ${p.lineup_spot}`); }
@@ -1110,8 +1118,8 @@ function render(){
     const pkChip=(pk&&pk.exp100!=null)?`<span class="bpchip" style="background:${chipColor(pk.score)}">${pk.boost>=0?"+":""}${pk.boost}%${pk.wind_mph?` · ${pk.wind_mph}mph`:""}</span> `:"";
     const armBadge = (op.hr_score!=null)
       ? `<span class="armbadge" style="border-color:${form?form.color:'var(--line)'};color:${form?form.color:'var(--muted)'}">`
-        +`${throwBadge(op.throws)} ${op.name||'arm'} · HR ${op.hr_score}${form?` · ${form.label}`:''}</span>`
-      : (op.name?`<span class="armbadge">${throwBadge(op.throws)} ${op.name}</span>`:'');
+        +`${throwBadge(op.throws)} ${op.name||'arm'} · HR ${op.hr_score}${form?` · ${form.label}`:''}</span>${op.opener?` <span class="opener-tag">OPENER${op.start_len?` · ~${op.start_len} IP`:''}</span>`:''}`
+      : (op.name?`<span class="armbadge">${throwBadge(op.throws)} ${op.name}</span>${op.opener?` <span class="opener-tag">OPENER</span>`:''}`:'');
 
     let strip="";
     CORE.forEach(m=>{
@@ -1157,6 +1165,7 @@ function render(){
     const armBlock = (op.hr_score!=null) ? `
         <h4 style="margin-top:16px">Opposing arm — HR vulnerability
           <span style="color:${form?form.color:'var(--muted)'}">${op.hr_score}/100${form?` · ${form.label}`:''}</span></h4>
+        ${op.opener?`<div class="opener-note">Opener — his starts run ${op.start_len?`~${op.start_len} inning${op.start_len>1.5?'s':''}`:'short (usually relieves)'}. This hitter likely sees him once, then it's a bullpen game: weigh the pen section below over the starter matchup.</div>`:''}
         <div style="font-size:11px;color:var(--muted);margin-bottom:6px">recent ${op.recent_score??'–'} · season ${op.season_score??'–'} (2wk vs season)</div>
         <table class="win"><thead><tr><th>${op.name||'arm'} (${op.throws||'?'}HP)</th><th>2wk</th><th>Szn</th></tr></thead><tbody>
           ${prow('Barrel% allowed','barrel_pct_allowed',1)}
@@ -1275,7 +1284,12 @@ window.addEventListener("resize",setHH);
 window.addEventListener("orientationchange",()=>setTimeout(setHH,100));
 window.addEventListener("resize",setHH);
 function setSort(k){ sortKey=k; const s=document.getElementById("sortSel"); if(s) s.value=k; savePrefs(); render(); }
-function renderView(){ if(view==="tracker") renderTracker(); else if(view==="parlays") renderParlays(); else if(view==="matchup") renderMatchup(); else if(view==="stacks") renderStacks(); else if(view==="bets") renderBets(); else render(); }
+function renderView(){
+  const safe=fn=>{ try{ fn(); }catch(e){ console.error("render",e);
+    const m=document.getElementById("main");
+    if(m) m.innerHTML=`<div class="empty">This tab hit a snag rendering today's data — the rest of the app is fine.<br>Tap another tab or check back after the next board update.</div>`; } };
+  if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="matchup") safe(renderMatchup); else if(view==="stacks") safe(renderStacks); else if(view==="bets") safe(renderBets); else safe(render);
+}
 
 function renderStacks(){
   const main=document.getElementById("main");
@@ -1605,6 +1619,7 @@ function renderMatchup(){
   const sbtn=(k,lab)=>`<button onclick="setMuSort('${k}')" aria-pressed="${muSort===k}">${lab}</button>`;
   const card=p=>{
     const b=p.bvp, sp=spRec(p), career=!!b.sp_career, spHot=sp.hr>0;
+    const opnr=!!(p.opp_pitcher&&p.opp_pitcher.opener);
     const seasonTag=(career && b.sp && (b.sp.pa>0) ) ? `<span class="mu-yr">${b.sp.hr}/${b.sp.pa} this yr</span>` : "";
     const spLine = sp.pa>0
       ? `<span class="${spHot?'mu-hr':'mu-faced'}">${spHot?`● ${sp.hr} HR`:`${sp.hr} HR`} · ${sp.pa} PA</span> <span class="mu-src">${career?"career":"season"}</span>${seasonTag}`
@@ -1615,8 +1630,8 @@ function renderMatchup(){
       : (b.bp.length? `<span class="mu-faced">faced ${b.bp.length} of their pen · 0 HR</span>` : `<span class="mu-none">no pen history</span>`);
     return `<div class="mu-card${(spHot||bpHr.length)?' mu-on':''}">
       <div class="mu-top"><span class="mu-heat" style="background:${chipColor(p.heat||0)}">${p.heat??"–"}</span><b>${p.name}</b> ${listHas(p.id)?'<span class="liststar">★</span>':''}<span class="mu-meta">${p.team}→${p.opp_team} · ${timeStr(p.time)}</span></div>
-      <div class="mu-row"><span class="mu-lab">vs SP ${sp.name||b.sp.name||"—"}</span><span>${spLine}</span></div>
-      <div class="mu-row"><span class="mu-lab">vs their pen</span><span>${bpLine}</span></div>
+      <div class="mu-row"><span class="mu-lab">vs ${opnr?'opener':'SP'} ${sp.name||b.sp.name||"—"}${opnr?' <span class="opener-tag">1x look</span>':''}</span><span>${spLine}</span></div>
+      <div class="mu-row"><span class="mu-lab">vs their pen${opnr?' <b style="color:var(--ink)">← bulk of the game</b>':''}</span><span>${bpLine}</span></div>
     </div>`;
   };
   main.innerHTML=`<div class="mu-wrap">
@@ -1891,7 +1906,11 @@ function renderTracker(){
 document.getElementById("sortSel").addEventListener("change",e=>{
   sortKey=e.target.value; savePrefs(); render();
 });
-document.getElementById("search").addEventListener("input",e=>{q=e.target.value;render();});
+let _qT=null;
+document.getElementById("search").addEventListener("input",e=>{
+  clearTimeout(_qT); _qT=setTimeout(()=>{ q=e.target.value; render(); },140);
+});
+document.getElementById("stamp").addEventListener("click",()=>{ load(); });
 document.getElementById("thinBtn").addEventListener("click",e=>{
   hideThin=!hideThin; e.target.setAttribute("aria-pressed",hideThin); savePrefs(); render();
 });

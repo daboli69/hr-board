@@ -535,3 +535,40 @@ def hr_by_lineup_spot(df: pd.DataFrame) -> dict:
     for (bid, slot), n in hr.groupby(["batter", "slot"]).size().items():
         out.setdefault(int(bid), {})[int(slot)] = int(n)
     return out
+
+
+def starter_lengths(df: pd.DataFrame) -> dict:
+    """How deep each starter actually goes: {pitcher_id: {"starts": n, "med_len": innings}}.
+    Starter = first pitcher for the defense in inning 1; length = deepest inning reached
+    that game. Median across starts is robust to one blowup. Also lets the board spot
+    openers: listed 'SP' whose starts are 1-2 innings, or who has only relieved."""
+    need = {"game_pk", "inning", "inning_topbot", "at_bat_number", "pitcher"}
+    if df is None or df.empty or not need.issubset(df.columns):
+        return {}
+    d = df[["game_pk", "inning", "inning_topbot", "at_bat_number", "pitcher"]].copy()
+    # defense half: pitcher in "Top" belongs to the HOME defense, "Bot" to the AWAY defense
+    d["half"] = d["inning_topbot"].astype(str)
+    first = (d[d["inning"] == 1]
+             .sort_values("at_bat_number")
+             .groupby(["game_pk", "half"], as_index=False)
+             .first()[["game_pk", "half", "pitcher"]]
+             .rename(columns={"pitcher": "starter"}))
+    depth = (d.groupby(["game_pk", "half", "pitcher"], as_index=False)["inning"].max()
+             .rename(columns={"inning": "deep"}))
+    m = first.merge(depth, left_on=["game_pk", "half", "starter"],
+                    right_on=["game_pk", "half", "pitcher"], how="left")
+    out = {}
+    for pid, grp in m.groupby("starter"):
+        lens = grp["deep"].dropna().astype(float)
+        if len(lens):
+            out[int(pid)] = {"starts": int(len(lens)), "med_len": float(lens.median())}
+    return out
+
+
+def pitcher_appearances(df: pd.DataFrame) -> dict:
+    """{pitcher_id: total games appeared} — with starter_lengths, spots the pure reliever
+    listed as today's opener (appears often, zero traditional starts)."""
+    if df is None or df.empty or "pitcher" not in df.columns or "game_pk" not in df.columns:
+        return {}
+    g = df.groupby("pitcher")["game_pk"].nunique()
+    return {int(k): int(v) for k, v in g.items()}
