@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-01T16:31:33-04:00",
+  "generated_at": "2026-07-01T16:47:30-04:00",
   "slate_date": "2026-07-01",
   "league_avg": {
     "barrel_pct": 8.0,
@@ -115,11 +115,6 @@
   "lineups_pending": [],
   "projected_games": [
     {
-      "game_pk": 824094,
-      "away": "TB",
-      "home": "KC"
-    },
-    {
       "game_pk": 823767,
       "away": "CIN",
       "home": "MIL"
@@ -212,7 +207,7 @@
         "5": 1
       },
       "lineup_spot": 3,
-      "lineup_status": "projected",
+      "lineup_status": "confirmed",
       "trend": {
         "dir": "up",
         "pct": 35,
@@ -2043,14 +2038,14 @@
         "L30": 7
       },
       "park_hr": {
-        "exp100": 18.7,
+        "exp100": 15.1,
         "neutral100": 16.4,
-        "boost": 14,
+        "boost": -8,
         "score": 100,
         "n": 244,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 2,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 0.89,
         "anchored": true
@@ -2505,14 +2500,14 @@
         "L30": 7
       },
       "park_hr": {
-        "exp100": 18.7,
+        "exp100": 14.7,
         "neutral100": 12.8,
-        "boost": 46,
+        "boost": 15,
         "score": 100,
         "n": 172,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 2,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.07,
         "anchored": true
@@ -2943,14 +2938,14 @@
         "L30": 6
       },
       "park_hr": {
-        "exp100": 40.9,
+        "exp100": 51.1,
         "neutral100": 37.9,
-        "boost": 8,
+        "boost": 35,
         "score": 100,
         "n": 29,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 97,
+        "wind_mph": 6,
         "indoor": false,
         "savant_pf": 1.06,
         "anchored": true
@@ -4362,7 +4357,7 @@
         "score": 100,
         "n": 58,
         "weather": true,
-        "temp_f": 90,
+        "temp_f": 89,
         "wind_mph": 9,
         "indoor": false,
         "savant_pf": 1.14,
@@ -4804,14 +4799,14 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 15.8,
+        "exp100": 7.9,
         "neutral100": 6.1,
-        "boost": 150,
-        "score": 100,
+        "boost": 29,
+        "score": 66,
         "n": 114,
-        "weather": true,
-        "temp_f": 84,
-        "wind_mph": 12,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.27,
         "anchored": true
@@ -5268,9 +5263,9 @@
         "boost": -16,
         "score": 97,
         "n": 65,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 9,
         "indoor": false,
         "savant_pf": 0.84,
         "anchored": true
@@ -6178,7 +6173,7 @@
         "score": 100,
         "n": 141,
         "weather": true,
-        "temp_f": 92,
+        "temp_f": 91,
         "wind_mph": 15,
         "indoor": false,
         "savant_pf": 1.08,
@@ -6639,475 +6634,16 @@
         "L30": 9
       },
       "park_hr": {
-        "exp100": 26.7,
+        "exp100": 33.1,
         "neutral100": 21.7,
-        "boost": 23,
+        "boost": 52,
         "score": 100,
         "n": 184,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 97,
+        "wind_mph": 6,
         "indoor": false,
         "savant_pf": 1.17,
-        "anchored": true
-      }
-    },
-    {
-      "id": 676356,
-      "name": "Jonny DeLuca",
-      "bats": "R",
-      "bvp": {
-        "sp": {
-          "name": "Seth Lugo",
-          "pa": 0,
-          "hr": 0
-        },
-        "bp": [
-          {
-            "name": "Steven Cruz",
-            "pa": 2,
-            "hr": 0
-          },
-          {
-            "name": "Beck Way",
-            "pa": 2,
-            "hr": 0
-          },
-          {
-            "name": "Connor Seabold",
-            "pa": 1,
-            "hr": 0
-          },
-          {
-            "name": "Lucas Erceg",
-            "pa": 1,
-            "hr": 0
-          },
-          {
-            "name": "Eric Cerantola",
-            "pa": 1,
-            "hr": 0
-          }
-        ],
-        "bp_hr": false,
-        "sp_career": {
-          "name": "Seth Lugo",
-          "pa": 3,
-          "hr": 0
-        }
-      },
-      "hr_by_spot": {
-        "2": 1,
-        "3": 1,
-        "5": 1,
-        "6": 1
-      },
-      "lineup_spot": 5,
-      "lineup_status": "projected",
-      "trend": {
-        "dir": "down",
-        "pct": -12,
-        "new": false
-      },
-      "angle": "RHB \u2014 contact cooling (-12%)",
-      "badges": [],
-      "team": "TB",
-      "opp_team": "KC",
-      "game_pk": 824094,
-      "time": "2026-07-01T23:40:00Z",
-      "park": "Kauffman Stadium",
-      "park_hr_factor": 0.92,
-      "why": "42% air-pull \u00b7 74% IAA \u00b7 .320 ISO \u00b7 vs SLIPPING arm",
-      "tier": "STRONG",
-      "cleared": 4,
-      "sample": {
-        "L5": 22,
-        "L15": 76,
-        "L30": 146,
-        "season": 202
-      },
-      "opp_pitcher": {
-        "name": "Seth Lugo",
-        "throws": "R",
-        "hr_score": 43,
-        "recent_score": 47,
-        "season_score": 38,
-        "form": {
-          "label": "SLIPPING",
-          "color": "#E0913A"
-        },
-        "flags": [
-          "HR-prone lately (6.4% of PA)",
-          "not missing bats (6.9% swstr)"
-        ],
-        "recent": {
-          "barrel_pct_allowed": 3.2,
-          "hardhit_pct_allowed": 27.4,
-          "avg_ev_allowed": 82.8,
-          "hr_per_pa": 6.4,
-          "ideal_aa_allowed": 55.1,
-          "pull_air_allowed": 27.8,
-          "swstr_pct_allowed": 6.9,
-          "fb_velo": 91.0,
-          "velo_trend": 0.0,
-          "bbe": 62
-        },
-        "season": {
-          "barrel_pct_allowed": 5.5,
-          "hardhit_pct_allowed": 26.0,
-          "avg_ev_allowed": 82.5,
-          "hr_per_pa": 2.6,
-          "ideal_aa_allowed": 57.0,
-          "pull_air_allowed": 31.2,
-          "swstr_pct_allowed": 8.5,
-          "fb_velo": 91.0
-        },
-        "opener": false,
-        "start_len": 6.0,
-        "platoon": {
-          "R": 58,
-          "L": 35,
-          "worse": "R",
-          "gap": 23
-        },
-        "hr_by_hand": {
-          "R_hr": 7,
-          "R_pa": 136,
-          "L_hr": 3,
-          "L_pa": 245
-        },
-        "hr_by_hand_2yr": {
-          "two_yr": {
-            "R": {
-              "hr": 19,
-              "pa": 630
-            },
-            "L": {
-              "hr": 32,
-              "pa": 893
-            }
-          },
-          "this_yr": {
-            "R": {
-              "hr": 9,
-              "pa": 155
-            },
-            "L": {
-              "hr": 4,
-              "pa": 267
-            }
-          }
-        },
-        "vs_hand": "R",
-        "vs_hand_score": 58,
-        "vs_hand_metrics": {
-          "barrel_pct_allowed": 6.4,
-          "hr_per_pa": 5.1,
-          "bbe": 187
-        }
-      },
-      "opp_bullpen": {
-        "score": 38,
-        "form": {
-          "label": "STEADY",
-          "color": "#8A95A3"
-        },
-        "flags": [
-          "not missing bats (8.5% swstr)"
-        ],
-        "arms": 17,
-        "vs_hand": 38,
-        "hand": "R",
-        "platoon": {
-          "R": 38,
-          "L": 37,
-          "worse": "R",
-          "gap": 1
-        }
-      },
-      "pitch_splits": {
-        "FB": {
-          "barrel_pct": 2.4,
-          "avg_ev": 80.5,
-          "la": 22.8,
-          "whiff_pct": 24.7,
-          "hr": 2,
-          "bbe": 125
-        },
-        "BR": {
-          "barrel_pct": 4.1,
-          "avg_ev": 80.0,
-          "la": 2.0,
-          "whiff_pct": 28.6,
-          "hr": 2,
-          "bbe": 49
-        },
-        "OFF": {
-          "barrel_pct": 0.0,
-          "avg_ev": 78.0,
-          "la": 11.5,
-          "whiff_pct": 31.0,
-          "hr": 0,
-          "bbe": 28
-        }
-      },
-      "pitch_usage": {
-        "FB": 51.9,
-        "BR": 39.5,
-        "OFF": 8.6
-      },
-      "pitch_matchup": {
-        "weighted_barrel": 2.9,
-        "edge": 0.4,
-        "best": {
-          "fam": "BR",
-          "label": "Breaking",
-          "usage": 39.5,
-          "barrel": 4.1
-        },
-        "fams": {
-          "FB": {
-            "usage": 51.9,
-            "barrel": 2.4
-          },
-          "BR": {
-            "usage": 39.5,
-            "barrel": 4.1
-          },
-          "OFF": {
-            "usage": 8.6,
-            "barrel": 0.0
-          }
-        }
-      },
-      "heat_mix": 69,
-      "mix": {
-        "avg_ev": 81.4,
-        "barrel_pct": 8.6,
-        "la": 15.1,
-        "whiff_pct": 30.8
-      },
-      "ev_overall": 80.6,
-      "luck": {
-        "recent": {
-          "xwobacon": 0.356,
-          "wobacon": 0.395,
-          "luck_gap": -0.039,
-          "barrel_pct": 6.5,
-          "hr": 2,
-          "bb_count": 31
-        },
-        "season": {
-          "xwobacon": 0.336,
-          "wobacon": 0.373,
-          "luck_gap": -0.037,
-          "barrel_pct": 2.5,
-          "hr": 4,
-          "bb_count": 202
-        }
-      },
-      "max_ev": {
-        "recent": 104.9,
-        "season": 110.8
-      },
-      "heat": 65,
-      "score_breakdown": {
-        "barrel_pct": 6.4,
-        "pull_air_pct": 13.8,
-        "iso": 16.0,
-        "avg_ev": 3.3,
-        "ideal_aa_pct": 14.0,
-        "slg": 14.0,
-        "cleared": 4,
-        "signals": {
-          "barrel_pct": "False",
-          "pull_air_pct": "True",
-          "iso": true,
-          "avg_ev": "False",
-          "ideal_aa_pct": true,
-          "slg": "True"
-        },
-        "tier": "STRONG",
-        "flags": [
-          "EV below 87 floor",
-          "empty IAA (no EV behind it)"
-        ],
-        "base_four": 67.5,
-        "pitcher_mult": 0.969
-      },
-      "metrics": {
-        "pull_air_pct": {
-          "recent": 41.7,
-          "season": 43.4,
-          "career": null
-        },
-        "avg_ev": {
-          "recent": 80.6,
-          "season": 80.1,
-          "career": null
-        },
-        "barrel_pct": {
-          "recent": 6.5,
-          "season": 2.5,
-          "career": null
-        },
-        "ideal_aa_pct": {
-          "recent": 74.4,
-          "season": 54.3,
-          "career": null
-        },
-        "bat_speed": {
-          "recent": 74.0,
-          "season": 73.3,
-          "career": null
-        },
-        "hardhit_pct": {
-          "recent": 29.0,
-          "season": 21.3,
-          "career": null
-        },
-        "iso": {
-          "recent": 0.32,
-          "season": 0.174,
-          "career": null
-        },
-        "slg": {
-          "recent": 0.56,
-          "season": 0.438,
-          "career": null
-        },
-        "launch_angle": {
-          "recent": 17.1,
-          "season": 16.2,
-          "career": null
-        },
-        "fb_pct": {
-          "recent": 22.6,
-          "season": 13.4,
-          "career": null
-        },
-        "pull_pct": {
-          "recent": 50.0,
-          "season": 49.1,
-          "career": null
-        },
-        "swstr_pct": {
-          "recent": 15.5,
-          "season": 13.4,
-          "career": null
-        },
-        "k_pct": {
-          "recent": 13.8,
-          "season": 19.5,
-          "career": null
-        }
-      },
-      "windows": {
-        "L14d": {
-          "barrel_pct": 6.5,
-          "hardhit_pct": 29.0,
-          "avg_ev": 80.6,
-          "max_ev": 104.9,
-          "launch_angle": 17.1,
-          "fb_pct": 22.6,
-          "pull_pct": 50.0,
-          "pull_air_pct": 41.7,
-          "ideal_aa_pct": 74.4,
-          "bat_speed": 74.0,
-          "iso": 0.32,
-          "slg": 0.56,
-          "xwobacon": 0.356,
-          "wobacon": 0.395,
-          "luck_gap": -0.039,
-          "swstr_pct": 15.5,
-          "k_pct": 13.8,
-          "hr": 2,
-          "pa": 29,
-          "bb_count": 31
-        },
-        "L5": {
-          "barrel_pct": 0.0,
-          "hardhit_pct": 22.7,
-          "avg_ev": 79.2,
-          "max_ev": 104.9,
-          "launch_angle": 20.5,
-          "fb_pct": 18.2,
-          "pull_pct": 47.1,
-          "pull_air_pct": 28.6,
-          "ideal_aa_pct": 79.3,
-          "bat_speed": 73.1,
-          "iso": 0.059,
-          "slg": 0.235,
-          "xwobacon": 0.237,
-          "wobacon": 0.191,
-          "luck_gap": 0.046,
-          "swstr_pct": 14.5,
-          "k_pct": 4.8,
-          "hr": 0,
-          "pa": 21,
-          "bb_count": 22
-        },
-        "L15": {
-          "barrel_pct": 2.6,
-          "hardhit_pct": 19.7,
-          "avg_ev": 80.5,
-          "max_ev": 110.8,
-          "launch_angle": 16.0,
-          "fb_pct": 17.1,
-          "pull_pct": 52.2,
-          "pull_air_pct": 40.9,
-          "ideal_aa_pct": 59.6,
-          "bat_speed": 73.9,
-          "iso": 0.214,
-          "slg": 0.482,
-          "xwobacon": 0.306,
-          "wobacon": 0.416,
-          "luck_gap": -0.11,
-          "swstr_pct": 14.6,
-          "k_pct": 18.3,
-          "hr": 2,
-          "pa": 60,
-          "bb_count": 76
-        },
-        "L30": {
-          "barrel_pct": 1.4,
-          "hardhit_pct": 19.9,
-          "avg_ev": 79.2,
-          "max_ev": 110.8,
-          "launch_angle": 16.8,
-          "fb_pct": 14.4,
-          "pull_pct": 48.8,
-          "pull_air_pct": 42.1,
-          "ideal_aa_pct": 54.1,
-          "bat_speed": 73.2,
-          "iso": 0.154,
-          "slg": 0.404,
-          "xwobacon": 0.304,
-          "wobacon": 0.357,
-          "luck_gap": -0.053,
-          "swstr_pct": 14.1,
-          "k_pct": 21.4,
-          "hr": 2,
-          "pa": 112,
-          "bb_count": 146
-        }
-      },
-      "hr_recent": {
-        "L5": 0,
-        "L15": 2,
-        "L30": 2
-      },
-      "park_hr": {
-        "exp100": 13.4,
-        "neutral100": 6.9,
-        "boost": 95,
-        "score": 100,
-        "n": 116,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 15,
-        "indoor": false,
-        "savant_pf": 0.99,
         "anchored": true
       }
     },
@@ -7574,483 +7110,16 @@
         "L30": 8
       },
       "park_hr": {
-        "exp100": 14.8,
+        "exp100": 11.6,
         "neutral100": 10.5,
-        "boost": 40,
-        "score": 100,
+        "boost": 10,
+        "score": 97,
         "n": 275,
-        "weather": true,
-        "temp_f": 99,
-        "wind_mph": 8,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.0,
-        "anchored": true
-      }
-    },
-    {
-      "id": 668723,
-      "name": "Ryan Vilade",
-      "bats": "R",
-      "bvp": {
-        "sp": {
-          "name": "Seth Lugo",
-          "pa": 0,
-          "hr": 0
-        },
-        "bp": [
-          {
-            "name": "Alex Lange",
-            "pa": 1,
-            "hr": 0
-          },
-          {
-            "name": "Connor Seabold",
-            "pa": 1,
-            "hr": 0
-          },
-          {
-            "name": "Daniel Lynch IV",
-            "pa": 1,
-            "hr": 0
-          },
-          {
-            "name": "Eric Cerantola",
-            "pa": 1,
-            "hr": 0
-          },
-          {
-            "name": "Steven Cruz",
-            "pa": 1,
-            "hr": 0
-          }
-        ],
-        "bp_hr": false,
-        "sp_career": {
-          "name": "Seth Lugo",
-          "pa": 1,
-          "hr": 0
-        }
-      },
-      "hr_by_spot": {
-        "3": 1,
-        "4": 3,
-        "5": 2
-      },
-      "lineup_spot": 4,
-      "lineup_status": "projected",
-      "trend": {
-        "dir": "up",
-        "pct": 98,
-        "new": false
-      },
-      "angle": "RHB \u2014 warming up \u2014 contact rising (+98%)",
-      "badges": [
-        {
-          "t": "WARMING",
-          "k": "hot"
-        },
-        {
-          "t": "POWER",
-          "k": "pow"
-        }
-      ],
-      "team": "TB",
-      "opp_team": "KC",
-      "game_pk": 824094,
-      "time": "2026-07-01T23:40:00Z",
-      "park": "Kauffman Stadium",
-      "park_hr_factor": 0.92,
-      "why": "13% brl \u00b7 .438 ISO \u00b7 vs SLIPPING arm",
-      "tier": "SOLID",
-      "cleared": 3,
-      "sample": {
-        "L5": 15,
-        "L15": 68,
-        "L30": 146,
-        "season": 213
-      },
-      "opp_pitcher": {
-        "name": "Seth Lugo",
-        "throws": "R",
-        "hr_score": 43,
-        "recent_score": 47,
-        "season_score": 38,
-        "form": {
-          "label": "SLIPPING",
-          "color": "#E0913A"
-        },
-        "flags": [
-          "HR-prone lately (6.4% of PA)",
-          "not missing bats (6.9% swstr)"
-        ],
-        "recent": {
-          "barrel_pct_allowed": 3.2,
-          "hardhit_pct_allowed": 27.4,
-          "avg_ev_allowed": 82.8,
-          "hr_per_pa": 6.4,
-          "ideal_aa_allowed": 55.1,
-          "pull_air_allowed": 27.8,
-          "swstr_pct_allowed": 6.9,
-          "fb_velo": 91.0,
-          "velo_trend": 0.0,
-          "bbe": 62
-        },
-        "season": {
-          "barrel_pct_allowed": 5.5,
-          "hardhit_pct_allowed": 26.0,
-          "avg_ev_allowed": 82.5,
-          "hr_per_pa": 2.6,
-          "ideal_aa_allowed": 57.0,
-          "pull_air_allowed": 31.2,
-          "swstr_pct_allowed": 8.5,
-          "fb_velo": 91.0
-        },
-        "opener": false,
-        "start_len": 6.0,
-        "platoon": {
-          "R": 58,
-          "L": 35,
-          "worse": "R",
-          "gap": 23
-        },
-        "hr_by_hand": {
-          "R_hr": 7,
-          "R_pa": 136,
-          "L_hr": 3,
-          "L_pa": 245
-        },
-        "hr_by_hand_2yr": {
-          "two_yr": {
-            "R": {
-              "hr": 19,
-              "pa": 630
-            },
-            "L": {
-              "hr": 32,
-              "pa": 893
-            }
-          },
-          "this_yr": {
-            "R": {
-              "hr": 9,
-              "pa": 155
-            },
-            "L": {
-              "hr": 4,
-              "pa": 267
-            }
-          }
-        },
-        "vs_hand": "R",
-        "vs_hand_score": 58,
-        "vs_hand_metrics": {
-          "barrel_pct_allowed": 6.4,
-          "hr_per_pa": 5.1,
-          "bbe": 187
-        }
-      },
-      "opp_bullpen": {
-        "score": 38,
-        "form": {
-          "label": "STEADY",
-          "color": "#8A95A3"
-        },
-        "flags": [
-          "not missing bats (8.5% swstr)"
-        ],
-        "arms": 17,
-        "vs_hand": 38,
-        "hand": "R",
-        "platoon": {
-          "R": 38,
-          "L": 37,
-          "worse": "R",
-          "gap": 1
-        }
-      },
-      "pitch_splits": {
-        "FB": {
-          "barrel_pct": 1.4,
-          "avg_ev": 80.7,
-          "la": 29.6,
-          "whiff_pct": 20.4,
-          "hr": 2,
-          "bbe": 146
-        },
-        "BR": {
-          "barrel_pct": 7.9,
-          "avg_ev": 80.0,
-          "la": 11.8,
-          "whiff_pct": 25.5,
-          "hr": 3,
-          "bbe": 38
-        },
-        "OFF": {
-          "barrel_pct": 3.7,
-          "avg_ev": 82.5,
-          "la": 21.6,
-          "whiff_pct": 15.2,
-          "hr": 1,
-          "bbe": 27
-        }
-      },
-      "pitch_usage": {
-        "FB": 51.9,
-        "BR": 39.5,
-        "OFF": 8.6
-      },
-      "pitch_matchup": {
-        "weighted_barrel": 4.2,
-        "edge": 1.4,
-        "best": {
-          "fam": "BR",
-          "label": "Breaking",
-          "usage": 39.5,
-          "barrel": 7.9
-        },
-        "fams": {
-          "FB": {
-            "usage": 51.9,
-            "barrel": 1.4
-          },
-          "BR": {
-            "usage": 39.5,
-            "barrel": 7.9
-          },
-          "OFF": {
-            "usage": 8.6,
-            "barrel": 3.7
-          }
-        }
-      },
-      "heat_mix": 57,
-      "mix": {
-        "avg_ev": 81.7,
-        "barrel_pct": 8.6,
-        "la": 37.3,
-        "whiff_pct": 38.1
-      },
-      "ev_overall": 81.3,
-      "luck": {
-        "recent": {
-          "xwobacon": 0.509,
-          "wobacon": 0.583,
-          "luck_gap": -0.074,
-          "barrel_pct": 13.3,
-          "hr": 2,
-          "bb_count": 15
-        },
-        "season": {
-          "xwobacon": 0.362,
-          "wobacon": 0.44,
-          "luck_gap": -0.078,
-          "barrel_pct": 2.8,
-          "hr": 6,
-          "bb_count": 213
-        }
-      },
-      "max_ev": {
-        "recent": 111.3,
-        "season": 113.6
-      },
-      "heat": 64,
-      "score_breakdown": {
-        "barrel_pct": 17.3,
-        "pull_air_pct": 8.5,
-        "iso": 16.0,
-        "avg_ev": 3.3,
-        "ideal_aa_pct": 6.7,
-        "slg": 14.0,
-        "cleared": 3,
-        "signals": {
-          "barrel_pct": "True",
-          "pull_air_pct": "False",
-          "iso": true,
-          "avg_ev": "False",
-          "ideal_aa_pct": "False",
-          "slg": true
-        },
-        "tier": "SOLID",
-        "flags": [
-          "small sample (18 PA, 15 BBE)",
-          "EV below 87 floor"
-        ],
-        "base_four": 65.8,
-        "pitcher_mult": 0.969
-      },
-      "metrics": {
-        "pull_air_pct": {
-          "recent": 33.3,
-          "season": 32.7,
-          "career": null
-        },
-        "avg_ev": {
-          "recent": 81.3,
-          "season": 80.8,
-          "career": null
-        },
-        "barrel_pct": {
-          "recent": 13.3,
-          "season": 2.8,
-          "career": null
-        },
-        "ideal_aa_pct": {
-          "recent": 52.4,
-          "season": 33.7,
-          "career": null
-        },
-        "bat_speed": {
-          "recent": 76.5,
-          "season": 75.5,
-          "career": null
-        },
-        "hardhit_pct": {
-          "recent": 33.3,
-          "season": 20.2,
-          "career": null
-        },
-        "iso": {
-          "recent": 0.438,
-          "season": 0.206,
-          "career": null
-        },
-        "slg": {
-          "recent": 0.625,
-          "season": 0.484,
-          "career": null
-        },
-        "launch_angle": {
-          "recent": 30.9,
-          "season": 25.8,
-          "career": null
-        },
-        "fb_pct": {
-          "recent": 20.0,
-          "season": 13.6,
-          "career": null
-        },
-        "pull_pct": {
-          "recent": 33.3,
-          "season": 38.0,
-          "career": null
-        },
-        "swstr_pct": {
-          "recent": 13.8,
-          "season": 10.1,
-          "career": null
-        },
-        "k_pct": {
-          "recent": 38.9,
-          "season": 20.1,
-          "career": null
-        }
-      },
-      "windows": {
-        "L14d": {
-          "barrel_pct": 13.3,
-          "hardhit_pct": 33.3,
-          "avg_ev": 81.3,
-          "max_ev": 111.3,
-          "launch_angle": 30.9,
-          "fb_pct": 20.0,
-          "pull_pct": 33.3,
-          "pull_air_pct": 33.3,
-          "ideal_aa_pct": 52.4,
-          "bat_speed": 76.5,
-          "iso": 0.438,
-          "slg": 0.625,
-          "xwobacon": 0.509,
-          "wobacon": 0.583,
-          "luck_gap": -0.074,
-          "swstr_pct": 13.8,
-          "k_pct": 38.9,
-          "hr": 2,
-          "pa": 18,
-          "bb_count": 15
-        },
-        "L5": {
-          "barrel_pct": 13.3,
-          "hardhit_pct": 33.3,
-          "avg_ev": 81.3,
-          "max_ev": 111.3,
-          "launch_angle": 30.9,
-          "fb_pct": 20.0,
-          "pull_pct": 33.3,
-          "pull_air_pct": 33.3,
-          "ideal_aa_pct": 52.4,
-          "bat_speed": 76.5,
-          "iso": 0.438,
-          "slg": 0.625,
-          "xwobacon": 0.509,
-          "wobacon": 0.583,
-          "luck_gap": -0.074,
-          "swstr_pct": 13.8,
-          "k_pct": 38.9,
-          "hr": 2,
-          "pa": 18,
-          "bb_count": 15
-        },
-        "L15": {
-          "barrel_pct": 5.9,
-          "hardhit_pct": 26.5,
-          "avg_ev": 81.9,
-          "max_ev": 113.6,
-          "launch_angle": 27.3,
-          "fb_pct": 16.2,
-          "pull_pct": 28.6,
-          "pull_air_pct": 31.2,
-          "ideal_aa_pct": 34.0,
-          "bat_speed": 75.3,
-          "iso": 0.3,
-          "slg": 0.58,
-          "xwobacon": 0.461,
-          "wobacon": 0.541,
-          "luck_gap": -0.08,
-          "swstr_pct": 13.9,
-          "k_pct": 27.3,
-          "hr": 4,
-          "pa": 55,
-          "bb_count": 68
-        },
-        "L30": {
-          "barrel_pct": 4.1,
-          "hardhit_pct": 23.3,
-          "avg_ev": 80.8,
-          "max_ev": 113.6,
-          "launch_angle": 25.7,
-          "fb_pct": 13.0,
-          "pull_pct": 35.7,
-          "pull_air_pct": 29.0,
-          "ideal_aa_pct": 33.3,
-          "bat_speed": 75.6,
-          "iso": 0.27,
-          "slg": 0.539,
-          "xwobacon": 0.396,
-          "wobacon": 0.478,
-          "luck_gap": -0.082,
-          "swstr_pct": 10.4,
-          "k_pct": 21.2,
-          "hr": 6,
-          "pa": 104,
-          "bb_count": 146
-        }
-      },
-      "hr_recent": {
-        "L5": 2,
-        "L15": 4,
-        "L30": 6
-      },
-      "park_hr": {
-        "exp100": 15.6,
-        "neutral100": 6.0,
-        "boost": 150,
-        "score": 100,
-        "n": 100,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 15,
-        "indoor": false,
-        "savant_pf": 0.99,
         "anchored": true
       }
     },
@@ -8498,14 +7567,14 @@
         "L30": 6
       },
       "park_hr": {
-        "exp100": 4.3,
+        "exp100": 9.8,
         "neutral100": 3.8,
-        "boost": 13,
-        "score": 36,
+        "boost": 150,
+        "score": 82,
         "n": 212,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.92,
         "anchored": true
@@ -9882,7 +8951,7 @@
         "score": 100,
         "n": 206,
         "weather": true,
-        "temp_f": 90,
+        "temp_f": 89,
         "wind_mph": 9,
         "indoor": false,
         "savant_pf": 1.21,
@@ -10356,7 +9425,7 @@
         "score": 63,
         "n": 262,
         "weather": true,
-        "temp_f": 92,
+        "temp_f": 91,
         "wind_mph": 15,
         "indoor": false,
         "savant_pf": 1.08,
@@ -10811,14 +9880,14 @@
         "L30": 10
       },
       "park_hr": {
-        "exp100": 33.0,
+        "exp100": 23.1,
         "neutral100": 18.4,
-        "boost": 79,
+        "boost": 25,
         "score": 100,
         "n": 217,
-        "weather": true,
-        "temp_f": 84,
-        "wind_mph": 12,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.19,
         "anchored": true
@@ -11281,14 +10350,14 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 19.2,
+        "exp100": 11.5,
         "neutral100": 9.7,
-        "boost": 97,
-        "score": 100,
+        "boost": 18,
+        "score": 96,
         "n": 257,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 10,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.14,
         "anchored": true
@@ -11746,14 +10815,14 @@
         "L30": 6
       },
       "park_hr": {
-        "exp100": 22.6,
+        "exp100": 15.7,
         "neutral100": 15.1,
-        "boost": 50,
+        "boost": 4,
         "score": 100,
         "n": 126,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 10,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.14,
         "anchored": true
@@ -12218,14 +11287,14 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 11.6,
+        "exp100": 16.3,
         "neutral100": 9.6,
-        "boost": 21,
-        "score": 97,
+        "boost": 70,
+        "score": 100,
         "n": 52,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 94,
+        "wind_mph": 4,
         "indoor": false,
         "savant_pf": 1.12,
         "anchored": true
@@ -13136,14 +12205,14 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 17.0,
+        "exp100": 13.4,
         "neutral100": 13.8,
-        "boost": 23,
+        "boost": -3,
         "score": 100,
         "n": 123,
-        "weather": true,
-        "temp_f": 99,
-        "wind_mph": 8,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.0,
         "anchored": true
@@ -13984,14 +13053,14 @@
         "L30": 6
       },
       "park_hr": {
-        "exp100": 12.5,
+        "exp100": 16.9,
         "neutral100": 11.7,
-        "boost": 6,
+        "boost": 44,
         "score": 100,
         "n": 111,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 97,
+        "wind_mph": 6,
         "indoor": false,
         "savant_pf": 1.06,
         "anchored": true
@@ -15397,14 +14466,14 @@
         "L30": 8
       },
       "park_hr": {
-        "exp100": 18.7,
+        "exp100": 14.4,
         "neutral100": 13.7,
-        "boost": 37,
+        "boost": 5,
         "score": 100,
         "n": 219,
-        "weather": true,
-        "temp_f": 99,
-        "wind_mph": 8,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.0,
         "anchored": true
@@ -15868,14 +14937,14 @@
         "L30": 6
       },
       "park_hr": {
-        "exp100": 17.2,
+        "exp100": 21.7,
         "neutral100": 16.8,
-        "boost": 3,
+        "boost": 30,
         "score": 100,
         "n": 179,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 94,
+        "wind_mph": 4,
         "indoor": false,
         "savant_pf": 1.02,
         "anchored": true
@@ -16314,14 +15383,14 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 12.7,
+        "exp100": 11.3,
         "neutral100": 7.7,
-        "boost": 65,
-        "score": 100,
+        "boost": 47,
+        "score": 94,
         "n": 78,
-        "weather": true,
-        "temp_f": 99,
-        "wind_mph": 8,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.0,
         "anchored": true
@@ -16794,14 +15863,14 @@
         "L30": 6
       },
       "park_hr": {
-        "exp100": 19.5,
+        "exp100": 9.7,
         "neutral100": 8.9,
-        "boost": 119,
-        "score": 100,
+        "boost": 10,
+        "score": 81,
         "n": 203,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 10,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.14,
         "anchored": true
@@ -17271,14 +16340,14 @@
         "L30": 9
       },
       "park_hr": {
-        "exp100": 12.9,
+        "exp100": 19.3,
         "neutral100": 9.6,
-        "boost": 34,
+        "boost": 101,
         "score": 100,
         "n": 218,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 97,
+        "wind_mph": 6,
         "indoor": false,
         "savant_pf": 1.17,
         "anchored": true
@@ -17735,13 +16804,13 @@
         "L30": 6
       },
       "park_hr": {
-        "exp100": 20.4,
+        "exp100": 19.6,
         "neutral100": 9.9,
-        "boost": 105,
+        "boost": 98,
         "score": 100,
         "n": 161,
         "weather": true,
-        "temp_f": 90,
+        "temp_f": 89,
         "wind_mph": 9,
         "indoor": false,
         "savant_pf": 1.19,
@@ -18208,14 +17277,14 @@
         "L30": 9
       },
       "park_hr": {
-        "exp100": 14.6,
+        "exp100": 18.1,
         "neutral100": 16.3,
-        "boost": -10,
+        "boost": 11,
         "score": 100,
         "n": 227,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 94,
+        "wind_mph": 4,
         "indoor": false,
         "savant_pf": 1.02,
         "anchored": true
@@ -18671,14 +17740,14 @@
         "L30": 7
       },
       "park_hr": {
-        "exp100": 15.8,
+        "exp100": 19.7,
         "neutral100": 15.3,
-        "boost": 3,
+        "boost": 28,
         "score": 100,
         "n": 215,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 94,
+        "wind_mph": 4,
         "indoor": false,
         "savant_pf": 1.12,
         "anchored": true
@@ -19125,6 +18194,467 @@
         "wind_mph": 11,
         "indoor": false,
         "savant_pf": 1.05,
+        "anchored": true
+      }
+    },
+    {
+      "id": 683748,
+      "name": "Victor Mesa Jr.",
+      "bats": "L",
+      "bvp": {
+        "sp": {
+          "name": "Seth Lugo",
+          "pa": 2,
+          "hr": 1
+        },
+        "bp": [
+          {
+            "name": "Matt Strahm",
+            "pa": 1,
+            "hr": 0
+          },
+          {
+            "name": "Connor Seabold",
+            "pa": 1,
+            "hr": 0
+          },
+          {
+            "name": "Tyler Tolbert",
+            "pa": 1,
+            "hr": 0
+          }
+        ],
+        "bp_hr": false,
+        "sp_career": {
+          "name": "Seth Lugo",
+          "pa": 2,
+          "hr": 1
+        }
+      },
+      "hr_by_spot": {
+        "8": 2,
+        "9": 1
+      },
+      "lineup_spot": 4,
+      "lineup_status": "confirmed",
+      "trend": {
+        "dir": "up",
+        "pct": 25,
+        "new": false
+      },
+      "angle": "LHB vs an arm that's allowed 32 HR to LHB (2yr) \u2014 warming up \u2014 contact rising (+25%)",
+      "badges": [
+        {
+          "t": "HR vs SP",
+          "k": "hrsp"
+        },
+        {
+          "t": "PLATOON",
+          "k": "plat"
+        },
+        {
+          "t": "WARMING",
+          "k": "hot"
+        }
+      ],
+      "team": "TB",
+      "opp_team": "KC",
+      "game_pk": 824094,
+      "time": "2026-07-01T23:40:00Z",
+      "park": "Kauffman Stadium",
+      "park_hr_factor": 0.9,
+      "why": "57% air-pull \u00b7 71% IAA \u00b7 vs SLIPPING arm",
+      "tier": "LEAN",
+      "cleared": 2,
+      "sample": {
+        "L5": 20,
+        "L15": 60,
+        "L30": 91,
+        "season": 91
+      },
+      "opp_pitcher": {
+        "name": "Seth Lugo",
+        "throws": "R",
+        "hr_score": 43,
+        "recent_score": 47,
+        "season_score": 38,
+        "form": {
+          "label": "SLIPPING",
+          "color": "#E0913A"
+        },
+        "flags": [
+          "HR-prone lately (6.4% of PA)",
+          "not missing bats (6.9% swstr)"
+        ],
+        "recent": {
+          "barrel_pct_allowed": 3.2,
+          "hardhit_pct_allowed": 27.4,
+          "avg_ev_allowed": 82.8,
+          "hr_per_pa": 6.4,
+          "ideal_aa_allowed": 55.1,
+          "pull_air_allowed": 27.8,
+          "swstr_pct_allowed": 6.9,
+          "fb_velo": 91.0,
+          "velo_trend": 0.0,
+          "bbe": 62
+        },
+        "season": {
+          "barrel_pct_allowed": 5.5,
+          "hardhit_pct_allowed": 26.0,
+          "avg_ev_allowed": 82.5,
+          "hr_per_pa": 2.6,
+          "ideal_aa_allowed": 57.0,
+          "pull_air_allowed": 31.2,
+          "swstr_pct_allowed": 8.5,
+          "fb_velo": 91.0
+        },
+        "opener": false,
+        "start_len": 6.0,
+        "platoon": {
+          "R": 58,
+          "L": 35,
+          "worse": "R",
+          "gap": 23
+        },
+        "hr_by_hand": {
+          "R_hr": 7,
+          "R_pa": 136,
+          "L_hr": 3,
+          "L_pa": 245
+        },
+        "hr_by_hand_2yr": {
+          "two_yr": {
+            "R": {
+              "hr": 19,
+              "pa": 630
+            },
+            "L": {
+              "hr": 32,
+              "pa": 893
+            }
+          },
+          "this_yr": {
+            "R": {
+              "hr": 9,
+              "pa": 155
+            },
+            "L": {
+              "hr": 4,
+              "pa": 267
+            }
+          }
+        },
+        "vs_hand": "L",
+        "vs_hand_score": 35,
+        "vs_hand_metrics": {
+          "barrel_pct_allowed": 5.0,
+          "hr_per_pa": 1.2,
+          "bbe": 337
+        }
+      },
+      "opp_bullpen": {
+        "score": 38,
+        "form": {
+          "label": "STEADY",
+          "color": "#8A95A3"
+        },
+        "flags": [
+          "not missing bats (8.5% swstr)"
+        ],
+        "arms": 17,
+        "vs_hand": 37,
+        "hand": "L",
+        "platoon": {
+          "R": 38,
+          "L": 37,
+          "worse": "R",
+          "gap": 1
+        }
+      },
+      "pitch_splits": {
+        "FB": {
+          "barrel_pct": 2.1,
+          "avg_ev": 78.0,
+          "la": 31.6,
+          "whiff_pct": 31.1,
+          "hr": 0,
+          "bbe": 47
+        },
+        "BR": {
+          "barrel_pct": 9.5,
+          "avg_ev": 87.4,
+          "la": 29.0,
+          "whiff_pct": 27.3,
+          "hr": 2,
+          "bbe": 21
+        },
+        "OFF": {
+          "barrel_pct": 9.1,
+          "avg_ev": 84.8,
+          "la": 3.8,
+          "whiff_pct": 18.5,
+          "hr": 1,
+          "bbe": 22
+        }
+      },
+      "pitch_usage": {
+        "FB": 51.9,
+        "BR": 39.5,
+        "OFF": 8.6
+      },
+      "pitch_matchup": {
+        "weighted_barrel": 5.6,
+        "edge": 0.1,
+        "best": {
+          "fam": "BR",
+          "label": "Breaking",
+          "usage": 39.5,
+          "barrel": 9.5
+        },
+        "fams": {
+          "FB": {
+            "usage": 51.9,
+            "barrel": 2.1
+          },
+          "BR": {
+            "usage": 39.5,
+            "barrel": 9.5
+          },
+          "OFF": {
+            "usage": 8.6,
+            "barrel": 9.1
+          }
+        }
+      },
+      "heat_mix": 53,
+      "mix": {
+        "avg_ev": 81.6,
+        "barrel_pct": 4.8,
+        "la": 29.5,
+        "whiff_pct": 23.3
+      },
+      "ev_overall": 83.0,
+      "luck": {
+        "recent": {
+          "xwobacon": 0.333,
+          "wobacon": 0.316,
+          "luck_gap": 0.017,
+          "barrel_pct": 6.9,
+          "hr": 1,
+          "bb_count": 29
+        },
+        "season": {
+          "xwobacon": 0.397,
+          "wobacon": 0.358,
+          "luck_gap": 0.039,
+          "barrel_pct": 5.5,
+          "hr": 3,
+          "bb_count": 91
+        }
+      },
+      "max_ev": {
+        "recent": 109.1,
+        "season": 109.1
+      },
+      "heat": 56,
+      "score_breakdown": {
+        "barrel_pct": 7.1,
+        "pull_air_pct": 20.0,
+        "iso": 9.3,
+        "avg_ev": 3.4,
+        "ideal_aa_pct": 14.0,
+        "slg": 3.6,
+        "cleared": 2,
+        "signals": {
+          "barrel_pct": "False",
+          "pull_air_pct": true,
+          "iso": "False",
+          "avg_ev": "False",
+          "ideal_aa_pct": true,
+          "slg": "False"
+        },
+        "tier": "LEAN",
+        "flags": [
+          "small sample (23 PA, 29 BBE)",
+          "EV below 87 floor",
+          "empty IAA (no EV behind it)"
+        ],
+        "base_four": 57.4,
+        "pitcher_mult": 0.969
+      },
+      "metrics": {
+        "pull_air_pct": {
+          "recent": 57.1,
+          "season": 40.0,
+          "career": null
+        },
+        "avg_ev": {
+          "recent": 83.0,
+          "season": 81.7,
+          "career": null
+        },
+        "barrel_pct": {
+          "recent": 6.9,
+          "season": 5.5,
+          "career": null
+        },
+        "ideal_aa_pct": {
+          "recent": 71.1,
+          "season": 65.6,
+          "career": null
+        },
+        "bat_speed": {
+          "recent": 73.5,
+          "season": 73.2,
+          "career": null
+        },
+        "hardhit_pct": {
+          "recent": 27.6,
+          "season": 24.2,
+          "career": null
+        },
+        "iso": {
+          "recent": 0.19,
+          "season": 0.164,
+          "career": null
+        },
+        "slg": {
+          "recent": 0.381,
+          "season": 0.361,
+          "career": null
+        },
+        "launch_angle": {
+          "recent": 19.5,
+          "season": 23.4,
+          "career": null
+        },
+        "fb_pct": {
+          "recent": 6.9,
+          "season": 7.7,
+          "career": null
+        },
+        "pull_pct": {
+          "recent": 68.8,
+          "season": 53.3,
+          "career": null
+        },
+        "swstr_pct": {
+          "recent": 10.8,
+          "season": 13.8,
+          "career": null
+        },
+        "k_pct": {
+          "recent": 21.7,
+          "season": 23.9,
+          "career": null
+        }
+      },
+      "windows": {
+        "L14d": {
+          "barrel_pct": 6.9,
+          "hardhit_pct": 27.6,
+          "avg_ev": 83.0,
+          "max_ev": 109.1,
+          "launch_angle": 19.5,
+          "fb_pct": 6.9,
+          "pull_pct": 68.8,
+          "pull_air_pct": 57.1,
+          "ideal_aa_pct": 71.1,
+          "bat_speed": 73.5,
+          "iso": 0.19,
+          "slg": 0.381,
+          "xwobacon": 0.333,
+          "wobacon": 0.316,
+          "luck_gap": 0.017,
+          "swstr_pct": 10.8,
+          "k_pct": 21.7,
+          "hr": 1,
+          "pa": 23,
+          "bb_count": 29
+        },
+        "L5": {
+          "barrel_pct": 5.0,
+          "hardhit_pct": 25.0,
+          "avg_ev": 81.2,
+          "max_ev": 109.1,
+          "launch_angle": 18.3,
+          "fb_pct": 10.0,
+          "pull_pct": 63.6,
+          "pull_air_pct": 66.7,
+          "ideal_aa_pct": 75.0,
+          "bat_speed": 73.1,
+          "iso": 0.267,
+          "slg": 0.533,
+          "xwobacon": 0.331,
+          "wobacon": 0.459,
+          "luck_gap": -0.128,
+          "swstr_pct": 10.7,
+          "k_pct": 25.0,
+          "hr": 1,
+          "pa": 16,
+          "bb_count": 20
+        },
+        "L15": {
+          "barrel_pct": 5.0,
+          "hardhit_pct": 23.3,
+          "avg_ev": 82.5,
+          "max_ev": 109.1,
+          "launch_angle": 24.9,
+          "fb_pct": 6.7,
+          "pull_pct": 58.1,
+          "pull_air_pct": 46.2,
+          "ideal_aa_pct": 62.7,
+          "bat_speed": 73.3,
+          "iso": 0.167,
+          "slg": 0.357,
+          "xwobacon": 0.343,
+          "wobacon": 0.356,
+          "luck_gap": -0.013,
+          "swstr_pct": 13.3,
+          "k_pct": 22.9,
+          "hr": 2,
+          "pa": 48,
+          "bb_count": 60
+        },
+        "L30": {
+          "barrel_pct": 5.5,
+          "hardhit_pct": 24.2,
+          "avg_ev": 81.7,
+          "max_ev": 109.1,
+          "launch_angle": 23.4,
+          "fb_pct": 7.7,
+          "pull_pct": 53.3,
+          "pull_air_pct": 40.0,
+          "ideal_aa_pct": 65.6,
+          "bat_speed": 73.2,
+          "iso": 0.164,
+          "slg": 0.361,
+          "xwobacon": 0.397,
+          "wobacon": 0.358,
+          "luck_gap": 0.039,
+          "swstr_pct": 13.8,
+          "k_pct": 23.9,
+          "hr": 3,
+          "pa": 71,
+          "bb_count": 91
+        }
+      },
+      "hr_recent": {
+        "L5": 1,
+        "L15": 2,
+        "L30": 3
+      },
+      "park_hr": {
+        "exp100": 13.6,
+        "neutral100": 11.1,
+        "boost": 22,
+        "score": 100,
+        "n": 45,
+        "weather": true,
+        "temp_f": 94,
+        "wind_mph": 15,
+        "indoor": false,
+        "savant_pf": 0.95,
         "anchored": true
       }
     },
@@ -19600,14 +19130,14 @@
         "L30": 12
       },
       "park_hr": {
-        "exp100": 24.6,
+        "exp100": 15.1,
         "neutral100": 13.0,
-        "boost": 88,
+        "boost": 15,
         "score": 100,
         "n": 230,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 10,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.15,
         "anchored": true
@@ -20067,7 +19597,7 @@
         "score": 100,
         "n": 254,
         "weather": true,
-        "temp_f": 90,
+        "temp_f": 89,
         "wind_mph": 9,
         "indoor": false,
         "savant_pf": 1.19,
@@ -20534,7 +20064,7 @@
         "score": 100,
         "n": 234,
         "weather": true,
-        "temp_f": 92,
+        "temp_f": 91,
         "wind_mph": 15,
         "indoor": false,
         "savant_pf": 1.08,
@@ -20972,14 +20502,14 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 3.5,
+        "exp100": 4.7,
         "neutral100": 5.1,
-        "boost": -31,
-        "score": 29,
+        "boost": -8,
+        "score": 39,
         "n": 136,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.78,
         "anchored": true
@@ -21436,14 +20966,14 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 20.1,
+        "exp100": 12.3,
         "neutral100": 10.1,
-        "boost": 99,
+        "boost": 22,
         "score": 100,
         "n": 178,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 10,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.15,
         "anchored": true
@@ -21896,14 +21426,14 @@
         "L30": 7
       },
       "park_hr": {
-        "exp100": 21.8,
+        "exp100": 15.2,
         "neutral100": 13.0,
-        "boost": 68,
+        "boost": 17,
         "score": 100,
         "n": 231,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 10,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.14,
         "anchored": true
@@ -22851,14 +22381,14 @@
         "L30": 9
       },
       "park_hr": {
-        "exp100": 15.6,
+        "exp100": 13.0,
         "neutral100": 14.0,
-        "boost": 12,
+        "boost": -7,
         "score": 100,
         "n": 236,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 2,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 0.89,
         "anchored": true
@@ -23779,14 +23309,14 @@
         "L30": 6
       },
       "park_hr": {
-        "exp100": 16.2,
+        "exp100": 13.0,
         "neutral100": 11.9,
-        "boost": 36,
+        "boost": 9,
         "score": 100,
         "n": 227,
-        "weather": true,
-        "temp_f": 99,
-        "wind_mph": 8,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.0,
         "anchored": true
@@ -24262,14 +23792,14 @@
         "L30": 7
       },
       "park_hr": {
-        "exp100": 18.3,
+        "exp100": 23.4,
         "neutral100": 20.2,
-        "boost": -9,
+        "boost": 16,
         "score": 100,
         "n": 119,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 94,
+        "wind_mph": 4,
         "indoor": false,
         "savant_pf": 1.12,
         "anchored": true
@@ -24716,7 +24246,7 @@
         "score": 100,
         "n": 134,
         "weather": true,
-        "temp_f": 90,
+        "temp_f": 89,
         "wind_mph": 9,
         "indoor": false,
         "savant_pf": 1.21,
@@ -25164,7 +24694,7 @@
         "score": 100,
         "n": 82,
         "weather": true,
-        "temp_f": 90,
+        "temp_f": 89,
         "wind_mph": 9,
         "indoor": false,
         "savant_pf": 1.21,
@@ -25605,14 +25135,14 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 14.3,
+        "exp100": 8.7,
         "neutral100": 7.0,
-        "boost": 103,
-        "score": 100,
+        "boost": 24,
+        "score": 72,
         "n": 185,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 2,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.07,
         "anchored": true
@@ -26074,14 +25604,14 @@
         "L30": 7
       },
       "park_hr": {
-        "exp100": 18.9,
+        "exp100": 28.9,
         "neutral100": 16.1,
-        "boost": 17,
+        "boost": 79,
         "score": 100,
         "n": 223,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 97,
+        "wind_mph": 6,
         "indoor": false,
         "savant_pf": 1.17,
         "anchored": true
@@ -27026,14 +26556,14 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 12.3,
+        "exp100": 7.3,
         "neutral100": 4.8,
-        "boost": 150,
-        "score": 100,
+        "boost": 54,
+        "score": 61,
         "n": 315,
-        "weather": true,
-        "temp_f": 99,
-        "wind_mph": 8,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.0,
         "anchored": true
@@ -27462,14 +26992,14 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 7.1,
+        "exp100": 10.7,
         "neutral100": 9.6,
-        "boost": -26,
-        "score": 59,
+        "boost": 11,
+        "score": 89,
         "n": 73,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.92,
         "anchored": true
@@ -27920,14 +27450,14 @@
         "L30": 7
       },
       "park_hr": {
-        "exp100": 11.5,
+        "exp100": 14.7,
         "neutral100": 10.1,
-        "boost": 15,
-        "score": 96,
+        "boost": 47,
+        "score": 100,
         "n": 189,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 94,
+        "wind_mph": 4,
         "indoor": false,
         "savant_pf": 1.12,
         "anchored": true
@@ -28374,14 +27904,14 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 26.1,
+        "exp100": 12.3,
         "neutral100": 9.0,
-        "boost": 150,
+        "boost": 37,
         "score": 100,
         "n": 178,
-        "weather": true,
-        "temp_f": 84,
-        "wind_mph": 12,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.27,
         "anchored": true
@@ -28814,7 +28344,7 @@
         "score": 76,
         "n": 25,
         "weather": true,
-        "temp_f": 90,
+        "temp_f": 89,
         "wind_mph": 9,
         "indoor": false,
         "savant_pf": 1.14,
@@ -29301,14 +28831,14 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 18.9,
+        "exp100": 10.6,
         "neutral100": 11.3,
-        "boost": 67,
-        "score": 100,
+        "boost": -6,
+        "score": 88,
         "n": 186,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 10,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.14,
         "anchored": true
@@ -30227,14 +29757,14 @@
         "L30": 7
       },
       "park_hr": {
-        "exp100": 18.1,
+        "exp100": 23.9,
         "neutral100": 13.8,
-        "boost": 31,
+        "boost": 74,
         "score": 100,
         "n": 240,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 97,
+        "wind_mph": 6,
         "indoor": false,
         "savant_pf": 1.17,
         "anchored": true
@@ -31581,7 +31111,7 @@
         "score": 91,
         "n": 250,
         "weather": true,
-        "temp_f": 94,
+        "temp_f": 96,
         "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.93,
@@ -32491,7 +32021,7 @@
         "score": 93,
         "n": 117,
         "weather": true,
-        "temp_f": 90,
+        "temp_f": 89,
         "wind_mph": 9,
         "indoor": false,
         "savant_pf": 1.21,
@@ -32948,14 +32478,14 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 16.3,
+        "exp100": 13.8,
         "neutral100": 12.0,
-        "boost": 36,
+        "boost": 15,
         "score": 100,
         "n": 267,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 2,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.07,
         "anchored": true
@@ -33419,14 +32949,14 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 29.6,
+        "exp100": 14.8,
         "neutral100": 12.8,
-        "boost": 131,
+        "boost": 15,
         "score": 100,
         "n": 78,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 10,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.15,
         "anchored": true
@@ -33887,7 +33417,7 @@
         "score": 100,
         "n": 177,
         "weather": true,
-        "temp_f": 90,
+        "temp_f": 89,
         "wind_mph": 9,
         "indoor": false,
         "savant_pf": 1.14,
@@ -34366,7 +33896,7 @@
         "score": 92,
         "n": 153,
         "weather": true,
-        "temp_f": 92,
+        "temp_f": 91,
         "wind_mph": 15,
         "indoor": false,
         "savant_pf": 1.08,
@@ -34819,14 +34349,14 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 8.4,
+        "exp100": 6.4,
         "neutral100": 6.5,
-        "boost": 30,
-        "score": 70,
+        "boost": -1,
+        "score": 54,
         "n": 261,
-        "weather": true,
-        "temp_f": 99,
-        "wind_mph": 8,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.0,
         "anchored": true
@@ -35280,9 +34810,9 @@
         "boost": -12,
         "score": 32,
         "n": 113,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 2,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 0.89,
         "anchored": true
@@ -35729,14 +35259,14 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 23.3,
+        "exp100": 15.0,
         "neutral100": 14.5,
-        "boost": 61,
+        "boost": 3,
         "score": 100,
         "n": 69,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 2,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.07,
         "anchored": true
@@ -36189,14 +35719,14 @@
         "L30": 7
       },
       "park_hr": {
-        "exp100": 12.8,
+        "exp100": 18.0,
         "neutral100": 10.9,
-        "boost": 17,
+        "boost": 65,
         "score": 100,
         "n": 202,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 97,
+        "wind_mph": 6,
         "indoor": false,
         "savant_pf": 1.17,
         "anchored": true
@@ -36659,7 +36189,7 @@
         "score": 100,
         "n": 243,
         "weather": true,
-        "temp_f": 90,
+        "temp_f": 89,
         "wind_mph": 9,
         "indoor": false,
         "savant_pf": 1.14,
@@ -37103,14 +36633,14 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 3.8,
+        "exp100": 11.5,
         "neutral100": 3.2,
-        "boost": 9,
-        "score": 32,
+        "boost": 128,
+        "score": 96,
         "n": 31,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.84,
         "anchored": true
@@ -38019,7 +37549,7 @@
         "score": 100,
         "n": 136,
         "weather": true,
-        "temp_f": 92,
+        "temp_f": 91,
         "wind_mph": 15,
         "indoor": false,
         "savant_pf": 0.97,
@@ -38468,16 +37998,478 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 10.8,
+        "exp100": 8.7,
         "neutral100": 5.7,
-        "boost": 91,
-        "score": 90,
+        "boost": 53,
+        "score": 72,
         "n": 53,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 2,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.07,
+        "anchored": true
+      }
+    },
+    {
+      "id": 656775,
+      "name": "Cedric Mullins",
+      "bats": "L",
+      "bvp": {
+        "sp": {
+          "name": "Seth Lugo",
+          "pa": 3,
+          "hr": 0
+        },
+        "bp": [
+          {
+            "name": "Connor Seabold",
+            "pa": 1,
+            "hr": 0
+          },
+          {
+            "name": "John Schreiber",
+            "pa": 1,
+            "hr": 0
+          },
+          {
+            "name": "Tyler Tolbert",
+            "pa": 1,
+            "hr": 0
+          },
+          {
+            "name": "Beck Way",
+            "pa": 1,
+            "hr": 0
+          }
+        ],
+        "bp_hr": false,
+        "sp_career": {
+          "name": "Seth Lugo",
+          "pa": 9,
+          "hr": 0
+        }
+      },
+      "hr_by_spot": {
+        "6": 2,
+        "7": 5,
+        "8": 1
+      },
+      "lineup_spot": 6,
+      "lineup_status": "confirmed",
+      "trend": {
+        "dir": "up",
+        "pct": 9,
+        "new": false
+      },
+      "angle": "LHB vs an arm that's allowed 32 HR to LHB (2yr) \u2014 warming up \u2014 contact rising (+9%)",
+      "badges": [
+        {
+          "t": "PLATOON",
+          "k": "plat"
+        },
+        {
+          "t": "WARMING",
+          "k": "hot"
+        }
+      ],
+      "team": "TB",
+      "opp_team": "KC",
+      "game_pk": 824094,
+      "time": "2026-07-01T23:40:00Z",
+      "park": "Kauffman Stadium",
+      "park_hr_factor": 0.9,
+      "why": "60% IAA \u00b7 vs SLIPPING arm",
+      "tier": "THIN",
+      "cleared": 1,
+      "sample": {
+        "L5": 35,
+        "L15": 75,
+        "L30": 155,
+        "season": 376
+      },
+      "opp_pitcher": {
+        "name": "Seth Lugo",
+        "throws": "R",
+        "hr_score": 43,
+        "recent_score": 47,
+        "season_score": 38,
+        "form": {
+          "label": "SLIPPING",
+          "color": "#E0913A"
+        },
+        "flags": [
+          "HR-prone lately (6.4% of PA)",
+          "not missing bats (6.9% swstr)"
+        ],
+        "recent": {
+          "barrel_pct_allowed": 3.2,
+          "hardhit_pct_allowed": 27.4,
+          "avg_ev_allowed": 82.8,
+          "hr_per_pa": 6.4,
+          "ideal_aa_allowed": 55.1,
+          "pull_air_allowed": 27.8,
+          "swstr_pct_allowed": 6.9,
+          "fb_velo": 91.0,
+          "velo_trend": 0.0,
+          "bbe": 62
+        },
+        "season": {
+          "barrel_pct_allowed": 5.5,
+          "hardhit_pct_allowed": 26.0,
+          "avg_ev_allowed": 82.5,
+          "hr_per_pa": 2.6,
+          "ideal_aa_allowed": 57.0,
+          "pull_air_allowed": 31.2,
+          "swstr_pct_allowed": 8.5,
+          "fb_velo": 91.0
+        },
+        "opener": false,
+        "start_len": 6.0,
+        "platoon": {
+          "R": 58,
+          "L": 35,
+          "worse": "R",
+          "gap": 23
+        },
+        "hr_by_hand": {
+          "R_hr": 7,
+          "R_pa": 136,
+          "L_hr": 3,
+          "L_pa": 245
+        },
+        "hr_by_hand_2yr": {
+          "two_yr": {
+            "R": {
+              "hr": 19,
+              "pa": 630
+            },
+            "L": {
+              "hr": 32,
+              "pa": 893
+            }
+          },
+          "this_yr": {
+            "R": {
+              "hr": 9,
+              "pa": 155
+            },
+            "L": {
+              "hr": 4,
+              "pa": 267
+            }
+          }
+        },
+        "vs_hand": "L",
+        "vs_hand_score": 35,
+        "vs_hand_metrics": {
+          "barrel_pct_allowed": 5.0,
+          "hr_per_pa": 1.2,
+          "bbe": 337
+        }
+      },
+      "opp_bullpen": {
+        "score": 38,
+        "form": {
+          "label": "STEADY",
+          "color": "#8A95A3"
+        },
+        "flags": [
+          "not missing bats (8.5% swstr)"
+        ],
+        "arms": 17,
+        "vs_hand": 37,
+        "hand": "L",
+        "platoon": {
+          "R": 38,
+          "L": 37,
+          "worse": "R",
+          "gap": 1
+        }
+      },
+      "pitch_splits": {
+        "FB": {
+          "barrel_pct": 2.1,
+          "avg_ev": 81.0,
+          "la": 31.4,
+          "whiff_pct": 22.5,
+          "hr": 5,
+          "bbe": 235
+        },
+        "BR": {
+          "barrel_pct": 0.0,
+          "avg_ev": 81.0,
+          "la": 20.5,
+          "whiff_pct": 23.0,
+          "hr": 1,
+          "bbe": 90
+        },
+        "OFF": {
+          "barrel_pct": 6.0,
+          "avg_ev": 80.2,
+          "la": 17.4,
+          "whiff_pct": 11.7,
+          "hr": 2,
+          "bbe": 50
+        }
+      },
+      "pitch_usage": {
+        "FB": 51.9,
+        "BR": 39.5,
+        "OFF": 8.6
+      },
+      "pitch_matchup": {
+        "weighted_barrel": 1.6,
+        "edge": -0.5,
+        "best": {
+          "fam": "FB",
+          "label": "Fastball",
+          "usage": 51.9,
+          "barrel": 2.1
+        },
+        "fams": {
+          "FB": {
+            "usage": 51.9,
+            "barrel": 2.1
+          },
+          "BR": {
+            "usage": 39.5,
+            "barrel": 0.0
+          },
+          "OFF": {
+            "usage": 8.6,
+            "barrel": 6.0
+          }
+        }
+      },
+      "heat_mix": 42,
+      "mix": {
+        "avg_ev": 81.8,
+        "barrel_pct": 3.5,
+        "la": 22.4,
+        "whiff_pct": 25.1
+      },
+      "ev_overall": 81.1,
+      "luck": {
+        "recent": {
+          "xwobacon": 0.37,
+          "wobacon": 0.412,
+          "luck_gap": -0.042,
+          "barrel_pct": 3.9,
+          "hr": 2,
+          "bb_count": 51
+        },
+        "season": {
+          "xwobacon": 0.281,
+          "wobacon": 0.294,
+          "luck_gap": -0.013,
+          "barrel_pct": 2.1,
+          "hr": 8,
+          "bb_count": 376
+        }
+      },
+      "max_ev": {
+        "recent": 110.4,
+        "season": 110.4
+      },
+      "heat": 42,
+      "score_breakdown": {
+        "barrel_pct": 3.6,
+        "pull_air_pct": 10.1,
+        "iso": 7.8,
+        "avg_ev": 3.3,
+        "ideal_aa_pct": 10.1,
+        "slg": 8.4,
+        "cleared": 1,
+        "signals": {
+          "barrel_pct": "False",
+          "pull_air_pct": "False",
+          "iso": "False",
+          "avg_ev": "False",
+          "ideal_aa_pct": "True",
+          "slg": "False"
+        },
+        "tier": "THIN",
+        "flags": [
+          "EV below 87 floor",
+          "empty IAA (no EV behind it)"
+        ],
+        "base_four": 43.3,
+        "pitcher_mult": 0.969
+      },
+      "metrics": {
+        "pull_air_pct": {
+          "recent": 35.7,
+          "season": 47.1,
+          "career": null
+        },
+        "avg_ev": {
+          "recent": 81.1,
+          "season": 81.0,
+          "career": null
+        },
+        "barrel_pct": {
+          "recent": 3.9,
+          "season": 2.1,
+          "career": null
+        },
+        "ideal_aa_pct": {
+          "recent": 60.5,
+          "season": 61.2,
+          "career": null
+        },
+        "bat_speed": {
+          "recent": 70.0,
+          "season": 70.1,
+          "career": null
+        },
+        "hardhit_pct": {
+          "recent": 19.6,
+          "season": 21.0,
+          "career": null
+        },
+        "iso": {
+          "recent": 0.176,
+          "season": 0.124,
+          "career": null
+        },
+        "slg": {
+          "recent": 0.441,
+          "season": 0.332,
+          "career": null
+        },
+        "launch_angle": {
+          "recent": 23.6,
+          "season": 26.9,
+          "career": null
+        },
+        "fb_pct": {
+          "recent": 11.8,
+          "season": 16.2,
+          "career": null
+        },
+        "pull_pct": {
+          "recent": 44.0,
+          "season": 48.9,
+          "career": null
+        },
+        "swstr_pct": {
+          "recent": 15.1,
+          "season": 10.5,
+          "career": null
+        },
+        "k_pct": {
+          "recent": 27.8,
+          "season": 19.5,
+          "career": null
+        }
+      },
+      "windows": {
+        "L14d": {
+          "barrel_pct": 3.9,
+          "hardhit_pct": 19.6,
+          "avg_ev": 81.1,
+          "max_ev": 110.4,
+          "launch_angle": 23.6,
+          "fb_pct": 11.8,
+          "pull_pct": 44.0,
+          "pull_air_pct": 35.7,
+          "ideal_aa_pct": 60.5,
+          "bat_speed": 70.0,
+          "iso": 0.176,
+          "slg": 0.441,
+          "xwobacon": 0.37,
+          "wobacon": 0.412,
+          "luck_gap": -0.042,
+          "swstr_pct": 15.1,
+          "k_pct": 27.8,
+          "hr": 2,
+          "pa": 36,
+          "bb_count": 51
+        },
+        "L5": {
+          "barrel_pct": 5.7,
+          "hardhit_pct": 20.0,
+          "avg_ev": 81.6,
+          "max_ev": 110.4,
+          "launch_angle": 24.7,
+          "fb_pct": 14.3,
+          "pull_pct": 50.0,
+          "pull_air_pct": 44.4,
+          "ideal_aa_pct": 67.4,
+          "bat_speed": 70.1,
+          "iso": 0.316,
+          "slg": 0.632,
+          "xwobacon": 0.426,
+          "wobacon": 0.475,
+          "luck_gap": -0.049,
+          "swstr_pct": 9.4,
+          "k_pct": 19.0,
+          "hr": 2,
+          "pa": 21,
+          "bb_count": 35
+        },
+        "L15": {
+          "barrel_pct": 4.0,
+          "hardhit_pct": 22.7,
+          "avg_ev": 81.3,
+          "max_ev": 110.4,
+          "launch_angle": 24.8,
+          "fb_pct": 10.7,
+          "pull_pct": 44.7,
+          "pull_air_pct": 38.9,
+          "ideal_aa_pct": 58.9,
+          "bat_speed": 70.0,
+          "iso": 0.173,
+          "slg": 0.462,
+          "xwobacon": 0.379,
+          "wobacon": 0.454,
+          "luck_gap": -0.075,
+          "swstr_pct": 13.8,
+          "k_pct": 25.9,
+          "hr": 3,
+          "pa": 58,
+          "bb_count": 75
+        },
+        "L30": {
+          "barrel_pct": 3.9,
+          "hardhit_pct": 21.3,
+          "avg_ev": 81.5,
+          "max_ev": 110.4,
+          "launch_angle": 29.9,
+          "fb_pct": 16.8,
+          "pull_pct": 44.7,
+          "pull_air_pct": 45.5,
+          "ideal_aa_pct": 63.0,
+          "bat_speed": 70.1,
+          "iso": 0.17,
+          "slg": 0.41,
+          "xwobacon": 0.349,
+          "wobacon": 0.373,
+          "luck_gap": -0.024,
+          "swstr_pct": 11.2,
+          "k_pct": 21.0,
+          "hr": 5,
+          "pa": 119,
+          "bb_count": 155
+        }
+      },
+      "hr_recent": {
+        "L5": 2,
+        "L15": 3,
+        "L30": 5
+      },
+      "park_hr": {
+        "exp100": 19.3,
+        "neutral100": 8.4,
+        "boost": 129,
+        "score": 100,
+        "n": 190,
+        "weather": true,
+        "temp_f": 94,
+        "wind_mph": 15,
+        "indoor": false,
+        "savant_pf": 0.95,
         "anchored": true
       }
     },
@@ -39393,14 +39385,14 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 11.1,
+        "exp100": 12.3,
         "neutral100": 10.1,
-        "boost": 9,
-        "score": 92,
+        "boost": 21,
+        "score": 100,
         "n": 148,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 9,
         "indoor": false,
         "savant_pf": 0.88,
         "anchored": true
@@ -39855,14 +39847,14 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 9.8,
+        "exp100": 18.5,
         "neutral100": 12.4,
-        "boost": -21,
-        "score": 82,
+        "boost": 49,
+        "score": 100,
         "n": 105,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 94,
+        "wind_mph": 4,
         "indoor": false,
         "savant_pf": 1.02,
         "anchored": true
@@ -40335,14 +40327,14 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 13.0,
+        "exp100": 7.7,
         "neutral100": 7.4,
-        "boost": 76,
-        "score": 100,
+        "boost": 4,
+        "score": 64,
         "n": 271,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 10,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.14,
         "anchored": true
@@ -40808,7 +40800,7 @@
         "score": 100,
         "n": 235,
         "weather": true,
-        "temp_f": 90,
+        "temp_f": 89,
         "wind_mph": 9,
         "indoor": false,
         "savant_pf": 1.19,
@@ -42214,14 +42206,14 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 6.4,
+        "exp100": 5.6,
         "neutral100": 7.4,
-        "boost": -14,
-        "score": 54,
+        "boost": -24,
+        "score": 47,
         "n": 215,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 9,
         "indoor": false,
         "savant_pf": 0.88,
         "anchored": true
@@ -42678,14 +42670,14 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 5.6,
+        "exp100": 4.0,
         "neutral100": 7.4,
-        "boost": -24,
-        "score": 46,
+        "boost": -46,
+        "score": 33,
         "n": 95,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 9,
         "indoor": false,
         "savant_pf": 0.84,
         "anchored": true
@@ -43138,14 +43130,14 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 9.6,
+        "exp100": 13.5,
         "neutral100": 8.7,
-        "boost": 10,
-        "score": 80,
+        "boost": 54,
+        "score": 100,
         "n": 252,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 94,
+        "wind_mph": 4,
         "indoor": false,
         "savant_pf": 1.12,
         "anchored": true
@@ -43575,14 +43567,14 @@
         "L30": 0
       },
       "park_hr": {
-        "exp100": 16.1,
+        "exp100": 10.7,
         "neutral100": 4.7,
-        "boost": 150,
-        "score": 100,
+        "boost": 131,
+        "score": 89,
         "n": 43,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 10,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.15,
         "anchored": true
@@ -44040,14 +44032,14 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 8.6,
+        "exp100": 15.8,
         "neutral100": 8.0,
-        "boost": 8,
-        "score": 72,
+        "boost": 98,
+        "score": 100,
         "n": 263,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 97,
+        "wind_mph": 6,
         "indoor": false,
         "savant_pf": 1.06,
         "anchored": true
@@ -44112,7 +44104,7 @@
         "3": 6
       },
       "lineup_spot": 2,
-      "lineup_status": "projected",
+      "lineup_status": "confirmed",
       "trend": {
         "dir": "down",
         "pct": -20,
@@ -44515,9 +44507,9 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 24.2,
+        "exp100": 23.7,
         "neutral100": 12.8,
-        "boost": 89,
+        "boost": 86,
         "score": 100,
         "n": 219,
         "weather": true,
@@ -44975,14 +44967,14 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 9.4,
+        "exp100": 7.3,
         "neutral100": 11.5,
-        "boost": -18,
-        "score": 78,
+        "boost": -37,
+        "score": 61,
         "n": 218,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 9,
         "indoor": false,
         "savant_pf": 0.84,
         "anchored": true
@@ -45444,14 +45436,14 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 5.4,
+        "exp100": 10.7,
         "neutral100": 5.9,
-        "boost": -9,
-        "score": 45,
+        "boost": 82,
+        "score": 89,
         "n": 68,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 94,
+        "wind_mph": 4,
         "indoor": false,
         "savant_pf": 1.08,
         "anchored": true
@@ -46361,7 +46353,7 @@
         "score": 73,
         "n": 68,
         "weather": true,
-        "temp_f": 92,
+        "temp_f": 91,
         "wind_mph": 15,
         "indoor": false,
         "savant_pf": 1.08,
@@ -46816,14 +46808,14 @@
         "L30": 6
       },
       "park_hr": {
-        "exp100": 26.4,
+        "exp100": 13.9,
         "neutral100": 11.6,
-        "boost": 127,
+        "boost": 19,
         "score": 100,
         "n": 258,
-        "weather": true,
-        "temp_f": 84,
-        "wind_mph": 12,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.19,
         "anchored": true
@@ -47303,14 +47295,14 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 20.4,
+        "exp100": 15.4,
         "neutral100": 14.8,
-        "boost": 38,
+        "boost": 4,
         "score": 100,
         "n": 243,
-        "weather": true,
-        "temp_f": 99,
-        "wind_mph": 8,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.0,
         "anchored": true
@@ -47739,9 +47731,9 @@
         "boost": 4,
         "score": 100,
         "n": 32,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.92,
         "anchored": true
@@ -48179,14 +48171,14 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 20.7,
+        "exp100": 8.3,
         "neutral100": 6.5,
-        "boost": 150,
-        "score": 100,
+        "boost": 28,
+        "score": 69,
         "n": 31,
-        "weather": true,
-        "temp_f": 84,
-        "wind_mph": 12,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.26,
         "anchored": true
@@ -48628,14 +48620,14 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 11.7,
+        "exp100": 4.9,
         "neutral100": 5.3,
-        "boost": 120,
-        "score": 97,
+        "boost": -8,
+        "score": 41,
         "n": 113,
-        "weather": true,
-        "temp_f": 99,
-        "wind_mph": 8,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.0,
         "anchored": true
@@ -49082,14 +49074,14 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 7.4,
+        "exp100": 11.9,
         "neutral100": 12.4,
-        "boost": -41,
-        "score": 62,
+        "boost": -4,
+        "score": 99,
         "n": 249,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.78,
         "anchored": true
@@ -49996,14 +49988,14 @@
         "L30": 7
       },
       "park_hr": {
-        "exp100": 19.1,
+        "exp100": 23.6,
         "neutral100": 16.2,
-        "boost": 18,
+        "boost": 45,
         "score": 100,
         "n": 216,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 94,
+        "wind_mph": 4,
         "indoor": false,
         "savant_pf": 1.12,
         "anchored": true
@@ -50458,13 +50450,13 @@
         "L30": 8
       },
       "park_hr": {
-        "exp100": 15.5,
+        "exp100": 14.9,
         "neutral100": 16.1,
-        "boost": -4,
+        "boost": -7,
         "score": 100,
         "n": 174,
         "weather": true,
-        "temp_f": 92,
+        "temp_f": 91,
         "wind_mph": 15,
         "indoor": false,
         "savant_pf": 0.97,
@@ -50910,14 +50902,14 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 7.1,
+        "exp100": 5.1,
         "neutral100": 8.1,
-        "boost": -12,
-        "score": 60,
+        "boost": -37,
+        "score": 43,
         "n": 74,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 9,
         "indoor": false,
         "savant_pf": 0.84,
         "anchored": true
@@ -51364,14 +51356,14 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 0.0,
+        "exp100": 6.6,
         "neutral100": 3.4,
-        "boost": -60,
-        "score": 0,
+        "boost": 90,
+        "score": 55,
         "n": 87,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 94,
+        "wind_mph": 4,
         "indoor": false,
         "savant_pf": 1.02,
         "anchored": true
@@ -51869,8 +51861,8 @@
         }
       },
       "hr_by_spot": {},
-      "lineup_spot": 8,
-      "lineup_status": "projected",
+      "lineup_spot": 7,
+      "lineup_status": "confirmed",
       "trend": {
         "dir": "up",
         "pct": 27,
@@ -53190,14 +53182,14 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 8.9,
+        "exp100": 7.1,
         "neutral100": 6.1,
-        "boost": 47,
-        "score": 74,
+        "boost": 17,
+        "score": 59,
         "n": 247,
-        "weather": true,
-        "temp_f": 99,
-        "wind_mph": 8,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.0,
         "anchored": true
@@ -53637,7 +53629,7 @@
         "score": 87,
         "n": 154,
         "weather": true,
-        "temp_f": 94,
+        "temp_f": 96,
         "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.89,
@@ -54095,7 +54087,7 @@
         "score": 100,
         "n": 219,
         "weather": true,
-        "temp_f": 94,
+        "temp_f": 96,
         "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.89,
@@ -54547,14 +54539,14 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 14.0,
+        "exp100": 8.4,
         "neutral100": 9.6,
-        "boost": 46,
-        "score": 100,
+        "boost": -12,
+        "score": 70,
         "n": 94,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 2,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 0.89,
         "anchored": true
@@ -55010,7 +55002,7 @@
         "score": 100,
         "n": 241,
         "weather": true,
-        "temp_f": 90,
+        "temp_f": 89,
         "wind_mph": 9,
         "indoor": false,
         "savant_pf": 1.21,
@@ -55454,7 +55446,7 @@
         "score": 100,
         "n": 72,
         "weather": true,
-        "temp_f": 90,
+        "temp_f": 89,
         "wind_mph": 9,
         "indoor": false,
         "savant_pf": 1.14,
@@ -55905,7 +55897,7 @@
         "score": 21,
         "n": 219,
         "weather": true,
-        "temp_f": 92,
+        "temp_f": 91,
         "wind_mph": 15,
         "indoor": false,
         "savant_pf": 0.97,
@@ -56364,14 +56356,14 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 10.4,
+        "exp100": 9.8,
         "neutral100": 9.1,
-        "boost": 15,
-        "score": 87,
+        "boost": 8,
+        "score": 82,
         "n": 176,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 2,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.07,
         "anchored": true
@@ -56831,14 +56823,14 @@
         "L30": 6
       },
       "park_hr": {
-        "exp100": 11.2,
+        "exp100": 9.2,
         "neutral100": 9.0,
-        "boost": 24,
-        "score": 94,
+        "boost": 2,
+        "score": 77,
         "n": 133,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 2,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 0.89,
         "anchored": true
@@ -57305,14 +57297,14 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 10.1,
+        "exp100": 9.5,
         "neutral100": 11.0,
-        "boost": -8,
-        "score": 84,
+        "boost": -14,
+        "score": 79,
         "n": 145,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 9,
         "indoor": false,
         "savant_pf": 0.88,
         "anchored": true
@@ -57760,7 +57752,7 @@
         "score": 79,
         "n": 284,
         "weather": true,
-        "temp_f": 94,
+        "temp_f": 96,
         "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.9,
@@ -58695,14 +58687,14 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 17.7,
+        "exp100": 12.2,
         "neutral100": 10.5,
-        "boost": 68,
+        "boost": 16,
         "score": 100,
         "n": 162,
-        "weather": true,
-        "temp_f": 99,
-        "wind_mph": 8,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.0,
         "anchored": true
@@ -59142,14 +59134,14 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 10.8,
+        "exp100": 14.9,
         "neutral100": 9.4,
-        "boost": 15,
-        "score": 90,
+        "boost": 58,
+        "score": 100,
         "n": 96,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.92,
         "anchored": true
@@ -59611,14 +59603,14 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 6.4,
+        "exp100": 8.9,
         "neutral100": 6.7,
-        "boost": -5,
-        "score": 53,
+        "boost": 33,
+        "score": 74,
         "n": 179,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 94,
+        "wind_mph": 4,
         "indoor": false,
         "savant_pf": 1.02,
         "anchored": true
@@ -60978,14 +60970,14 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 7.4,
+        "exp100": 11.4,
         "neutral100": 7.5,
-        "boost": -1,
-        "score": 62,
+        "boost": 53,
+        "score": 95,
         "n": 147,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 97,
+        "wind_mph": 6,
         "indoor": false,
         "savant_pf": 1.06,
         "anchored": true
@@ -61417,14 +61409,14 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 19.0,
+        "exp100": 28.5,
         "neutral100": 16.2,
-        "boost": 17,
+        "boost": 76,
         "score": 100,
         "n": 37,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 97,
+        "wind_mph": 6,
         "indoor": false,
         "savant_pf": 1.17,
         "anchored": true
@@ -61860,7 +61852,7 @@
         "score": 100,
         "n": 263,
         "weather": true,
-        "temp_f": 94,
+        "temp_f": 96,
         "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.89,
@@ -62307,7 +62299,7 @@
         "score": 99,
         "n": 157,
         "weather": true,
-        "temp_f": 94,
+        "temp_f": 96,
         "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.89,
@@ -62770,7 +62762,7 @@
         "score": 100,
         "n": 201,
         "weather": true,
-        "temp_f": 90,
+        "temp_f": 89,
         "wind_mph": 9,
         "indoor": false,
         "savant_pf": 1.14,
@@ -63240,7 +63232,7 @@
         "score": 100,
         "n": 198,
         "weather": true,
-        "temp_f": 92,
+        "temp_f": 91,
         "wind_mph": 15,
         "indoor": false,
         "savant_pf": 1.08,
@@ -63688,14 +63680,14 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 25.2,
+        "exp100": 12.0,
         "neutral100": 10.1,
-        "boost": 150,
+        "boost": 19,
         "score": 100,
         "n": 109,
-        "weather": true,
-        "temp_f": 84,
-        "wind_mph": 12,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.19,
         "anchored": true
@@ -64077,14 +64069,14 @@
         "L30": 7
       },
       "park_hr": {
-        "exp100": 24.6,
+        "exp100": 17.9,
         "neutral100": 13.9,
-        "boost": 77,
+        "boost": 29,
         "score": 100,
         "n": 252,
-        "weather": true,
-        "temp_f": 84,
-        "wind_mph": 12,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.27,
         "anchored": true
@@ -64457,14 +64449,14 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 22.6,
+        "exp100": 16.0,
         "neutral100": 11.3,
-        "boost": 99,
+        "boost": 41,
         "score": 100,
         "n": 97,
-        "weather": true,
-        "temp_f": 84,
-        "wind_mph": 12,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.27,
         "anchored": true
@@ -64913,14 +64905,14 @@
         "L30": 7
       },
       "park_hr": {
-        "exp100": 13.5,
+        "exp100": 23.2,
         "neutral100": 13.3,
-        "boost": 1,
+        "boost": 75,
         "score": 100,
         "n": 173,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.92,
         "anchored": true
@@ -65371,14 +65363,14 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 25.5,
+        "exp100": 12.0,
         "neutral100": 10.8,
-        "boost": 135,
+        "boost": 11,
         "score": 100,
         "n": 231,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 10,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.15,
         "anchored": true
@@ -66306,7 +66298,7 @@
         "score": 100,
         "n": 246,
         "weather": true,
-        "temp_f": 90,
+        "temp_f": 89,
         "wind_mph": 9,
         "indoor": false,
         "savant_pf": 1.21,
@@ -66760,7 +66752,7 @@
         "score": 78,
         "n": 180,
         "weather": true,
-        "temp_f": 92,
+        "temp_f": 91,
         "wind_mph": 15,
         "indoor": false,
         "savant_pf": 1.08,
@@ -67142,14 +67134,14 @@
         "L30": 11
       },
       "park_hr": {
-        "exp100": 33.9,
+        "exp100": 23.3,
         "neutral100": 19.5,
-        "boost": 74,
+        "boost": 19,
         "score": 100,
         "n": 190,
-        "weather": true,
-        "temp_f": 84,
-        "wind_mph": 12,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.19,
         "anchored": true
@@ -67983,14 +67975,14 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 10.9,
+        "exp100": 7.9,
         "neutral100": 14.4,
-        "boost": -24,
-        "score": 91,
+        "boost": -45,
+        "score": 65,
         "n": 125,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 9,
         "indoor": false,
         "savant_pf": 0.84,
         "anchored": true
@@ -68437,14 +68429,14 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 18.3,
+        "exp100": 9.1,
         "neutral100": 7.1,
-        "boost": 150,
-        "score": 100,
+        "boost": 28,
+        "score": 76,
         "n": 84,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 10,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.14,
         "anchored": true
@@ -68879,13 +68871,13 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 17.3,
+        "exp100": 16.6,
         "neutral100": 8.6,
-        "boost": 100,
+        "boost": 92,
         "score": 100,
         "n": 185,
         "weather": true,
-        "temp_f": 90,
+        "temp_f": 89,
         "wind_mph": 9,
         "indoor": false,
         "savant_pf": 1.21,
@@ -70170,14 +70162,14 @@
         "L30": 6
       },
       "park_hr": {
-        "exp100": 23.9,
+        "exp100": 14.4,
         "neutral100": 11.2,
-        "boost": 114,
+        "boost": 28,
         "score": 100,
         "n": 107,
-        "weather": true,
-        "temp_f": 84,
-        "wind_mph": 12,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.26,
         "anchored": true
@@ -70627,14 +70619,14 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 7.9,
+        "exp100": 5.9,
         "neutral100": 5.8,
-        "boost": 35,
-        "score": 66,
+        "boost": 1,
+        "score": 49,
         "n": 223,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 2,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 0.89,
         "anchored": true
@@ -71103,14 +71095,14 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 12.3,
+        "exp100": 9.2,
         "neutral100": 10.5,
-        "boost": 17,
-        "score": 100,
+        "boost": -12,
+        "score": 77,
         "n": 143,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 2,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 0.89,
         "anchored": true
@@ -71553,14 +71545,14 @@
         "L30": 7
       },
       "park_hr": {
-        "exp100": 16.1,
+        "exp100": 22.6,
         "neutral100": 14.4,
-        "boost": 12,
+        "boost": 56,
         "score": 100,
         "n": 201,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.92,
         "anchored": true
@@ -72027,14 +72019,14 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 2.4,
+        "exp100": 6.5,
         "neutral100": 4.0,
-        "boost": -39,
-        "score": 20,
+        "boost": 62,
+        "score": 54,
         "n": 150,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 94,
+        "wind_mph": 4,
         "indoor": false,
         "savant_pf": 1.12,
         "anchored": true
@@ -72954,9 +72946,9 @@
         "boost": 20,
         "score": 80,
         "n": 50,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 2,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 0.97,
         "anchored": true
@@ -73016,7 +73008,7 @@
         "4": 6
       },
       "lineup_spot": 1,
-      "lineup_status": "projected",
+      "lineup_status": "confirmed",
       "trend": {
         "dir": "flat",
         "pct": -2,
@@ -73896,14 +73888,14 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 22.0,
+        "exp100": 14.3,
         "neutral100": 13.6,
-        "boost": 61,
+        "boost": 5,
         "score": 100,
         "n": 110,
-        "weather": true,
-        "temp_f": 99,
-        "wind_mph": 8,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.0,
         "anchored": true
@@ -75209,14 +75201,14 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 8.9,
+        "exp100": 6.8,
         "neutral100": 6.6,
-        "boost": 34,
-        "score": 74,
+        "boost": 2,
+        "score": 56,
         "n": 211,
-        "weather": true,
-        "temp_f": 99,
-        "wind_mph": 8,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.0,
         "anchored": true
@@ -75671,14 +75663,14 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 6.9,
+        "exp100": 5.4,
         "neutral100": 6.2,
-        "boost": 11,
-        "score": 57,
+        "boost": -12,
+        "score": 45,
         "n": 243,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 2,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 0.89,
         "anchored": true
@@ -76138,14 +76130,14 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 8.0,
+        "exp100": 8.3,
         "neutral100": 9.4,
-        "boost": -15,
-        "score": 67,
+        "boost": -12,
+        "score": 69,
         "n": 254,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 9,
         "indoor": false,
         "savant_pf": 0.84,
         "anchored": true
@@ -76612,14 +76604,14 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 10.8,
+        "exp100": 15.0,
         "neutral100": 9.3,
-        "boost": 16,
-        "score": 90,
+        "boost": 62,
+        "score": 100,
         "n": 259,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 94,
+        "wind_mph": 4,
         "indoor": false,
         "savant_pf": 1.12,
         "anchored": true
@@ -77079,14 +77071,14 @@
         "L30": 7
       },
       "park_hr": {
-        "exp100": 11.5,
+        "exp100": 18.4,
         "neutral100": 10.4,
-        "boost": 10,
-        "score": 96,
+        "boost": 76,
+        "score": 100,
         "n": 230,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 97,
+        "wind_mph": 6,
         "indoor": false,
         "savant_pf": 1.13,
         "anchored": true
@@ -77537,7 +77529,7 @@
         "score": 96,
         "n": 147,
         "weather": true,
-        "temp_f": 94,
+        "temp_f": 96,
         "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.89,
@@ -78366,14 +78358,14 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 20.5,
+        "exp100": 10.6,
         "neutral100": 8.3,
-        "boost": 148,
-        "score": 100,
+        "boost": 29,
+        "score": 89,
         "n": 157,
-        "weather": true,
-        "temp_f": 84,
-        "wind_mph": 12,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.19,
         "anchored": true
@@ -78798,14 +78790,14 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 13.8,
+        "exp100": 10.4,
         "neutral100": 16.0,
-        "boost": -14,
-        "score": 100,
+        "boost": -35,
+        "score": 86,
         "n": 25,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 9,
         "indoor": false,
         "savant_pf": 0.88,
         "anchored": true
@@ -80082,7 +80074,7 @@
         "score": 100,
         "n": 248,
         "weather": true,
-        "temp_f": 94,
+        "temp_f": 96,
         "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.89,
@@ -80512,7 +80504,7 @@
         "score": 100,
         "n": 33,
         "weather": true,
-        "temp_f": 94,
+        "temp_f": 96,
         "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.89,
@@ -80979,7 +80971,7 @@
         "score": 100,
         "n": 172,
         "weather": true,
-        "temp_f": 92,
+        "temp_f": 91,
         "wind_mph": 15,
         "indoor": false,
         "savant_pf": 1.03,
@@ -81812,7 +81804,7 @@
         "score": 81,
         "n": 133,
         "weather": true,
-        "temp_f": 92,
+        "temp_f": 91,
         "wind_mph": 15,
         "indoor": false,
         "savant_pf": 0.97,
@@ -82717,14 +82709,14 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 28.4,
+        "exp100": 15.2,
         "neutral100": 11.4,
-        "boost": 149,
+        "boost": 33,
         "score": 100,
         "n": 264,
-        "weather": true,
-        "temp_f": 84,
-        "wind_mph": 12,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.27,
         "anchored": true
@@ -83194,14 +83186,14 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 26.0,
+        "exp100": 14.3,
         "neutral100": 10.6,
-        "boost": 145,
+        "boost": 35,
         "score": 100,
         "n": 226,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 10,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.15,
         "anchored": true
@@ -83639,7 +83631,7 @@
         "score": 100,
         "n": 54,
         "weather": true,
-        "temp_f": 94,
+        "temp_f": 96,
         "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.89,
@@ -84094,7 +84086,7 @@
         "score": 100,
         "n": 104,
         "weather": true,
-        "temp_f": 90,
+        "temp_f": 89,
         "wind_mph": 9,
         "indoor": false,
         "savant_pf": 1.14,
@@ -84548,7 +84540,7 @@
         "score": 30,
         "n": 52,
         "weather": true,
-        "temp_f": 92,
+        "temp_f": 91,
         "wind_mph": 15,
         "indoor": false,
         "savant_pf": 1.03,
@@ -84926,14 +84918,14 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 16.7,
+        "exp100": 7.5,
         "neutral100": 6.3,
-        "boost": 150,
-        "score": 100,
+        "boost": 19,
+        "score": 63,
         "n": 143,
-        "weather": true,
-        "temp_f": 84,
-        "wind_mph": 12,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.19,
         "anchored": true
@@ -85294,14 +85286,14 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 22.4,
+        "exp100": 8.4,
         "neutral100": 6.5,
-        "boost": 150,
-        "score": 100,
+        "boost": 29,
+        "score": 70,
         "n": 46,
-        "weather": true,
-        "temp_f": 84,
-        "wind_mph": 12,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.27,
         "anchored": true
@@ -86122,9 +86114,9 @@
         "boost": 2,
         "score": 43,
         "n": 237,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 9,
         "indoor": false,
         "savant_pf": 0.85,
         "anchored": true
@@ -86578,16 +86570,471 @@
         "L30": 6
       },
       "park_hr": {
-        "exp100": 16.6,
+        "exp100": 21.2,
         "neutral100": 23.1,
-        "boost": -28,
+        "boost": -8,
         "score": 100,
         "n": 212,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.78,
+        "anchored": true
+      }
+    },
+    {
+      "id": 676439,
+      "name": "Hunter Feduccia",
+      "bats": "L",
+      "bvp": {
+        "sp": {
+          "name": "Seth Lugo",
+          "pa": 2,
+          "hr": 0
+        },
+        "bp": [
+          {
+            "name": "Matt Strahm",
+            "pa": 2,
+            "hr": 0
+          },
+          {
+            "name": "Connor Seabold",
+            "pa": 1,
+            "hr": 0
+          },
+          {
+            "name": "Tyler Tolbert",
+            "pa": 1,
+            "hr": 0
+          }
+        ],
+        "bp_hr": false,
+        "sp_career": {
+          "name": "Seth Lugo",
+          "pa": 2,
+          "hr": 0
+        }
+      },
+      "hr_by_spot": {
+        "8": 1
+      },
+      "lineup_spot": 9,
+      "lineup_status": "confirmed",
+      "trend": {
+        "dir": "flat",
+        "pct": 5,
+        "new": false
+      },
+      "angle": "LHB vs an arm that's allowed 32 HR to LHB (2yr) \u2014 due \u2014 hitting it hard, results lagging",
+      "badges": [
+        {
+          "t": "PLATOON",
+          "k": "plat"
+        },
+        {
+          "t": "DUE",
+          "k": "due"
+        }
+      ],
+      "team": "TB",
+      "opp_team": "KC",
+      "game_pk": 824094,
+      "time": "2026-07-01T23:40:00Z",
+      "park": "Kauffman Stadium",
+      "park_hr_factor": 0.9,
+      "why": "vs SLIPPING arm",
+      "tier": "THIN",
+      "cleared": 0,
+      "sample": {
+        "L5": 22,
+        "L15": 66,
+        "L30": 108,
+        "season": 149
+      },
+      "opp_pitcher": {
+        "name": "Seth Lugo",
+        "throws": "R",
+        "hr_score": 43,
+        "recent_score": 47,
+        "season_score": 38,
+        "form": {
+          "label": "SLIPPING",
+          "color": "#E0913A"
+        },
+        "flags": [
+          "HR-prone lately (6.4% of PA)",
+          "not missing bats (6.9% swstr)"
+        ],
+        "recent": {
+          "barrel_pct_allowed": 3.2,
+          "hardhit_pct_allowed": 27.4,
+          "avg_ev_allowed": 82.8,
+          "hr_per_pa": 6.4,
+          "ideal_aa_allowed": 55.1,
+          "pull_air_allowed": 27.8,
+          "swstr_pct_allowed": 6.9,
+          "fb_velo": 91.0,
+          "velo_trend": 0.0,
+          "bbe": 62
+        },
+        "season": {
+          "barrel_pct_allowed": 5.5,
+          "hardhit_pct_allowed": 26.0,
+          "avg_ev_allowed": 82.5,
+          "hr_per_pa": 2.6,
+          "ideal_aa_allowed": 57.0,
+          "pull_air_allowed": 31.2,
+          "swstr_pct_allowed": 8.5,
+          "fb_velo": 91.0
+        },
+        "opener": false,
+        "start_len": 6.0,
+        "platoon": {
+          "R": 58,
+          "L": 35,
+          "worse": "R",
+          "gap": 23
+        },
+        "hr_by_hand": {
+          "R_hr": 7,
+          "R_pa": 136,
+          "L_hr": 3,
+          "L_pa": 245
+        },
+        "hr_by_hand_2yr": {
+          "two_yr": {
+            "R": {
+              "hr": 19,
+              "pa": 630
+            },
+            "L": {
+              "hr": 32,
+              "pa": 893
+            }
+          },
+          "this_yr": {
+            "R": {
+              "hr": 9,
+              "pa": 155
+            },
+            "L": {
+              "hr": 4,
+              "pa": 267
+            }
+          }
+        },
+        "vs_hand": "L",
+        "vs_hand_score": 35,
+        "vs_hand_metrics": {
+          "barrel_pct_allowed": 5.0,
+          "hr_per_pa": 1.2,
+          "bbe": 337
+        }
+      },
+      "opp_bullpen": {
+        "score": 38,
+        "form": {
+          "label": "STEADY",
+          "color": "#8A95A3"
+        },
+        "flags": [
+          "not missing bats (8.5% swstr)"
+        ],
+        "arms": 17,
+        "vs_hand": 37,
+        "hand": "L",
+        "platoon": {
+          "R": 38,
+          "L": 37,
+          "worse": "R",
+          "gap": 1
+        }
+      },
+      "pitch_splits": {
+        "FB": {
+          "barrel_pct": 7.1,
+          "avg_ev": 83.1,
+          "la": 33.1,
+          "whiff_pct": 20.7,
+          "hr": 1,
+          "bbe": 84
+        },
+        "BR": {
+          "barrel_pct": 0.0,
+          "avg_ev": 73.8,
+          "la": 8.2,
+          "whiff_pct": 29.3,
+          "hr": 0,
+          "bbe": 39
+        },
+        "OFF": {
+          "barrel_pct": 0.0,
+          "avg_ev": 82.6,
+          "la": 2.7,
+          "whiff_pct": 34.2,
+          "hr": 0,
+          "bbe": 24
+        }
+      },
+      "pitch_usage": {
+        "FB": 51.9,
+        "BR": 39.5,
+        "OFF": 8.6
+      },
+      "pitch_matchup": {
+        "weighted_barrel": 3.7,
+        "edge": -0.3,
+        "best": {
+          "fam": "FB",
+          "label": "Fastball",
+          "usage": 51.9,
+          "barrel": 7.1
+        },
+        "fams": {
+          "FB": {
+            "usage": 51.9,
+            "barrel": 7.1
+          },
+          "BR": {
+            "usage": 39.5,
+            "barrel": 0.0
+          },
+          "OFF": {
+            "usage": 8.6,
+            "barrel": 0.0
+          }
+        }
+      },
+      "heat_mix": 22,
+      "mix": {
+        "avg_ev": 79.9,
+        "barrel_pct": 9.0,
+        "la": 18.2,
+        "whiff_pct": 17.3
+      },
+      "ev_overall": 81.4,
+      "luck": {
+        "recent": {
+          "xwobacon": 0.413,
+          "wobacon": 0.208,
+          "luck_gap": 0.205,
+          "barrel_pct": 9.7,
+          "hr": 0,
+          "bb_count": 31
+        },
+        "season": {
+          "xwobacon": 0.396,
+          "wobacon": 0.348,
+          "luck_gap": 0.048,
+          "barrel_pct": 4.0,
+          "hr": 1,
+          "bb_count": 149
+        }
+      },
+      "max_ev": {
+        "recent": 106.8,
+        "season": 107.7
+      },
+      "heat": 23,
+      "score_breakdown": {
+        "barrel_pct": 12.0,
+        "pull_air_pct": 0.0,
+        "iso": 3.0,
+        "avg_ev": 3.3,
+        "ideal_aa_pct": 3.3,
+        "slg": 1.9,
+        "cleared": 0,
+        "signals": {
+          "barrel_pct": "False",
+          "pull_air_pct": false,
+          "iso": "False",
+          "avg_ev": "False",
+          "ideal_aa_pct": "False",
+          "slg": "False"
+        },
+        "tier": "THIN",
+        "flags": [
+          "small sample (21 PA, 31 BBE)",
+          "EV below 87 floor"
+        ],
+        "base_four": 23.5,
+        "pitcher_mult": 0.969
+      },
+      "metrics": {
+        "pull_air_pct": {
+          "recent": 0.0,
+          "season": 22.0,
+          "career": null
+        },
+        "avg_ev": {
+          "recent": 81.4,
+          "season": 80.7,
+          "career": null
+        },
+        "barrel_pct": {
+          "recent": 9.7,
+          "season": 4.0,
+          "career": null
+        },
+        "ideal_aa_pct": {
+          "recent": 42.1,
+          "season": 53.0,
+          "career": null
+        },
+        "bat_speed": {
+          "recent": 71.4,
+          "season": 70.2,
+          "career": null
+        },
+        "hardhit_pct": {
+          "recent": 16.1,
+          "season": 20.1,
+          "career": null
+        },
+        "iso": {
+          "recent": 0.105,
+          "season": 0.071,
+          "career": null
+        },
+        "slg": {
+          "recent": 0.211,
+          "season": 0.293,
+          "career": null
+        },
+        "launch_angle": {
+          "recent": 22.7,
+          "season": 21.3,
+          "career": null
+        },
+        "fb_pct": {
+          "recent": 22.6,
+          "season": 15.4,
+          "career": null
+        },
+        "pull_pct": {
+          "recent": 8.3,
+          "season": 31.8,
+          "career": null
+        },
+        "swstr_pct": {
+          "recent": 9.5,
+          "season": 11.2,
+          "career": null
+        },
+        "k_pct": {
+          "recent": 33.3,
+          "season": 30.7,
+          "career": null
+        }
+      },
+      "windows": {
+        "L14d": {
+          "barrel_pct": 9.7,
+          "hardhit_pct": 16.1,
+          "avg_ev": 81.4,
+          "max_ev": 106.8,
+          "launch_angle": 22.7,
+          "fb_pct": 22.6,
+          "pull_pct": 8.3,
+          "pull_air_pct": 0.0,
+          "ideal_aa_pct": 42.1,
+          "bat_speed": 71.4,
+          "iso": 0.105,
+          "slg": 0.211,
+          "xwobacon": 0.413,
+          "wobacon": 0.208,
+          "luck_gap": 0.205,
+          "swstr_pct": 9.5,
+          "k_pct": 33.3,
+          "hr": 0,
+          "pa": 21,
+          "bb_count": 31
+        },
+        "L5": {
+          "barrel_pct": 9.1,
+          "hardhit_pct": 18.2,
+          "avg_ev": 80.4,
+          "max_ev": 106.3,
+          "launch_angle": 24.6,
+          "fb_pct": 27.3,
+          "pull_pct": 11.1,
+          "pull_air_pct": 0.0,
+          "ideal_aa_pct": 51.9,
+          "bat_speed": 71.0,
+          "iso": 0.071,
+          "slg": 0.143,
+          "xwobacon": 0.439,
+          "wobacon": 0.139,
+          "luck_gap": 0.3,
+          "swstr_pct": 9.9,
+          "k_pct": 33.3,
+          "hr": 0,
+          "pa": 15,
+          "bb_count": 22
+        },
+        "L15": {
+          "barrel_pct": 7.6,
+          "hardhit_pct": 25.8,
+          "avg_ev": 83.6,
+          "max_ev": 106.8,
+          "launch_angle": 26.2,
+          "fb_pct": 15.2,
+          "pull_pct": 21.4,
+          "pull_air_pct": 16.7,
+          "ideal_aa_pct": 51.1,
+          "bat_speed": 71.1,
+          "iso": 0.047,
+          "slg": 0.209,
+          "xwobacon": 0.432,
+          "wobacon": 0.25,
+          "luck_gap": 0.182,
+          "swstr_pct": 10.8,
+          "k_pct": 31.9,
+          "hr": 0,
+          "pa": 47,
+          "bb_count": 66
+        },
+        "L30": {
+          "barrel_pct": 5.6,
+          "hardhit_pct": 23.1,
+          "avg_ev": 80.8,
+          "max_ev": 107.2,
+          "launch_angle": 21.9,
+          "fb_pct": 17.6,
+          "pull_pct": 25.5,
+          "pull_air_pct": 18.8,
+          "ideal_aa_pct": 55.7,
+          "bat_speed": 70.7,
+          "iso": 0.097,
+          "slg": 0.319,
+          "xwobacon": 0.414,
+          "wobacon": 0.345,
+          "luck_gap": 0.069,
+          "swstr_pct": 10.7,
+          "k_pct": 28.0,
+          "hr": 1,
+          "pa": 82,
+          "bb_count": 108
+        }
+      },
+      "hr_recent": {
+        "L5": 0,
+        "L15": 0,
+        "L30": 1
+      },
+      "park_hr": {
+        "exp100": 18.5,
+        "neutral100": 7.6,
+        "boost": 145,
+        "score": 100,
+        "n": 66,
+        "weather": true,
+        "temp_f": 94,
+        "wind_mph": 15,
+        "indoor": false,
+        "savant_pf": 0.95,
         "anchored": true
       }
     },
@@ -87045,7 +87492,7 @@
         "score": 100,
         "n": 231,
         "weather": true,
-        "temp_f": 90,
+        "temp_f": 89,
         "wind_mph": 9,
         "indoor": false,
         "savant_pf": 1.21,
@@ -87507,14 +87954,14 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 7.8,
+        "exp100": 3.1,
         "neutral100": 3.0,
-        "boost": 150,
-        "score": 65,
+        "boost": 5,
+        "score": 26,
         "n": 134,
-        "weather": true,
-        "temp_f": 99,
-        "wind_mph": 8,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.0,
         "anchored": true
@@ -87960,14 +88407,14 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 10.5,
+        "exp100": 18.7,
         "neutral100": 8.1,
-        "boost": 30,
-        "score": 88,
+        "boost": 130,
+        "score": 100,
         "n": 111,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.92,
         "anchored": true
@@ -88443,47 +88890,47 @@
         "L30": 0
       },
       "park_hr": {
-        "exp100": 8.1,
+        "exp100": 2.1,
         "neutral100": 2.2,
-        "boost": 150,
-        "score": 67,
+        "boost": -6,
+        "score": 18,
         "n": 312,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 10,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.14,
         "anchored": true
       }
     },
     {
-      "id": 810938,
-      "name": "Ben Williamson",
-      "bats": "R",
+      "id": 680700,
+      "name": "Richie Palacios",
+      "bats": "L",
       "bvp": {
         "sp": {
           "name": "Seth Lugo",
-          "pa": 0,
+          "pa": 3,
           "hr": 0
         },
         "bp": [
           {
             "name": "Connor Seabold",
+            "pa": 2,
+            "hr": 0
+          },
+          {
+            "name": "Steven Cruz",
             "pa": 1,
             "hr": 0
           },
           {
-            "name": "Daniel Lynch IV",
+            "name": "Tyler Tolbert",
             "pa": 1,
             "hr": 0
           },
           {
-            "name": "Lucas Erceg",
-            "pa": 1,
-            "hr": 0
-          },
-          {
-            "name": "Eric Cerantola",
+            "name": "Beck Way",
             "pa": 1,
             "hr": 0
           }
@@ -88491,36 +88938,45 @@
         "bp_hr": false,
         "sp_career": {
           "name": "Seth Lugo",
-          "pa": 3,
+          "pa": 6,
           "hr": 0
         }
       },
       "hr_by_spot": {
-        "7": 2
+        "7": 1
       },
-      "lineup_spot": 7,
-      "lineup_status": "projected",
+      "lineup_spot": 8,
+      "lineup_status": "confirmed",
       "trend": {
-        "dir": "flat",
-        "pct": 0,
+        "dir": "down",
+        "pct": -25,
         "new": false
       },
-      "angle": "",
-      "badges": [],
+      "angle": "LHB vs an arm that's allowed 32 HR to LHB (2yr) \u2014 due \u2014 hitting it hard, results lagging",
+      "badges": [
+        {
+          "t": "PLATOON",
+          "k": "plat"
+        },
+        {
+          "t": "DUE",
+          "k": "due"
+        }
+      ],
       "team": "TB",
       "opp_team": "KC",
       "game_pk": 824094,
       "time": "2026-07-01T23:40:00Z",
       "park": "Kauffman Stadium",
-      "park_hr_factor": 0.92,
+      "park_hr_factor": 0.9,
       "why": "vs SLIPPING arm",
       "tier": "THIN",
       "cleared": 0,
       "sample": {
-        "L5": 27,
-        "L15": 66,
-        "L30": 135,
-        "season": 254
+        "L5": 23,
+        "L15": 74,
+        "L30": 143,
+        "season": 250
       },
       "opp_pitcher": {
         "name": "Seth Lugo",
@@ -88594,12 +89050,12 @@
             }
           }
         },
-        "vs_hand": "R",
-        "vs_hand_score": 58,
+        "vs_hand": "L",
+        "vs_hand_score": 35,
         "vs_hand_metrics": {
-          "barrel_pct_allowed": 6.4,
-          "hr_per_pa": 5.1,
-          "bbe": 187
+          "barrel_pct_allowed": 5.0,
+          "hr_per_pa": 1.2,
+          "bbe": 337
         }
       },
       "opp_bullpen": {
@@ -88612,8 +89068,8 @@
           "not missing bats (8.5% swstr)"
         ],
         "arms": 17,
-        "vs_hand": 38,
-        "hand": "R",
+        "vs_hand": 37,
+        "hand": "L",
         "platoon": {
           "R": 38,
           "L": 37,
@@ -88623,28 +89079,28 @@
       },
       "pitch_splits": {
         "FB": {
-          "barrel_pct": 1.2,
-          "avg_ev": 81.5,
-          "la": 17.5,
-          "whiff_pct": 10.9,
-          "hr": 2,
-          "bbe": 170
+          "barrel_pct": 2.0,
+          "avg_ev": 80.2,
+          "la": 18.4,
+          "whiff_pct": 13.7,
+          "hr": 1,
+          "bbe": 151
         },
         "BR": {
-          "barrel_pct": 0.0,
-          "avg_ev": 88.0,
-          "la": 0.6,
-          "whiff_pct": 27.0,
+          "barrel_pct": 1.5,
+          "avg_ev": 80.1,
+          "la": 16.6,
+          "whiff_pct": 25.5,
           "hr": 0,
-          "bbe": 61
+          "bbe": 65
         },
         "OFF": {
           "barrel_pct": 0.0,
-          "avg_ev": 78.7,
-          "la": -0.8,
-          "whiff_pct": 28.1,
+          "avg_ev": 77.1,
+          "la": 7.6,
+          "whiff_pct": 41.0,
           "hr": 0,
-          "bbe": 22
+          "bbe": 33
         }
       },
       "pitch_usage": {
@@ -88653,22 +89109,22 @@
         "OFF": 8.6
       },
       "pitch_matchup": {
-        "weighted_barrel": 0.6,
-        "edge": -0.2,
+        "weighted_barrel": 1.6,
+        "edge": 0.0,
         "best": {
           "fam": "FB",
           "label": "Fastball",
           "usage": 51.9,
-          "barrel": 1.2
+          "barrel": 2.0
         },
         "fams": {
           "FB": {
             "usage": 51.9,
-            "barrel": 1.2
+            "barrel": 2.0
           },
           "BR": {
             "usage": 39.5,
-            "barrel": 0.0
+            "barrel": 1.5
           },
           "OFF": {
             "usage": 8.6,
@@ -88676,47 +89132,47 @@
           }
         }
       },
-      "heat_mix": 22,
+      "heat_mix": 21,
       "mix": {
-        "avg_ev": 82.4,
-        "barrel_pct": 0.0,
-        "la": 16.5,
-        "whiff_pct": 12.8
+        "avg_ev": 79.8,
+        "barrel_pct": 1.9,
+        "la": 19.3,
+        "whiff_pct": 15.3
       },
-      "ev_overall": 81.4,
+      "ev_overall": 78.2,
       "luck": {
         "recent": {
-          "xwobacon": 0.25,
-          "wobacon": 0.259,
-          "luck_gap": -0.009,
-          "barrel_pct": 0.0,
-          "hr": 1,
-          "bb_count": 32
+          "xwobacon": 0.295,
+          "wobacon": 0.23,
+          "luck_gap": 0.065,
+          "barrel_pct": 2.4,
+          "hr": 0,
+          "bb_count": 42
         },
         "season": {
-          "xwobacon": 0.326,
-          "wobacon": 0.315,
-          "luck_gap": 0.011,
-          "barrel_pct": 0.8,
-          "hr": 2,
-          "bb_count": 254
+          "xwobacon": 0.309,
+          "wobacon": 0.319,
+          "luck_gap": -0.01,
+          "barrel_pct": 1.6,
+          "hr": 1,
+          "bb_count": 250
         }
       },
       "max_ev": {
-        "recent": 104.8,
-        "season": 109.2
+        "recent": 102.7,
+        "season": 106.9
       },
       "heat": 22,
       "score_breakdown": {
-        "barrel_pct": 0.0,
-        "pull_air_pct": 4.5,
-        "iso": 9.3,
-        "avg_ev": 3.3,
-        "ideal_aa_pct": 2.8,
-        "slg": 3.1,
+        "barrel_pct": 2.2,
+        "pull_air_pct": 10.6,
+        "iso": 1.1,
+        "avg_ev": 3.2,
+        "ideal_aa_pct": 2.9,
+        "slg": 2.4,
         "cleared": 0,
         "signals": {
-          "barrel_pct": false,
+          "barrel_pct": "False",
           "pull_air_pct": "False",
           "iso": "False",
           "avg_ev": "False",
@@ -88725,185 +89181,184 @@
         },
         "tier": "THIN",
         "flags": [
-          "small sample (24 PA, 32 BBE)",
           "EV below 87 floor"
         ],
-        "base_four": 23.0,
+        "base_four": 22.4,
         "pitcher_mult": 0.969
       },
       "metrics": {
         "pull_air_pct": {
-          "recent": 25.0,
-          "season": 26.7,
+          "recent": 36.4,
+          "season": 37.9,
           "career": null
         },
         "avg_ev": {
-          "recent": 81.4,
-          "season": 82.9,
+          "recent": 78.2,
+          "season": 79.8,
           "career": null
         },
         "barrel_pct": {
-          "recent": 0.0,
-          "season": 0.8,
+          "recent": 2.4,
+          "season": 1.6,
           "career": null
         },
         "ideal_aa_pct": {
-          "recent": 35.5,
-          "season": 36.8,
+          "recent": 37.5,
+          "season": 51.4,
           "career": null
         },
         "bat_speed": {
           "recent": 68.7,
-          "season": 70.1,
+          "season": 68.8,
           "career": null
         },
         "hardhit_pct": {
-          "recent": 15.6,
-          "season": 24.8,
+          "recent": 11.9,
+          "season": 16.0,
           "career": null
         },
         "iso": {
-          "recent": 0.19,
-          "season": 0.09,
+          "recent": 0.037,
+          "season": 0.077,
           "career": null
         },
         "slg": {
-          "recent": 0.333,
-          "season": 0.328,
+          "recent": 0.259,
+          "season": 0.308,
           "career": null
         },
         "launch_angle": {
-          "recent": 15.9,
-          "season": 11.9,
+          "recent": 21.1,
+          "season": 16.5,
           "career": null
         },
         "fb_pct": {
-          "recent": 12.5,
-          "season": 8.3,
+          "recent": 9.5,
+          "season": 8.4,
           "career": null
         },
         "pull_pct": {
-          "recent": 37.5,
-          "season": 30.9,
+          "recent": 40.0,
+          "season": 42.0,
           "career": null
         },
         "swstr_pct": {
-          "recent": 6.5,
-          "season": 7.0,
+          "recent": 8.1,
+          "season": 10.3,
           "career": null
         },
         "k_pct": {
-          "recent": 20.8,
-          "season": 19.2,
+          "recent": 3.4,
+          "season": 18.9,
           "career": null
         }
       },
       "windows": {
         "L14d": {
-          "barrel_pct": 0.0,
-          "hardhit_pct": 15.6,
-          "avg_ev": 81.4,
-          "max_ev": 104.8,
-          "launch_angle": 15.9,
-          "fb_pct": 12.5,
-          "pull_pct": 37.5,
-          "pull_air_pct": 25.0,
-          "ideal_aa_pct": 35.5,
+          "barrel_pct": 2.4,
+          "hardhit_pct": 11.9,
+          "avg_ev": 78.2,
+          "max_ev": 102.7,
+          "launch_angle": 21.1,
+          "fb_pct": 9.5,
+          "pull_pct": 40.0,
+          "pull_air_pct": 36.4,
+          "ideal_aa_pct": 37.5,
           "bat_speed": 68.7,
-          "iso": 0.19,
-          "slg": 0.333,
-          "xwobacon": 0.25,
-          "wobacon": 0.259,
-          "luck_gap": -0.009,
-          "swstr_pct": 6.5,
-          "k_pct": 20.8,
-          "hr": 1,
-          "pa": 24,
-          "bb_count": 32
+          "iso": 0.037,
+          "slg": 0.259,
+          "xwobacon": 0.295,
+          "wobacon": 0.23,
+          "luck_gap": 0.065,
+          "swstr_pct": 8.1,
+          "k_pct": 3.4,
+          "hr": 0,
+          "pa": 29,
+          "bb_count": 42
         },
         "L5": {
           "barrel_pct": 0.0,
-          "hardhit_pct": 14.8,
-          "avg_ev": 80.8,
-          "max_ev": 102.1,
-          "launch_angle": 16.2,
-          "fb_pct": 11.1,
-          "pull_pct": 42.9,
-          "pull_air_pct": 28.6,
-          "ideal_aa_pct": 42.3,
-          "bat_speed": 69.6,
-          "iso": 0.235,
-          "slg": 0.412,
-          "xwobacon": 0.24,
-          "wobacon": 0.296,
-          "luck_gap": -0.056,
-          "swstr_pct": 3.8,
-          "k_pct": 15.0,
-          "hr": 1,
-          "pa": 20,
-          "bb_count": 27
+          "hardhit_pct": 13.0,
+          "avg_ev": 78.5,
+          "max_ev": 101.0,
+          "launch_angle": 21.4,
+          "fb_pct": 17.4,
+          "pull_pct": 43.8,
+          "pull_air_pct": 37.5,
+          "ideal_aa_pct": 44.8,
+          "bat_speed": 69.3,
+          "iso": 0.0,
+          "slg": 0.176,
+          "xwobacon": 0.294,
+          "wobacon": 0.169,
+          "luck_gap": 0.125,
+          "swstr_pct": 10.3,
+          "k_pct": 0.0,
+          "hr": 0,
+          "pa": 18,
+          "bb_count": 23
         },
         "L15": {
-          "barrel_pct": 1.5,
-          "hardhit_pct": 22.7,
-          "avg_ev": 83.9,
-          "max_ev": 104.8,
-          "launch_angle": 15.1,
-          "fb_pct": 13.6,
-          "pull_pct": 35.0,
-          "pull_air_pct": 21.1,
-          "ideal_aa_pct": 37.7,
-          "bat_speed": 69.5,
-          "iso": 0.16,
-          "slg": 0.32,
-          "xwobacon": 0.313,
-          "wobacon": 0.253,
-          "luck_gap": 0.06,
-          "swstr_pct": 6.0,
-          "k_pct": 16.4,
-          "hr": 2,
-          "pa": 55,
-          "bb_count": 66
+          "barrel_pct": 1.4,
+          "hardhit_pct": 16.2,
+          "avg_ev": 79.0,
+          "max_ev": 104.2,
+          "launch_angle": 19.6,
+          "fb_pct": 6.8,
+          "pull_pct": 47.5,
+          "pull_air_pct": 44.4,
+          "ideal_aa_pct": 39.1,
+          "bat_speed": 68.7,
+          "iso": 0.042,
+          "slg": 0.229,
+          "xwobacon": 0.327,
+          "wobacon": 0.242,
+          "luck_gap": 0.085,
+          "swstr_pct": 11.4,
+          "k_pct": 13.7,
+          "hr": 0,
+          "pa": 51,
+          "bb_count": 74
         },
         "L30": {
-          "barrel_pct": 1.5,
-          "hardhit_pct": 27.4,
-          "avg_ev": 83.6,
-          "max_ev": 109.2,
-          "launch_angle": 12.5,
-          "fb_pct": 8.9,
-          "pull_pct": 30.6,
-          "pull_air_pct": 25.0,
-          "ideal_aa_pct": 34.8,
-          "bat_speed": 69.5,
-          "iso": 0.099,
-          "slg": 0.33,
-          "xwobacon": 0.331,
-          "wobacon": 0.315,
-          "luck_gap": 0.016,
-          "swstr_pct": 6.9,
-          "k_pct": 17.6,
-          "hr": 2,
-          "pa": 102,
-          "bb_count": 135
+          "barrel_pct": 1.4,
+          "hardhit_pct": 16.1,
+          "avg_ev": 79.1,
+          "max_ev": 106.9,
+          "launch_angle": 16.8,
+          "fb_pct": 8.4,
+          "pull_pct": 48.1,
+          "pull_air_pct": 41.2,
+          "ideal_aa_pct": 50.3,
+          "bat_speed": 69.3,
+          "iso": 0.081,
+          "slg": 0.293,
+          "xwobacon": 0.285,
+          "wobacon": 0.286,
+          "luck_gap": -0.001,
+          "swstr_pct": 10.2,
+          "k_pct": 16.1,
+          "hr": 0,
+          "pa": 112,
+          "bb_count": 143
         }
       },
       "hr_recent": {
-        "L5": 1,
-        "L15": 2,
-        "L30": 2
+        "L5": 0,
+        "L15": 0,
+        "L30": 0
       },
       "park_hr": {
-        "exp100": 14.4,
-        "neutral100": 3.6,
-        "boost": 150,
-        "score": 100,
-        "n": 139,
+        "exp100": 10.9,
+        "neutral100": 6.1,
+        "boost": 78,
+        "score": 91,
+        "n": 131,
         "weather": true,
         "temp_f": 94,
         "wind_mph": 15,
         "indoor": false,
-        "savant_pf": 0.99,
+        "savant_pf": 0.95,
         "anchored": true
       }
     },
@@ -89748,14 +90203,14 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 12.8,
+        "exp100": 14.8,
         "neutral100": 9.9,
-        "boost": 30,
+        "boost": 49,
         "score": 100,
         "n": 202,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.92,
         "anchored": true
@@ -90234,14 +90689,14 @@
         "L30": 7
       },
       "park_hr": {
-        "exp100": 25.4,
+        "exp100": 17.3,
         "neutral100": 16.0,
-        "boost": 59,
+        "boost": 9,
         "score": 100,
         "n": 194,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 10,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.16,
         "anchored": true
@@ -90682,14 +91137,14 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 2.8,
+        "exp100": 4.8,
         "neutral100": 2.6,
-        "boost": 6,
-        "score": 23,
+        "boost": 85,
+        "score": 40,
         "n": 153,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 97,
+        "wind_mph": 6,
         "indoor": false,
         "savant_pf": 1.13,
         "anchored": true
@@ -91123,7 +91578,7 @@
         "score": 55,
         "n": 219,
         "weather": true,
-        "temp_f": 94,
+        "temp_f": 96,
         "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.93,
@@ -92505,14 +92960,14 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 1.1,
+        "exp100": 2.2,
         "neutral100": 1.3,
-        "boost": -7,
-        "score": 9,
+        "boost": 36,
+        "score": 19,
         "n": 77,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 9,
         "indoor": false,
         "savant_pf": 0.88,
         "anchored": true
@@ -92929,14 +93384,14 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 7.0,
+        "exp100": 14.0,
         "neutral100": 8.2,
-        "boost": -14,
-        "score": 58,
+        "boost": 71,
+        "score": 100,
         "n": 49,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 94,
+        "wind_mph": 4,
         "indoor": false,
         "savant_pf": 1.02,
         "anchored": true
@@ -93392,14 +93847,14 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 14.8,
+        "exp100": 6.9,
         "neutral100": 5.8,
-        "boost": 150,
-        "score": 100,
+        "boost": 18,
+        "score": 57,
         "n": 223,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 10,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.14,
         "anchored": true
@@ -93831,14 +94286,14 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 19.1,
+        "exp100": 11.9,
         "neutral100": 10.9,
-        "boost": 76,
-        "score": 100,
+        "boost": 10,
+        "score": 99,
         "n": 46,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 10,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.14,
         "anchored": true
@@ -94737,14 +95192,14 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 8.8,
+        "exp100": 18.6,
         "neutral100": 7.0,
-        "boost": 24,
-        "score": 73,
+        "boost": 150,
+        "score": 100,
         "n": 227,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 97,
+        "wind_mph": 6,
         "indoor": false,
         "savant_pf": 1.17,
         "anchored": true
@@ -95201,14 +95656,14 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 7.5,
+        "exp100": 11.8,
         "neutral100": 6.2,
-        "boost": 21,
-        "score": 63,
+        "boost": 90,
+        "score": 98,
         "n": 113,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 94,
+        "wind_mph": 4,
         "indoor": false,
         "savant_pf": 1.12,
         "anchored": true
@@ -96117,14 +96572,14 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 6.7,
+        "exp100": 11.8,
         "neutral100": 6.8,
-        "boost": -1,
-        "score": 56,
+        "boost": 73,
+        "score": 98,
         "n": 235,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 97,
+        "wind_mph": 6,
         "indoor": false,
         "savant_pf": 1.06,
         "anchored": true
@@ -96581,7 +97036,7 @@
         "score": 87,
         "n": 123,
         "weather": true,
-        "temp_f": 92,
+        "temp_f": 91,
         "wind_mph": 15,
         "indoor": false,
         "savant_pf": 1.08,
@@ -97043,7 +97498,7 @@
         "score": 100,
         "n": 214,
         "weather": true,
-        "temp_f": 92,
+        "temp_f": 91,
         "wind_mph": 15,
         "indoor": false,
         "savant_pf": 0.97,
@@ -97491,14 +97946,14 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 20.3,
+        "exp100": 11.2,
         "neutral100": 8.0,
-        "boost": 150,
-        "score": 100,
+        "boost": 39,
+        "score": 93,
         "n": 224,
-        "weather": true,
-        "temp_f": 84,
-        "wind_mph": 12,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.19,
         "anchored": true
@@ -97873,14 +98328,14 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 17.7,
+        "exp100": 9.5,
         "neutral100": 7.4,
-        "boost": 140,
-        "score": 100,
+        "boost": 29,
+        "score": 79,
         "n": 95,
-        "weather": true,
-        "temp_f": 84,
-        "wind_mph": 12,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.27,
         "anchored": true
@@ -98321,14 +98776,14 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 6.7,
+        "exp100": 6.3,
         "neutral100": 8.8,
-        "boost": -24,
-        "score": 55,
+        "boost": -29,
+        "score": 52,
         "n": 193,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 9,
         "indoor": false,
         "savant_pf": 0.84,
         "anchored": true
@@ -98767,7 +99222,7 @@
         "score": 100,
         "n": 50,
         "weather": true,
-        "temp_f": 94,
+        "temp_f": 96,
         "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.93,
@@ -99228,7 +99683,7 @@
         "score": 31,
         "n": 152,
         "weather": true,
-        "temp_f": 92,
+        "temp_f": 91,
         "wind_mph": 15,
         "indoor": false,
         "savant_pf": 0.97,
@@ -99680,14 +100135,14 @@
         "L30": 0
       },
       "park_hr": {
-        "exp100": 4.8,
+        "exp100": 3.9,
         "neutral100": 3.1,
-        "boost": 57,
-        "score": 40,
+        "boost": 26,
+        "score": 32,
         "n": 227,
-        "weather": true,
-        "temp_f": 99,
-        "wind_mph": 8,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.0,
         "anchored": true
@@ -100128,14 +100583,14 @@
         "L30": 0
       },
       "park_hr": {
-        "exp100": 7.1,
+        "exp100": 5.5,
         "neutral100": 5.7,
-        "boost": 24,
-        "score": 59,
+        "boost": -4,
+        "score": 46,
         "n": 175,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 2,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 0.97,
         "anchored": true
@@ -100579,13 +101034,13 @@
         "L30": 6
       },
       "park_hr": {
-        "exp100": 18.6,
+        "exp100": 18.9,
         "neutral100": 15.8,
-        "boost": 18,
+        "boost": 20,
         "score": 100,
         "n": 241,
         "weather": true,
-        "temp_f": 94,
+        "temp_f": 96,
         "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.89,
@@ -101058,7 +101513,7 @@
         "score": 29,
         "n": 142,
         "weather": true,
-        "temp_f": 92,
+        "temp_f": 91,
         "wind_mph": 15,
         "indoor": false,
         "savant_pf": 1.08,
@@ -101507,14 +101962,14 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 7.9,
+        "exp100": 10.9,
         "neutral100": 10.3,
-        "boost": -23,
-        "score": 66,
+        "boost": 6,
+        "score": 90,
         "n": 273,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.78,
         "anchored": true
@@ -101962,14 +102417,14 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 9.4,
+        "exp100": 14.4,
         "neutral100": 8.2,
-        "boost": 14,
-        "score": 78,
+        "boost": 75,
+        "score": 100,
         "n": 158,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 97,
+        "wind_mph": 6,
         "indoor": false,
         "savant_pf": 1.06,
         "anchored": true
@@ -102408,7 +102863,7 @@
         "score": 77,
         "n": 239,
         "weather": true,
-        "temp_f": 94,
+        "temp_f": 96,
         "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.93,
@@ -103312,14 +103767,14 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 11.1,
+        "exp100": 13.3,
         "neutral100": 11.8,
-        "boost": -6,
-        "score": 93,
+        "boost": 13,
+        "score": 100,
         "n": 34,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 9,
         "indoor": false,
         "savant_pf": 0.84,
         "anchored": true
@@ -103758,14 +104213,14 @@
         "L30": 0
       },
       "park_hr": {
-        "exp100": 2.7,
+        "exp100": 4.0,
         "neutral100": 2.2,
-        "boost": 19,
-        "score": 22,
+        "boost": 78,
+        "score": 33,
         "n": 179,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.84,
         "anchored": true
@@ -104212,14 +104667,14 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 7.9,
+        "exp100": 10.5,
         "neutral100": 7.1,
-        "boost": 12,
-        "score": 66,
+        "boost": 49,
+        "score": 88,
         "n": 184,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 94,
+        "wind_mph": 4,
         "indoor": false,
         "savant_pf": 1.12,
         "anchored": true
@@ -104275,8 +104730,8 @@
         }
       },
       "hr_by_spot": {},
-      "lineup_spot": 6,
-      "lineup_status": "projected",
+      "lineup_spot": 5,
+      "lineup_status": "confirmed",
       "trend": {
         "dir": "up",
         "pct": 35,
@@ -105115,14 +105570,14 @@
         "L30": 5
       },
       "park_hr": {
-        "exp100": 15.3,
+        "exp100": 12.5,
         "neutral100": 10.1,
-        "boost": 50,
+        "boost": 23,
         "score": 100,
         "n": 69,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 2,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 0.97,
         "anchored": true
@@ -105562,9 +106017,9 @@
         "boost": -9,
         "score": 76,
         "n": 50,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 9,
         "indoor": false,
         "savant_pf": 0.84,
         "anchored": true
@@ -106000,14 +106455,14 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 10.1,
+        "exp100": 15.6,
         "neutral100": 8.6,
-        "boost": 17,
-        "score": 84,
+        "boost": 81,
+        "score": 100,
         "n": 232,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.92,
         "anchored": true
@@ -106464,14 +106919,14 @@
         "L30": 0
       },
       "park_hr": {
-        "exp100": 6.9,
+        "exp100": 8.8,
         "neutral100": 4.8,
-        "boost": 43,
-        "score": 57,
+        "boost": 82,
+        "score": 73,
         "n": 187,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 97,
+        "wind_mph": 6,
         "indoor": false,
         "savant_pf": 1.17,
         "anchored": true
@@ -106902,13 +107357,13 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 13.9,
+        "exp100": 14.3,
         "neutral100": 11.9,
-        "boost": 17,
+        "boost": 20,
         "score": 100,
         "n": 227,
         "weather": true,
-        "temp_f": 94,
+        "temp_f": 96,
         "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.93,
@@ -107780,9 +108235,9 @@
         "boost": 43,
         "score": 6,
         "n": 117,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 9,
         "indoor": false,
         "savant_pf": 0.88,
         "anchored": true
@@ -108223,13 +108678,13 @@
         "L30": 0
       },
       "park_hr": {
-        "exp100": 16.6,
+        "exp100": 17.1,
         "neutral100": 11.7,
-        "boost": 42,
+        "boost": 46,
         "score": 100,
         "n": 205,
         "weather": true,
-        "temp_f": 94,
+        "temp_f": 96,
         "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.93,
@@ -108678,14 +109133,14 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 21.5,
+        "exp100": 13.7,
         "neutral100": 9.8,
-        "boost": 118,
+        "boost": 39,
         "score": 100,
         "n": 132,
-        "weather": true,
-        "temp_f": 84,
-        "wind_mph": 12,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.27,
         "anchored": true
@@ -109139,14 +109594,14 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 7.0,
+        "exp100": 13.6,
         "neutral100": 7.1,
-        "boost": -1,
-        "score": 58,
+        "boost": 92,
+        "score": 100,
         "n": 254,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 97,
+        "wind_mph": 6,
         "indoor": false,
         "savant_pf": 1.06,
         "anchored": true
@@ -109591,466 +110046,10 @@
         "score": 95,
         "n": 75,
         "weather": true,
-        "temp_f": 94,
+        "temp_f": 96,
         "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.93,
-        "anchored": true
-      }
-    },
-    {
-      "id": 663743,
-      "name": "Nick Fortes",
-      "bats": "R",
-      "bvp": {
-        "sp": {
-          "name": "Seth Lugo",
-          "pa": 0,
-          "hr": 0
-        },
-        "bp": [
-          {
-            "name": "Beck Way",
-            "pa": 2,
-            "hr": 0
-          },
-          {
-            "name": "Lucas Erceg",
-            "pa": 1,
-            "hr": 0
-          },
-          {
-            "name": "Eric Cerantola",
-            "pa": 1,
-            "hr": 0
-          },
-          {
-            "name": "Tyler Tolbert",
-            "pa": 1,
-            "hr": 0
-          }
-        ],
-        "bp_hr": false,
-        "sp_career": {
-          "name": "Seth Lugo",
-          "pa": 6,
-          "hr": 0
-        }
-      },
-      "hr_by_spot": {
-        "7": 1
-      },
-      "lineup_spot": 9,
-      "lineup_status": "projected",
-      "trend": {
-        "dir": "down",
-        "pct": -16,
-        "new": false
-      },
-      "angle": "RHB \u2014 contact cooling (-16%)",
-      "badges": [
-        {
-          "t": "POWER",
-          "k": "pow"
-        }
-      ],
-      "team": "TB",
-      "opp_team": "KC",
-      "game_pk": 824094,
-      "time": "2026-07-01T23:40:00Z",
-      "park": "Kauffman Stadium",
-      "park_hr_factor": 0.92,
-      "why": "vs SLIPPING arm",
-      "tier": "THIN",
-      "cleared": 0,
-      "sample": {
-        "L5": 19,
-        "L15": 66,
-        "L30": 148,
-        "season": 286
-      },
-      "opp_pitcher": {
-        "name": "Seth Lugo",
-        "throws": "R",
-        "hr_score": 43,
-        "recent_score": 47,
-        "season_score": 38,
-        "form": {
-          "label": "SLIPPING",
-          "color": "#E0913A"
-        },
-        "flags": [
-          "HR-prone lately (6.4% of PA)",
-          "not missing bats (6.9% swstr)"
-        ],
-        "recent": {
-          "barrel_pct_allowed": 3.2,
-          "hardhit_pct_allowed": 27.4,
-          "avg_ev_allowed": 82.8,
-          "hr_per_pa": 6.4,
-          "ideal_aa_allowed": 55.1,
-          "pull_air_allowed": 27.8,
-          "swstr_pct_allowed": 6.9,
-          "fb_velo": 91.0,
-          "velo_trend": 0.0,
-          "bbe": 62
-        },
-        "season": {
-          "barrel_pct_allowed": 5.5,
-          "hardhit_pct_allowed": 26.0,
-          "avg_ev_allowed": 82.5,
-          "hr_per_pa": 2.6,
-          "ideal_aa_allowed": 57.0,
-          "pull_air_allowed": 31.2,
-          "swstr_pct_allowed": 8.5,
-          "fb_velo": 91.0
-        },
-        "opener": false,
-        "start_len": 6.0,
-        "platoon": {
-          "R": 58,
-          "L": 35,
-          "worse": "R",
-          "gap": 23
-        },
-        "hr_by_hand": {
-          "R_hr": 7,
-          "R_pa": 136,
-          "L_hr": 3,
-          "L_pa": 245
-        },
-        "hr_by_hand_2yr": {
-          "two_yr": {
-            "R": {
-              "hr": 19,
-              "pa": 630
-            },
-            "L": {
-              "hr": 32,
-              "pa": 893
-            }
-          },
-          "this_yr": {
-            "R": {
-              "hr": 9,
-              "pa": 155
-            },
-            "L": {
-              "hr": 4,
-              "pa": 267
-            }
-          }
-        },
-        "vs_hand": "R",
-        "vs_hand_score": 58,
-        "vs_hand_metrics": {
-          "barrel_pct_allowed": 6.4,
-          "hr_per_pa": 5.1,
-          "bbe": 187
-        }
-      },
-      "opp_bullpen": {
-        "score": 38,
-        "form": {
-          "label": "STEADY",
-          "color": "#8A95A3"
-        },
-        "flags": [
-          "not missing bats (8.5% swstr)"
-        ],
-        "arms": 17,
-        "vs_hand": 38,
-        "hand": "R",
-        "platoon": {
-          "R": 38,
-          "L": 37,
-          "worse": "R",
-          "gap": 1
-        }
-      },
-      "pitch_splits": {
-        "FB": {
-          "barrel_pct": 1.1,
-          "avg_ev": 80.1,
-          "la": 15.7,
-          "whiff_pct": 9.8,
-          "hr": 1,
-          "bbe": 189
-        },
-        "BR": {
-          "barrel_pct": 0.0,
-          "avg_ev": 83.1,
-          "la": 10.8,
-          "whiff_pct": 20.7,
-          "hr": 0,
-          "bbe": 68
-        },
-        "OFF": {
-          "barrel_pct": 0.0,
-          "avg_ev": 83.0,
-          "la": 2.5,
-          "whiff_pct": 32.6,
-          "hr": 0,
-          "bbe": 28
-        }
-      },
-      "pitch_usage": {
-        "FB": 51.9,
-        "BR": 39.5,
-        "OFF": 8.6
-      },
-      "pitch_matchup": {
-        "weighted_barrel": 0.6,
-        "edge": -0.1,
-        "best": {
-          "fam": "FB",
-          "label": "Fastball",
-          "usage": 51.9,
-          "barrel": 1.1
-        },
-        "fams": {
-          "FB": {
-            "usage": 51.9,
-            "barrel": 1.1
-          },
-          "BR": {
-            "usage": 39.5,
-            "barrel": 0.0
-          },
-          "OFF": {
-            "usage": 8.6,
-            "barrel": 0.0
-          }
-        }
-      },
-      "heat_mix": 12,
-      "mix": {
-        "avg_ev": 77.3,
-        "barrel_pct": 0.0,
-        "la": 16.2,
-        "whiff_pct": 17.5
-      },
-      "ev_overall": 77.4,
-      "luck": {
-        "recent": {
-          "xwobacon": 0.151,
-          "wobacon": 0.237,
-          "luck_gap": -0.086,
-          "barrel_pct": 0.0,
-          "hr": 0,
-          "bb_count": 30
-        },
-        "season": {
-          "xwobacon": 0.278,
-          "wobacon": 0.29,
-          "luck_gap": -0.012,
-          "barrel_pct": 0.7,
-          "hr": 1,
-          "bb_count": 286
-        }
-      },
-      "max_ev": {
-        "recent": 112.1,
-        "season": 112.1
-      },
-      "heat": 12,
-      "score_breakdown": {
-        "barrel_pct": 0.0,
-        "pull_air_pct": 0.0,
-        "iso": 0.0,
-        "avg_ev": 3.2,
-        "ideal_aa_pct": 7.0,
-        "slg": 2.1,
-        "cleared": 0,
-        "signals": {
-          "barrel_pct": false,
-          "pull_air_pct": false,
-          "iso": false,
-          "avg_ev": "False",
-          "ideal_aa_pct": "False",
-          "slg": "False"
-        },
-        "tier": "THIN",
-        "flags": [
-          "small sample (23 PA, 30 BBE)",
-          "EV below 87 floor"
-        ],
-        "base_four": 12.3,
-        "pitcher_mult": 0.969
-      },
-      "metrics": {
-        "pull_air_pct": {
-          "recent": 0.0,
-          "season": 41.8,
-          "career": null
-        },
-        "avg_ev": {
-          "recent": 77.4,
-          "season": 81.1,
-          "career": null
-        },
-        "barrel_pct": {
-          "recent": 0.0,
-          "season": 0.7,
-          "career": null
-        },
-        "ideal_aa_pct": {
-          "recent": 53.1,
-          "season": 40.7,
-          "career": null
-        },
-        "bat_speed": {
-          "recent": 70.8,
-          "season": 71.9,
-          "career": null
-        },
-        "hardhit_pct": {
-          "recent": 16.7,
-          "season": 28.3,
-          "career": null
-        },
-        "iso": {
-          "recent": 0.0,
-          "season": 0.07,
-          "career": null
-        },
-        "slg": {
-          "recent": 0.227,
-          "season": 0.326,
-          "career": null
-        },
-        "launch_angle": {
-          "recent": 17.5,
-          "season": 13.3,
-          "career": null
-        },
-        "fb_pct": {
-          "recent": 13.3,
-          "season": 9.4,
-          "career": null
-        },
-        "pull_pct": {
-          "recent": 57.9,
-          "season": 54.3,
-          "career": null
-        },
-        "swstr_pct": {
-          "recent": 8.8,
-          "season": 7.9,
-          "career": null
-        },
-        "k_pct": {
-          "recent": 13.0,
-          "season": 12.4,
-          "career": null
-        }
-      },
-      "windows": {
-        "L14d": {
-          "barrel_pct": 0.0,
-          "hardhit_pct": 16.7,
-          "avg_ev": 77.4,
-          "max_ev": 112.1,
-          "launch_angle": 17.5,
-          "fb_pct": 13.3,
-          "pull_pct": 57.9,
-          "pull_air_pct": 0.0,
-          "ideal_aa_pct": 53.1,
-          "bat_speed": 70.8,
-          "iso": 0.0,
-          "slg": 0.227,
-          "xwobacon": 0.151,
-          "wobacon": 0.237,
-          "luck_gap": -0.086,
-          "swstr_pct": 8.8,
-          "k_pct": 13.0,
-          "hr": 0,
-          "pa": 23,
-          "bb_count": 30
-        },
-        "L5": {
-          "barrel_pct": 0.0,
-          "hardhit_pct": 21.1,
-          "avg_ev": 79.4,
-          "max_ev": 112.1,
-          "launch_angle": 15.5,
-          "fb_pct": 10.5,
-          "pull_pct": 58.3,
-          "pull_air_pct": 0.0,
-          "ideal_aa_pct": 60.9,
-          "bat_speed": 70.4,
-          "iso": 0.0,
-          "slg": 0.333,
-          "xwobacon": 0.199,
-          "wobacon": 0.375,
-          "luck_gap": -0.176,
-          "swstr_pct": 10.9,
-          "k_pct": 18.8,
-          "hr": 0,
-          "pa": 16,
-          "bb_count": 19
-        },
-        "L15": {
-          "barrel_pct": 1.5,
-          "hardhit_pct": 22.7,
-          "avg_ev": 79.0,
-          "max_ev": 112.1,
-          "launch_angle": 16.7,
-          "fb_pct": 12.1,
-          "pull_pct": 58.5,
-          "pull_air_pct": 28.6,
-          "ideal_aa_pct": 38.6,
-          "bat_speed": 72.2,
-          "iso": 0.062,
-          "slg": 0.333,
-          "xwobacon": 0.251,
-          "wobacon": 0.304,
-          "luck_gap": -0.053,
-          "swstr_pct": 6.5,
-          "k_pct": 11.1,
-          "hr": 0,
-          "pa": 54,
-          "bb_count": 66
-        },
-        "L30": {
-          "barrel_pct": 0.7,
-          "hardhit_pct": 23.0,
-          "avg_ev": 79.3,
-          "max_ev": 112.1,
-          "launch_angle": 15.6,
-          "fb_pct": 9.5,
-          "pull_pct": 58.8,
-          "pull_air_pct": 36.0,
-          "ideal_aa_pct": 37.8,
-          "bat_speed": 72.4,
-          "iso": 0.054,
-          "slg": 0.283,
-          "xwobacon": 0.223,
-          "wobacon": 0.258,
-          "luck_gap": -0.035,
-          "swstr_pct": 7.4,
-          "k_pct": 11.8,
-          "hr": 0,
-          "pa": 102,
-          "bb_count": 148
-        }
-      },
-      "hr_recent": {
-        "L5": 0,
-        "L15": 0,
-        "L30": 0
-      },
-      "park_hr": {
-        "exp100": 8.2,
-        "neutral100": 1.9,
-        "boost": 150,
-        "score": 69,
-        "n": 162,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 15,
-        "indoor": false,
-        "savant_pf": 0.99,
         "anchored": true
       }
     },
@@ -111335,14 +111334,14 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 11.7,
+        "exp100": 5.8,
         "neutral100": 6.3,
-        "boost": 85,
-        "score": 97,
+        "boost": -8,
+        "score": 49,
         "n": 79,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 10,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 1.15,
         "anchored": true
@@ -112148,14 +112147,14 @@
         "L30": 4
       },
       "park_hr": {
-        "exp100": 5.4,
+        "exp100": 3.9,
         "neutral100": 6.1,
-        "boost": -12,
-        "score": 45,
+        "boost": -37,
+        "score": 32,
         "n": 98,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 9,
         "indoor": false,
         "savant_pf": 0.84,
         "anchored": true
@@ -112576,14 +112575,14 @@
         "L30": 2
       },
       "park_hr": {
-        "exp100": 5.5,
+        "exp100": 8.2,
         "neutral100": 4.6,
-        "boost": 19,
-        "score": 45,
+        "boost": 78,
+        "score": 68,
         "n": 87,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 91,
+        "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.84,
         "anchored": true
@@ -113003,14 +113002,14 @@
         "L30": 1
       },
       "park_hr": {
-        "exp100": 8.7,
+        "exp100": 17.3,
         "neutral100": 7.4,
-        "boost": 17,
-        "score": 72,
+        "boost": 134,
+        "score": 100,
         "n": 27,
-        "weather": false,
-        "temp_f": null,
-        "wind_mph": null,
+        "weather": true,
+        "temp_f": 97,
+        "wind_mph": 6,
         "indoor": false,
         "savant_pf": 1.17,
         "anchored": true
@@ -113461,14 +113460,14 @@
         "L30": 3
       },
       "park_hr": {
-        "exp100": 12.5,
+        "exp100": 10.3,
         "neutral100": 9.7,
-        "boost": 29,
-        "score": 100,
+        "boost": 7,
+        "score": 86,
         "n": 176,
-        "weather": true,
-        "temp_f": 94,
-        "wind_mph": 2,
+        "weather": false,
+        "temp_f": null,
+        "wind_mph": null,
         "indoor": false,
         "savant_pf": 0.97,
         "anchored": true
@@ -114322,7 +114321,7 @@
         "score": 100,
         "n": 171,
         "weather": true,
-        "temp_f": 94,
+        "temp_f": 96,
         "wind_mph": 5,
         "indoor": false,
         "savant_pf": 0.89,
@@ -114423,19 +114422,6 @@
       "arm_score": 27
     },
     {
-      "name": "Jonny DeLuca",
-      "team": "TB",
-      "opp_team": "KC",
-      "heat": 65,
-      "tier": "STRONG",
-      "why": "42% air-pull \u00b7 74% IAA \u00b7 .320 ISO \u00b7 vs SLIPPING arm",
-      "spot": 5,
-      "time": "2026-07-01T23:40:00Z",
-      "arm": "Seth Lugo",
-      "arm_form": "SLIPPING",
-      "arm_score": 43
-    },
-    {
       "name": "Caleb Durbin",
       "team": "BOS",
       "opp_team": "WSH",
@@ -114486,6 +114472,19 @@
       "arm": "Andrew Abbott",
       "arm_form": "SLIPPING",
       "arm_score": 47
+    },
+    {
+      "name": "James Outman",
+      "team": "DET",
+      "opp_team": "NYY",
+      "heat": 60,
+      "tier": "SOLID",
+      "why": "71% air-pull \u00b7 .240 ISO \u00b7 vs SLIPPING arm",
+      "spot": 8,
+      "time": "2026-07-01T17:35:00Z",
+      "arm": "Will Warren",
+      "arm_form": "SLIPPING",
+      "arm_score": 49
     }
   ],
   "stacks": [
@@ -114670,18 +114669,11 @@
           "bats": "R"
         },
         {
-          "name": "Jonny DeLuca",
-          "heat": 65,
-          "tier": "STRONG",
-          "spot": 5,
-          "bats": "R"
-        },
-        {
-          "name": "Ryan Vilade",
-          "heat": 64,
-          "tier": "SOLID",
+          "name": "Victor Mesa Jr.",
+          "heat": 56,
+          "tier": "LEAN",
           "spot": 4,
-          "bats": "R"
+          "bats": "L"
         }
       ]
     },
