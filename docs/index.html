@@ -129,6 +129,31 @@
   #tabbar button[aria-pressed="true"] svg{transform:translateY(-1px)}
   #tabbar button:active svg{transform:scale(.9)}
   #main{padding-bottom:78px}
+  .cbar{display:flex;gap:8px;align-items:center;margin-top:9px}
+  .sortsel{flex:none;background:var(--panel);border:1px solid var(--line);color:var(--ink);
+    font:inherit;font-size:12px;font-weight:600;padding:8px 26px 8px 11px;border-radius:9px;
+    -webkit-appearance:none;appearance:none;cursor:pointer;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%23788696' stroke-width='1.6' stroke-linecap='round'><path d='M3 4.5L6 7.5L9 4.5'/></svg>");
+    background-repeat:no-repeat;background-position:right 9px center}
+  .chiprow{display:flex;gap:6px;align-items:center;margin-top:8px;overflow-x:auto;scrollbar-width:none}
+  .chiprow::-webkit-scrollbar{display:none}
+  .chip{flex:none;background:var(--panel);border:1px solid var(--line);color:var(--muted);
+    font:inherit;font-size:11px;font-weight:600;padding:6px 11px;border-radius:999px;cursor:pointer;
+    white-space:nowrap;-webkit-tap-highlight-color:transparent}
+  .chip[aria-pressed="true"]{border-color:var(--seam);color:var(--seam);background:rgba(200,71,43,.09)}
+  .shown-count{margin-left:auto;flex:none;font-size:11px;color:var(--faint);white-space:nowrap;padding-right:2px}
+  details.sec{margin-top:12px;border-top:1px solid var(--line)}
+  details.sec>summary{list-style:none;cursor:pointer;padding:11px 0 7px;font-family:Archivo;
+    font-weight:700;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);
+    display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent}
+  details.sec>summary::-webkit-details-marker{display:none}
+  details.sec>summary::after{content:"⌄";font-size:15px;line-height:1;color:var(--faint);
+    transition:transform .15s ease;margin-left:8px}
+  details.sec[open]>summary{color:var(--ink)}
+  details.sec[open]>summary::after{transform:rotate(180deg)}
+  .row{position:relative}
+  .row::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
+    background:var(--tc,transparent);border-radius:10px 0 0 10px;pointer-events:none}
   .lg-scale{display:inline-flex;align-items:center;gap:8px}
   .lg-note{color:var(--faint)}
   .grad{height:7px;width:120px;border-radius:4px;
@@ -531,24 +556,24 @@
   </div>
   <div class="meta" id="meta"></div>
   <div id="boardControls">
-  <div class="controls" style="margin-top:8px">
-    <div class="seg" id="sort">
-      <button data-sort="heat" aria-pressed="true">Heat</button>
-      <button data-sort="trend" aria-pressed="false">Trend</button>
-      <button data-sort="bp" aria-pressed="false">BP</button>
-      <button data-sort="bomb" aria-pressed="false">Bomb</button>
-      <button data-sort="park" aria-pressed="false">Park</button>
-      <button data-sort="name">Name</button>
-      <button data-sort="time">Time</button>
-    </div>
+  <div class="controls cbar">
+    <select id="sortSel" class="sortsel" aria-label="Sort board by">
+      <option value="heat">Sort · Heat</option>
+      <option value="trend">Sort · Trend</option>
+      <option value="bp">Sort · Bullpen</option>
+      <option value="bomb">Sort · Bomb</option>
+      <option value="park">Sort · Park</option>
+      <option value="name">Sort · Name</option>
+      <option value="time">Sort · Time</option>
+    </select>
     <input class="search" id="search" placeholder="Search hitter or team…" />
     <button id="filtersBtn" class="fbtn" onclick="document.getElementById('filterSheet').classList.add('show')">⚙ Filters<span id="filtCount" class="fcount" hidden></span></button>
-    <span id="shown" class="stamp" style="align-self:center"></span>
   </div>
-  <div class="controls compare-row" style="margin-top:8px">
-    <button id="mixBtn" class="tgl" aria-pressed="false" title="Re-rank by EV/barrel vs this pitcher's mix">⚙ vs Pitch Mix</button>
-    <button id="thinBtn" class="tgl" aria-pressed="false" title="Hide hitters with thin recent samples">Hide small samples</button>
-    <button id="listBtn" class="tgl" aria-pressed="false" title="Show only players on your list">★ My List</button>
+  <div class="controls chiprow">
+    <button id="mixBtn" class="chip" aria-pressed="false" title="Re-rank by EV/barrel vs this pitcher's mix">vs Pitch Mix</button>
+    <button id="thinBtn" class="chip" aria-pressed="false" title="Hide hitters with thin recent samples">Hide small</button>
+    <button id="listBtn" class="chip" aria-pressed="false" title="Show only players on your list">★ My List</button>
+    <span id="shown" class="shown-count"></span>
   </div>
 
   </div>
@@ -696,6 +721,23 @@
 // first-visit onboarding (no login; persists locally, fails open)
 function dismissWelcome(){try{localStorage.setItem("gy_seen","1")}catch(e){}const w=document.getElementById("welcome");if(w)w.hidden=true;}
 (function(){try{if(!localStorage.getItem("gy_seen")){const w=document.getElementById("welcome");if(w)w.hidden=false;}}catch(e){}})();
+
+// team-color left accent on each card (primary/most-visible-on-dark hue per club)
+const TEAMCOL={ARI:"#A71930",ATL:"#CE1141",BAL:"#DF4601",BOS:"#BD3039",CHC:"#0E3386",CWS:"#C4CED4",CHW:"#C4CED4",CIN:"#C6011F",CLE:"#E31937",COL:"#8B6BB1",DET:"#4A7FBF",HOU:"#EB6E1F",KC:"#1B7AC7",KCR:"#1B7AC7",LAA:"#BA0021",LAD:"#1E90D6",MIA:"#00A3E0",MIL:"#FFC52F",MIN:"#D31145",NYM:"#FF5910",NYY:"#3B7DD8",OAK:"#00A67E",ATH:"#00A67E",PHI:"#E81828",PIT:"#FDB827",SD:"#FFC425",SDP:"#FFC425",SF:"#FD5A1E",SFG:"#FD5A1E",SEA:"#2D9B8E",STL:"#C41E3A",TB:"#4A9BD4",TBR:"#4A9BD4",TEX:"#3A7BD5",TOR:"#1D77C9",WSH:"#E0114A",WSN:"#E0114A"};
+function teamCol(t){ return (t&&TEAMCOL[t])||"transparent"; }
+
+// remember where the user was: view, sort, board toggles — restored next open
+function savePrefs(){ try{ localStorage.setItem("gy_prefs", JSON.stringify({view,sortKey,mixView,hideThin,listFilter})); }catch(e){} }
+function loadPrefs(){ try{ return JSON.parse(localStorage.getItem("gy_prefs")||"{}")||{}; }catch(e){ return {}; } }
+
+// turn any "<h4>Title</h4> …body…" block into a collapsible section (native details)
+function collapseWrap(html, open){
+  if(!html) return "";
+  const m=html.match(/^\s*<h4[^>]*>([\s\S]*?)<\/h4>([\s\S]*)$/);
+  if(!m) return html;
+  return `<details class="sec"${open?" open":""}><summary>${m[1]}</summary>${m[2]}</details>`;
+}
+
 // the four signals that drive the ranking, in your order, with poor/good/elite anchors
 const CORE = [
   {k:"pull_air_pct", label:"Pull%",    poor:28, good:40, elite:55, fmt:v=>fmt(v,1)},
@@ -1146,7 +1188,7 @@ function render(){
     const armCol = armSc!=null?chipColor(armSc):"transparent";
     const sm = smashConviction(p);
 
-    html+=`<div class="row${isThin(p)?" thin":""}" data-i="${i}">
+    html+=`<div class="row${isThin(p)?" thin":""}" data-i="${i}" style="--tc:${teamCol(p.team)}">
       <div class="crow" onclick="toggle(this)">
         <div class="crow-main">
           <div class="rank mono">${i+1}</div>
@@ -1176,13 +1218,13 @@ function render(){
         ${spotBlock(p)}
         <h4>Four signals — recent · season · career</h4>
         <div class="strip" style="border:1px solid var(--line);border-radius:10px">${strip}</div>
-        <h4 style="margin-top:14px">Trend (last 2 wk vs game windows)</h4>
+        <details class="sec"><summary>Trend — last 2 wk vs game windows</summary>
         <table class="win"><thead><tr><th></th><th>L5</th><th>2wk</th><th>L30</th></tr></thead>
-        <tbody>${wrows}</tbody></table>
-        <h4 style="margin-top:14px">Context (recent · season · career)</h4>
-        <div class="strip" style="border:1px solid var(--line);border-radius:10px">${extra}</div>
-        ${pitchBlock(p)}
-        ${luckBlock(p)}
+        <tbody>${wrows}</tbody></table></details>
+        <details class="sec"><summary>Context — recent · season · career</summary>
+        <div class="strip" style="border:1px solid var(--line);border-radius:10px">${extra}</div></details>
+        ${collapseWrap(pitchBlock(p))}
+        ${collapseWrap(luckBlock(p))}
         ${flagChips?`<div class="bd" style="margin-top:12px">${flagChips}</div>`:""}
         ${armBlock}
         <div class="bd">${bdChips}</div>
@@ -1232,7 +1274,7 @@ function fmtSlate(s){const t=String(s).split("-").map(Number);return new Date(t[
 window.addEventListener("resize",setHH);
 window.addEventListener("orientationchange",()=>setTimeout(setHH,100));
 window.addEventListener("resize",setHH);
-function setSort(k){ sortKey=k; render(); }
+function setSort(k){ sortKey=k; const s=document.getElementById("sortSel"); if(s) s.value=k; savePrefs(); render(); }
 function renderView(){ if(view==="tracker") renderTracker(); else if(view==="parlays") renderParlays(); else if(view==="matchup") renderMatchup(); else if(view==="stacks") renderStacks(); else if(view==="bets") renderBets(); else render(); }
 
 function renderStacks(){
@@ -1846,21 +1888,18 @@ function renderTracker(){
   </div>`;
 }
 
-document.getElementById("sort").addEventListener("click",e=>{
-  const b=e.target.closest("button"); if(!b)return;
-  sortKey=b.dataset.sort;
-  [...document.querySelectorAll("#sort button")].forEach(x=>x.setAttribute("aria-pressed",x===b));
-  render();
+document.getElementById("sortSel").addEventListener("change",e=>{
+  sortKey=e.target.value; savePrefs(); render();
 });
 document.getElementById("search").addEventListener("input",e=>{q=e.target.value;render();});
 document.getElementById("thinBtn").addEventListener("click",e=>{
-  hideThin=!hideThin; e.target.setAttribute("aria-pressed",hideThin); render();
+  hideThin=!hideThin; e.target.setAttribute("aria-pressed",hideThin); savePrefs(); render();
 });
 document.getElementById("listBtn").addEventListener("click",e=>{
-  listFilter=!listFilter; e.target.setAttribute("aria-pressed",listFilter); render();
+  listFilter=!listFilter; e.target.setAttribute("aria-pressed",listFilter); savePrefs(); render();
 });
 document.getElementById("mixBtn").addEventListener("click",e=>{
-  mixView=!mixView; e.target.setAttribute("aria-pressed",mixView); render();
+  mixView=!mixView; e.target.setAttribute("aria-pressed",mixView); savePrefs(); render();
 });
 function populateGames(){
   const list=document.getElementById("gameList");
@@ -1954,8 +1993,10 @@ document.getElementById("tabbar").addEventListener("click",async e=>{
   view=b.dataset.view;
   [...document.querySelectorAll("#tabbar button")].forEach(x=>x.setAttribute("aria-pressed",x===b));
   document.getElementById("boardControls").style.display = view==="board"?"":"none";
+  savePrefs();
   if((view==="tracker"||view==="parlays") && !HISTORY){ await loadHistory(); }
   renderView();
+  setHH();
   window.scrollTo({top:0,behavior:"instant"});
 });
 
@@ -1992,8 +2033,20 @@ async function load(){
     "All metrics = last 2 weeks. Heat ranks the four signals: Pull% (40%+ good), "+
     "EV (88.5+ good), Barrel%, Ideal Attack Angle% (58%+ good), then nudged by the opposing arm. "+
     "Orange = clears the good mark, blue = below. Tunable, not betting advice.";
-  if(view==="tracker"){ if(!HISTORY) await loadHistory(); }
+  // restore last session — sort, board toggles, and which view you were on
+  const pf=loadPrefs();
+  if(pf.sortKey){ sortKey=pf.sortKey; const s=document.getElementById("sortSel"); if(s) s.value=sortKey; }
+  if(typeof pf.mixView==="boolean"){ mixView=pf.mixView; const m=document.getElementById("mixBtn"); if(m) m.setAttribute("aria-pressed",mixView); }
+  if(typeof pf.hideThin==="boolean"){ hideThin=pf.hideThin; const t=document.getElementById("thinBtn"); if(t) t.setAttribute("aria-pressed",hideThin); }
+  if(typeof pf.listFilter==="boolean"){ listFilter=pf.listFilter; const l=document.getElementById("listBtn"); if(l) l.setAttribute("aria-pressed",listFilter); }
+  if(pf.view && pf.view!=="board"){
+    view=pf.view;
+    [...document.querySelectorAll("#tabbar button")].forEach(x=>x.setAttribute("aria-pressed",x.dataset.view===view));
+    document.getElementById("boardControls").style.display="none";
+  }
+  if((view==="tracker"||view==="parlays") && !HISTORY){ await loadHistory(); }
   renderView();
+  setHH();
 }
 load();
 setInterval(load, 5*60*1000);   // refresh if a new board.json was published
