@@ -853,21 +853,32 @@ function smashConviction(p){
   const H_=H(p);
   let s=Math.max(0, Math.min(3, (H_-45)/10));     // heat contribution (0 at 45 → 3 at 75+)
   const r=[];
-  if(p.trend && p.trend.dir==="up"){ s+=1.5; r.push(p.trend.new?"heating up (new)":"trending up"); }
+  const ks=new Set((p.badges||[]).map(b=>b.k));
+  // genuinely hot / earned contact — the "he's just hot rn" case, weighted heavily
+  if(ks.has("lock")){ s+=1.5; r.push("genuinely hot"); }
+  else if(ks.has("hot")){ s+=0.75; r.push("form warming"); }
+  if(ks.has("due")){ s+=1.0; r.push("hitting it hard, due"); }   // hard contact, results lagging
+  if(p.trend && p.trend.dir==="up"){ s+=1.0; r.push(p.trend.new?"heating up (new)":"trending up"); }
+  // park + weather
   const pb=(p.park_hr && p.park_hr.boost!=null)?p.park_hr.boost:0;
   if(pb>=12){ s+=1.5; r.push("park + weather"); } else if(pb>=6){ s+=0.75; r.push("park lean"); }
-  const ks=new Set((p.badges||[]).map(b=>b.k));
+  // historical BvP
   if(ks.has("hrsp")){ s+=1.5; r.push("owns the starter"); }
   if(ks.has("hrbp")){ s+=1.0; r.push("HR off their pen"); }
+  // lineup-spot power
   const spotHR=(p.hr_by_spot && p.lineup_spot)?(p.hr_by_spot[p.lineup_spot]||0):0;
   if(spotHR>=3){ s+=1.5; r.push(`${spotHR} HR from spot ${p.lineup_spot}`); }
   else if(spotHR>=2){ s+=0.75; r.push(`HR from spot ${p.lineup_spot}`); }
+  // pitch-mix edge (graduated so a near-miss still counts)
   const mixd=(p.heat_mix!=null && p.heat!=null)?(p.heat_mix-p.heat):0;
-  if(mixd>=6){ s+=1.0; r.push("pitch-mix edge"); }
+  if(mixd>=6){ s+=1.0; r.push("pitch-mix edge"); } else if(mixd>=4){ s+=0.5; r.push("pitch-mix lean"); }
+  // vulnerable arm (badge OR high HR-allowed score — counted once)
   const armSc=(p.opp_pitcher && p.opp_pitcher.hr_score!=null)?p.opp_pitcher.hr_score:0;
-  if(armSc>=65){ s+=1.0; r.push("vulnerable arm"); }
-  if(ks.has("pow")){ s+=0.5; r.push("loud contact"); }
-  if(ks.has("arm")){ s+=0.5; r.push("HR-prone matchup"); }
+  if(armSc>=65 || ks.has("arm")){ s+=1.0; r.push("vulnerable arm"); }
+  // contact / matchup quality
+  if(ks.has("mix")){ s+=0.75; r.push("barrels this mix"); }
+  if(ks.has("pow")){ s+=0.5; r.push("loud power"); }
+  if(ks.has("plat")){ s+=0.5; r.push("platoon edge"); }
   return {fire: (H_>=70 || s>=5.0), score:s, reasons:r};
 }
 function render(){
