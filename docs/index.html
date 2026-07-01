@@ -1624,8 +1624,9 @@ function renderParlays(){
   const rankMap={};
   BOARD.players.slice().sort((a,b)=>(b.heat||0)-(a.heat||0)).forEach((p,i)=>{ rankMap[p.id]=i; });
   const ranked=BOARD.players.filter(p=>p.lineup_status!=="out")
-    .map(p=>{ const s=hitterScore(p,R,BR);
-      return Object.assign({}, p, {_score:s.score,_prob:s.prob,_trend:s.trend,_mix:s.mix,_tags:s.tags,_rank:rankMap[p.id]??99}); })
+    .map(p=>{ try{ const s=hitterScore(p,R,BR);
+      return Object.assign({}, p, {_score:s.score,_prob:s.prob,_trend:s.trend,_mix:s.mix,_tags:s.tags,_rank:rankMap[p.id]??99}); }
+      catch(e){ return Object.assign({}, p, {_score:0,_prob:0.02,_trend:1,_mix:1,_tags:1,_rank:rankMap[p.id]??99}); } })
     .sort((a,b)=>b._score-a._score);
 
   const leg=(p)=>{
@@ -1654,6 +1655,41 @@ function renderParlays(){
 
   const confPct=Math.round(w*100);
   const confColor = w<0.15?"var(--cool)":w<0.5?"var(--warm)":"var(--hot)";
+
+  let trustHTML="";
+  try{
+    const rows=trustTable(R,BR);
+    const pct=x=>x==null?"–":(x*100).toFixed(0)+"%";
+    if(!rows.length){
+      trustHTML=`<div class="tt-wrap"><div class="tt-h">Trust table<span>grade a few days or log some bets — this fills in with the tags that actually convert for you</span></div></div>`;
+    } else {
+      const rowHtml=rows.map(r=>`<div class="tt-row tt-${r.verdict}">
+          <span class="tt-tag"><span class="bdg bk-${r.k}">${BKLABEL[r.k]||r.k}</span></span>
+          <span class="tt-rate">${pct(r.trRate)}${r.lift!=null?` <em>${r.lift.toFixed(2)}×</em>`:""}</span>
+          <span class="tt-n">${r.trN||"–"}</span>
+          <span class="tt-bet">${r.btN?`${pct(r.btRate)} <i>${r.btN}</i>`:"–"}</span>
+          <span class="tt-live">${r.live||"–"}</span>
+        </div>`).join("");
+      const combos=comboTrust();
+      const comboHtml=combos.length?`<div class="tt-sub-h">Combos that hit — your bets</div>${combos.map(c=>`<div class="tt-combo"><span class="tt-combo-tags">${c.ks.map(k=>`<span class="bdg bk-${k}">${BKLABEL[k]||k}</span>`).join('<span class="tt-plus">+</span>')}</span><span><b>${(c.rate*100).toFixed(0)}%</b> <i>${c.hit}/${c.n}</i></span></div>`).join("")}`:"";
+      trustHTML=`<div class="tt-wrap">
+          <div class="tt-h">Trust table<span>${R.days?`${R.days} graded day${R.days>1?"s":""}`:"no tracker yet"}${BR.legs?` · ${BR.legs} bet legs`:""} · lean green · fade red · ignore thin</span></div>
+          <div class="tt-cols"><span class="tt-tag">tag</span><span class="tt-rate">converts</span><span class="tt-n">n</span><span class="tt-bet">bets</span><span class="tt-live">live</span></div>
+          ${rowHtml}
+          ${comboHtml}
+          <div class="tt-legend"><b>converts</b> = HR rate for hitters carrying that tag (× vs board average) · <b>n</b> = tagged hitters graded · <b>bets</b> = your own hit rate on legs with that tag · <b>live</b> = how many carry it on today's board. Pair toward green tags that are live today; the generator below already weights these, this shows you the why.</div>
+        </div>`;
+    }
+  }catch(e){ trustHTML=""; }
+
+  let cardsHTML="";
+  try{
+    cardsHTML =
+      card("Core · 2-leg",2,{chalkN:5,maxChalk:1},"highest combined value, lightly capped on chalk")
+    + card("Balanced · 3-leg",3,{chalkN:6,maxChalk:1},"one chalk max, the rest value + a sleeper")
+    + card("Spread · 5-leg round-robin base",5,{chalkN:6,maxChalk:2,bands:["short","short","medium","medium","long"]},"odds spread: 2 short · 2 medium · 1 longshot, one per game");
+  }catch(e){ cardsHTML=`<div class="pl-card pl-card-thin"><div class="pl-foot">Couldn't build suggestions for this slate — check back once lineups post.</div></div>`; }
+
   main.innerHTML=`
     <div class="pl-wrap">
       <div class="pl-conf">
@@ -1670,30 +1706,8 @@ function renderParlays(){
           <span class="pl-in on">Variety</span>
         </div>
       </div>
-      ${(function(){
-        const rows=trustTable(R,BR);
-        const pct=x=>x==null?"–":(x*100).toFixed(0)+"%";
-        if(!rows.length) return `<div class="tt-wrap"><div class="tt-h">Trust table<span>grade a few days or log some bets — this fills in with the tags that actually convert for you</span></div></div>`;
-        const rowHtml=rows.map(r=>`<div class="tt-row tt-${r.verdict}">
-          <span class="tt-tag"><span class="bdg bk-${r.k}">${BKLABEL[r.k]||r.k}</span></span>
-          <span class="tt-rate">${pct(r.trRate)}${r.lift!=null?` <em>${r.lift.toFixed(2)}×</em>`:""}</span>
-          <span class="tt-n">${r.trN||"–"}</span>
-          <span class="tt-bet">${r.btN?`${pct(r.btRate)} <i>${r.btN}</i>`:"–"}</span>
-          <span class="tt-live">${r.live||"–"}</span>
-        </div>`).join("");
-        const combos=comboTrust();
-        const comboHtml=combos.length?`<div class="tt-sub-h">Combos that hit — your bets</div>${combos.map(c=>`<div class="tt-combo"><span class="tt-combo-tags">${c.ks.map(k=>`<span class="bdg bk-${k}">${BKLABEL[k]||k}</span>`).join('<span class="tt-plus">+</span>')}</span><span><b>${(c.rate*100).toFixed(0)}%</b> <i>${c.hit}/${c.n}</i></span></div>`).join("")}`:"";
-        return `<div class="tt-wrap">
-          <div class="tt-h">Trust table<span>${R.days?`${R.days} graded day${R.days>1?"s":""}`:"no tracker yet"}${BR.legs?` · ${BR.legs} bet legs`:""} · lean green · fade red · ignore thin</span></div>
-          <div class="tt-cols"><span class="tt-tag">tag</span><span class="tt-rate">converts</span><span class="tt-n">n</span><span class="tt-bet">bets</span><span class="tt-live">live</span></div>
-          ${rowHtml}
-          ${comboHtml}
-          <div class="tt-legend"><b>converts</b> = HR rate for hitters carrying that tag (× vs board average) · <b>n</b> = tagged hitters graded · <b>bets</b> = your own hit rate on legs with that tag · <b>live</b> = how many carry it on today's board. Pair toward green tags that are live today; the generator below already weights these, this shows you the why.</div>
-        </div>`;
-      })()}
-      ${card("Core · 2-leg",2,{chalkN:5,maxChalk:1},"highest combined value, lightly capped on chalk")}
-      ${card("Balanced · 3-leg",3,{chalkN:6,maxChalk:1},"one chalk max, the rest value + a sleeper")}
-      ${card("Spread · 5-leg round-robin base",5,{chalkN:6,maxChalk:2,bands:["short","short","medium","medium","long"]},"odds spread: 2 short · 2 medium · 1 longshot, one per game")}
+      ${trustHTML}
+      ${cardsHTML}
       <div class="pl-note">Each leg blends data quality, upward trend (a cold tag won't sink a hitter who's playing hot), pitch-mix matchup, the tags most likely to homer across your tracker <i>and</i> bet history, tracker tier rates, and Heat — then the build deliberately caps chalk and mixes in sleepers and longshots so you get variety, not the same top names every time. Leg notes show what's driving each pick.</div>
     </div>`;
 }
