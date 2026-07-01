@@ -515,3 +515,23 @@ def bullpen_arms(df: pd.DataFrame, asof: str, recent_days: int = 21, min_pitches
         counts = g.groupby("pitcher").size()
         out[team] = [int(pid) for pid, n in counts.items() if n >= min_pitches]
     return out
+
+
+def hr_by_lineup_spot(df: pd.DataFrame) -> dict:
+    """{batter_id: {slot: hr_count}} for the season. The batting order slot cycles strictly,
+    so the k-th plate appearance by a team is in slot ((k-1) mod 9)+1 — exact even with subs."""
+    need = {"events", "at_bat_number", "inning_topbot", "home_team", "away_team", "batter"}
+    if df is None or df.empty or not need.issubset(df.columns):
+        return {}
+    pa = df[df["events"].notna()].copy()
+    if pa.empty:
+        return {}
+    pa["bteam"] = np.where(pa["inning_topbot"].eq("Top"), pa["away_team"], pa["home_team"])
+    pa = pa.sort_values(["game_pk", "bteam", "at_bat_number"])
+    pa["tidx"] = pa.groupby(["game_pk", "bteam"]).cumcount()
+    pa["slot"] = (pa["tidx"] % 9) + 1
+    hr = pa[pa["events"].eq("home_run")]
+    out = {}
+    for (bid, slot), n in hr.groupby(["batter", "slot"]).size().items():
+        out.setdefault(int(bid), {})[int(slot)] = int(n)
+    return out

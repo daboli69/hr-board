@@ -155,6 +155,11 @@ def build(date_str: str | None = None) -> dict:
         bvp_career_cache = {}
     _bvp_now = _t.time(); _bvp_ttl = 64800; _bvp_fetched = [0]; _BVP_MAX = 340
 
+    try:                                           # season HR distribution by batting-order slot
+        hr_spot = statcast_data.hr_by_lineup_spot(df)
+    except Exception as e:
+        hr_spot = {}; print(f"[build] hr_by_spot skipped: {e}")
+
     # statsapi and Statcast mostly share team abbreviations; a few differ.
     _TEAM_ALIAS = {"AZ": "ARI", "ARI": "AZ", "CWS": "CHW", "CHW": "CWS",
                    "WSH": "WSN", "WSN": "WSH", "KC": "KCR", "KCR": "KC",
@@ -381,11 +386,20 @@ def build(date_str: str | None = None) -> dict:
             if _sc is not None:
                 player_bvp["sp_career"] = {"name": opp_pitcher_obj.get("name", ""), **_sc}
 
+        # tags for having gone deep off today's arms (flow into tracker + parlay weighting)
+        _bvp_badges = []
+        if player_bvp.get("sp_career", {}).get("hr", 0) or player_bvp["sp"]["hr"]:
+            _bvp_badges.append({"t": "HR vs SP", "k": "hrsp"})
+        if player_bvp["bp_hr"]:
+            _bvp_badges.append({"t": "HR vs PEN", "k": "hrbp"})
+        badges = _bvp_badges + badges
+
         players.append({
             "id": bid,
             "name": name,
             "bats": bats,
             "bvp": player_bvp,
+            "hr_by_spot": hr_spot.get(bid, {}),
             "lineup_spot": spot_of_batter.get(bid),
             "lineup_status": status_of_batter.get(bid, "confirmed"),
             "trend": tr,

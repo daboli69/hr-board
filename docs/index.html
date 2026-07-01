@@ -215,6 +215,17 @@
   .bk-tough{background:rgba(45,156,142,.16);color:#5ec9b7;border-color:rgba(45,156,142,.4)}
   .bk-lock{background:rgba(46,160,93,.16);color:#56c878;border-color:rgba(46,160,93,.45)}
   .bk-cool{background:rgba(120,134,150,.16);color:#aab4c0;border-color:rgba(120,134,150,.4)}
+  .bk-hrsp{background:rgba(244,200,74,.2);color:#f4c84a;border-color:rgba(244,200,74,.5);font-weight:800}
+  .bk-hrbp{background:rgba(228,87,46,.18);color:#ff8a5e;border-color:rgba(228,87,46,.45);font-weight:700}
+  .h4-sub{font-weight:600;color:var(--faint);font-size:10px;text-transform:none;letter-spacing:0}
+  .spotrow{display:flex;gap:4px}
+  .spotcell{flex:1;border:1px solid var(--line);border-radius:7px;padding:6px 0 4px;text-align:center;background:var(--panel)}
+  .spotcell.cur{border-color:#f4c84a;box-shadow:0 0 0 1px #f4c84a inset}
+  .spotn{font-family:"IBM Plex Mono";font-weight:800;font-size:14px;color:var(--ink)}
+  .spotcell .spotlbl{font-size:9px;color:var(--muted);margin-top:1px}
+  .spot-note{font-size:11px;color:var(--muted);margin-top:6px}
+  .clearflag{display:inline-block;margin-left:6px;font-family:"IBM Plex Mono";font-weight:800;font-size:9.5px;letter-spacing:.03em;color:#0c1116;background:#f4c84a;padding:1px 6px;border-radius:5px;vertical-align:middle}
+  .clearnote{background:rgba(244,200,74,.1);border:1px solid rgba(244,200,74,.4);border-radius:9px;padding:9px 11px;margin:2px 0 12px;font-size:12px;color:var(--ink);line-height:1.5}
   .mixd{font-family:'IBM Plex Mono';font-weight:800;font-size:11px;padding:1px 5px;border-radius:5px;margin-right:4px}
   .mixd.up{background:rgba(245,158,11,.18);color:#fbbf24}
   .mixd.down{background:rgba(62,124,177,.18);color:#7fb0dd}
@@ -713,6 +724,19 @@ function hrByHandBlock(op){
   }
   return "";
 }
+function spotBlock(p){
+  const hs=p.hr_by_spot||{};
+  const vals=Object.values(hs);
+  if(!vals.length) return "";
+  const tot=vals.reduce((a,b)=>a+b,0), m=Math.max(1,...vals);
+  const cells=[1,2,3,4,5,6,7,8,9].map(s=>{
+    const n=hs[s]||0, cur=p.lineup_spot===s, op=n?(0.2+0.55*n/m).toFixed(2):0;
+    return `<div class="spotcell${cur?' cur':''}" style="${n?`background:rgba(244,200,74,${op})`:''}"><div class="spotn">${n||'·'}</div><div class="spotlbl">${s}</div></div>`;
+  }).join("");
+  return `<h4 style="margin-top:14px">HR by lineup spot <span class="h4-sub">season · ${tot} HR</span></h4>
+    <div class="spotrow">${cells}</div>
+    ${p.lineup_spot?`<div class="spot-note">Batting <b>${p.lineup_spot}</b> today${hs[p.lineup_spot]?` — <b>${hs[p.lineup_spot]}</b> HR from this spot`:` — none from this spot yet`}.</div>`:""}`;
+}
 function pitchBlock(p){
   const us=p.pitch_usage, hs=p.pitch_splits, pm=p.pitch_matchup;
   if(!us && !hs) return "";
@@ -821,6 +845,31 @@ function evColor(mx){ if(mx==null) return "var(--panel-2)"; return chipColor(Mat
 // like Ballpark Pal's headline) — exp100 breaks ties so power shows through.
 function pkVal(p){const k=p.park_hr; if(!k||k.boost==null) return -999; return k.boost*1000+(k.exp100||0);}
 
+// SMASH conviction: fires when the whole model converges on a hitter, not just raw Heat.
+// Heat contributes, but so do trend, historical BvP, lineup-spot power, park+weather, pitch
+// mix, and a vulnerable arm. 70+ Heat still auto-fires; lower Heat needs signals to stack.
+// Not all are required — that's the point: exceptions get through when enough else points here.
+function smashConviction(p){
+  const H_=H(p);
+  let s=Math.max(0, Math.min(3, (H_-45)/10));     // heat contribution (0 at 45 → 3 at 75+)
+  const r=[];
+  if(p.trend && p.trend.dir==="up"){ s+=1.5; r.push(p.trend.new?"heating up (new)":"trending up"); }
+  const pb=(p.park_hr && p.park_hr.boost!=null)?p.park_hr.boost:0;
+  if(pb>=12){ s+=1.5; r.push("park + weather"); } else if(pb>=6){ s+=0.75; r.push("park lean"); }
+  const ks=new Set((p.badges||[]).map(b=>b.k));
+  if(ks.has("hrsp")){ s+=1.5; r.push("owns the starter"); }
+  if(ks.has("hrbp")){ s+=1.0; r.push("HR off their pen"); }
+  const spotHR=(p.hr_by_spot && p.lineup_spot)?(p.hr_by_spot[p.lineup_spot]||0):0;
+  if(spotHR>=3){ s+=1.5; r.push(`${spotHR} HR from spot ${p.lineup_spot}`); }
+  else if(spotHR>=2){ s+=0.75; r.push(`HR from spot ${p.lineup_spot}`); }
+  const mixd=(p.heat_mix!=null && p.heat!=null)?(p.heat_mix-p.heat):0;
+  if(mixd>=6){ s+=1.0; r.push("pitch-mix edge"); }
+  const armSc=(p.opp_pitcher && p.opp_pitcher.hr_score!=null)?p.opp_pitcher.hr_score:0;
+  if(armSc>=65){ s+=1.0; r.push("vulnerable arm"); }
+  if(ks.has("pow")){ s+=0.5; r.push("loud contact"); }
+  if(ks.has("arm")){ s+=0.5; r.push("HR-prone matchup"); }
+  return {fire: (H_>=70 || s>=5.0), score:s, reasons:r};
+}
 function render(){
   const main=document.getElementById("main");
   if(!BOARD){return;}
@@ -1048,6 +1097,7 @@ function render(){
     });
     const armSc = (p.opp_pitcher&&p.opp_pitcher.hr_score!=null)?p.opp_pitcher.hr_score:null;
     const armCol = armSc!=null?chipColor(armSc):"transparent";
+    const sm = smashConviction(p);
 
     html+=`<div class="row${isThin(p)?" thin":""}" data-i="${i}">
       <div class="crow" onclick="toggle(this)">
@@ -1055,7 +1105,7 @@ function render(){
           <div class="rank mono">${i+1}</div>
           <div class="cheat" style="background:${col}">${H(p)}</div>
           <div class="cwho">
-            <div class="name"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span class="nm-txt">${p.name}</span><span class="liststar"${listHas(p.id)?"":" hidden"}>★</span></div>
+            <div class="name"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span class="nm-txt">${p.name}</span><span class="liststar"${listHas(p.id)?"":" hidden"}>★</span>${sm.fire?'<span class="clearflag">⚡ SMASH</span>':""}</div>
             <div class="cmini">${bpChip}${lbChip}${pkChip}${mdChip}${trendBadge(p.trend)?trendBadge(p.trend)+" ":""}${p.lineup_status==="projected"?`<span class="spot" style="color:var(--seam);border-color:var(--seam)">proj</span> `:""}${p.lineup_spot?`#${p.lineup_spot} · `:""}${p.team}→${p.opp_team} · ${timeStr(p.time)}${armSc!=null?` · arm <b style="color:${armCol}">${armSc}</b>`:""} · ${(p.windows&&p.windows.L14d&&p.windows.L14d.pa!=null)?`${p.windows.L14d.pa}PA`:"–"}</div>
           </div>
           <div class="cmetrics">${mini}</div>
@@ -1065,6 +1115,7 @@ function render(){
       <div class="detail">
         <div class="dname"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span>${p.name}</span>${p.lineup_spot?`<span class="dspot">#${p.lineup_spot}</span>`:""}</div>
         <button class="listbtn${listHas(p.id)?" on":""}" data-pid="${p.id}" data-nm="${encodeURIComponent(p.name)}" onclick="toggleListBtn(this,event)">${listHas(p.id)?"★ On your list — tap to remove":"☆ Add to my list"}</button>
+        ${sm.fire?`<div class="clearnote">⚡ <b>Everything's pointing here.</b> ${sm.reasons.length?sm.reasons.slice(0,5).join(" · ")+". ":""}The matchup's already priced into this number — trust it, don't talk yourself out of it over one cold reading.</div>`:""}
         ${p.angle?`<div class="angle">${p.angle}</div>`:""}
         ${badgeChips(p)}
         <div class="matchup" style="margin-bottom:10px">${p.team} vs ${p.opp_team} · ${timeStr(p.time)} · ${p.park||""} · park ${fmt(p.park_hr_factor,2)}× · ${armBadge}</div>
@@ -1075,6 +1126,7 @@ function render(){
           <div class="parkbox-cond">${p.park_hr.indoor?"indoor — roof / climate controlled":(p.park_hr.weather?`${p.park_hr.temp_f!=null?p.park_hr.temp_f+"°F":""}${p.park_hr.wind_mph!=null?` · wind ${p.park_hr.wind_mph} mph`:""}`:"park geometry only · live weather unavailable")}${p.park_hr.savant_pf!=null?` · park ${p.park_hr.savant_pf}×`:""}</div>
           <div class="parkbox-note">${p.park_hr.savant_pf!=null?"Anchored to this season's empirical HR park factor (computed from Statcast batted balls); physics adds this hitter's spray + today's weather on top. ":""}His real batted balls flown through this park's walls. Secondary read — separate from Heat.</div>
         </div>`:""}
+        ${spotBlock(p)}
         <h4>Four signals — recent · season · career</h4>
         <div class="strip" style="border:1px solid var(--line);border-radius:10px">${strip}</div>
         <h4 style="margin-top:14px">Trend (last 2 wk vs game windows)</h4>
