@@ -19,6 +19,8 @@
     --seam:#C8472B;            /* baseball-seam red, the one accent */
     --cold:#3E7CB1; --hot:#E4572E;
     --good:#5FB97A; --bad:#D6604A;
+    --warm:#C9A961;            /* muted amber for chips */
+    --proof:#C2A24E;           /* quiet gold — validating markers (SMASH, HR-history) */
   }
   *{box-sizing:border-box}
   html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
@@ -203,20 +205,22 @@
   .gameitem.on .gi-check{border-color:var(--seam)}
   .gi-top{font-size:13px;font-weight:700;color:var(--ink)}
   .gi-arms{font-size:11px;color:var(--muted);font-family:'IBM Plex Mono';margin-top:2px}
-  .bdg{font-size:9px;font-weight:800;letter-spacing:.04em;padding:1px 5px;border-radius:4px;
+  .bdg{font-size:9px;font-weight:700;letter-spacing:.04em;padding:1px 5px;border-radius:4px;
     line-height:1.4;border:1px solid transparent;white-space:nowrap}
-  .bk-arm{background:rgba(228,87,46,.18);color:#ff8a5e;border-color:rgba(228,87,46,.4)}
-  .bk-plat{background:rgba(155,126,222,.18);color:#bda6f0;border-color:rgba(155,126,222,.4)}
-  .bk-mix{background:rgba(245,158,11,.16);color:#fbbf24;border-color:rgba(245,158,11,.4)}
-  .bk-due{background:rgba(62,124,177,.18);color:#7fb0dd;border-color:rgba(62,124,177,.45)}
-  .bk-hot{background:rgba(239,68,68,.16);color:#f87171;border-color:rgba(239,68,68,.4)}
-  .bk-pow{background:rgba(212,175,55,.16);color:#e3c14e;border-color:rgba(212,175,55,.45)}
-  .bk-pen{background:rgba(228,87,46,.1);color:#d68a72;border-color:rgba(228,87,46,.25)}
-  .bk-tough{background:rgba(45,156,142,.16);color:#5ec9b7;border-color:rgba(45,156,142,.4)}
-  .bk-lock{background:rgba(46,160,93,.16);color:#56c878;border-color:rgba(46,160,93,.45)}
-  .bk-cool{background:rgba(120,134,150,.16);color:#aab4c0;border-color:rgba(120,134,150,.4)}
-  .bk-hrsp{background:rgba(244,200,74,.2);color:#f4c84a;border-color:rgba(244,200,74,.5);font-weight:800}
-  .bk-hrbp{background:rgba(228,87,46,.18);color:#ff8a5e;border-color:rgba(228,87,46,.45);font-weight:700}
+  /* one quiet family: consistent .11 tint, .28 hairline, desaturated mid-tone text.
+     Heat (the number + scale) is the only loud thing on a card — badges stay disciplined. */
+  .bk-lock{background:rgba(95,185,122,.12);color:#71bd8d;border-color:rgba(95,185,122,.28)}
+  .bk-hot{background:rgba(120,178,145,.11);color:#8ab89e;border-color:rgba(120,178,145,.26)}
+  .bk-due{background:rgba(62,124,177,.13);color:#7ea9cf;border-color:rgba(62,124,177,.3)}
+  .bk-pow{background:rgba(201,169,97,.12);color:#c6a662;border-color:rgba(201,169,97,.28)}
+  .bk-mix{background:rgba(126,138,205,.12);color:#95a2d4;border-color:rgba(126,138,205,.28)}
+  .bk-plat{background:rgba(155,126,222,.12);color:#a99cd0;border-color:rgba(155,126,222,.28)}
+  .bk-arm{background:rgba(198,110,80,.11);color:#cd977f;border-color:rgba(198,110,80,.26)}
+  .bk-pen{background:rgba(198,140,110,.1);color:#c6a48d;border-color:rgba(198,140,110,.24)}
+  .bk-cool{background:rgba(120,134,150,.12);color:#9aa4b2;border-color:rgba(120,134,150,.28)}
+  .bk-tough{background:rgba(120,134,150,.1);color:#8a95a3;border-color:rgba(120,134,150,.24)}
+  .bk-hrsp{background:rgba(194,162,78,.12);color:#c2a24e;border-color:rgba(194,162,78,.3)}
+  .bk-hrbp{background:rgba(191,144,104,.12);color:#bf9068;border-color:rgba(191,144,104,.28)}
   .h4-sub{font-weight:600;color:var(--faint);font-size:10px;text-transform:none;letter-spacing:0}
   .spotrow{display:flex;gap:4px}
   .spotcell{flex:1;border:1px solid var(--line);border-radius:7px;padding:6px 0 4px;text-align:center;background:var(--panel)}
@@ -224,8 +228,30 @@
   .spotn{font-family:"IBM Plex Mono";font-weight:800;font-size:14px;color:var(--ink)}
   .spotcell .spotlbl{font-size:9px;color:var(--muted);margin-top:1px}
   .spot-note{font-size:11px;color:var(--muted);margin-top:6px}
-  .clearflag{display:inline-block;margin:0 4px 0 0;font-family:"IBM Plex Mono";font-weight:800;font-size:9px;letter-spacing:.03em;color:#0c1116;background:#f4c84a;padding:1px 5px;border-radius:5px;vertical-align:middle}
-  .clearnote{background:rgba(244,200,74,.1);border:1px solid rgba(244,200,74,.4);border-radius:9px;padding:9px 11px;margin:2px 0 12px;font-size:12px;color:var(--ink);line-height:1.5}
+  .clearflag{display:inline-block;margin:0 5px 0 0;font-family:"IBM Plex Mono";font-weight:700;font-size:8.5px;letter-spacing:.06em;color:var(--proof);background:rgba(194,162,78,.08);padding:1px 5px;border-radius:4px;border:1px solid rgba(194,162,78,.38);vertical-align:middle}
+  .clearnote{background:rgba(194,162,78,.07);border:1px solid rgba(194,162,78,.28);border-radius:9px;padding:9px 11px;margin:2px 0 12px;font-size:12px;color:var(--ink);line-height:1.5}
+  .tt-wrap{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:14px}
+  .tt-h{font-family:Archivo;font-weight:800;font-size:14px;display:flex;flex-direction:column;gap:2px;margin-bottom:9px}
+  .tt-h span{font-weight:500;font-size:10.5px;color:var(--faint);letter-spacing:0}
+  .tt-cols,.tt-row{display:grid;grid-template-columns:1fr auto 26px 52px 30px;gap:7px;align-items:center}
+  .tt-cols{font-size:9px;text-transform:uppercase;letter-spacing:.04em;color:var(--faint);padding:0 2px 5px;border-bottom:1px solid var(--line)}
+  .tt-cols .tt-rate,.tt-cols .tt-bet{text-align:right}.tt-cols .tt-n,.tt-cols .tt-live{text-align:center}
+  .tt-row{padding:6px 2px;border-bottom:1px solid rgba(255,255,255,.03);font-size:12px}
+  .tt-tag{min-width:0;overflow:hidden}
+  .tt-rate{font-family:"IBM Plex Mono";font-weight:700;text-align:right;color:var(--ink)}
+  .tt-rate em{font-style:normal;font-size:10px;color:var(--muted);margin-left:2px}
+  .tt-n,.tt-live{font-family:"IBM Plex Mono";text-align:center;color:var(--muted);font-size:11px}
+  .tt-bet{font-family:"IBM Plex Mono";text-align:right;font-size:11px;color:var(--muted)}
+  .tt-bet i{font-style:normal;font-size:9px;color:var(--faint)}
+  .tt-trust .tt-rate{color:var(--good)}.tt-fade .tt-rate{color:var(--bad)}.tt-thin .tt-rate{color:var(--warm)}
+  .tt-trust .tt-live{color:var(--good)}
+  .tt-sub-h{font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--faint);margin:11px 0 5px}
+  .tt-combo{display:flex;justify-content:space-between;align-items:center;padding:4px 2px;font-size:12px;gap:8px}
+  .tt-combo-tags{display:flex;align-items:center;flex-wrap:wrap;gap:2px;min-width:0}
+  .tt-combo b{font-family:"IBM Plex Mono"}
+  .tt-combo i{font-style:normal;font-size:9px;color:var(--faint);margin-left:3px}
+  .tt-plus{color:var(--faint);margin:0 2px;font-size:10px}
+  .tt-legend{font-size:10px;color:var(--faint);line-height:1.55;margin-top:10px}
   .mixd{font-family:'IBM Plex Mono';font-weight:800;font-size:11px;padding:1px 5px;border-radius:5px;margin-right:4px}
   .mixd.up{background:rgba(245,158,11,.18);color:#fbbf24}
   .mixd.down{background:rgba(62,124,177,.18);color:#7fb0dd}
@@ -284,7 +310,7 @@
   .mu-meta{font-size:10.5px;color:var(--muted)}
   .mu-row{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:3px 0;border-top:1px solid var(--line)}
   .mu-lab{color:var(--muted);font-size:11px}
-  .mu-hr{color:var(--hot);font-weight:700;font-family:"IBM Plex Mono";font-size:11px}
+  .mu-hr{color:var(--proof);font-weight:700;font-family:"IBM Plex Mono";font-size:11px}
   .mu-faced{color:var(--ink);font-family:"IBM Plex Mono";font-size:11px}
   .mu-none{color:var(--faint);font-size:11px}
   .mu-heat{font-family:"IBM Plex Mono";font-weight:800;font-size:12px;color:#0c1116;padding:2px 6px;border-radius:6px;min-width:24px;text-align:center}
@@ -543,7 +569,7 @@
         <button onclick="document.getElementById('filterSheet').classList.remove('show')" aria-label="Close">✕</button>
       </div>
       <div class="faq-body">
-        <div class="fgrp"><label>Games <span class="fhint">tap to compare specific matchups · 🔥 = vulnerable starter</span></label>
+        <div class="fgrp"><label>Games <span class="fhint">tap to compare specific matchups · ▸ = vulnerable starter</span></label>
           <div id="gameList" class="gamelist"></div>
         </div>
         <div class="fgrp"><label>Teams <span class="fhint">tap to filter to specific teams</span></label>
@@ -757,7 +783,7 @@ function pitchBlock(p){
   let head="";
   if(pm&&pm.best&&pm.edge!=null){
     const fav=pm.edge>=2;
-    head=`<div style="font-size:12px;color:${fav?'var(--seam)':'var(--muted)'};margin-bottom:6px">${fav?'⚡ ':''}sees ${pm.best.usage}% ${pm.best.label}, barrels it <b>${pm.best.barrel}%</b>${fav?' — mix feeds his power':''}</div>`;
+    head=`<div style="font-size:12px;color:${fav?'var(--seam)':'var(--muted)'};margin-bottom:6px">${fav?'▸ ':''}sees ${pm.best.usage}% ${pm.best.label}, barrels it <b>${pm.best.barrel}%</b>${fav?' — mix feeds his power':''}</div>`;
   }
   // vs-mix adjusted EV/LA/whiff + how Heat shifts under the mix view
   let mixLine="";
@@ -956,7 +982,7 @@ function render(){
     const lk=p=>(p.luck&&p.luck.recent)||{};
     const dueTop=take([...pool].filter(p=>lk(p).luck_gap>=0.04&&lk(p).xwobacon>=0.370).sort((a,b)=>lk(b).luck_gap-lk(a).luck_gap),3);
     const cats=[
-      {t:"🔥 Top Heat",d:"highest overall",ps:heatTop},
+      {t:"Top Heat",d:"highest overall",ps:heatTop},
       {t:"⚙ Mix Edges",d:"climb vs this arm's mix",ps:mixTop,mix:true},
       {t:"▲ Risers",d:"contact trending up",ps:riseTop},
       {t:"◆ Complete",d:"clear all four signals",ps:compTop},
@@ -1117,7 +1143,7 @@ function render(){
           <div class="cheat" style="background:${col}">${H(p)}</div>
           <div class="cwho">
             <div class="name"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span class="nm-txt">${p.name}</span><span class="liststar"${listHas(p.id)?"":" hidden"}>★</span></div>
-            <div class="cmini">${sm.fire?'<span class="clearflag">⚡ SMASH</span> ':""}${bpChip}${lbChip}${pkChip}${mdChip}${trendBadge(p.trend)?trendBadge(p.trend)+" ":""}${p.lineup_status==="projected"?`<span class="spot" style="color:var(--seam);border-color:var(--seam)">proj</span> `:""}${p.lineup_spot?`#${p.lineup_spot} · `:""}${p.team}→${p.opp_team} · ${timeStr(p.time)}${armSc!=null?` · arm <b style="color:${armCol}">${armSc}</b>`:""} · ${(p.windows&&p.windows.L14d&&p.windows.L14d.pa!=null)?`${p.windows.L14d.pa}PA`:"–"}</div>
+            <div class="cmini">${sm.fire?'<span class="clearflag">SMASH</span> ':""}${bpChip}${lbChip}${pkChip}${mdChip}${trendBadge(p.trend)?trendBadge(p.trend)+" ":""}${p.lineup_status==="projected"?`<span class="spot" style="color:var(--seam);border-color:var(--seam)">proj</span> `:""}${p.lineup_spot?`#${p.lineup_spot} · `:""}${p.team}→${p.opp_team} · ${timeStr(p.time)}${armSc!=null?` · arm <b style="color:${armCol}">${armSc}</b>`:""} · ${(p.windows&&p.windows.L14d&&p.windows.L14d.pa!=null)?`${p.windows.L14d.pa}PA`:"–"}</div>
           </div>
           <div class="cmetrics">${mini}</div>
         </div>
@@ -1126,11 +1152,11 @@ function render(){
       <div class="detail">
         <div class="dname"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span>${p.name}</span>${p.lineup_spot?`<span class="dspot">#${p.lineup_spot}</span>`:""}</div>
         <button class="listbtn${listHas(p.id)?" on":""}" data-pid="${p.id}" data-nm="${encodeURIComponent(p.name)}" onclick="toggleListBtn(this,event)">${listHas(p.id)?"★ On your list — tap to remove":"☆ Add to my list"}</button>
-        ${sm.fire?`<div class="clearnote">⚡ <b>Everything's pointing here.</b> ${sm.reasons.length?sm.reasons.slice(0,5).join(" · ")+". ":""}The matchup's already priced into this number — trust it, don't talk yourself out of it over one cold reading.</div>`:""}
+        ${sm.fire?`<div class="clearnote"><b>Everything's pointing here.</b> ${sm.reasons.length?sm.reasons.slice(0,5).join(" · ")+". ":""}The matchup's already priced into this number — trust it, don't talk yourself out of it over one cold reading.</div>`:""}
         ${p.angle?`<div class="angle">${p.angle}</div>`:""}
         ${badgeChips(p)}
         <div class="matchup" style="margin-bottom:10px">${p.team} vs ${p.opp_team} · ${timeStr(p.time)} · ${p.park||""} · park ${fmt(p.park_hr_factor,2)}× · ${armBadge}</div>
-        ${(p.max_ev&&p.max_ev.season!=null)?`<div class="arm" style="margin:-4px 0 8px">💥 <b>${p.name.split(' ').slice(-1)[0]}'s max EV:</b> <b style="color:var(--hot)">${p.max_ev.season}</b> mph season${p.max_ev.recent!=null?` · ${p.max_ev.recent} last 2wk`:""}</div>`:""}
+        ${(p.max_ev&&p.max_ev.season!=null)?`<div class="arm" style="margin:-4px 0 8px"><b>${p.name.split(' ').slice(-1)[0]}'s max EV:</b> <b style="color:var(--hot)">${p.max_ev.season}</b> mph season${p.max_ev.recent!=null?` · ${p.max_ev.recent} last 2wk`:""}</div>`:""}
         ${p.park_hr?`<div class="parkbox">
           <div class="parkbox-h">Park &amp; weather model <span class="pk-boost ${p.park_hr.boost>=0?'pos':'neg'}">${p.park_hr.boost>=0?'+':''}${p.park_hr.boost}% HR</span></div>
           <div class="parkbox-sub"><b style="color:var(--ink)">${p.park_hr.exp100}</b> expected HR per 100 batted balls here vs <b style="color:var(--ink)">${p.park_hr.neutral100}</b> in a neutral park · ${p.park_hr.n} batted balls modeled</div>
@@ -1245,7 +1271,7 @@ function toggle(el){ el.closest(".row").classList.toggle("open"); }
 
 // ===== Personal bet log (stored on this device) + badge-conversion analytics =====
 const BET_TYPES=["Longest HR jackpot","Grand slam parlay","Round robin","Single HR","Other"];
-const BKLABEL={arm:"WEAK ARM",plat:"PLATOON",mix:"PITCH EDGE",pow:"POWER",lock:"HOT",hot:"WARMING",due:"DUE",cool:"MAY COOL"};
+const BKLABEL={arm:"WEAK ARM",plat:"PLATOON",mix:"PITCH EDGE",pow:"POWER",lock:"HOT",hot:"WARMING",due:"DUE",cool:"MAY COOL",hrsp:"HR vs SP",hrbp:"HR vs PEN",pen:"WEAK PEN",tough:"TOUGH"};
 function loadBets(){try{return JSON.parse(localStorage.getItem("gy_bets")||"[]");}catch(e){return[];}}
 function saveBets(b){try{localStorage.setItem("gy_bets",JSON.stringify(b));}catch(e){}}
 // --- My List: players you're keen on, kept by MLBAM id so it persists across days ---
@@ -1529,11 +1555,11 @@ function renderMatchup(){
     const b=p.bvp, sp=spRec(p), career=!!b.sp_career, spHot=sp.hr>0;
     const seasonTag=(career && b.sp && (b.sp.pa>0) ) ? `<span class="mu-yr">${b.sp.hr}/${b.sp.pa} this yr</span>` : "";
     const spLine = sp.pa>0
-      ? `<span class="${spHot?'mu-hr':'mu-faced'}">${spHot?`🔥 ${sp.hr} HR`:`${sp.hr} HR`} · ${sp.pa} PA</span> <span class="mu-src">${career?"career":"season"}</span>${seasonTag}`
+      ? `<span class="${spHot?'mu-hr':'mu-faced'}">${spHot?`● ${sp.hr} HR`:`${sp.hr} HR`} · ${sp.pa} PA</span> <span class="mu-src">${career?"career":"season"}</span>${seasonTag}`
       : `<span class="mu-none">not faced${career?" (career)":" this year"}</span>`;
     const bpHr=b.bp.filter(a=>a.hr>0);
     const bpLine = bpHr.length
-      ? bpHr.map(a=>`<span class="mu-hr">🔥 ${a.name} <b>${a.hr}</b>HR/${a.pa}PA</span>`).join(" ")
+      ? bpHr.map(a=>`<span class="mu-hr">● ${a.name} <b>${a.hr}</b>HR/${a.pa}PA</span>`).join(" ")
       : (b.bp.length? `<span class="mu-faced">faced ${b.bp.length} of their pen · 0 HR</span>` : `<span class="mu-none">no pen history</span>`);
     return `<div class="mu-card${(spHot||bpHr.length)?' mu-on':''}">
       <div class="mu-top"><span class="mu-heat" style="background:${chipColor(p.heat||0)}">${p.heat??"–"}</span><b>${p.name}</b> ${listHas(p.id)?'<span class="liststar">★</span>':''}<span class="mu-meta">${p.team}→${p.opp_team} · ${timeStr(p.time)}</span></div>
@@ -1545,10 +1571,50 @@ function renderMatchup(){
     <div class="mu-head">Historical matchups<span>${withHist.length} with history${none?` · ${none} not faced`:""}</span></div>
     <div class="seg mu-sort" id="muSort">${sbtn("hist","Best")}${sbtn("sphr","SP HR")}${sbtn("sppa","SP PA")}${sbtn("bphr","Pen HR")}${sbtn("heat","Heat")}</div>
     ${withHist.map(card).join("")}
-    <div class="pl-note">Batter-vs-pitcher: HR &amp; PA off today's starter (career when available, season otherwise) and off active arms in the opponent's bullpen. 🔥 = has gone deep off him. Heat chip on the left. Hitters with no history vs today's arms are hidden.</div>
+    <div class="pl-note">Batter-vs-pitcher: HR &amp; PA off today's starter (career when available, season otherwise) and off active arms in the opponent's bullpen. ● = has gone deep off him. Heat chip on the left. Hitters with no history vs today's arms are hidden.</div>
   </div>`;
 }
 
+// Trust table — which tags actually convert to HRs in YOUR data (tracker + bet log), so you
+// know what to lean on when pairing. Never invents; only shows tags with real graded samples.
+function trustTable(R, BR){
+  const raw={};
+  if(HISTORY&&HISTORY.days) HISTORY.days.forEach(d=>Object.entries(d.by_badge||{}).forEach(([k,v])=>{
+    const a=raw[k]||(raw[k]={n:0,hr:0}); a.n+=v.n; a.hr+=v.hr; }));
+  const live={};
+  if(BOARD&&BOARD.players) BOARD.players.forEach(p=>{ if(p.lineup_status==="out") return;
+    new Set((p.badges||[]).map(b=>b.k)).forEach(k=>{ live[k]=(live[k]||0)+1; }); });
+  const keys=new Set([...Object.keys(raw), ...Object.keys(BR.badges||{})]);
+  const rows=[...keys].map(k=>{
+    const tr=raw[k]||{n:0,hr:0};
+    const trRate=tr.n?tr.hr/tr.n:null;
+    const lift=(trRate!=null&&R.base>0)?trRate/R.base:null;
+    const bt=(BR.badges||{})[k]||{n:0,hit:0};
+    const btRate=bt.n?bt.hit/bt.n:null;
+    let verdict="neutral";
+    if(lift!=null){
+      if(lift>=1.25 && tr.n>=20) verdict="trust";
+      else if(lift>=1.25) verdict="thin";
+      else if(lift<=0.8 && tr.n>=20) verdict="fade";
+    }
+    return {k, trN:tr.n, trRate, lift, btN:bt.n, btRate, live:live[k]||0, verdict};
+  }).filter(r=>r.trN>0||r.btN>0);
+  rows.sort((a,b)=>{ const la=a.lift==null?-1:a.lift, lb=b.lift==null?-1:b.lift; return lb-la || b.trN-a.trN; });
+  return rows;
+}
+// 2-tag combos from your bet legs that have actually hit — the pairing edges live here.
+function comboTrust(){
+  const combos={};
+  (loadBets()||[]).forEach(b=>(b.legs||[]).forEach(l=>{
+    if(l.hit!=="hit"&&l.hit!=="miss") return;
+    const win=l.hit==="hit"; const ks=[...new Set(l.badges||[])].sort();
+    for(let i=0;i<ks.length;i++) for(let j=i+1;j<ks.length;j++){
+      const key=ks[i]+"\u0001"+ks[j]; const a=combos[key]||(combos[key]={n:0,hit:0}); a.n++; if(win) a.hit++; }
+  }));
+  return Object.entries(combos).filter(([,v])=>v.n>=3)
+    .map(([k,v])=>({ks:k.split("\u0001"), n:v.n, hit:v.hit, rate:v.hit/v.n}))
+    .sort((a,b)=>b.rate-a.rate||b.n-a.n).slice(0,6);
+}
 function renderParlays(){
   const main=document.getElementById("main");
   if(!BOARD||!BOARD.players){ main.innerHTML=`<div class="empty">Board not loaded.</div>`; return; }
@@ -1604,6 +1670,27 @@ function renderParlays(){
           <span class="pl-in on">Variety</span>
         </div>
       </div>
+      ${(function(){
+        const rows=trustTable(R,BR);
+        const pct=x=>x==null?"–":(x*100).toFixed(0)+"%";
+        if(!rows.length) return `<div class="tt-wrap"><div class="tt-h">Trust table<span>grade a few days or log some bets — this fills in with the tags that actually convert for you</span></div></div>`;
+        const rowHtml=rows.map(r=>`<div class="tt-row tt-${r.verdict}">
+          <span class="tt-tag"><span class="bdg bk-${r.k}">${BKLABEL[r.k]||r.k}</span></span>
+          <span class="tt-rate">${pct(r.trRate)}${r.lift!=null?` <em>${r.lift.toFixed(2)}×</em>`:""}</span>
+          <span class="tt-n">${r.trN||"–"}</span>
+          <span class="tt-bet">${r.btN?`${pct(r.btRate)} <i>${r.btN}</i>`:"–"}</span>
+          <span class="tt-live">${r.live||"–"}</span>
+        </div>`).join("");
+        const combos=comboTrust();
+        const comboHtml=combos.length?`<div class="tt-sub-h">Combos that hit — your bets</div>${combos.map(c=>`<div class="tt-combo"><span class="tt-combo-tags">${c.ks.map(k=>`<span class="bdg bk-${k}">${BKLABEL[k]||k}</span>`).join('<span class="tt-plus">+</span>')}</span><span><b>${(c.rate*100).toFixed(0)}%</b> <i>${c.hit}/${c.n}</i></span></div>`).join("")}`:"";
+        return `<div class="tt-wrap">
+          <div class="tt-h">Trust table<span>${R.days?`${R.days} graded day${R.days>1?"s":""}`:"no tracker yet"}${BR.legs?` · ${BR.legs} bet legs`:""} · lean green · fade red · ignore thin</span></div>
+          <div class="tt-cols"><span class="tt-tag">tag</span><span class="tt-rate">converts</span><span class="tt-n">n</span><span class="tt-bet">bets</span><span class="tt-live">live</span></div>
+          ${rowHtml}
+          ${comboHtml}
+          <div class="tt-legend"><b>converts</b> = HR rate for hitters carrying that tag (× vs board average) · <b>n</b> = tagged hitters graded · <b>bets</b> = your own hit rate on legs with that tag · <b>live</b> = how many carry it on today's board. Pair toward green tags that are live today; the generator below already weights these, this shows you the why.</div>
+        </div>`;
+      })()}
       ${card("Core · 2-leg",2,{chalkN:5,maxChalk:1},"highest combined value, lightly capped on chalk")}
       ${card("Balanced · 3-leg",3,{chalkN:6,maxChalk:1},"one chalk max, the rest value + a sleeper")}
       ${card("Spread · 5-leg round-robin base",5,{chalkN:6,maxChalk:2,bands:["short","short","medium","medium","long"]},"odds spread: 2 short · 2 medium · 1 longshot, one per game")}
@@ -1762,7 +1849,7 @@ function populateGames(){
   });
   const games=BOARD.games.slice().sort((a,b)=>(a.time||"").localeCompare(b.time||""));
   const vul=s=>s!=null&&s>=65;
-  const arm=(ab,o)=>`${ab} <b style="color:${vul(o&&o.score)?'var(--seam)':'var(--muted)'}">${(o&&o.score!=null)?o.score:'–'}${vul(o&&o.score)?' 🔥':''}</b>`;
+  const arm=(ab,o)=>`${ab} <b style="color:${vul(o&&o.score)?'var(--seam)':'var(--muted)'}">${(o&&o.score!=null)?o.score:'–'}${vul(o&&o.score)?' ▸':''}</b>`;
   list.innerHTML=games.map(g=>{
     const m=sp[g.game_pk]||{}; const on=gameSel.has(String(g.game_pk));
     return `<div class="gameitem ${on?'on':''}" data-pk="${g.game_pk}">
