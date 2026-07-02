@@ -442,7 +442,7 @@
   .tp-row .why{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.45}
   .spot{font-size:9px;color:var(--faint);border:1px solid var(--line);border-radius:4px;padding:1px 4px;font-family:"IBM Plex Mono",monospace}
   /* stacks */
-  .stack{background:var(--panel);border:1px solid var(--line);border-radius:14px;margin:9px 0;overflow:hidden;transition:border-color .15s ease}
+  .stack{background:var(--panel);border:1px solid var(--line);border-radius:14px;margin:9px 0;overflow:hidden;transition:border-color .15s ease;content-visibility:auto;contain-intrinsic-size:auto 220px}
   @media (hover:hover){.stack:hover{border-color:#303a47}}
   .stacks-intro{font-size:12px;color:var(--muted);line-height:1.55;padding:6px 4px 10px}
 
@@ -974,6 +974,24 @@ function smashConviction(p){
   if(ks.has("plat")){ s+=0.5; r.push("platoon edge"); }
   return {score:s, reasons:r};
 }
+// slate-level SMASH selection, cached per board + mix-view state (used by the board,
+// Top Plays, and Stacks so all three agree on who the day's calls are)
+function slateSmash(){
+  if(!BOARD||!BOARD.players) return new Map();
+  if(BOARD._smash && BOARD._smash.key===mixView) return BOARD._smash.map;
+  const m=new Map();
+  try{
+    const cand=[];
+    BOARD.players.forEach(p=>{ if(p.lineup_status==="out") return;
+      const sm=smashConviction(p);
+      if(sm.score>=6.5 && sm.reasons.length>=3 && H(p)>=55) cand.push({id:p.id,sm});
+    });
+    cand.sort((a,b)=>b.sm.score-a.sm.score);
+    cand.slice(0,3).forEach(x=>m.set(x.id,x.sm));
+  }catch(e){}
+  BOARD._smash={key:mixView,map:m};
+  return m;
+}
 function render(){
   const main=document.getElementById("main");
   if(!BOARD){return;}
@@ -1025,17 +1043,7 @@ function render(){
   // everything converges (score >= 6.5 with 3+ distinct reasons and real Heat), capped
   // at the top 3 of the day. Rare by design — the flag only means something if the
   // hitters carrying it convert at a rate the rest of the board can't match.
-  const smashSet=(function(){
-    try{
-      const cand=[];
-      (BOARD.players||[]).forEach(p=>{ if(p.lineup_status==="out") return;
-        const sm=smashConviction(p);
-        if(sm.score>=6.5 && sm.reasons.length>=3 && H(p)>=55) cand.push({id:p.id,sm});
-      });
-      cand.sort((a,b)=>b.sm.score-a.sm.score);
-      return new Map(cand.slice(0,3).map(x=>[x.id,x.sm]));
-    }catch(e){ return new Map(); }
-  })();
+  const smashSet=slateSmash();
 
   let html="";
   if(BOARD.lineups_pending&&BOARD.lineups_pending.length){
@@ -1333,33 +1341,41 @@ function renderStacks(){
   const main=document.getElementById("main");
   const stacks=(BOARD&&BOARD.stacks)||[];
   if(!stacks.length){
-    main.innerHTML=`<div class="empty">No stacks yet.<br>A stack is a vulnerable starter with two or more in-form hitters (Heat 55+) facing him — built for grand-slam parlays. They fill in as lineups post.</div>`;
+    main.innerHTML=`<div class="empty">No stacks yet.<br>A stack is a whole lineup worth attacking — a vulnerable starter (or a bullpen game) with two or more Heat-55+ bats facing him. They fill in as lineups post.</div>`;
     return;
   }
-  const pmap={}; (BOARD.players||[]).forEach(p=>{pmap[p.name]=p;pmap[p.name+"|"+p.team]=p;});
+  const pmap={}; (BOARD.players||[]).forEach(p=>{pmap[p.id]=p;pmap[p.name]=p;});
   const armap={}; (BOARD.arms||[]).forEach(a=>{armap[a.name]=a;});
+  const smash=slateSmash();
   let html=`<div style="max-width:760px;margin:0 auto">
-    <div class="stacks-intro">Vulnerable starters with a cluster of in-form hitters facing them — built for grand-slam parlays. Each group is one arm and the Heat-55+ bats it's facing.</div>`;
+    <div class="stacks-intro">Lineups worth attacking — a vulnerable arm (or a bullpen game) with a cluster of in-form bats. Your "pitcher gives it up → take multiple players" spots. ● = has homered off today's arms. Tap a header to see all his bats on the board.</div>`;
   stacks.forEach(s=>{
     const f=s.form||{label:"",color:"#8A95A3"};
     const arm=armap[s.arm];
     const armBadges=arm?badgeChips(arm,4):"";
     const rows=s.hitters.map(h=>{
-      const pl=pmap[h.name+"|"+s.opp_team]||pmap[h.name];
+      const pl=(h.id!=null&&pmap[h.id])||pmap[h.name];
       const bdg=pl?badgeChips(pl,3):"";
+      const sm=h.id!=null&&smash.has(h.id);
       return `<div class="stack-h">
         <div class="hh" style="background:${chipColor(h.heat)}">${h.heat}</div>
         <div class="stack-who">
-          <div class="stack-nm"><span class="bats b-${(pl&&pl.bats)||(h.bats||'R')}">${h.bats||"?"}</span><span class="nm-txt">${h.name}</span>${h.spot?`<span class="spot">#${h.spot}</span>`:""}</div>
+          <div class="stack-nm"><span class="bats b-${(pl&&pl.bats)||(h.bats||'R')}">${h.bats||"?"}</span><span class="nm-txt">${h.owns?'<span style="color:var(--proof)">●</span> ':''}${h.name}</span>${sm?' <span class="clearflag">SMASH</span>':''}${h.b2b?' <span class="pl-tag warn">B2B</span>':''}${h.spot?`<span class="spot">#${h.spot}</span>`:""}</div>
           ${bdg}
         </div>
       </div>`;
     }).join("");
+    const envBits=[];
+    if(s.pen_game) envBits.push('<b style="color:var(--seam)">bullpen game</b>');
+    if(s.arm_score!=null) envBits.push(`arm <b style="color:${chipColor(s.arm_score)}">${s.arm_score}</b>`);
+    if(s.pen_score!=null) envBits.push(`pen <b style="color:${chipColor(s.pen_score)}">${s.pen_score}</b>`);
+    if(s.park_factor!=null) envBits.push(`park ${fmt(s.park_factor,2)}×`);
     html+=`<div class="stack">
-      <div class="stack-head">
-        <div class="sc" style="background:${chipColor(s.arm_score)}">${s.arm_score}</div>
+      <div class="stack-head arm-tap" onclick="armFilter('${(s.team||"").replace(/'/g,"")}')" title="Show all his bats on the board">
+        <div class="sc" style="background:${chipColor(s.stack_score??s.arm_score)}">${s.stack_score??s.arm_score??"–"}</div>
         <div style="flex:1;min-width:0">
-          <div class="nm">${s.arm} ${throwBadge(arm&&arm.throws)} <span class="arm-tag" style="color:${f.color};border:1px solid ${f.color}">${f.label}</span></div>
+          <div class="nm">${s.arm} ${throwBadge(arm&&arm.throws)}${s.opener?' <span class="opener-tag">OPENER</span>':''} <span class="arm-tag" style="color:${f.color};border:1px solid ${f.color}">${f.label}</span></div>
+          <div class="sub">${envBits.join(" · ")}</div>
           <div class="sub">${s.opp_team} bats · ${timeStr(s.time)} · ${s.hitters.length} in-form facing him</div>
           ${armBadges}
         </div>
@@ -1367,17 +1383,23 @@ function renderStacks(){
       ${rows}
     </div>`;
   });
-  html+=`</div>`;
+  html+=`<div class="pl-note">Stack score blends the arm's HR-vulnerability (or the pen's, in a bullpen game) with the strength of the top bats facing it — so a decent arm facing five monsters can outrank a terrible arm facing two.</div></div>`;
   main.innerHTML=html;
 }
 
 function toggle(el){ el.closest(".row").classList.toggle("open"); }
-// tap an arm in Arms Today -> board filters to the bats facing him
-function armFilter(oppTeam){
-  if(!oppTeam) return;
-  q=oppTeam;
-  const s=document.getElementById("search"); if(s) s.value=oppTeam;
-  render();
+// tap an arm (Arms Today or a Stack header) -> board filters to the bats facing him
+function armFilter(team){
+  if(!team) return;
+  q=team;
+  const s=document.getElementById("search"); if(s) s.value=team;
+  if(view!=="board"){
+    view="board";
+    [...document.querySelectorAll("#tabbar button")].forEach(x=>x.setAttribute("aria-pressed",x.dataset.view==="board"));
+    const bc=document.getElementById("boardControls"); if(bc) bc.style.display="";
+    savePrefs();
+  }
+  render(); setHH();
   const th=document.querySelector(".thead"); if(th) th.scrollIntoView({block:"start",behavior:"smooth"});
 }
 

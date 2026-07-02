@@ -537,7 +537,10 @@ def build(date_str: str | None = None) -> dict:
         if len(top_plays) >= 12:
             break
 
-    # Stacks (pairing): a vulnerable arm with 2+ strong hitters facing him
+    # Stacks (pairing): a target for the whole lineup — either a vulnerable arm with
+    # 2+ strong hitters facing him, OR a bullpen game (opener "start" + weak pen),
+    # which the old form filter wrongly excluded. Sorted by a blended stack score so
+    # a slightly-less-bad arm facing five monsters can outrank a worse arm facing two.
     from collections import defaultdict
     groups = defaultdict(list)
     for p in players:
@@ -546,25 +549,40 @@ def build(date_str: str | None = None) -> dict:
     for (gpk, arm), ps in groups.items():
         if not arm:
             continue
-        form = (ps[0]["opp_pitcher"].get("form") or {}).get("label", "")
-        if form not in ("SHELLABLE", "STEADY-BAD", "SLIPPING", "HITTABLE"):
+        op = ps[0]["opp_pitcher"]
+        form = (op.get("form") or {}).get("label", "")
+        pen_sc = (ps[0].get("opp_bullpen") or {}).get("score")
+        opener = bool(op.get("opener"))
+        targetable_arm = form in ("SHELLABLE", "STEADY-BAD", "SLIPPING", "HITTABLE")
+        pen_game = opener and (pen_sc or 0) >= 55
+        if not (targetable_arm or pen_game):
             continue
         strong = sorted([x for x in ps if x["heat"] >= 55], key=lambda x: x["heat"], reverse=True)
         if len(strong) < 2:
             continue
+        vuln = max(op.get("hr_score") or 0, (pen_sc or 0) if opener else 0)
+        top3 = sum(x["heat"] for x in strong[:3]) / min(3, len(strong))
         stacks.append({
             "arm": arm,
-            "form": ps[0]["opp_pitcher"].get("form"),
-            "arm_score": ps[0]["opp_pitcher"].get("hr_score"),
+            "form": op.get("form"),
+            "arm_score": op.get("hr_score"),
+            "pen_score": pen_sc,
+            "opener": opener,
+            "pen_game": pen_game,
+            "stack_score": int(round(0.55 * vuln + 0.45 * top3)),
+            "park": strong[0].get("park"),
+            "park_factor": strong[0].get("park_hr_factor"),
             "game_pk": gpk,
             "team": strong[0]["team"], "opp_team": strong[0]["opp_team"],
             "time": strong[0]["time"],
             "hitters": [{
-                "name": x["name"], "heat": x["heat"], "tier": x["tier"],
+                "id": x["id"], "name": x["name"], "heat": x["heat"], "tier": x["tier"],
                 "spot": x["lineup_spot"], "bats": x["bats"],
+                "b2b": bool(x.get("hr_last_game")),
+                "owns": any(b.get("k") in ("hrsp", "hrbp") for b in (x.get("badges") or [])),
             } for x in strong[:6]],
         })
-    stacks.sort(key=lambda s: (s["arm_score"] or 0, len(s["hitters"])), reverse=True)
+    stacks.sort(key=lambda s: (s["stack_score"], len(s["hitters"])), reverse=True)
 
     board = {
         "generated_at": now.isoformat(timespec="seconds"),
