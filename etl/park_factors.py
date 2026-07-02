@@ -22,7 +22,7 @@ import pandas as pd
 # Statcast home_team abbreviation -> venue name (matches the board's statsapi names).
 # This is fixed plumbing (only changes when a team relocates), not hand-entered factors.
 TEAM_VENUE = {
-    "ARI": "Chase Field", "ATL": "Truist Park", "BAL": "Oriole Park at Camden Yards",
+    "AZ": "Chase Field", "ARI": "Chase Field", "ATL": "Truist Park", "BAL": "Oriole Park at Camden Yards",
     "BOS": "Fenway Park", "CHC": "Wrigley Field", "CWS": "Rate Field", "CHW": "Rate Field",
     "CIN": "Great American Ball Park", "CLE": "Progressive Field", "COL": "Coors Field",
     "DET": "Comerica Park", "HOU": "Daikin Park", "KC": "Kauffman Stadium", "KCR": "Kauffman Stadium",
@@ -95,12 +95,17 @@ def compute_park_factors(df):
 
     venues = {}
     for abbr, m in allm.items():
+        rec = {"all": m, "R": rm.get(abbr, m), "L": lm.get(abbr, m)}
         venue = TEAM_VENUE.get(abbr)
-        if not venue:
-            continue
-        venues[venue] = {"all": m, "R": rm.get(abbr, m), "L": lm.get(abbr, m)}
-    print(f"[park_factors] computed {len(venues)} parks from {len(d)} batted balls "
-          f"(season HR park factors, hand-split).")
+        if venue:
+            venues[venue] = rec
+        # durable key: the team abbreviation. Venue names drift (renames, temporary
+        # parks, relocations) and a missed name silently zeroes the anchor; "@ABBR"
+        # always resolves. Unknown abbrs are kept here instead of dropped.
+        venues["@" + str(abbr)] = rec
+    named = sum(1 for k in venues if not k.startswith("@"))
+    print(f"[park_factors] computed {len(allm)} parks from {len(d)} batted balls "
+          f"({named} name-keyed, all abbr-keyed, hand-split).")
     return venues
 
 
@@ -135,17 +140,21 @@ def _normalize(name):
     return "".join(c for c in (name or "").lower() if c.isalnum())
 
 
-def factor_for(venues, venue_name, hand="all"):
-    """HR multiplier for a venue + batter hand. 1.0 if unknown (neutral / physics-only)."""
+def factor_for(venues, venue_name, hand="all", team=None):
+    """HR multiplier for a venue + batter hand. Resolves by venue name, then normalized
+    name, then the home team's abbreviation ("@ABBR" — durable across venue renames and
+    temporary parks). 1.0 if unknown (neutral / physics-only)."""
     if not venues:
         return 1.0
     rec = venues.get(venue_name)
-    if rec is None:
+    if rec is None and venue_name:
         target = _normalize(venue_name)
         for k, v in venues.items():
-            if _normalize(k) == target:
+            if not k.startswith("@") and _normalize(k) == target:
                 rec = v
                 break
+    if rec is None and team:
+        rec = venues.get("@" + str(team))
     if rec is None:
         return 1.0
     h = hand if hand in ("R", "L") else "all"

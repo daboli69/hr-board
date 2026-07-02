@@ -485,6 +485,7 @@ def build(date_str: str | None = None) -> dict:
         from etl import park_factors
         pf_cache = os.path.join(os.path.dirname(__file__), "..", "docs", "park_factors.json")
         savant = park_factors.load_park_factors(pf_cache, df=df, year=now.year)
+        gpk_home = {g["game_pk"]: g["home"] for g in games}     # durable key for the factor lookup
         by_game = {}
         for p in players:
             by_game.setdefault((p["park"], p["time"], p["game_pk"]), []).append(p)
@@ -505,7 +506,7 @@ def build(date_str: str | None = None) -> dict:
                 if not n:
                     continue
                 hand = p.get("bats", "R")
-                sav = park_factors.factor_for(savant, venue, hand)
+                sav = park_factors.factor_for(savant, venue, hand, team=gpk_home.get(pk))
                 anchor = park_model.savant_anchor(venue, hand, sav)
                 agg = park_model.aggregate_hitter(hr_park[i:i+n], hr_neut[i:i+n], meta,
                                                   anchor=anchor, savant_factor=sav)
