@@ -396,6 +396,12 @@
   .arm-nm{min-width:0}
   .arm-nm b{font-weight:600}
   .arm-tag{font-size:10px;font-weight:700;letter-spacing:.05em;padding:2px 7px;border-radius:5px}
+  .arm-sub{font-size:10px;color:var(--faint);font-family:"IBM Plex Mono";margin-top:1px}
+  .arm-sub b{color:var(--muted)}
+  .arm-hand{color:var(--faint)}
+  .arm-tap{cursor:pointer}
+  @media (hover:hover){.arm-tap:hover{background:var(--panel-2)}}
+  .arm-note{font-size:10px;color:var(--faint);padding:8px 2px 2px;line-height:1.5}
   /* tracker */
   .trk{max-width:760px;margin:0 auto}
   .trk-sum{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin:8px 0;font-size:13px;line-height:1.6}
@@ -1041,8 +1047,9 @@ function render(){
       <b>Projected lineups</b> (last game's order) for ${BOARD.projected_games.length} game(s) — today's not posted yet: ${g}.
       Probable pitchers are live, so matchups are real; bats update automatically when lineups drop.</div>`;
   }
-  // Top Plays: a diversified shortlist — not just top-10 heat, but several angles
-  // (heat, mix edges, risers, complete profiles, due). UI-only; the board is untouched.
+  // Top Plays: a diversified shortlist — not just top-10 heat, but several angles.
+  // SMASH convergence picks take first (they're the day's highest-conviction calls),
+  // then heat, mix edges, BvP history, risers, complete profiles, due. UI-only.
   if(BOARD.players&&BOARD.players.length&&!q&&!gameSel.size&&minHeat===0&&sortKey==="heat"){
     const thinP=p=>!(p.windows&&p.windows.L14d&&(p.windows.L14d.bb_count||0)>=8);
     const dealing=p=>(((p.opp_pitcher||{}).form)||{}).label==="DEALING";
@@ -1051,27 +1058,37 @@ function render(){
     const take=(arr,n)=>{const o=[];for(const p of arr){if(used.has(p.id))continue;o.push(p);used.add(p.id);if(o.length>=n)break;}return o;};
     const sig=(p,k)=>((p.metrics[k]||{}).recent);
     const mixGain=p=>(p.heat_mix==null?0:p.heat_mix-p.heat);
-    const heatTop=take([...pool].sort((a,b)=>b.heat-a.heat),5);
+    const hasBvp=p=>{const ks=new Set((p.badges||[]).map(b=>b.k));return ks.has("hrsp")||ks.has("hrbp");};
+    const smashTop=take([...pool].filter(p=>smashSet.has(p.id)).sort((a,b)=>smashSet.get(b.id).score-smashSet.get(a.id).score),3);
+    const heatTop=take([...pool].sort((a,b)=>b.heat-a.heat),4);
     const mixTop=take([...pool].filter(p=>mixGain(p)>=3).sort((a,b)=>mixGain(b)-mixGain(a)),3);
-    const riseTop=take([...pool].filter(p=>p.trend&&p.trend.dir==="up"&&p.trend.pct).sort((a,b)=>b.trend.pct-a.trend.pct),3);
+    const bvpTop=take([...pool].filter(hasBvp).sort((a,b)=>b.heat-a.heat),3);
+    const riseTop=take([...pool].filter(p=>p.trend&&p.trend.dir==="up").sort((a,b)=>((b.trend.pct??99))-((a.trend.pct??99))),3);
     const comp=p=>sig(p,"pull_air_pct")>=40&&sig(p,"avg_ev")>=88.5&&sig(p,"barrel_pct")>=11&&sig(p,"ideal_aa_pct")>=58;
     const compTop=take([...pool].filter(comp).sort((a,b)=>b.heat-a.heat),3);
     const lk=p=>(p.luck&&p.luck.recent)||{};
-    const dueTop=take([...pool].filter(p=>lk(p).luck_gap>=0.04&&lk(p).xwobacon>=0.370).sort((a,b)=>lk(b).luck_gap-lk(a).luck_gap),3);
+    const dueTop=take([...pool].filter(p=>lk(p).luck_gap>=0.045&&lk(p).xwobacon>=0.380).sort((a,b)=>lk(b).luck_gap-lk(a).luck_gap),3);
     const cats=[
+      {t:'<span class="clearflag" style="font-size:9.5px">SMASH</span>',d:"everything converges — the day's calls",ps:smashTop,note:p=>{const sm=smashSet.get(p.id);return sm?sm.reasons.slice(0,4).join(" · "):"";}},
       {t:"Top Heat",d:"highest overall",ps:heatTop},
       {t:"⚙ Mix Edges",d:"climb vs this arm's mix",ps:mixTop,mix:true},
+      {t:"● Owns the Arm",d:"has homered off today's SP or pen",ps:bvpTop},
       {t:"▲ Risers",d:"contact trending up",ps:riseTop},
       {t:"◆ Complete",d:"clear all four signals",ps:compTop},
       {t:"◇ Due",d:"strong contact, unlucky",ps:dueTop},
     ].filter(c=>c.ps.length);
-    const prow=(p,extra)=>`<div class="tp-row"><div class="top">
+    const prow=(p,extra,note)=>{
+      const armSc=(p.opp_pitcher&&p.opp_pitcher.hr_score!=null)?p.opp_pitcher.hr_score:null;
+      const armBit=armSc!=null?` · arm <b style="color:${chipColor(armSc)}">${armSc}</b>`:"";
+      const b2b=p.hr_last_game?` <span class="pl-tag warn" style="vertical-align:middle">B2B</span>`:"";
+      return `<div class="tp-row"><div class="top">
         <div class="hc" style="background:${chipColor(p.heat)}">${p.heat}</div>
-        <div><span class="nm">${p.name}</span>${p.lineup_spot?` <span class="spot">#${p.lineup_spot}</span>`:""}
-          <span style="color:var(--muted);font-size:11px"> ${p.team}→${p.opp_team} · ${timeStr(p.time)}</span>${extra||""}</div>
-      </div><div class="why">${p.angle||p.why||""}</div></div>`;
+        <div><span class="nm">${p.name}</span>${b2b}${p.lineup_spot?` <span class="spot">#${p.lineup_spot}</span>`:""}
+          <span style="color:var(--muted);font-size:11px"> ${p.team}→${p.opp_team} · ${timeStr(p.time)}${armBit}</span>${extra||""}</div>
+      </div><div class="why">${note||p.angle||p.why||""}</div></div>`;
+    };
     const body=cats.map(c=>`<div class="tp-cat"><div class="tp-cat-h">${c.t}<span>${c.d}</span></div>${
-      c.ps.map(p=>prow(p,c.mix?` <span class="mixd up">▲${mixGain(p)}</span>`:"")).join("")}</div>`).join("");
+      c.ps.map(p=>prow(p,c.mix?` <span class="mixd up">▲${mixGain(p)}</span>`:"",c.note?c.note(p):null)).join("")}</div>`).join("");
     const total=used.size;
     html+=`<div class="tp" id="tpPanel">
       <div class="tp-head" onclick="document.getElementById('tpPanel').classList.toggle('open')">
@@ -1087,20 +1104,24 @@ function render(){
     BOARD.arms.forEach(a=>{
       if(a.hr_score==null) return;
       const f=a.form||{label:"",color:"#8A95A3"};
-      arows+=`<div class="arm-row">
+      const d=(a.recent_score!=null&&a.season_score!=null)?(a.recent_score-a.season_score):null;
+      const dArrow=d==null?"":(d>=6?` <span style="color:var(--bad)">▲${d}</span>`:d<=-6?` <span style="color:var(--good)">▼${Math.abs(d)}</span>`:"");
+      const hh=a.hand_hr?`<span class="arm-hand">${a.hand_hr.side}HB: ${a.hand_hr.hr} HR / ${a.hand_hr.pa} PA 2yr</span>`:"";
+      arows+=`<div class="arm-row arm-tap" onclick="armFilter('${(a.opp||"").replace(/'/g,"")}')" title="Tap to show the bats facing him">
         <div class="arm-sc" style="background:${chipColor(a.hr_score)}">${a.hr_score}</div>
-        <div class="arm-nm"><b>${a.name}</b> ${throwBadge(a.throws)} <span style="color:var(--muted)">${a.team}→${a.opp} · ${a.park||""}</span>
+        <div class="arm-nm"><b>${a.name}</b> ${throwBadge(a.throws)}${a.opener?' <span class="opener-tag">OPENER</span>':''} <span style="color:var(--muted)">${a.team}→${a.opp} · ${timeStr(a.time)}</span>
+          <div class="arm-sub">rec <b>${a.recent_score??"–"}</b> · szn <b>${a.season_score??"–"}</b>${dArrow}${hh?" · "+hh:""}</div>
           ${badgeChips(a,4)}</div>
         <div class="arm-tag" style="color:${f.color};border:1px solid ${f.color}">${f.label}</div>
       </div>`;
     });
-    const shellable=BOARD.arms.filter(a=>a.form&&(a.form.label==="SHELLABLE"||a.form.label==="SLIPPING")).length;
+    const shellable=BOARD.arms.filter(a=>a.form&&(a.form.label==="SHELLABLE"||a.form.label==="SLIPPING"||a.form.label==="STEADY-BAD")).length;
     html+=`<div class="arms" id="armsPanel">
       <div class="arms-head" onclick="document.getElementById('armsPanel').classList.toggle('open')">
         <h3>Arms Today</h3>
-        <span class="sub">${shellable} shellable · tap to ${'expand'}</span>
+        <span class="sub">${shellable} targetable · tap to ${'expand'}</span>
       </div>
-      <div class="arms-body">${arows}</div>
+      <div class="arms-body">${arows}<div class="arm-note">rec · szn = HR-vulnerability by window (▲ red = cracking, ▼ green = sharpening). Tap any arm to filter the board to the bats facing him.</div></div>
     </div>`;
   }
   if(!players.length){
@@ -1351,6 +1372,14 @@ function renderStacks(){
 }
 
 function toggle(el){ el.closest(".row").classList.toggle("open"); }
+// tap an arm in Arms Today -> board filters to the bats facing him
+function armFilter(oppTeam){
+  if(!oppTeam) return;
+  q=oppTeam;
+  const s=document.getElementById("search"); if(s) s.value=oppTeam;
+  render();
+  const th=document.querySelector(".thead"); if(th) th.scrollIntoView({block:"start",behavior:"smooth"});
+}
 
 // ===== Personal bet log (stored on this device) + badge-conversion analytics =====
 const BET_TYPES=["Longest HR jackpot","Grand slam parlay","Round robin","Single HR","Other"];

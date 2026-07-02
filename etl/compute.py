@@ -342,14 +342,18 @@ def pitcher_badges(*, recent=None, score=None, recent_score=None, season_score=N
         out.append({"t": "LOUD", "k": "pow"})
     if r.get("pull_air_allowed") is not None and r["pull_air_allowed"] >= 45:
         out.append({"t": "PULL-AIR", "k": "hot"})
-    # platoon: which hand has he coughed up HRs to (2yr)? flag the worse one
+    # platoon: which hand has he coughed up HRs to (2yr)? flag the worse one.
+    # Bar = genuinely burned, not league-average leakage (~3.2% HR/PA): a real rate
+    # on starter volume, or a big raw count that still clears average.
     if two_yr:
         worst = None
         for hand, lbl in (("R", "WEAK vs R"), ("L", "WEAK vs L")):
             s = two_yr.get(hand)
-            if s and s.get("pa") and s["pa"] >= 200:
+            if s and s.get("pa"):
                 rate = s["hr"] / s["pa"]
-                if rate >= 0.035 and (worst is None or rate > worst[0]):
+                if ((s["pa"] >= 250 and rate >= 0.042)
+                        or (s.get("hr", 0) >= 28 and rate >= 0.035)) \
+                        and (worst is None or rate > worst[0]):
                     worst = (rate, lbl)
         if worst:
             out.append({"t": worst[1], "k": "plat"})
@@ -551,6 +555,25 @@ def pitcher_hr_score(recent: dict, season: dict) -> dict:
     # recent-form identifier = absolute vulnerability LEVEL x TREND direction.
     # A bad pitcher is a bad pitcher even when steady; a bad pitcher whose
     # underlying numbers are improving is a different (downgrade) story.
+    # With a thin recent sample (<10 BBE) the recent read is noise — classify off
+    # the season alone rather than let 6 batted balls scream SHELLABLE.
+    if (r.get("bbe") or 0) < 10:
+        if sea_s >= 58:
+            form = {"label": "STEADY-BAD", "color": "#E4572E"}
+        elif sea_s >= 48:
+            form = {"label": "HITTABLE", "color": "#E0913A"}
+        elif sea_s <= 35:
+            form = {"label": "DEALING", "color": "#5FB97A"}
+        else:
+            form = {"label": "STEADY", "color": "#8A95A3"}
+        return {
+            "score": int(round(min(100, score))),
+            "recent_score": int(round(min(100, rec_s))),
+            "season_score": int(round(min(100, sea_s))),
+            "delta": delta,
+            "form": form,
+            "flags": flags,
+        }
     bad = rec_s >= 60          # absolutely vulnerable right now
     midbad = 48 <= rec_s < 60
     worsening = delta >= 6     # recent notably worse than season

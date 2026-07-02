@@ -596,11 +596,25 @@ def build(date_str: str | None = None) -> dict:
                 "opp": next((g["away"] if g["home_pitcher_id"] == pid else g["home"]
                              for g in games if pid in (g["home_pitcher_id"], g["away_pitcher_id"])), ""),
                 "park": next((g["park"] for g in games if pid in (g["home_pitcher_id"], g["away_pitcher_id"])), ""),
+                "time": next((g["time"] for g in games if pid in (g["home_pitcher_id"], g["away_pitcher_id"])), ""),
                 "hr_score": phr.get("score"),
                 "recent_score": phr.get("recent_score"),
                 "season_score": phr.get("season_score"),
+                "delta": phr.get("delta"),
                 "form": phr.get("form"),
                 "flags": phr.get("flags", []),
+                "opener": bool(
+                    (start_lens.get(pid) and start_lens[pid]["starts"] >= 2
+                     and start_lens[pid]["med_len"] <= 2.0)
+                    or (start_lens.get(pid) is None and p_apps.get(pid, 0) >= 5)),
+                "start_len": (round(start_lens[pid]["med_len"], 1)
+                              if start_lens.get(pid) else None),
+                # heaviest 2yr HR-by-hand side, raw numbers for the strip
+                "hand_hr": (lambda ty: (max(
+                    ({"side": h, "hr": s["hr"], "pa": s["pa"]}
+                     for h, s in (ty or {}).items() if s and s.get("pa", 0) >= 100),
+                    key=lambda x: x["hr"] / max(1, x["pa"]), default=None)))(
+                        (hand2yr.get(pid) or {}).get("two_yr")),
                 "badges": compute.pitcher_badges(
                     recent=pitch_profiles.get(pid, {}).get("recent", {}),
                     score=phr.get("score"), recent_score=phr.get("recent_score"),
