@@ -76,17 +76,41 @@ def savant_anchor(venue, hand, savant_factor):
     return float(np.clip(savant_factor / g, 0.5, 2.0))
 
 
+_WIND_SENS = {}
+
+
+def set_wind_sens(d):
+    """Install the learned per-park wind sensitivities (build calls this once)."""
+    global _WIND_SENS
+    _WIND_SENS = d or {}
+
+
 def _conditions(venue, iso_time):
-    """Return (air_density, field_wind_vec, used_weather, temp_f, wind_mph) for a park."""
+    """Return (air_density, field_wind_vec, used_weather, wxmeta) for a park.
+    Applies the predicted roof state (closed retractable -> indoor air; canopy ->
+    outdoor air, no wind) and the park's learned wind sensitivity."""
     lat, lon, elev = PG.park_coords(venue)
     wx = W.get_weather(lat, lon, iso_time, venue=venue)
+    roof = W.roof_call(venue, wx)
     if wx and wx.get("temp_f") is not None:
-        temp = wx["temp_f"]
-        rho = T.air_density(temp, elev, wx.get("pressure_pa"))
-        windv = PG.field_wind_vector(wx.get("wind_mph"), wx.get("wind_from_deg"), venue)
-        return rho, windv, True, temp, wx.get("wind_mph")
+        temp, rh = wx["temp_f"], wx.get("rh_pct")
+        if roof in ("dome", "closed"):
+            temp, rh = 72.0, 45.0
+            windv = np.zeros(3)
+        elif roof == "canopy":
+            windv = np.zeros(3)                     # rain/wind shielded, outdoor air
+        else:
+            sens = _WIND_SENS.get(venue, 1.0) if isinstance(_WIND_SENS, dict) else 1.0
+            windv = PG.field_wind_vector(wx.get("wind_mph"), wx.get("wind_from_deg"), venue) * sens
+        rho = T.air_density(temp, elev, wx.get("pressure_pa") if roof not in ("dome", "closed") else None,
+                            rh_pct=rh)
+        meta = {"temp_f": temp, "wind_mph": (0.0 if roof in ("dome", "closed", "canopy") else wx.get("wind_mph")),
+                "rh_pct": rh, "precip_prob": wx.get("precip_prob"), "roof": roof}
+        return rho, windv, True, meta
     # no weather -> park-only at a mild default temperature
-    return T.air_density(70.0, elev, None), np.zeros(3), False, None, None
+    return T.air_density(70.0, elev, None), np.zeros(3), False, {"temp_f": None, "wind_mph": None,
+                                                                 "rh_pct": None, "precip_prob": None,
+                                                                 "roof": roof}
 
 
 def _clears(ev, la, spray, venue, rho, windv):
@@ -103,13 +127,17 @@ def evaluate_game(ev, la, spray, venue, iso_time):
     to the inputs, and meta carries the conditions used for display.
     """
     ev = np.asarray(ev, float); la = np.asarray(la, float); spray = np.asarray(spray, float)
-    rho_p, wind_p, used, temp, wind_mph = _conditions(venue, iso_time)
+    rho_p, wind_p, used, wxm = _conditions(venue, iso_time)
     hr_park = _clears(ev, la, spray, venue, rho_p, wind_p)
     rho_n = T.air_density(70.0, 0.0, None)
     hr_neut = _clears(ev, la, spray, NEUTRAL_VENUE, rho_n, np.zeros(3))
-    meta = {"weather": used, "temp_f": round(temp) if temp is not None else None,
-            "wind_mph": round(wind_mph) if wind_mph is not None else None,
-            "venue": venue, "indoor": venue in W.INDOOR}
+    meta = {"weather": used,
+            "temp_f": round(wxm["temp_f"]) if wxm.get("temp_f") is not None else None,
+            "wind_mph": round(wxm["wind_mph"]) if wxm.get("wind_mph") is not None else None,
+            "rh_pct": round(wxm["rh_pct"]) if wxm.get("rh_pct") is not None else None,
+            "precip_prob": round(wxm["precip_prob"]) if wxm.get("precip_prob") is not None else None,
+            "roof": wxm.get("roof"),
+            "venue": venue, "indoor": (wxm.get("roof") in ("dome", "closed"))}
     return hr_park, hr_neut, meta
 
 

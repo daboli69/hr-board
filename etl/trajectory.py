@@ -27,12 +27,21 @@ MPH = 0.44704      # mph -> m/s
 FT = 3.28084       # m -> ft
 
 
-def air_density(temp_f, elev_m=0.0, pressure_pa=None):
-    """Air density (kg/m^3) from temperature and elevation. Warmer/higher = thinner = more carry."""
+def air_density(temp_f, elev_m=0.0, pressure_pa=None, rh_pct=None):
+    """Air density (kg/m^3) from temperature, elevation, pressure and humidity.
+    Warmer / higher / more humid = thinner air = more carry (water vapor is lighter
+    than dry air, so humid air helps the ball — a common misconception reversed)."""
     T = (temp_f - 32.0) * 5.0 / 9.0 + 273.15
     if pressure_pa is None:
         pressure_pa = 101325.0 * np.exp(-elev_m / 8000.0)   # barometric approx
-    return pressure_pa / (287.05 * T)
+    if rh_pct is None:
+        return pressure_pa / (287.05 * T)
+    # partition into dry air + water vapor (Tetens saturation pressure, in Pa)
+    t_c = T - 273.15
+    es = 610.78 * np.exp(17.27 * t_c / (t_c + 237.3))
+    pv = max(0.0, min(float(rh_pct), 100.0)) / 100.0 * es
+    pd = max(pressure_pa - pv, 1.0)
+    return pd / (287.05 * T) + pv / (461.5 * T)
 
 
 def estimate_backspin(la_deg, ev_mph):

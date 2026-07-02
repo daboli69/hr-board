@@ -402,6 +402,36 @@
   .arm-tap{cursor:pointer}
   @media (hover:hover){.arm-tap:hover{background:var(--panel-2)}}
   .arm-note{font-size:10px;color:var(--faint);padding:8px 2px 2px;line-height:1.5}
+  .fbv{color:var(--bad);font-size:10px}.gbv{color:var(--good);font-size:10px}
+  .fbv.hi,.gbv.hi{font-weight:800;font-size:11px}
+  .odds-line{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:0 0 12px;font-size:12px;color:var(--ink)}
+  .odds-line b{font-family:"IBM Plex Mono"}
+  .odds-line span{display:block;font-size:10px;color:var(--faint);margin-top:3px;line-height:1.45}
+  .wx-wrap{max-width:760px;margin:0 auto}
+  .wx-head{font-family:Archivo;font-weight:800;font-size:15px;display:flex;flex-direction:column;gap:2px;margin:4px 0 8px}
+  .wx-head span{font-weight:500;font-size:10.5px;color:var(--faint)}
+  .wx-legend{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+  .wx-key{display:inline-flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)}
+  .wx-key i,.wx-status i{width:8px;height:8px;border-radius:50%;display:inline-block}
+  .wx-card{display:grid;grid-template-columns:1.3fr .8fr 1.2fr 64px 44px;gap:8px;align-items:center;
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:8px;
+    content-visibility:auto;contain-intrinsic-size:auto 110px}
+  .wx-teams{font-family:Archivo;font-weight:800;font-size:14px;display:flex;gap:5px;align-items:baseline}
+  .wx-teams span{color:var(--faint);font-size:11px;font-weight:500}
+  .wx-sub{font-size:10.5px;color:var(--muted)}
+  .wx-status{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted);margin-top:3px}
+  .wx-cond{font-size:11px;color:var(--ink);margin-bottom:3px}
+  .wx-roof{display:inline-block;font-family:"IBM Plex Mono";font-weight:700;font-size:8px;letter-spacing:.05em;color:#9aa4b2;background:rgba(120,134,150,.12);border:1px solid rgba(120,134,150,.3);padding:1px 4px;border-radius:4px}
+  .wx-c3{display:flex;gap:9px}
+  .wx-c3 div{display:flex;flex-direction:column;align-items:center}
+  .wx-c3 b{font-family:"IBM Plex Mono";font-size:13px;color:var(--ink)}
+  .wx-c3 span{font-size:7.5px;color:var(--faint);letter-spacing:.05em}
+  .wx-diamond{width:56px;height:56px}
+  .wx-nowind{font-size:9px;color:var(--faint);text-align:center}
+  .wx-c5{display:flex;flex-direction:column;align-items:center}
+  .wx-c5 b{font-family:"IBM Plex Mono";font-size:15px;color:var(--ink)}
+  .wx-c5 span{font-size:7.5px;color:var(--faint)}
+  @media (max-width:480px){.wx-card{grid-template-columns:1.3fr 1fr 60px 40px}.wx-c2{display:none}}
   /* tracker */
   .trk{max-width:760px;margin:0 auto}
   .trk-sum{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin:8px 0;font-size:13px;line-height:1.6}
@@ -727,6 +757,7 @@
   <button data-view="matchup" aria-pressed="false"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="6.2"/><line x1="10" y1="1.5" x2="10" y2="4"/><line x1="10" y1="16" x2="10" y2="18.5"/><line x1="1.5" y1="10" x2="4" y2="10"/><line x1="16" y1="10" x2="18.5" y2="10"/><circle cx="10" cy="10" r="1.4"/></svg><span>Matchup</span></button>
   <button data-view="parlays" aria-pressed="false"><svg viewBox="0 0 20 20"><path d="M8.5 11.5a3 3 0 010-4l1.5-1.5a3 3 0 014 0 3 3 0 010 4l-.8.8"/><path d="M11.5 8.5a3 3 0 010 4L10 14a3 3 0 01-4 0 3 3 0 010-4l.8-.8"/></svg><span>Parlays</span></button>
   <button data-view="bets" aria-pressed="false"><svg viewBox="0 0 20 20"><path d="M5 3.5h10v13l-2-1.3-2 1.3-2-1.3-2 1.3V3.5z"/><line x1="7.5" y1="7.5" x2="12.5" y2="7.5"/><line x1="7.5" y1="10.5" x2="12.5" y2="10.5"/></svg><span>Bets</span></button>
+  <button data-view="weather" aria-pressed="false"><svg viewBox="0 0 20 20"><path d="M5.5 13.5a3.5 3.5 0 01.4-6.98 4.5 4.5 0 018.7 1.2A3 3 0 0114 13.5H5.5z"/><line x1="7" y1="16" x2="7" y2="17.5"/><line x1="10.5" y1="16" x2="10.5" y2="17.5"/><line x1="14" y1="16" x2="14" y2="17.5"/></svg><span>Weather</span></button>
   <button data-view="tracker" aria-pressed="false"><svg viewBox="0 0 20 20"><polyline points="3 14 8 9 11 12 17 5"/><polyline points="12.5 5 17 5 17 9.5"/></svg><span>Tracker</span></button>
 </nav>
 
@@ -1044,6 +1075,7 @@ function render(){
   // at the top 3 of the day. Rare by design — the flag only means something if the
   // hitters carrying it convert at a rate the rest of the board can't match.
   const smashSet=slateSmash();
+  const _R=trackerRates(), _BR=betRates();   // for the model-odds line on each card
 
   let html="";
   if(BOARD.lineups_pending&&BOARD.lineups_pending.length){
@@ -1115,10 +1147,13 @@ function render(){
       const d=(a.recent_score!=null&&a.season_score!=null)?(a.recent_score-a.season_score):null;
       const dArrow=d==null?"":(d>=6?` <span style="color:var(--bad)">▲${d}</span>`:d<=-6?` <span style="color:var(--good)">▼${Math.abs(d)}</span>`:"");
       const hh=a.hand_hr?`<span class="arm-hand">${a.hand_hr.side}HB: ${a.hand_hr.hr} HR / ${a.hand_hr.pa} PA 2yr</span>`:"";
+      const fbgb=(a.fb_pct!=null&&a.gb_pct!=null)?(a.fb_pct>=a.gb_pct
+        ?` · <b class="fbv hi">FB ${a.fb_pct.toFixed(0)}%</b> <span class="gbv">GB ${a.gb_pct.toFixed(0)}%</span>`
+        :` · <span class="fbv">FB ${a.fb_pct.toFixed(0)}%</span> <b class="gbv hi">GB ${a.gb_pct.toFixed(0)}%</b>`):"";
       arows+=`<div class="arm-row arm-tap" onclick="armFilter('${(a.opp||"").replace(/'/g,"")}')" title="Tap to show the bats facing him">
         <div class="arm-sc" style="background:${chipColor(a.hr_score)}">${a.hr_score}</div>
         <div class="arm-nm"><b>${a.name}</b> ${throwBadge(a.throws)}${a.opener?' <span class="opener-tag">OPENER</span>':''} <span style="color:var(--muted)">${a.team}→${a.opp} · ${timeStr(a.time)}</span>
-          <div class="arm-sub">rec <b>${a.recent_score??"–"}</b> · szn <b>${a.season_score??"–"}</b>${dArrow}${hh?" · "+hh:""}</div>
+          <div class="arm-sub">rec <b>${a.recent_score??"–"}</b> · szn <b>${a.season_score??"–"}</b>${dArrow}${fbgb}${hh?" · "+hh:""}</div>
           ${badgeChips(a,4)}</div>
         <div class="arm-tag" style="color:${f.color};border:1px solid ${f.color}">${f.label}</div>
       </div>`;
@@ -1129,7 +1164,7 @@ function render(){
         <h3>Arms Today</h3>
         <span class="sub">${shellable} targetable · tap to ${'expand'}</span>
       </div>
-      <div class="arms-body">${arows}<div class="arm-note">rec · szn = HR-vulnerability by window (▲ red = cracking, ▼ green = sharpening). Tap any arm to filter the board to the bats facing him.</div></div>
+      <div class="arms-body">${arows}<div class="arm-note">rec · szn = HR-vulnerability by window (▲ red = cracking, ▼ green = sharpening). <b style="color:var(--bad)">FB%</b> arms put balls in the air — the target profile; <b style="color:var(--good)">GB%</b> arms suppress it. Tap any arm to filter the board to the bats facing him.</div></div>
     </div>`;
   }
   if(!players.length){
@@ -1260,6 +1295,7 @@ function render(){
         <div class="dname"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span>${p.name}</span>${p.lineup_spot?`<span class="dspot">#${p.lineup_spot}</span>`:""}</div>
         <button class="listbtn${listHas(p.id)?" on":""}" data-pid="${p.id}" data-nm="${encodeURIComponent(p.name)}" onclick="toggleListBtn(this,event)">${listHas(p.id)?"★ On your list — tap to remove":"☆ Add to my list"}</button>
         ${sm?`<div class="clearnote"><b>Everything's pointing here.</b> ${sm.reasons.length?sm.reasons.slice(0,5).join(" · ")+". ":""}The matchup's already priced into this number — trust it, don't talk yourself out of it over one cold reading.</div>`:""}
+        ${(function(){try{const ms=hitterScore(p,_R,_BR);return `<div class="odds-line">Model odds <b>${(ms.prob*100).toFixed(0)}%</b> · <b>${americanFair(ms.prob)}</b><span>this model only — heat · trend · pitch mix · park+weather · contact luck · your tag history. Fair value, independent of any book; compare it to the posted line to find where they disagree.</span></div>`;}catch(e){return "";}})()}
         ${p.angle?`<div class="angle">${p.angle}</div>`:""}
         ${badgeChips(p)}
         <div class="matchup" style="margin-bottom:10px">${p.team} vs ${p.opp_team} · ${timeStr(p.time)} · ${p.park||""} · park ${fmt(p.park_hr_factor,2)}× · ${armBadge}</div>
@@ -1334,7 +1370,48 @@ function renderView(){
   const safe=fn=>{ try{ fn(); }catch(e){ console.error("render",e);
     const m=document.getElementById("main");
     if(m) m.innerHTML=`<div class="empty">This tab hit a snag rendering today's data — the rest of the app is fine.<br>Tap another tab or check back after the next board update.</div>`; } };
-  if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="matchup") safe(renderMatchup); else if(view==="stacks") safe(renderStacks); else if(view==="bets") safe(renderBets); else safe(render);
+  if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="matchup") safe(renderMatchup); else if(view==="stacks") safe(renderStacks); else if(view==="bets") safe(renderBets); else if(view==="weather") safe(renderWeather); else safe(render);
+}
+
+// Weather dashboard: today's slate, one card per game — conditions, roof call,
+// disruption status, and the wind drawn over a diamond oriented to that park.
+const WX_STATUS={clear:["Clear","var(--good)"],chance:["Chance for delay","var(--warm)"],
+  likely:["Delay likely","#E0913A"],postpone:["Postponement likely","var(--bad)"],unknown:["No forecast","var(--faint)"]};
+function renderWeather(){
+  const main=document.getElementById("main");
+  const wx=(BOARD&&BOARD.wx)||[];
+  if(!wx.length){ main.innerHTML=`<div class="empty">No weather data on this board yet — it attaches on the next build.</div>`; return; }
+  const legend=Object.entries(WX_STATUS).filter(([k])=>k!=="unknown").map(([k,[lab,col]])=>
+    `<span class="wx-key"><i style="background:${col}"></i>${lab}</span>`).join("");
+  const card=g=>{
+    const st=WX_STATUS[g.status]||WX_STATUS.unknown;
+    const roofBadge=g.roof?`<span class="wx-roof">${g.roof==="dome"?"DOME":g.roof==="closed"?"ROOF CLOSED":g.roof==="canopy"?"CANOPY":"ROOF OPEN"}</span>`:"";
+    const cond=g.precip_prob==null?"—":g.precip_prob>=45?"Rain risk":g.precip_prob>=20?"Clouds/showers":"Clear";
+    const arrow=(g.wind_rel_deg!=null&&g.wind_mph)?`
+      <svg class="wx-diamond" viewBox="0 0 60 60">
+        <rect x="19" y="19" width="22" height="22" transform="rotate(45 30 30)" fill="none" stroke="var(--line)" stroke-width="1.5"/>
+        <circle cx="30" cy="41" r="1.6" fill="var(--muted)"/>
+        <g transform="rotate(${g.wind_rel_deg} 30 30)">
+          <line x1="30" y1="44" x2="30" y2="16" stroke="var(--seam)" stroke-width="2.2" stroke-linecap="round"/>
+          <path d="M30 12 L25.5 20 L34.5 20 Z" fill="var(--seam)"/>
+        </g>
+      </svg>`:`<div class="wx-nowind">${g.roof&&g.roof!=="open"?"no wind indoors":"calm / n/a"}</div>`;
+    return `<div class="wx-card">
+      <div class="wx-c1"><div class="wx-teams"><b>${g.away}</b><span>@</span><b>${g.home}</b></div>
+        <div class="wx-sub">${timeStr(g.time)}</div><div class="wx-sub">${g.park||""}</div>
+        <div class="wx-status"><i style="background:${st[1]}"></i>${st[0]}</div></div>
+      <div class="wx-c2"><div class="wx-cond">${cond}</div>${roofBadge}</div>
+      <div class="wx-c3"><div><b>${g.temp_f??"–"}°</b><span>TEMP</span></div><div><b>${g.precip_prob??"–"}%</b><span>PRECIP</span></div><div><b>${g.rh_pct??"–"}%</b><span>HUMID</span></div></div>
+      <div class="wx-c4">${arrow}</div>
+      <div class="wx-c5"><b>${g.wind_mph??"–"}</b><span>MPH</span></div>
+    </div>`;
+  };
+  main.innerHTML=`<div class="wx-wrap">
+    <div class="wx-head">Game-day weather<span>today's slate · forecasts averaged over the first three game hours</span></div>
+    <div class="wx-legend">${legend}</div>
+    ${wx.map(card).join("")}
+    <div class="pl-note">Arrow shows where the wind blows <i>to</i>, drawn over each park's real orientation — straight up = out to center. Roof calls on retractable parks are predicted from the forecast (heat, cold, or rain risk). The park &amp; weather model on every hitter card already prices all of this in, including each park's learned wind sensitivity.</div>
+  </div>`;
 }
 
 function renderStacks(){

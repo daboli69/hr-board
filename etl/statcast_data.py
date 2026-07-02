@@ -586,3 +586,26 @@ def hr_last_game(df: pd.DataFrame) -> set:
     recent = d[d["game_date"] == d["last_g"]]
     hr = recent[recent["events"].eq("home_run")]
     return set(int(b) for b in hr["batter"].unique())
+
+
+def pitcher_batted_profile(df: pd.DataFrame) -> dict:
+    """{pitcher_id: {fb_pct, gb_pct, n}} — season batted-ball mix allowed.
+    GB = launch angle < 10 deg, FB = >= 25 deg (fly balls + popups). A fly-ball-heavy
+    arm puts more balls in HR territory — the target profile."""
+    need = {"pitcher", "launch_angle", "launch_speed"}
+    if df is None or df.empty or not need.issubset(df.columns):
+        return {}
+    d = df[df["launch_speed"].notna() & df["launch_angle"].notna()]
+    if d.empty:
+        return {}
+    g = d.groupby("pitcher")["launch_angle"]
+    n = g.size()
+    fb = d[d["launch_angle"] >= 25].groupby("pitcher").size().reindex(n.index, fill_value=0)
+    gb = d[d["launch_angle"] < 10].groupby("pitcher").size().reindex(n.index, fill_value=0)
+    out = {}
+    for pid in n.index:
+        if n[pid] >= 30:
+            out[int(pid)] = {"fb_pct": round(float(fb[pid]) * 100.0 / float(n[pid]), 1),
+                             "gb_pct": round(float(gb[pid]) * 100.0 / float(n[pid]), 1),
+                             "n": int(n[pid])}
+    return out

@@ -171,6 +171,18 @@ def build(date_str: str | None = None) -> dict:
     except Exception as e:
         b2b_set = set(); print(f"[build] hr_last_game skipped: {e}")
 
+    try:                                           # per-park wind sensitivity (weekly, archived wx)
+        from etl import wind_sens as WS
+        ws_cache = os.path.join(os.path.dirname(__file__), "..", "docs", "wind_sens.json")
+        park_model.set_wind_sens(WS.load_wind_sensitivity(ws_cache, df=df))
+    except Exception as e:
+        print(f"[build] wind sensitivity skipped: {e}")
+
+    try:                                           # pitcher batted-ball mix allowed (FB% = target)
+        p_batted = statcast_data.pitcher_batted_profile(df)
+    except Exception as e:
+        p_batted = {}; print(f"[build] pitcher batted profile skipped: {e}")
+
     # statsapi and Statcast mostly share team abbreviations; a few differ.
     _TEAM_ALIAS = {"AZ": "ARI", "ARI": "AZ", "CWS": "CHW", "CHW": "CWS",
                    "WSH": "WSN", "WSN": "WSH", "KC": "KCR", "KCR": "KC",
@@ -318,6 +330,10 @@ def build(date_str: str | None = None) -> dict:
         # opener detection: listed SP whose real starts run 1-2 innings, or a pure
         # reliever getting the "start". Downstream, BvP-vs-SP matters less (one look)
         # and the bullpen matters much more.
+        _bat = p_batted.get(pid)
+        if _bat:
+            opp_pitcher_obj["fb_pct"] = _bat["fb_pct"]
+            opp_pitcher_obj["gb_pct"] = _bat["gb_pct"]
         _sl = start_lens.get(pid)
         if _sl and _sl["starts"] >= 2 and _sl["med_len"] <= 2.0:
             opp_pitcher_obj["opener"] = True
@@ -585,6 +601,41 @@ def build(date_str: str | None = None) -> dict:
         })
     stacks.sort(key=lambda s: (s["stack_score"], len(s["hitters"])), reverse=True)
 
+    # per-game weather summaries for the Weather dashboard (roof call, disruption status,
+    # wind rendered relative to each park's actual orientation)
+    wx_list = []
+    try:
+        from etl import weather as W, park_geometry as PG
+        for g in games:
+            lat, lon, _ = PG.park_coords(g["park"])
+            wx = W.get_weather(lat, lon, g["time"], venue=g["park"])
+            roof = W.roof_call(g["park"], wx)
+            pp = (wx or {}).get("precip_prob")
+            if roof in ("dome", "closed", "canopy") or pp is None:
+                status = "clear" if roof else "unknown"
+            elif pp < 20:
+                status = "clear"
+            elif pp < 45:
+                status = "chance"
+            elif pp < 70:
+                status = "likely"
+            else:
+                status = "postpone"
+            cf = PG.cf_bearing(g["park"])
+            frm = (wx or {}).get("wind_from_deg")
+            rel = round(((frm + 180.0) - cf) % 360.0) if (frm is not None and cf is not None) else None
+            wx_list.append({
+                "game_pk": g["game_pk"], "away": g["away"], "home": g["home"],
+                "park": g["park"], "time": g["time"],
+                "temp_f": round((wx or {}).get("temp_f")) if (wx or {}).get("temp_f") is not None else None,
+                "rh_pct": round((wx or {}).get("rh_pct")) if (wx or {}).get("rh_pct") is not None else None,
+                "precip_prob": round(pp) if pp is not None else None,
+                "wind_mph": round((wx or {}).get("wind_mph")) if (wx or {}).get("wind_mph") is not None else None,
+                "wind_rel_deg": rel, "roof": roof, "status": status,
+            })
+    except Exception as e:
+        print(f"[build] weather summaries skipped: {e}")
+
     board = {
         "generated_at": now.isoformat(timespec="seconds"),
         "slate_date": date_str,
@@ -606,6 +657,7 @@ def build(date_str: str | None = None) -> dict:
         "players": players,
         "top_plays": top_plays,
         "stacks": stacks,
+        "wx": wx_list,
         "arms": sorted([
             {
                 "name": slate["pitchers"].get(pid, {}).get("name", str(pid)),
@@ -626,6 +678,8 @@ def build(date_str: str | None = None) -> dict:
                     (start_lens.get(pid) and start_lens[pid]["starts"] >= 2
                      and start_lens[pid]["med_len"] <= 2.0)
                     or (start_lens.get(pid) is None and p_apps.get(pid, 0) >= 5)),
+                "fb_pct": (p_batted.get(pid) or {}).get("fb_pct"),
+                "gb_pct": (p_batted.get(pid) or {}).get("gb_pct"),
                 "start_len": (round(start_lens[pid]["med_len"], 1)
                               if start_lens.get(pid) else None),
                 # heaviest 2yr HR-by-hand side, raw numbers for the strip
