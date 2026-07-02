@@ -1934,7 +1934,7 @@ function renderTracker(){
   const days=HISTORY.days.slice();
   // cumulative aggregates
   const TIER_ORDER=["70+","55-69","40-54","<40"];
-  const tiers={}, forms={}, sigAgg={}, badgeAgg={}, topAgg={}, rankAgg={heat:{},iso:{},barrel:{},base:{}}; let sp=0,bp=0,tot=0,homered=0,players=0,badgesOnHr=0;
+  const tiers={}, forms={}, sigAgg={}, badgeAgg={}, topAgg={}, rankAgg={heat:{},iso:{},barrel:{},base:{}}, smashAgg={}, parkAgg={}, trendAgg={}, b2bAgg={}, opAgg={}; let sp=0,bp=0,tot=0,homered=0,players=0,badgesOnHr=0;
   days.forEach(d=>{
     players+=d.players||0; homered+=d.hitters_homered||0; tot+=d.total_hr||0;
     sp+=d.sp_hr||0; bp+=d.bp_hr||0; badgesOnHr+=d.badges_on_hr||0;
@@ -1943,6 +1943,11 @@ function renderTracker(){
     Object.entries(d.by_signal||{}).forEach(([k,v])=>{const a=sigAgg[k]||(sigAgg[k]={cleared:{n:0,hr:0},not:{n:0,hr:0}});a.cleared.n+=v.cleared.n;a.cleared.hr+=v.cleared.hr;a.not.n+=v.not.n;a.not.hr+=v.not.hr;});
     Object.entries(d.by_badge||{}).forEach(([k,v])=>{const a=badgeAgg[k]||(badgeAgg[k]={n:0,hr:0});a.n+=v.n;a.hr+=v.hr;});
     Object.entries(d.top_n||{}).forEach(([k,v])=>{const a=topAgg[k]||(topAgg[k]={n:0,hr:0});a.n+=v.n;a.hr+=v.hr;});
+    Object.entries(d.by_smash||{}).forEach(([k,v])=>{const a=smashAgg[k]||(smashAgg[k]={n:0,hr:0});a.n+=v.n;a.hr+=v.hr;});
+    Object.entries(d.by_park||{}).forEach(([k,v])=>{const a=parkAgg[k]||(parkAgg[k]={n:0,hr:0});a.n+=v.n;a.hr+=v.hr;});
+    Object.entries(d.by_trend||{}).forEach(([k,v])=>{const a=trendAgg[k]||(trendAgg[k]={n:0,hr:0});a.n+=v.n;a.hr+=v.hr;});
+    Object.entries(d.by_b2b||{}).forEach(([k,v])=>{const a=b2bAgg[k]||(b2bAgg[k]={n:0,hr:0});a.n+=v.n;a.hr+=v.hr;});
+    Object.entries(d.by_opener||{}).forEach(([k,v])=>{const a=opAgg[k]||(opAgg[k]={n:0,hr:0});a.n+=v.n;a.hr+=v.hr;});
     if(d.ranks){["heat","iso","barrel","base"].forEach(m=>{Object.entries(d.ranks[m]||{}).forEach(([k,v])=>{const a=rankAgg[m][k]||(rankAgg[m][k]={n:0,hr:0});a.n+=v.n;a.hr+=v.hr;});});}
   });
   const rate=(o)=>o.n?100*o.hr/o.n:0;
@@ -2013,6 +2018,26 @@ function renderTracker(){
   }).join("");
   const avgBadgesHr = tot ? (badgesOnHr/tot) : 0;
 
+  // Conviction & context conversion — the section that answers "should the weights
+  // change?" with data instead of priors. Fills in as graded days accumulate.
+  const pairRow=(lab,o,ref)=>{ if(!o||!o.n) return "";
+    const lift=rate(o)-(ref&&ref.n?rate(ref):baseRate);
+    return `<div class="trk-row" style="grid-template-columns:84px 1fr 52px">
+      <div class="lab" style="font-size:11px">${lab}</div>
+      <div style="font-size:12px;color:var(--muted)"><b style="color:var(--ink)">${rate(o).toFixed(1)}%</b> · ${o.hr}/${o.n}${ref&&ref.n?` · rest ${rate(ref).toFixed(1)}%`:""}</div>
+      <div class="val" style="color:${lift>=0?'var(--good)':'var(--bad)'};font-weight:700">${lift>=0?"+":""}${lift.toFixed(1)}</div></div>`; };
+  let convRows="";
+  convRows+=pairRow('<span class="clearflag" style="font-size:8.5px">SMASH</span>',smashAgg.smash,smashAgg.rest);
+  ["up","flat","down"].forEach(k=>{ if(trendAgg[k]) convRows+=pairRow("trend "+k,trendAgg[k]); });
+  ["strong+","lean+","neutral","against"].forEach(k=>{ if(parkAgg[k]) convRows+=pairRow("park "+k,parkAgg[k]); });
+  convRows+=pairRow("B2B (HR y'day)",b2bAgg.b2b,b2bAgg.rest);
+  convRows+=pairRow("vs opener",opAgg.opener,opAgg.sp);
+  const spotAgg={}; days.forEach(d=>Object.entries(d.by_spot||{}).forEach(([k,v])=>{const a=spotAgg[k]||(spotAgg[k]={n:0,hr:0});a.n+=v.n;a.hr+=v.hr;}));
+  const maxSpotRate=Math.max(1,...Object.values(spotAgg).map(rate));
+  const spotStrip=Object.keys(spotAgg).length?`<div class="spotrow" style="margin-top:6px">${[1,2,3,4,5,6,7,8,9].map(s=>{
+    const o=spotAgg[String(s)]; const r=o?rate(o):0; const op=o&&o.n?(0.15+0.6*r/maxSpotRate).toFixed(2):0;
+    return `<div class="spotcell" style="${o?`background:rgba(244,200,74,${op})`:''}"><div class="spotn" style="font-size:11px">${o?r.toFixed(0)+"%":"·"}</div><div class="spotlbl">${s}</div></div>`;}).join("")}</div>`:"";
+
   let dayRows=days.slice().reverse().map(d=>{
     const top=(d.hr_log||[]).slice(0,4).map(h=>`${h.name} (${h.heat}, ${h.off}${h.n_badges?`, ${h.n_badges} tag${h.n_badges>1?"s":""}`:""})`).join(" · ");
     return `<div class="trk-day"><div class="d">${d.date}</div>
@@ -2032,6 +2057,10 @@ function renderTracker(){
     <h3>HR rate by Heat tier</h3>
     <div style="font-size:11px;color:var(--muted);margin-bottom:4px">does a higher Heat actually produce more HRs?</div>
     ${tierRows||'<div class="ln" style="color:var(--muted)">—</div>'}
+    <h3>Conviction &amp; context signals</h3>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">SMASH, trend, park boost, B2B and opener conversion vs the field — this is the section that will say whether the weights should change. Right column = lift.</div>
+    ${convRows||'<div class="ln" style="color:var(--muted)">— fills in as new graded days arrive —</div>'}
+    ${spotStrip?`<div style="font-size:11px;color:var(--muted);margin:8px 0 2px">HR rate by lineup spot</div>${spotStrip}`:""}
     <h3>HR rate by opposing-arm form</h3>
     <div style="font-size:11px;color:var(--muted);margin-bottom:4px">do shellable / steady-bad arms get taken deep more?</div>
     ${formRows||'<div class="ln" style="color:var(--muted)">—</div>'}

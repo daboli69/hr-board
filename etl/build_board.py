@@ -666,6 +666,51 @@ def main():
     with open(OUT_PATH, "w") as f:
         json.dump(board, f, indent=2, default=str)
 
+    # slate-level SMASH selection, mirrored from the UI's convergence scorer so the
+    # grader can measure the flag's real conversion rate (the whole point of the flag).
+    # Uses standard heat (the UI's default view).
+    def _smash_score(p):
+        H = p.get("heat") or 0
+        s = max(0.0, min(3.0, (H - 45) / 10.0)); r = 0
+        ks = {b["k"] for b in (p.get("badges") or [])}
+        tr = p.get("trend") or {}
+        if "lock" in ks: s += 1.5; r += 1
+        elif "hot" in ks: s += 0.75; r += 1
+        if "due" in ks: s += 1.0; r += 1
+        if tr.get("dir") == "up": s += 1.0; r += 1
+        pb = (p.get("park_hr") or {}).get("boost") or 0
+        if pb >= 12: s += 1.5; r += 1
+        elif pb >= 6: s += 0.75; r += 1
+        opnr = bool((p.get("opp_pitcher") or {}).get("opener"))
+        if "hrsp" in ks: s += (0.75 if opnr else 1.5); r += 1
+        if "hrbp" in ks: s += (1.5 if opnr else 1.0); r += 1
+        spot_hr = (p.get("hr_by_spot") or {}).get(p.get("lineup_spot") or 0, 0)
+        if spot_hr >= 3: s += 1.5; r += 1
+        elif spot_hr >= 2: s += 0.75; r += 1
+        mixd = (p.get("heat_mix") - p["heat"]) if (p.get("heat_mix") is not None and p.get("heat") is not None) else 0
+        if mixd >= 6: s += 1.0; r += 1
+        elif mixd >= 4: s += 0.5; r += 1
+        arm = (p.get("opp_pitcher") or {}).get("hr_score") or 0
+        if arm >= 65 or "arm" in ks: s += 1.0; r += 1
+        if "mix" in ks: s += 0.75; r += 1
+        if "pow" in ks: s += 0.5; r += 1
+        if "plat" in ks: s += 0.5; r += 1
+        return s, r
+    smash_ids = set()
+    try:
+        cand = []
+        for p in board["players"]:
+            if p.get("lineup_status") == "out":
+                continue
+            sc, nr = _smash_score(p)
+            if sc >= 6.5 and nr >= 3 and (p.get("heat") or 0) >= 55:
+                cand.append((sc, p["id"]))
+        cand.sort(reverse=True)
+        smash_ids = {pid for _, pid in cand[:3]}
+        print(f"[build] SMASH: {len(smash_ids)} flagged")
+    except Exception as e:
+        print(f"[build] smash calc skipped: {e}")
+
     # slim daily snapshot so the grader can grade this day even after the live
     # board rolls over to tomorrow's slate
     try:
@@ -690,6 +735,8 @@ def main():
                 "park_boost": (p.get("park_hr") or {}).get("boost"),
                 "trend": (p.get("trend") or {}).get("dir"),
                 "b2b": p.get("hr_last_game"),
+                "smash": p["id"] in smash_ids,
+                "opener": bool((p.get("opp_pitcher") or {}).get("opener")),
             } for p in board["players"]],
         }
         with open(os.path.join(snap_dir, f"{board['slate_date']}.json"), "w") as f:

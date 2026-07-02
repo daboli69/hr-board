@@ -97,6 +97,7 @@ def grade_date(date):
     by_signal = {k: {"cleared": {"n": 0, "hr": 0}, "not": {"n": 0, "hr": 0}} for k in SIGNALS}
     by_badge = {}
     by_park, by_trend = {}, {}      # does park+weather boost / trend direction actually convert?
+    by_smash, by_opener, by_spot, by_b2b = {}, {}, {}, {}
     def _park_bucket(b):
         if b is None: return "n/a"
         if b >= 12: return "strong+"
@@ -126,6 +127,15 @@ def grade_date(date):
         tdir = p.get("trend") or "n/a"
         td = by_trend.setdefault(tdir, {"n": 0, "hr": 0})
         td["n"] += 1; td["hr"] += 1 if hit else 0
+        sm = by_smash.setdefault("smash" if p.get("smash") else "rest", {"n": 0, "hr": 0})
+        sm["n"] += 1; sm["hr"] += 1 if hit else 0
+        oo = by_opener.setdefault("opener" if p.get("opener") else "sp", {"n": 0, "hr": 0})
+        oo["n"] += 1; oo["hr"] += 1 if hit else 0
+        bb2 = by_b2b.setdefault("b2b" if p.get("b2b") else "rest", {"n": 0, "hr": 0})
+        bb2["n"] += 1; bb2["hr"] += 1 if hit else 0
+        if p.get("spot"):
+            sp = by_spot.setdefault(str(p["spot"]), {"n": 0, "hr": 0})
+            sp["n"] += 1; sp["hr"] += 1 if hit else 0
         if hit:
             res = hrmap[p["id"]]
             total_hr += res["hr"]; sp_hr += res["sp"]; bp_hr += res["bp"]
@@ -162,6 +172,7 @@ def grade_date(date):
         "total_hr": total_hr, "sp_hr": sp_hr, "bp_hr": bp_hr,
         "by_tier": tiers, "by_form": forms, "by_signal": by_signal, "by_badge": by_badge,
         "by_park": by_park, "by_trend": by_trend,
+        "by_smash": by_smash, "by_opener": by_opener, "by_spot": by_spot, "by_b2b": by_b2b,
         "badges_on_hr": badge_hits, "top_n": topN,
         "ranks": ranks,
         "hr_log": sorted(hr_log, key=lambda x: (x["heat"] or 0), reverse=True),
