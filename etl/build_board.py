@@ -166,6 +166,11 @@ def build(date_str: str | None = None) -> dict:
     except Exception as e:
         start_lens, p_apps = {}, {}; print(f"[build] starter lengths skipped: {e}")
 
+    try:                                           # B2B: homered in his most recent game
+        b2b_set = statcast_data.hr_last_game(df)
+    except Exception as e:
+        b2b_set = set(); print(f"[build] hr_last_game skipped: {e}")
+
     # statsapi and Statcast mostly share team abbreviations; a few differ.
     _TEAM_ALIAS = {"AZ": "ARI", "ARI": "AZ", "CWS": "CHW", "CHW": "CWS",
                    "WSH": "WSN", "WSN": "WSH", "KC": "KCR", "KCR": "KC",
@@ -261,7 +266,8 @@ def build(date_str: str | None = None) -> dict:
 
         # trend (contact-quality) + the synthesized one-line read
         tr = compute.trend(prof.get("windows", {}).get("L5", {}),
-                           prof.get("windows", {}).get("L30", {}))
+                           prof.get("windows", {}).get("L30", {}),
+                           mid_w=prof.get("windows", {}).get("L15", {}))
         eff_hand = eff_side if bats == "S" else bats
         angle = compute.read_angle(
             hand=bats, trend=tr, pitch_matchup=pmatch,
@@ -420,6 +426,7 @@ def build(date_str: str | None = None) -> dict:
             "bats": bats,
             "bvp": player_bvp,
             "hr_by_spot": hr_spot.get(bid, {}),
+            "hr_last_game": bid in b2b_set,
             "lineup_spot": spot_of_batter.get(bid),
             "lineup_status": status_of_batter.get(bid, "confirmed"),
             "trend": tr,
@@ -648,6 +655,9 @@ def main():
                 "luck_gap": (((p.get("luck") or {}).get("recent")) or {}).get("luck_gap"),
                 "heat_mix": p.get("heat_mix"),
                 "spot": p.get("lineup_spot"),
+                "park_boost": (p.get("park_hr") or {}).get("boost"),
+                "trend": (p.get("trend") or {}).get("dir"),
+                "b2b": p.get("hr_last_game"),
             } for p in board["players"]],
         }
         with open(os.path.join(snap_dir, f"{board['slate_date']}.json"), "w") as f:

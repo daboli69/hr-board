@@ -342,6 +342,7 @@
   .pl-tag.up{color:var(--hot);border:1px solid var(--hot)}
   .pl-tag.dn{color:var(--cool);border:1px solid var(--cool)}
   .pl-tag.sl{color:var(--good);border:1px solid var(--good)}
+  .pl-tag.warn{background:rgba(198,110,80,.12);color:#cd977f;border-color:rgba(198,110,80,.3)}
   .pl-tag.mx{color:var(--warm);border:1px solid var(--warm)}
   .pl-tag.tg{color:var(--seam);border:1px solid var(--line)}
   .pl-sub{font-size:10.5px;color:var(--muted);margin:-2px 0 6px}
@@ -965,7 +966,7 @@ function smashConviction(p){
   if(ks.has("mix")){ s+=0.75; r.push("barrels this mix"); }
   if(ks.has("pow")){ s+=0.5; r.push("loud power"); }
   if(ks.has("plat")){ s+=0.5; r.push("platoon edge"); }
-  return {fire: (H_>=70 || s>=5.0), score:s, reasons:r};
+  return {score:s, reasons:r};
 }
 function render(){
   const main=document.getElementById("main");
@@ -1013,6 +1014,22 @@ function render(){
   });
   const sc=document.getElementById("shown"); if(sc) sc.textContent=players.length+" shown";
   updateFiltCount();
+
+  // SMASH is a slate-level call, not a per-card threshold: only hitters where nearly
+  // everything converges (score >= 6.5 with 3+ distinct reasons and real Heat), capped
+  // at the top 3 of the day. Rare by design — the flag only means something if the
+  // hitters carrying it convert at a rate the rest of the board can't match.
+  const smashSet=(function(){
+    try{
+      const cand=[];
+      (BOARD.players||[]).forEach(p=>{ if(p.lineup_status==="out") return;
+        const sm=smashConviction(p);
+        if(sm.score>=6.5 && sm.reasons.length>=3 && H(p)>=55) cand.push({id:p.id,sm});
+      });
+      cand.sort((a,b)=>b.sm.score-a.sm.score);
+      return new Map(cand.slice(0,3).map(x=>[x.id,x.sm]));
+    }catch(e){ return new Map(); }
+  })();
 
   let html="";
   if(BOARD.lineups_pending&&BOARD.lineups_pending.length){
@@ -1195,7 +1212,7 @@ function render(){
     });
     const armSc = (p.opp_pitcher&&p.opp_pitcher.hr_score!=null)?p.opp_pitcher.hr_score:null;
     const armCol = armSc!=null?chipColor(armSc):"transparent";
-    const sm = smashConviction(p);
+    const sm = smashSet.get(p.id) || null;
 
     html+=`<div class="row${isThin(p)?" thin":""}" data-i="${i}" style="--tc:${teamCol(p.team)}">
       <div class="crow" onclick="toggle(this)">
@@ -1204,7 +1221,7 @@ function render(){
           <div class="cheat" style="background:${col}">${H(p)}</div>
           <div class="cwho">
             <div class="name"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span class="nm-txt">${p.name}</span><span class="liststar"${listHas(p.id)?"":" hidden"}>★</span></div>
-            <div class="cmini">${sm.fire?'<span class="clearflag">SMASH</span> ':""}${bpChip}${lbChip}${pkChip}${mdChip}${trendBadge(p.trend)?trendBadge(p.trend)+" ":""}${p.lineup_status==="projected"?`<span class="spot" style="color:var(--seam);border-color:var(--seam)">proj</span> `:""}${p.lineup_spot?`#${p.lineup_spot} · `:""}${p.team}→${p.opp_team} · ${timeStr(p.time)}${armSc!=null?` · arm <b style="color:${armCol}">${armSc}</b>`:""} · ${(p.windows&&p.windows.L14d&&p.windows.L14d.pa!=null)?`${p.windows.L14d.pa}PA`:"–"}</div>
+            <div class="cmini">${sm?'<span class="clearflag">SMASH</span> ':""}${bpChip}${lbChip}${pkChip}${mdChip}${trendBadge(p.trend)?trendBadge(p.trend)+" ":""}${p.lineup_status==="projected"?`<span class="spot" style="color:var(--seam);border-color:var(--seam)">proj</span> `:""}${p.lineup_spot?`#${p.lineup_spot} · `:""}${p.team}→${p.opp_team} · ${timeStr(p.time)}${armSc!=null?` · arm <b style="color:${armCol}">${armSc}</b>`:""} · ${(p.windows&&p.windows.L14d&&p.windows.L14d.pa!=null)?`${p.windows.L14d.pa}PA`:"–"}</div>
           </div>
           <div class="cmetrics">${mini}</div>
         </div>
@@ -1213,7 +1230,7 @@ function render(){
       <div class="detail">
         <div class="dname"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span>${p.name}</span>${p.lineup_spot?`<span class="dspot">#${p.lineup_spot}</span>`:""}</div>
         <button class="listbtn${listHas(p.id)?" on":""}" data-pid="${p.id}" data-nm="${encodeURIComponent(p.name)}" onclick="toggleListBtn(this,event)">${listHas(p.id)?"★ On your list — tap to remove":"☆ Add to my list"}</button>
-        ${sm.fire?`<div class="clearnote"><b>Everything's pointing here.</b> ${sm.reasons.length?sm.reasons.slice(0,5).join(" · ")+". ":""}The matchup's already priced into this number — trust it, don't talk yourself out of it over one cold reading.</div>`:""}
+        ${sm?`<div class="clearnote"><b>Everything's pointing here.</b> ${sm.reasons.length?sm.reasons.slice(0,5).join(" · ")+". ":""}The matchup's already priced into this number — trust it, don't talk yourself out of it over one cold reading.</div>`:""}
         ${p.angle?`<div class="angle">${p.angle}</div>`:""}
         ${badgeChips(p)}
         <div class="matchup" style="margin-bottom:10px">${p.team} vs ${p.opp_team} · ${timeStr(p.time)} · ${p.park||""} · park ${fmt(p.park_hr_factor,2)}× · ${armBadge}</div>
@@ -1557,11 +1574,15 @@ function hitterScore(p, R, BR){
   const tags = tagLift(p.badges, R, BR);                                   // tags most hit (both tabs)
   const tier = R.days ? Math.max(0.8, Math.min(1.3, (R.tiers[tierOf(p.heat)] ?? R.base)/R.base)) : 1;  // tracker
   const park = (p.park_hr && p.park_hr.boost!=null) ? (1 + p.park_hr.boost/300) : 1;
+  // contact luck: gap = expected − actual on contact. Positive = earned quality not paying
+  // yet (due, small boost); negative = running hot above his contact (regression haircut).
+  const lg = ((p.luck||{}).recent||{}).luck_gap;
+  const luck = (lg!=null) ? (1 + Math.max(-0.07, Math.min(0.08, lg*1.2))) : 1;
   const n = (p.sample && (p.sample.season || p.sample.L30)) || 0;          // downweight thin-sample noise
   const conf = 0.6 + 0.4*Math.max(0, Math.min(1, n/60));
-  const score = base*trend*mix*tags*tier*park*conf;
+  const score = base*trend*mix*tags*tier*park*luck*conf;
   const prob = Math.max(0.03, Math.min(0.42, 0.05 + score*0.16));          // for fair-odds display only
-  return {score, prob, trend, mix, tags, conf};
+  return {score, prob, trend, mix, tags, luck, conf};
 }
 
 function americanFair(prob){
@@ -1594,6 +1615,26 @@ function buildVariety(ranked, legs, opts){
     bands.forEach(b => { if(out.length<legs && !tryPick(predOf(b))) tryPick(null); });
   }
   while(out.length < legs){ if(!tryPick(null)) break; }
+  return out;
+}
+
+// Slot-based builder for your actual bet formats: each leg has its own eligibility rule,
+// with hard caps enforced across the whole ticket (one per game, max chalk, max B2B).
+// If a slot can't fill on a thin slate it relaxes to best-available rather than dying.
+function buildSlots(ranked, slots, opts){
+  opts=opts||{};
+  const chalkN=opts.chalkN??5, maxChalk=opts.maxChalk??1, maxB2B=opts.maxB2B??1;
+  const usedG=new Set(), out=[]; let chalk=0, b2b=0;
+  const ok=p=>out.indexOf(p)<0 && !usedG.has(p.game_pk)
+    && !(p._rank<chalkN && chalk>=maxChalk)
+    && !(p.hr_last_game && b2b>=maxB2B);
+  const take=p=>{ out.push(p); usedG.add(p.game_pk);
+    if(p._rank<chalkN) chalk++; if(p.hr_last_game) b2b++; };
+  for(const pred of slots){
+    let pick=ranked.find(p=>ok(p)&&(!pred||pred(p)));
+    if(!pick) pick=ranked.find(p=>ok(p));
+    if(pick) take(pick);
+  }
   return out;
 }
 
@@ -1692,32 +1733,89 @@ function renderParlays(){
   BOARD.players.slice().sort((a,b)=>(b.heat||0)-(a.heat||0)).forEach((p,i)=>{ rankMap[p.id]=i; });
   const ranked=BOARD.players.filter(p=>p.lineup_status!=="out")
     .map(p=>{ try{ const s=hitterScore(p,R,BR);
-      return Object.assign({}, p, {_score:s.score,_prob:s.prob,_trend:s.trend,_mix:s.mix,_tags:s.tags,_rank:rankMap[p.id]??99}); }
-      catch(e){ return Object.assign({}, p, {_score:0,_prob:0.02,_trend:1,_mix:1,_tags:1,_rank:rankMap[p.id]??99}); } })
+      return Object.assign({}, p, {_score:s.score,_prob:s.prob,_trend:s.trend,_mix:s.mix,_tags:s.tags,_luck:s.luck,_rank:rankMap[p.id]??99}); }
+      catch(e){ return Object.assign({}, p, {_score:0,_prob:0.02,_trend:1,_mix:1,_tags:1,_luck:1,_rank:rankMap[p.id]??99}); } })
     .sort((a,b)=>b._score-a._score);
 
-  const leg=(p)=>{
+  const leg=(p,extra)=>{
     const tags=[];
     if(p._rank<14) tags.push(`<span class="pl-tag lb">#${p._rank+1} board</span>`);
     else if(p._rank>=20) tags.push(`<span class="pl-tag sl">sleeper</span>`);
     if(p.trend && p.trend.dir==="up") tags.push(`<span class="pl-tag up">▲ trending</span>`);
     if(p._mix>1.03) tags.push(`<span class="pl-tag mx">mix+</span>`);
     if(p._tags>1.05) tags.push(`<span class="pl-tag tg">tags+</span>`);
+    if(p._luck>1.02) tags.push(`<span class="pl-tag up">due</span>`);
+    else if(p._luck<0.98) tags.push(`<span class="pl-tag warn">running hot</span>`);
+    if(p.hr_last_game) tags.push(`<span class="pl-tag warn">B2B</span>`);
+    if(p.opp_pitcher&&p.opp_pitcher.opener) tags.push(`<span class="pl-tag sl">opener gm</span>`);
+    if(extra) tags.unshift(extra);
     return `<div class="pl-leg">
       <div class="pl-leg-main"><b>${p.name}</b> <span class="pl-meta">${p.team}→${p.opp_team} · ${timeStr(p.time)}${p.why?` · ${p.why}`:""}</span>${tags.length?`<div class="pl-tags">${tags.join("")}</div>`:""}</div>
       <div class="pl-leg-prob">${(p._prob*100).toFixed(0)}%<span>${americanFair(p._prob)}</span></div>
     </div>`;
   };
-  const card=(title,legs,opts,sub)=>{
-    const picks=buildVariety(ranked,legs,opts);
-    if(picks.length<legs) return `<div class="pl-card pl-card-thin"><div class="pl-card-h"><b>${title}</b></div><div class="pl-foot">Only ${picks.length} game${picks.length===1?"":"s"} with eligible hitters — need ${legs}. Comes back on a fuller slate.</div></div>`;
-    const combined=picks.reduce((a,p)=>a*p._prob,1);
-    return `<div class="pl-card">
-      <div class="pl-card-h"><b>${title}</b><span class="pl-comb">${(combined*100).toFixed(1)}% · ${americanFair(combined)}</span></div>
+  const cardShell=(title,sub,picks,legFn,foot,noComb)=>`<div class="pl-card">
+      <div class="pl-card-h"><b>${title}</b>${(picks.length>1&&!noComb)?`<span class="pl-comb">${(picks.reduce((a,p)=>a*p._prob,1)*100).toFixed(1)}% · ${americanFair(picks.reduce((a,p)=>a*p._prob,1))}</span>`:""}</div>
       ${sub?`<div class="pl-sub">${sub}</div>`:""}
-      ${picks.map(leg).join("")}
-      <div class="pl-foot">combined model probability if independent · fair odds, not book odds</div>
+      ${picks.map(legFn||leg).join("")}
+      <div class="pl-foot">${foot||"combined model probability if independent · fair odds, not book odds"}</div>
     </div>`;
+  const thinCard=(title,msg)=>`<div class="pl-card pl-card-thin"><div class="pl-card-h"><b>${title}</b></div><div class="pl-foot">${msg}</div></div>`;
+
+  // ---- Bet 1 · Longest HR Jackpot: distance ceiling on names the field ignores ----
+  const jackpotCard=()=>{
+    const mev=p=>((p.max_ev||{}).season ?? (p.max_ev||{}).recent) || 0;
+    const elig=ranked.filter(p=>!p.hr_last_game && p._rank>=4 && (p.heat||0)>=45 && mev(p)>=108);
+    if(elig.length<2) return thinCard("Longest HR Jackpot — candidates","Not enough non-chalk, non-B2B power on this slate yet — fills in as lineups post.");
+    const dist=p=>{
+      const ev=(Math.min(118,Math.max(105,mev(p)))-105)/13;                 // raw distance ceiling
+      const pk=(p.park_hr&&p.park_hr.boost!=null)?Math.max(-0.5,Math.min(1,p.park_hr.boost/20)):0;
+      const iso=((p.windows||{}).L14d||{}).iso||0;
+      return ev*0.5 + pk*0.3 + Math.min(1,iso/0.30)*0.2;
+    };
+    const picks=elig.slice().sort((a,b)=>dist(b)-dist(a)).slice(0,3);
+    return cardShell("Longest HR Jackpot — candidates",
+      "distance ceiling on mid-tier names: never chalk, never B2B — the winner is usually 400ft+ from someone the field skipped",
+      picks,
+      p=>leg(p,`<span class="pl-tag lb">${mev(p)?mev(p).toFixed(1)+" max EV":""}${(p.park_hr&&p.park_hr.boost>0)?` · park +${p.park_hr.boost}%`:""}</span>`),
+      "single entries, not a parlay — ranked by raw distance ceiling (max EV · park/weather · ISO)", true);
+  };
+
+  // ---- Bet 2 · Best board · 3-leg: highest composite likelihood, one per team ----
+  // Full blend, never heat alone: trend, pitch mix, contact luck, your tag history
+  // (tracker + bet log), tracker tier conversion, park+weather, sample confidence.
+  const best3Card=()=>{
+    const used=new Set(); const picks=[];
+    for(const p of ranked){
+      if(picks.length>=3) break;
+      if(used.has(p.team)) continue;
+      if(p.hr_last_game && picks.some(x=>x.hr_last_game)) continue;   // max 1 B2B
+      picks.push(p); used.add(p.team);
+    }
+    if(picks.length<3) return thinCard("Best Board · 3-leg","Fewer than 3 teams with eligible hitters — comes back on a fuller slate.");
+    return cardShell("Best Board · 3-leg",
+      "the model's three strongest plays, one per team — ranked by the full blend (heat · trend · pitch mix · contact luck · your tag + tracker history · park), never heat alone",
+      picks,
+      p=>leg(p,(p.heat!=null&&p._score!=null)?`<span class="pl-tag lb">blend ${(p._score*100).toFixed(0)} · heat ${p.heat}</span>`:null));
+  };
+
+  // ---- Bet 3 · Round robin by 2s: 5 games, odds spread, score mix, capped chalk/B2B ----
+  const rrCard=()=>{
+    const H_=p=>p.heat||0;
+    const picks=buildSlots(ranked,[
+      p=>H_(p)>=75,
+      p=>H_(p)>=55&&H_(p)<75,
+      p=>H_(p)>=55&&H_(p)<75,
+      p=>H_(p)>=40&&H_(p)<55,
+      p=>H_(p)<55&&p._rank>=20,
+    ],{chalkN:5,maxChalk:1,maxB2B:1});
+    if(picks.length<5) return thinCard("Round Robin by 2s · 5-leg","Fewer than 5 games with eligible hitters — need 5 different games. Comes back on a fuller slate.");
+    const pairs=[]; for(let i=0;i<5;i++) for(let j=i+1;j<5;j++) pairs.push(picks[i]._prob*picks[j]._prob);
+    const expHits=pairs.reduce((a,x)=>a+x,0);
+    return cardShell("Round Robin by 2s · 5-leg",
+      "5 different games · score mix 75+ / two 55-74 / 40-54 / sleeper · max 1 chalk, max 1 B2B — the longshot pays 4 combos when it lands",
+      picks, null,
+      `10 two-leg combos · expected combo hits at model odds: ${expHits.toFixed(1)} of 10`);
   };
 
   const confPct=Math.round(w*100);
@@ -1751,10 +1849,7 @@ function renderParlays(){
 
   let cardsHTML="";
   try{
-    cardsHTML =
-      card("Core · 2-leg",2,{chalkN:5,maxChalk:1},"highest combined value, lightly capped on chalk")
-    + card("Balanced · 3-leg",3,{chalkN:6,maxChalk:1},"one chalk max, the rest value + a sleeper")
-    + card("Spread · 5-leg round-robin base",5,{chalkN:6,maxChalk:2,bands:["short","short","medium","medium","long"]},"odds spread: 2 short · 2 medium · 1 longshot, one per game");
+    cardsHTML = jackpotCard() + best3Card() + rrCard();
   }catch(e){ cardsHTML=`<div class="pl-card pl-card-thin"><div class="pl-foot">Couldn't build suggestions for this slate — check back once lineups post.</div></div>`; }
 
   main.innerHTML=`
@@ -1775,7 +1870,7 @@ function renderParlays(){
       </div>
       ${trustHTML}
       ${cardsHTML}
-      <div class="pl-note">Each leg blends data quality, upward trend (a cold tag won't sink a hitter who's playing hot), pitch-mix matchup, the tags most likely to homer across your tracker <i>and</i> bet history, tracker tier rates, and Heat — then the build deliberately caps chalk and mixes in sleepers and longshots so you get variety, not the same top names every time. Leg notes show what's driving each pick.</div>
+      <div class="pl-note">Built around your three bets. Legs blend Heat, trend, pitch mix, contact luck (due hitters up, lucky hitters trimmed), your tag history, and park — with the hard rules baked in: never chalk or B2B in the jackpot, one hitter per team in the best-board 3-leg, five games with a score mix and capped chalk/B2B in the round robin. Odds/totals aren't in the free data — the environment lean is a park+arm proxy, so verify the 8.5+ total and the wind before firing.</div>
     </div>`;
 }
 

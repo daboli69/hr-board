@@ -88,18 +88,21 @@ def _quality_form(w: dict) -> float:
     return round(tot, 1)
 
 
-def trend(short_w: dict, long_w: dict) -> dict:
+def trend(short_w: dict, long_w: dict, mid_w: dict | None = None) -> dict:
     """
-    Direction + % change of recent power form: short window (L5) vs longer (L30).
+    Direction + % change of recent power form: short window (L5) vs longer (L30),
+    confirmed against the mid window (L15) so one hot/cold series doesn't flip the arrow.
     Sample-aware:
-      - short < 6 BBE  -> flat (too little to read)
+      - short < 10 BBE -> flat (too little to read; a 6-BBE "swing" is coin-flip noise)
+      - short 10-14    -> only flag a direction on a big move (|pct| >= 15)
       - long  < 15 BBE -> NEW player; if the short window is hot, flag up-new
-      - else           -> signed % change between the two form scores
+      - direction must be echoed by L15 (unless the L5 move is huge, >= 25%): a real
+        ramp shows in both windows; a spike shows only in one
     Returns {dir: up/down/flat, pct: int|None, new: bool}.
     """
     s_bbe = (short_w or {}).get("bb_count") or 0
     l_bbe = (long_w or {}).get("bb_count") or 0
-    if s_bbe < 6:
+    if s_bbe < 10:
         return {"dir": "flat", "pct": None, "new": l_bbe < 15}
     s = _quality_form(short_w)
     if l_bbe < 15:                         # call-up / off-IL: no real baseline
@@ -111,11 +114,13 @@ def trend(short_w: dict, long_w: dict) -> dict:
         return {"dir": "flat", "pct": None, "new": False}
     base = max(l, 30)                       # floor the baseline so a cold hitter's
     pct = max(-99, min(99, round((s - l) / base * 100)))  # tiny gain isn't +60%; cap sanity
-    if pct >= 8:
-        return {"dir": "up", "pct": pct, "new": False}
-    if pct <= -8:
-        return {"dir": "down", "pct": pct, "new": False}
-    return {"dir": "flat", "pct": pct, "new": False}
+    thr = 15 if s_bbe < 15 else 8           # thin short window needs a bigger move to flag
+    d = "up" if pct >= thr else ("down" if pct <= -thr else "flat")
+    if d != "flat" and abs(pct) < 25 and mid_w and ((mid_w.get("bb_count") or 0) >= 12):
+        m_pct = (_quality_form(mid_w) - l) / base * 100
+        if (d == "up" and m_pct <= -6) or (d == "down" and m_pct >= 6):
+            d = "flat"                      # L15 contradicts: spike, not a ramp
+    return {"dir": d, "pct": pct, "new": False}
 
 
 def heat_score(recent: dict, pitcher_score: int | None = None) -> tuple[int, dict]:
@@ -366,8 +371,11 @@ def player_badges(*, opp_form=None, hand_hr=None, eff_hand=None, pitch_matchup=N
         out.append({"t": "WEAK ARM", "k": "arm"})
     if hand_hr and eff_hand in ("R", "L"):
         side = hand_hr.get(eff_hand)
-        if side and side.get("pa") and (side.get("hr", 0) >= 25 or
-                                        (side["hr"] / side["pa"]) >= 0.035):
+        # genuinely burned by this hand, not just league-average leakage (~3.2% HR/PA):
+        # a real rate on volume, or a big raw count that still clears average
+        if side and side.get("pa") and (
+                (side["pa"] >= 120 and (side.get("hr", 0) / side["pa"]) >= 0.042)
+                or (side.get("hr", 0) >= 28 and (side["hr"] / side["pa"]) >= 0.035)):
             out.append({"t": "PLATOON", "k": "plat"})
     if pitch_matchup and pitch_matchup.get("edge") is not None and pitch_matchup["edge"] >= 2:
         out.append({"t": "PITCH EDGE", "k": "mix"})
@@ -377,12 +385,12 @@ def player_badges(*, opp_form=None, hand_hr=None, eff_hand=None, pitch_matchup=N
         out.append({"t": "DUE", "k": "due"})
     elif luck_gap is not None and luck_gap <= -0.090:
         out.append({"t": "MAY COOL", "k": "cool"})
-    elif xwobacon is not None and xwobacon >= 0.420 and (luck_gap is None or luck_gap > -0.060):
-        out.append({"t": "HOT", "k": "lock"})
+    elif xwobacon is not None and xwobacon >= 0.450 and (luck_gap is None or luck_gap > -0.060):
+        out.append({"t": "HOT", "k": "lock"})      # ~85th pct expected contact — elite, earned
     elif trend and trend.get("dir") == "up":
         out.append({"t": "WARMING", "k": "hot"})
-    if max_ev is not None and max_ev >= 112:
-        out.append({"t": "POWER", "k": "pow"})
+    if max_ev is not None and max_ev >= 114:
+        out.append({"t": "POWER", "k": "pow"})     # true top-shelf raw power, not half the league
     if pen_score is not None and pen_score >= 78:
         out.append({"t": "WEAK PEN", "k": "pen"})
     return out

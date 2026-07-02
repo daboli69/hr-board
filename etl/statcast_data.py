@@ -572,3 +572,17 @@ def pitcher_appearances(df: pd.DataFrame) -> dict:
         return {}
     g = df.groupby("pitcher")["game_pk"].nunique()
     return {int(k): int(v) for k, v in g.items()}
+
+
+def hr_last_game(df: pd.DataFrame) -> set:
+    """Batter ids who homered in their most recent game — the 'back-to-back' fade signal
+    (public loads up on last night's HR hitters; the repeat is priced badly)."""
+    need = {"batter", "game_date", "events"}
+    if df is None or df.empty or not need.issubset(df.columns):
+        return set()
+    d = df[["batter", "game_date", "events"]].copy()
+    last = d.groupby("batter")["game_date"].max().rename("last_g")
+    d = d.merge(last, on="batter")
+    recent = d[d["game_date"] == d["last_g"]]
+    hr = recent[recent["events"].eq("home_run")]
+    return set(int(b) for b in hr["batter"].unique())
