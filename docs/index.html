@@ -279,6 +279,8 @@
   .hl-elite{color:#e05252;background:rgba(239,68,68,.09);border-color:rgba(239,68,68,.38)}
   .hl-fb{color:#4fb96f;background:rgba(34,197,94,.09);border-color:rgba(34,197,94,.36)}
   .hl-ld{color:#cfb63a;background:rgba(245,214,10,.08);border-color:rgba(245,214,10,.32)}
+  .traitf .hlab{cursor:pointer;font:inherit;font-family:"IBM Plex Mono";font-size:9.5px;padding:4px 9px}
+  .traitf .hlab[aria-pressed="true"]{outline:1.5px solid currentColor;outline-offset:1px}
   .hlab-note{font-size:11px;color:var(--muted);margin:0 0 12px;line-height:1.5}
   .tt-wrap{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:14px}
   .tt-h{font-family:Archivo;font-weight:800;font-size:14px;display:flex;flex-direction:column;gap:2px;margin-bottom:9px}
@@ -672,6 +674,13 @@
             <button data-bat="S">S</button>
           </div>
         </div>
+        <div class="fgrp"><label>Profile <span class="fhint">PF-style hitter labels — pick any, shows hitters carrying one of them</span></label>
+          <div id="hlabF" class="traitf">
+            <button class="hlab hl-elite" data-hlab="elite" aria-pressed="false">ELITE</button>
+            <button class="hlab hl-fb" data-hlab="fb" aria-pressed="false">FB BATTER</button>
+            <button class="hlab hl-ld" data-hlab="ld" aria-pressed="false">LD BATTER</button>
+          </div>
+        </div>
         <div class="fgrp"><label>Traits <span class="fhint">tap a badge to show only those hitters</span></label>
           <div id="traitF" class="traitf">
             <button class="bdg bk-arm" data-trait="arm" aria-pressed="false">WEAK ARM</button>
@@ -803,7 +812,7 @@ const EXTRA = [
   {k:"fb_pct",     label:"FB%",      fmt:v=>fmt(v,1)},
   {k:"pull_pct",   label:"Pull(all)",fmt:v=>fmt(v,1)},
 ];
-let BOARD=null, HISTORY=null, view="board", sortKey="heat", q="", hideThin=false, minHeat=0, spFloor=0, gameSel=new Set(), batFilter="", traitSel=new Set(), teamSel=new Set(), drySel=new Set(), mixView=false, listFilter=false, muSort="hist";
+let BOARD=null, HISTORY=null, view="board", sortKey="heat", q="", hideThin=false, minHeat=0, spFloor=0, gameSel=new Set(), batFilter="", traitSel=new Set(), labSel=new Set(), teamSel=new Set(), drySel=new Set(), mixView=false, listFilter=false, muSort="hist";
 // effective heat: vs-pitch-mix variant when the toggle is on, else standard
 function H(p){return (mixView && p.heat_mix!=null) ? p.heat_mix : p.heat;}
 
@@ -1045,6 +1054,9 @@ function render(){
   if(gameSel.size) players=players.filter(p=>gameSel.has(String(p.game_pk)));
   if(teamSel.size) players=players.filter(p=>teamSel.has(p.team));
   if(batFilter) players=players.filter(p=>(p.bats||"R")===batFilter);
+  if(labSel.size){
+    players=players.filter(p=>labSel.has(p.hit_label));   // OR: labels are one-per-hitter
+  }
   if(traitSel.size){
     players=players.filter(p=>{
       const ks=new Set((p.badges||[]).map(b=>b.k));
@@ -2224,17 +2236,17 @@ document.getElementById("teamList").addEventListener("click",e=>{
   populateTeams(); updateFiltCount(); render();
 });
 function updateFiltCount(){
-  const n=gameSel.size+teamSel.size+traitSel.size+drySel.size+(batFilter?1:0)+(minHeat>0?1:0)+(spFloor>0?1:0)+(hideThin?1:0)+(mixView?1:0);
+  const n=gameSel.size+teamSel.size+traitSel.size+labSel.size+drySel.size+(batFilter?1:0)+(minHeat>0?1:0)+(spFloor>0?1:0)+(hideThin?1:0)+(mixView?1:0);
   const el=document.getElementById("filtCount");
   if(!el)return;
   if(n>0){el.textContent=n;el.hidden=false;}else{el.hidden=true;}
 }
 function clearFilters(){
-  gameSel.clear(); teamSel.clear(); batFilter=""; traitSel.clear(); drySel.clear(); minHeat=0; spFloor=0; hideThin=false; mixView=false;
+  gameSel.clear(); teamSel.clear(); batFilter=""; traitSel.clear(); labSel.clear(); drySel.clear(); minHeat=0; spFloor=0; hideThin=false; mixView=false;
   document.querySelectorAll('#floor button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.min==="0"));
   document.querySelectorAll('#spF button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.sp==="0"));
   document.querySelectorAll('#bats button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.bat===""));
-  document.querySelectorAll('#traitF button,#dryF button').forEach(x=>x.setAttribute('aria-pressed','false'));
+  document.querySelectorAll('#traitF button,#hlabF button,#dryF button').forEach(x=>x.setAttribute('aria-pressed','false'));
   document.getElementById('mixBtn').setAttribute('aria-pressed','false');
   document.getElementById('thinBtn').setAttribute('aria-pressed','false');
   populateGames(); populateTeams(); updateFiltCount(); render();
@@ -2264,6 +2276,14 @@ document.getElementById("traitF").addEventListener("click",e=>{
   b.setAttribute("aria-pressed", traitSel.has(k));
   updateFiltCount(); render();
 });
+document.getElementById("hlabF").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b)return;
+  const k=b.dataset.hlab;
+  if(labSel.has(k)) labSel.delete(k); else labSel.add(k);
+  b.setAttribute("aria-pressed",labSel.has(k));
+  updateFiltCount(); render();
+});
+
 document.getElementById("dryF").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b)return;
   const k=b.dataset.dry;

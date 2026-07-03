@@ -647,38 +647,57 @@ def hitter_labels(df: pd.DataFrame, start_date: str, min_bbe: int = 15) -> dict:
     dist = bb["hit_distance_sc"]
     bb["d300"] = dist >= 300; bb["d350"] = dist >= 350
     bb["near"] = (dist >= 340) & ~bb["events"].eq("home_run")
-    if "bat_speed" in bb.columns and "release_speed" in bb.columns:
+    have_bt = "bat_speed" in bb.columns and "release_speed" in bb.columns \
+        and bb["bat_speed"].notna().mean() > 0.3
+    if have_bt:
+        # official Savant definition: squared-up% x 100 + bat speed >= 164 (sliding
+        # scale — a 90% squared 75mph swing and an 80% squared 85mph swing both blast)
         ceil = 1.23 * bb["bat_speed"] + 0.198 * bb["release_speed"]
-        bb["blast"] = (bb["launch_speed"] >= 0.8 * ceil) & (bb["bat_speed"] >= 75.0)
-        bb["blast"] = bb["blast"].fillna(False)
+        squp = (bb["launch_speed"] / ceil).clip(upper=1.0)
+        bb["blast"] = ((squp * 100.0 + bb["bat_speed"]) >= 164.0).fillna(False)
+        bb["tracked"] = bb["bat_speed"].notna()
     else:
         bb["blast"] = False
+        bb["tracked"] = False
+        print("[labels] bat tracking unavailable — Blast% criterion waived this build")
     out = {}
     iso_num = {"single": 0, "double": 1, "triple": 2, "home_run": 3}
+    n_pool = n_base = 0
     for bid, g in bb.groupby("batter"):
         n = len(g)
         if n < min_bbe:
             continue
+        n_pool += 1
         gpa = pa[pa["batter"] == bid]
         ab = int(gpa["events"].isin(_AB_EVENTS).sum())
         iso = (sum(iso_num.get(e, 0) for e in gpa["events"]) / ab) if ab else 0.0
         hr = int(g["events"].eq("home_run").sum())
         pct = lambda col: 100.0 * float(g[col].sum()) / n
+        n_trk = int(g["tracked"].sum())
+        # Blast% over TRACKED batted balls (untracked swings shouldn't deflate the
+        # rate); criterion waived when tracking is unavailable for this build/hitter
+        blast = (100.0 * float(g["blast"].sum()) / n_trk) if n_trk >= 8 else None
+        blast_ok = lambda thr: (blast is None) or (blast >= thr)
         m = {"hr": hr, "near": int(g["near"].sum()), "iso": iso,
              "ev": float(g["launch_speed"].mean()),
              "d300": int(g["d300"].sum()), "d350": int(g["d350"].sum()),
              "brl": pct("brl"), "pullbrl": 100.0 * float((g["brl"] & g["pull"]).sum()) / n,
-             "hh": pct("hh"), "blast": pct("blast"), "air": pct("air"),
+             "hh": pct("hh"), "air": pct("air"),
              "fb": pct("fb"), "ld": pct("ld"), "gb": pct("gb"), "pull": pct("pull")}
         base = (m["near"] >= 2 and m["iso"] >= 0.2 and m["d300"] >= 2 and m["d350"] >= 2
-                and m["hh"] >= 30 and m["blast"] >= 5 and m["air"] >= 50 and m["gb"] < 45)
+                and m["hh"] >= 30 and blast_ok(5) and m["air"] >= 50 and m["gb"] < 45)
+        if base:
+            n_base += 1
         if (m["hr"] >= 1 and m["near"] >= 2 and m["iso"] >= 0.2 and m["ev"] >= 89
                 and m["d300"] >= 2 and m["d350"] >= 2 and m["brl"] >= 18 and m["pullbrl"] >= 6
-                and m["hh"] >= 35 and m["blast"] >= 10 and m["air"] >= 50 and m["fb"] >= 30
+                and m["hh"] >= 35 and blast_ok(10) and m["air"] >= 50 and m["fb"] >= 30
                 and m["gb"] < 45 and m["pull"] >= 25):
             out[int(bid)] = "elite"
         elif base and m["brl"] >= 10 and m["fb"] >= 30:
             out[int(bid)] = "fb"
         elif base and m["brl"] >= 10 and m["ld"] >= 30:
             out[int(bid)] = "ld"
+    print(f"[labels] funnel: {n_pool} hitters with {min_bbe}+ BBE -> {n_base} pass base -> "
+          f"{sum(1 for v in out.values() if v=='elite')}/{sum(1 for v in out.values() if v=='fb')}/"
+          f"{sum(1 for v in out.values() if v=='ld')} elite/fb/ld")
     return out
