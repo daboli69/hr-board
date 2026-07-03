@@ -183,6 +183,15 @@ def build(date_str: str | None = None) -> dict:
     except Exception as e:
         p_batted = {}; print(f"[build] pitcher batted profile skipped: {e}")
 
+    try:                                           # PF-style profile labels (trailing 14d)
+        _lab_start = (datetime.strptime(date_str, "%Y-%m-%d") - timedelta(days=14)).strftime("%Y-%m-%d")
+        hit_labels = statcast_data.hitter_labels(df, _lab_start)
+        print(f"[build] labels: {sum(1 for v in hit_labels.values() if v=='elite')} elite, "
+              f"{sum(1 for v in hit_labels.values() if v=='fb')} fb, "
+              f"{sum(1 for v in hit_labels.values() if v=='ld')} ld")
+    except Exception as e:
+        hit_labels = {}; print(f"[build] labels skipped: {e}")
+
     # statsapi and Statcast mostly share team abbreviations; a few differ.
     _TEAM_ALIAS = {"AZ": "ARI", "ARI": "AZ", "CWS": "CHW", "CHW": "CWS",
                    "WSH": "WSN", "WSN": "WSH", "KC": "KCR", "KCR": "KC",
@@ -443,6 +452,7 @@ def build(date_str: str | None = None) -> dict:
             "bvp": player_bvp,
             "hr_by_spot": hr_spot.get(bid, {}),
             "hr_last_game": bid in b2b_set,
+            "hit_label": hit_labels.get(bid),
             "lineup_spot": spot_of_batter.get(bid),
             "lineup_status": status_of_batter.get(bid, "confirmed"),
             "trend": tr,
@@ -792,6 +802,7 @@ def main():
                 "b2b": p.get("hr_last_game"),
                 "smash": p["id"] in smash_ids,
                 "opener": bool((p.get("opp_pitcher") or {}).get("opener")),
+                "hlabel": p.get("hit_label"),
             } for p in board["players"]],
         }
         with open(os.path.join(snap_dir, f"{board['slate_date']}.json"), "w") as f:

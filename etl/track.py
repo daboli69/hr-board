@@ -97,7 +97,7 @@ def grade_date(date):
     by_signal = {k: {"cleared": {"n": 0, "hr": 0}, "not": {"n": 0, "hr": 0}} for k in SIGNALS}
     by_badge = {}
     by_park, by_trend = {}, {}      # does park+weather boost / trend direction actually convert?
-    by_smash, by_opener, by_spot, by_b2b = {}, {}, {}, {}
+    by_smash, by_opener, by_spot, by_b2b, by_hlabel = {}, {}, {}, {}, {}
     def _park_bucket(b):
         if b is None: return "n/a"
         if b >= 12: return "strong+"
@@ -136,6 +136,8 @@ def grade_date(date):
         if p.get("spot"):
             sp = by_spot.setdefault(str(p["spot"]), {"n": 0, "hr": 0})
             sp["n"] += 1; sp["hr"] += 1 if hit else 0
+        hl = by_hlabel.setdefault(p.get("hlabel") or "none", {"n": 0, "hr": 0})
+        hl["n"] += 1; hl["hr"] += 1 if hit else 0
         if hit:
             res = hrmap[p["id"]]
             total_hr += res["hr"]; sp_hr += res["sp"]; bp_hr += res["bp"]
@@ -173,6 +175,7 @@ def grade_date(date):
         "by_tier": tiers, "by_form": forms, "by_signal": by_signal, "by_badge": by_badge,
         "by_park": by_park, "by_trend": by_trend,
         "by_smash": by_smash, "by_opener": by_opener, "by_spot": by_spot, "by_b2b": by_b2b,
+        "by_hlabel": by_hlabel,
         "badges_on_hr": badge_hits, "top_n": topN,
         "ranks": ranks,
         "hr_log": sorted(hr_log, key=lambda x: (x["heat"] or 0), reverse=True),

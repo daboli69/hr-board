@@ -47,7 +47,7 @@ def pull_season(start: str, end: str) -> pd.DataFrame:
         return pd.DataFrame()
     keep = [
         "game_date", "game_pk", "batter", "pitcher", "events", "description",
-        "launch_speed", "launch_angle", "launch_speed_angle", "bb_type",
+        "launch_speed", "launch_angle", "launch_speed_angle", "bb_type", "hit_distance_sc",
         "stand", "p_throws", "type", "hc_x", "hc_y",
         "attack_angle", "bat_speed", "release_speed", "pitch_type",
         "inning", "inning_topbot", "at_bat_number", "pitch_number",
@@ -608,4 +608,77 @@ def pitcher_batted_profile(df: pd.DataFrame) -> dict:
             out[int(pid)] = {"fb_pct": round(float(fb[pid]) * 100.0 / float(n[pid]), 1),
                              "gb_pct": round(float(gb[pid]) * 100.0 / float(n[pid]), 1),
                              "n": int(n[pid])}
+    return out
+
+
+_AB_EVENTS = {"single", "double", "triple", "home_run", "field_out", "strikeout",
+              "grounded_into_double_play", "force_out", "double_play", "field_error",
+              "fielders_choice", "fielders_choice_out", "strikeout_double_play",
+              "triple_play", "other_out"}
+
+
+def hitter_labels(df: pd.DataFrame, start_date: str, min_bbe: int = 15) -> dict:
+    """One profile label per hitter from the trailing window, mirroring the PF highlight
+    rules: 'elite' (all 14 thresholds), else 'fb' (all 10, FB%-based, priority), else
+    'ld' (all 10, LD%-based), else no label.
+
+    Approximations, stated plainly: Near HR = non-HR batted balls carrying 340+ ft
+    (deep drives just short); Blast = squared-up contact (EV >= 80% of the bat+pitch
+    speed ceiling) with a 75+ mph swing, per Savant's public definitions, rated per
+    batted ball. Everything else is exact from Statcast fields.
+    """
+    need = {"batter", "game_date", "events", "launch_speed", "launch_angle",
+            "launch_speed_angle", "hc_x", "hc_y", "stand", "hit_distance_sc"}
+    if df is None or df.empty or not need.issubset(df.columns):
+        missing = sorted(need - set(df.columns)) if df is not None and not df.empty else ["<empty>"]
+        print(f"[labels] skipped — missing columns: {missing}")
+        return {}
+    w = df[df["game_date"].astype(str).str[:10] >= start_date]
+    pa = w[w["events"].notna()]
+    bb = w[w["launch_speed"].notna() & w["launch_angle"].notna()].copy()
+    if bb.empty:
+        return {}
+    bb["spray"] = np.degrees(np.arctan2(bb["hc_x"] - 125.42, 198.27 - bb["hc_y"]))
+    bb["pull"] = np.where(bb["stand"].eq("R"), bb["spray"] <= -15.0, bb["spray"] >= 15.0)
+    bb["brl"] = bb["launch_speed_angle"].eq(6)
+    la = bb["launch_angle"]
+    bb["air"] = la >= 10; bb["fb"] = la >= 25; bb["ld"] = (la >= 10) & (la < 25); bb["gb"] = la < 10
+    bb["hh"] = bb["launch_speed"] >= 95
+    dist = bb["hit_distance_sc"]
+    bb["d300"] = dist >= 300; bb["d350"] = dist >= 350
+    bb["near"] = (dist >= 340) & ~bb["events"].eq("home_run")
+    if "bat_speed" in bb.columns and "release_speed" in bb.columns:
+        ceil = 1.23 * bb["bat_speed"] + 0.198 * bb["release_speed"]
+        bb["blast"] = (bb["launch_speed"] >= 0.8 * ceil) & (bb["bat_speed"] >= 75.0)
+        bb["blast"] = bb["blast"].fillna(False)
+    else:
+        bb["blast"] = False
+    out = {}
+    iso_num = {"single": 0, "double": 1, "triple": 2, "home_run": 3}
+    for bid, g in bb.groupby("batter"):
+        n = len(g)
+        if n < min_bbe:
+            continue
+        gpa = pa[pa["batter"] == bid]
+        ab = int(gpa["events"].isin(_AB_EVENTS).sum())
+        iso = (sum(iso_num.get(e, 0) for e in gpa["events"]) / ab) if ab else 0.0
+        hr = int(g["events"].eq("home_run").sum())
+        pct = lambda col: 100.0 * float(g[col].sum()) / n
+        m = {"hr": hr, "near": int(g["near"].sum()), "iso": iso,
+             "ev": float(g["launch_speed"].mean()),
+             "d300": int(g["d300"].sum()), "d350": int(g["d350"].sum()),
+             "brl": pct("brl"), "pullbrl": 100.0 * float((g["brl"] & g["pull"]).sum()) / n,
+             "hh": pct("hh"), "blast": pct("blast"), "air": pct("air"),
+             "fb": pct("fb"), "ld": pct("ld"), "gb": pct("gb"), "pull": pct("pull")}
+        base = (m["near"] >= 2 and m["iso"] >= 0.2 and m["d300"] >= 2 and m["d350"] >= 2
+                and m["hh"] >= 30 and m["blast"] >= 5 and m["air"] >= 50 and m["gb"] < 45)
+        if (m["hr"] >= 1 and m["near"] >= 2 and m["iso"] >= 0.2 and m["ev"] >= 89
+                and m["d300"] >= 2 and m["d350"] >= 2 and m["brl"] >= 18 and m["pullbrl"] >= 6
+                and m["hh"] >= 35 and m["blast"] >= 10 and m["air"] >= 50 and m["fb"] >= 30
+                and m["gb"] < 45 and m["pull"] >= 25):
+            out[int(bid)] = "elite"
+        elif base and m["brl"] >= 10 and m["fb"] >= 30:
+            out[int(bid)] = "fb"
+        elif base and m["brl"] >= 10 and m["ld"] >= 30:
+            out[int(bid)] = "ld"
     return out

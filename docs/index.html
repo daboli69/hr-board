@@ -275,6 +275,11 @@
   .spot-note{font-size:11px;color:var(--muted);margin-top:6px}
   .clearflag{display:inline-block;margin:0 5px 0 0;font-family:"IBM Plex Mono";font-weight:700;font-size:8.5px;letter-spacing:.06em;color:var(--proof);background:rgba(194,162,78,.08);padding:1px 5px;border-radius:4px;border:1px solid rgba(194,162,78,.38);vertical-align:middle}
   .clearnote{background:rgba(194,162,78,.07);border:1px solid rgba(194,162,78,.28);border-radius:9px;padding:9px 11px;margin:2px 0 12px;font-size:12px;color:var(--ink);line-height:1.5}
+  .hlab{display:inline-block;font-family:"IBM Plex Mono";font-weight:700;font-size:8.5px;letter-spacing:.05em;padding:1px 5px;border-radius:4px;vertical-align:middle;border:1px solid transparent}
+  .hl-elite{color:#e05252;background:rgba(239,68,68,.09);border-color:rgba(239,68,68,.38)}
+  .hl-fb{color:#4fb96f;background:rgba(34,197,94,.09);border-color:rgba(34,197,94,.36)}
+  .hl-ld{color:#cfb63a;background:rgba(245,214,10,.08);border-color:rgba(245,214,10,.32)}
+  .hlab-note{font-size:11px;color:var(--muted);margin:0 0 12px;line-height:1.5}
   .tt-wrap{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:14px}
   .tt-h{font-family:Archivo;font-weight:800;font-size:14px;display:flex;flex-direction:column;gap:2px;margin-bottom:9px}
   .tt-h span{font-weight:500;font-size:10.5px;color:var(--faint);letter-spacing:0}
@@ -1023,6 +1028,10 @@ function slateSmash(){
   BOARD._smash={key:mixView,map:m};
   return m;
 }
+const HLAB={elite:["ELITE","hl-elite","cleared all 14 elite fly-ball thresholds"],
+  fb:["FB BATTER","hl-fb","cleared all 10 fly-ball thresholds"],
+  ld:["LD BATTER","hl-ld","cleared all 10 line-drive thresholds"]};
+function hlabPill(p){const h=HLAB[p.hit_label];return h?`<span class="hlab ${h[1]}">${h[0]}</span> `:"";}
 function render(){
   const main=document.getElementById("main");
   if(!BOARD){return;}
@@ -1285,7 +1294,7 @@ function render(){
           <div class="cheat" style="background:${col}">${H(p)}</div>
           <div class="cwho">
             <div class="name"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span class="nm-txt">${p.name}</span><span class="liststar"${listHas(p.id)?"":" hidden"}>★</span></div>
-            <div class="cmini">${sm?'<span class="clearflag">SMASH</span> ':""}${bpChip}${lbChip}${pkChip}${mdChip}${trendBadge(p.trend)?trendBadge(p.trend)+" ":""}${p.lineup_status==="projected"?`<span class="spot" style="color:var(--seam);border-color:var(--seam)">proj</span> `:""}${p.lineup_spot?`#${p.lineup_spot} · `:""}${p.team}→${p.opp_team} · ${timeStr(p.time)}${armSc!=null?` · arm <b style="color:${armCol}">${armSc}</b>`:""} · ${(p.windows&&p.windows.L14d&&p.windows.L14d.pa!=null)?`${p.windows.L14d.pa}PA`:"–"}</div>
+            <div class="cmini">${sm?'<span class="clearflag">SMASH</span> ':""}${hlabPill(p)}${bpChip}${lbChip}${pkChip}${mdChip}${trendBadge(p.trend)?trendBadge(p.trend)+" ":""}${p.lineup_status==="projected"?`<span class="spot" style="color:var(--seam);border-color:var(--seam)">proj</span> `:""}${p.lineup_spot?`#${p.lineup_spot} · `:""}${p.team}→${p.opp_team} · ${timeStr(p.time)}${armSc!=null?` · arm <b style="color:${armCol}">${armSc}</b>`:""} · ${(p.windows&&p.windows.L14d&&p.windows.L14d.pa!=null)?`${p.windows.L14d.pa}PA`:"–"}</div>
           </div>
           <div class="cmetrics">${mini}</div>
         </div>
@@ -1295,6 +1304,7 @@ function render(){
         <div class="dname"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span>${p.name}</span>${p.lineup_spot?`<span class="dspot">#${p.lineup_spot}</span>`:""}</div>
         <button class="listbtn${listHas(p.id)?" on":""}" data-pid="${p.id}" data-nm="${encodeURIComponent(p.name)}" onclick="toggleListBtn(this,event)">${listHas(p.id)?"★ On your list — tap to remove":"☆ Add to my list"}</button>
         ${sm?`<div class="clearnote"><b>Everything's pointing here.</b> ${sm.reasons.length?sm.reasons.slice(0,5).join(" · ")+". ":""}The matchup's already priced into this number — trust it, don't talk yourself out of it over one cold reading.</div>`:""}
+        ${(function(){const h=HLAB[p.hit_label];return h?`<div class="hlab-note"><span class="hlab ${h[1]}">${h[0]}</span> ${h[2]} over the trailing 2 weeks — one label max, FB outranks LD, none if any threshold missed.</div>`:"";})()}
         ${(function(){try{const ms=hitterScore(p,_R,_BR);return `<div class="odds-line">Model odds <b>${(ms.prob*100).toFixed(0)}%</b> · <b>${americanFair(ms.prob)}</b><span>this model only — heat · trend · pitch mix · park+weather · contact luck · your tag history. Fair value, independent of any book; compare it to the posted line to find where they disagree.</span></div>`;}catch(e){return "";}})()}
         ${p.angle?`<div class="angle">${p.angle}</div>`:""}
         ${badgeChips(p)}
@@ -2109,6 +2119,8 @@ function renderTracker(){
   ["strong+","lean+","neutral","against"].forEach(k=>{ if(parkAgg[k]) convRows+=pairRow("park "+k,parkAgg[k]); });
   convRows+=pairRow("B2B (HR y'day)",b2bAgg.b2b,b2bAgg.rest);
   convRows+=pairRow("vs opener",opAgg.opener,opAgg.sp);
+  const hlAgg={}; days.forEach(d=>Object.entries(d.by_hlabel||{}).forEach(([k,v])=>{const a=hlAgg[k]||(hlAgg[k]={n:0,hr:0});a.n+=v.n;a.hr+=v.hr;}));
+  [["elite",'<span class="hlab hl-elite">ELITE</span>'],["fb",'<span class="hlab hl-fb">FB BATTER</span>'],["ld",'<span class="hlab hl-ld">LD BATTER</span>']].forEach(([k,lab])=>{ if(hlAgg[k]) convRows+=pairRow(lab,hlAgg[k],hlAgg.none); });
   const spotAgg={}; days.forEach(d=>Object.entries(d.by_spot||{}).forEach(([k,v])=>{const a=spotAgg[k]||(spotAgg[k]={n:0,hr:0});a.n+=v.n;a.hr+=v.hr;}));
   const maxSpotRate=Math.max(1,...Object.values(spotAgg).map(rate));
   const spotStrip=Object.keys(spotAgg).length?`<div class="spotrow" style="margin-top:6px">${[1,2,3,4,5,6,7,8,9].map(s=>{
