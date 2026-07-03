@@ -611,6 +611,9 @@ def pitcher_batted_profile(df: pd.DataFrame) -> dict:
     return out
 
 
+LAST_LABEL_DIAG = {}   # written by hitter_labels; the build ships it in board.json so
+                       # label problems are diagnosable from the public artifact, not logs
+
 _AB_EVENTS = {"single", "double", "triple", "home_run", "field_out", "strikeout",
               "grounded_into_double_play", "force_out", "double_play", "field_error",
               "fielders_choice", "fielders_choice_out", "strikeout_double_play",
@@ -629,14 +632,18 @@ def hitter_labels(df: pd.DataFrame, start_date: str | None = None, min_bbe: int 
     """
     need = {"batter", "game_date", "events", "launch_speed", "launch_angle",
             "launch_speed_angle", "hc_x", "hc_y", "stand", "hit_distance_sc"}
+    global LAST_LABEL_DIAG
     if df is None or df.empty or not need.issubset(df.columns):
         missing = sorted(need - set(df.columns)) if df is not None and not df.empty else ["<empty>"]
         print(f"[labels] skipped — missing columns: {missing}")
+        LAST_LABEL_DIAG = {"skip": f"missing columns: {missing}"}
         return {}
     w = df[df["game_date"].astype(str).str[:10] >= start_date] if start_date else df
     pa = w[w["events"].notna()]
     bb = w[w["launch_speed"].notna() & w["launch_angle"].notna()].copy()
     if bb.empty:
+        LAST_LABEL_DIAG = {"skip": f"no batted balls in window >= {start_date} "
+                                   f"(df rows {len(df)}, window rows {len(w)})"}
         return {}
     bb["spray"] = np.degrees(np.arctan2(bb["hc_x"] - 125.42, 198.27 - bb["hc_y"]))
     bb["pull"] = np.where(bb["stand"].eq("R"), bb["spray"] <= -15.0, bb["spray"] >= 15.0)
@@ -665,6 +672,7 @@ def hitter_labels(df: pd.DataFrame, start_date: str | None = None, min_bbe: int 
     n_pool = n_base = 0
     gate_pass = {k: 0 for k in ("near2", "iso20", "d300", "d350", "hh30", "blast5",
                                 "air50", "gb45", "brl10", "fb30", "ld30")}
+    near_misses = []
     for bid, g in bb.groupby("batter"):
         n = len(g)
         if n < min_bbe:
@@ -686,12 +694,17 @@ def hitter_labels(df: pd.DataFrame, start_date: str | None = None, min_bbe: int 
              "brl": pct("brl"), "pullbrl": 100.0 * float((g["brl"] & g["pull"]).sum()) / n,
              "hh": pct("hh"), "air": pct("air"),
              "fb": pct("fb"), "ld": pct("ld"), "gb": pct("gb"), "pull": pct("pull")}
-        for k, ok in (("near2", m["near"] >= 2), ("iso20", m["iso"] >= 0.2),
-                      ("d300", m["d300"] >= 2), ("d350", m["d350"] >= 2),
-                      ("hh30", m["hh"] >= 30), ("blast5", blast_ok(5)),
-                      ("air50", m["air"] >= 50), ("gb45", m["gb"] < 45),
-                      ("brl10", m["brl"] >= 10), ("fb30", m["fb"] >= 30),
-                      ("ld30", m["ld"] >= 30)):
+        gates_now = (("near2", m["near"] >= 2), ("iso20", m["iso"] >= 0.2),
+                     ("d300", m["d300"] >= 2), ("d350", m["d350"] >= 2),
+                     ("hh30", m["hh"] >= 30), ("blast5", blast_ok(5)),
+                     ("air50", m["air"] >= 50), ("gb45", m["gb"] < 45),
+                     ("brl10", m["brl"] >= 10), ("fb30", m["fb"] >= 30),
+                     ("ld30", m["ld"] >= 30))
+        fails = [k for k, ok in gates_now if not ok]
+        near_misses.append((len([k for k in fails if k not in ("fb30", "ld30")])
+                            + (0 if ("fb30" not in fails or "ld30" not in fails) else 1),
+                            int(bid), fails))
+        for k, ok in gates_now:
             if ok:
                 gate_pass[k] += 1
         base = (m["near"] >= 2 and m["iso"] >= 0.2 and m["d300"] >= 2 and m["d350"] >= 2
@@ -707,6 +720,13 @@ def hitter_labels(df: pd.DataFrame, start_date: str | None = None, min_bbe: int 
             out[int(bid)] = "fb"
         elif base and m["brl"] >= 10 and m["ld"] >= 30:
             out[int(bid)] = "ld"
+    near_misses.sort()
+    LAST_LABEL_DIAG = {
+        "pool": n_pool, "base": n_base,
+        "labels": {k: sum(1 for v in out.values() if v == k) for k in ("elite", "fb", "ld")},
+        "gates_pct": {k: (100 * v // n_pool if n_pool else 0) for k, v in gate_pass.items()},
+        "near_misses": [{"id": bid, "failed": fl} for _, bid, fl in near_misses[:3]],
+    }
     if n_pool:
         print("[labels] gates: " + " ".join(f"{k}={100*v//n_pool}%" for k, v in gate_pass.items()))
     print(f"[labels] funnel: {n_pool} hitters with {min_bbe}+ BBE -> {n_base} pass base -> "

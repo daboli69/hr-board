@@ -668,6 +668,7 @@ def build(date_str: str | None = None) -> dict:
         "top_plays": top_plays,
         "stacks": stacks,
         "wx": wx_list,
+        "label_diag": getattr(statcast_data, "LAST_LABEL_DIAG", {}),
         "arms": sorted([
             {
                 "name": slate["pitchers"].get(pid, {}).get("name", str(pid)),
