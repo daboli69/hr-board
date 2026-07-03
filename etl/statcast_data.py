@@ -617,13 +617,13 @@ _AB_EVENTS = {"single", "double", "triple", "home_run", "field_out", "strikeout"
               "triple_play", "other_out"}
 
 
-def hitter_labels(df: pd.DataFrame, start_date: str, min_bbe: int = 15) -> dict:
-    """One profile label per hitter from the trailing window, mirroring the PF highlight
-    rules: 'elite' (all 14 thresholds), else 'fb' (all 10, FB%-based, priority), else
-    'ld' (all 10, LD%-based), else no label.
+def hitter_labels(df: pd.DataFrame, start_date: str | None = None, min_bbe: int = 15) -> dict:
+    """One profile label per hitter over the trailing window (same 2-week sample as the
+    model), mirroring the PF highlight rules: 'elite' (all 14 thresholds), else 'fb'
+    (all 10, FB%-based, priority), else 'ld' (all 10, LD%-based), else no label.
 
-    Approximations, stated plainly: Near HR = non-HR batted balls carrying 340+ ft
-    (deep drives just short); Blast = squared-up contact (EV >= 80% of the bat+pitch
+    Approximations, stated plainly: Near HR = warning-track balls — non-HR drives
+    carrying 325+ ft with real loft (LA >= 15); Blast = squared-up contact (EV >= 80% of the bat+pitch
     speed ceiling) with a 75+ mph swing, per Savant's public definitions, rated per
     batted ball. Everything else is exact from Statcast fields.
     """
@@ -633,7 +633,7 @@ def hitter_labels(df: pd.DataFrame, start_date: str, min_bbe: int = 15) -> dict:
         missing = sorted(need - set(df.columns)) if df is not None and not df.empty else ["<empty>"]
         print(f"[labels] skipped — missing columns: {missing}")
         return {}
-    w = df[df["game_date"].astype(str).str[:10] >= start_date]
+    w = df[df["game_date"].astype(str).str[:10] >= start_date] if start_date else df
     pa = w[w["events"].notna()]
     bb = w[w["launch_speed"].notna() & w["launch_angle"].notna()].copy()
     if bb.empty:
@@ -646,7 +646,7 @@ def hitter_labels(df: pd.DataFrame, start_date: str, min_bbe: int = 15) -> dict:
     bb["hh"] = bb["launch_speed"] >= 95
     dist = bb["hit_distance_sc"]
     bb["d300"] = dist >= 300; bb["d350"] = dist >= 350
-    bb["near"] = (dist >= 340) & ~bb["events"].eq("home_run")
+    bb["near"] = (dist >= 325) & (la >= 15) & ~bb["events"].eq("home_run")
     have_bt = "bat_speed" in bb.columns and "release_speed" in bb.columns \
         and bb["bat_speed"].notna().mean() > 0.3
     if have_bt:
@@ -663,6 +663,8 @@ def hitter_labels(df: pd.DataFrame, start_date: str, min_bbe: int = 15) -> dict:
     out = {}
     iso_num = {"single": 0, "double": 1, "triple": 2, "home_run": 3}
     n_pool = n_base = 0
+    gate_pass = {k: 0 for k in ("near2", "iso20", "d300", "d350", "hh30", "blast5",
+                                "air50", "gb45", "brl10", "fb30", "ld30")}
     for bid, g in bb.groupby("batter"):
         n = len(g)
         if n < min_bbe:
@@ -684,6 +686,14 @@ def hitter_labels(df: pd.DataFrame, start_date: str, min_bbe: int = 15) -> dict:
              "brl": pct("brl"), "pullbrl": 100.0 * float((g["brl"] & g["pull"]).sum()) / n,
              "hh": pct("hh"), "air": pct("air"),
              "fb": pct("fb"), "ld": pct("ld"), "gb": pct("gb"), "pull": pct("pull")}
+        for k, ok in (("near2", m["near"] >= 2), ("iso20", m["iso"] >= 0.2),
+                      ("d300", m["d300"] >= 2), ("d350", m["d350"] >= 2),
+                      ("hh30", m["hh"] >= 30), ("blast5", blast_ok(5)),
+                      ("air50", m["air"] >= 50), ("gb45", m["gb"] < 45),
+                      ("brl10", m["brl"] >= 10), ("fb30", m["fb"] >= 30),
+                      ("ld30", m["ld"] >= 30)):
+            if ok:
+                gate_pass[k] += 1
         base = (m["near"] >= 2 and m["iso"] >= 0.2 and m["d300"] >= 2 and m["d350"] >= 2
                 and m["hh"] >= 30 and blast_ok(5) and m["air"] >= 50 and m["gb"] < 45)
         if base:
@@ -697,6 +707,8 @@ def hitter_labels(df: pd.DataFrame, start_date: str, min_bbe: int = 15) -> dict:
             out[int(bid)] = "fb"
         elif base and m["brl"] >= 10 and m["ld"] >= 30:
             out[int(bid)] = "ld"
+    if n_pool:
+        print("[labels] gates: " + " ".join(f"{k}={100*v//n_pool}%" for k, v in gate_pass.items()))
     print(f"[labels] funnel: {n_pool} hitters with {min_bbe}+ BBE -> {n_base} pass base -> "
           f"{sum(1 for v in out.values() if v=='elite')}/{sum(1 for v in out.values() if v=='fb')}/"
           f"{sum(1 for v in out.values() if v=='ld')} elite/fb/ld")
