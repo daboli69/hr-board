@@ -645,6 +645,8 @@ def hitter_labels(df: pd.DataFrame, start_date: str | None = None, min_bbe: int 
                "hit_distance_sc", "bat_speed", "release_speed"):
         if _c in bb.columns:
             bb[_c] = pd.to_numeric(bb[_c], errors="coerce")
+    for _c in ("stand", "events"):     # nullable/Arrow string dtypes -> plain objects
+        bb[_c] = np.asarray(bb[_c].astype(object).where(bb[_c].notna(), ""), dtype=object)
     if bb.empty:
         LAST_LABEL_DIAG = {"skip": f"no batted balls in window >= {start_date} "
                                    f"(df rows {len(df)}, window rows {len(w)})"}
@@ -654,7 +656,8 @@ def hitter_labels(df: pd.DataFrame, start_date: str | None = None, min_bbe: int 
     except Exception as e:
         import traceback
         tb = traceback.extract_tb(e.__traceback__)
-        last = tb[-1] if tb else None
+        ours = [f for f in tb if "statcast_data" in (f.filename or "")]
+        last = (ours[-1] if ours else (tb[-1] if tb else None))
         LAST_LABEL_DIAG = {"skip": f"exception {type(e).__name__}: {e}"
                                    + (f" @ line {last.lineno}: {last.line}" if last else "")}
         globals()["LAST_LABEL_DIAG"] = LAST_LABEL_DIAG
@@ -664,15 +667,18 @@ def hitter_labels(df: pd.DataFrame, start_date: str | None = None, min_bbe: int 
 
 def _labels_core(bb, pa, min_bbe):
     global LAST_LABEL_DIAG
-    bb["spray"] = np.degrees(np.arctan2(bb["hc_x"] - 125.42, 198.27 - bb["hc_y"]))
-    bb["pull"] = np.where(bb["stand"].eq("R"), bb["spray"] <= -15.0, bb["spray"] >= 15.0)
+    spray = np.degrees(np.arctan2(bb["hc_x"].to_numpy(float) - 125.42,
+                                  198.27 - bb["hc_y"].to_numpy(float)))
+    bb["spray"] = spray
+    stand_r = (bb["stand"].to_numpy() == "R")
+    bb["pull"] = np.where(stand_r, spray <= -15.0, spray >= 15.0)
     bb["brl"] = bb["launch_speed_angle"].eq(6)
     la = bb["launch_angle"]
     bb["air"] = la >= 10; bb["fb"] = la >= 25; bb["ld"] = (la >= 10) & (la < 25); bb["gb"] = la < 10
     bb["hh"] = bb["launch_speed"] >= 95
     dist = bb["hit_distance_sc"]
     bb["d300"] = dist >= 300; bb["d350"] = dist >= 350
-    bb["near"] = (dist >= 325) & (la >= 15) & ~bb["events"].eq("home_run")
+    bb["near"] = (dist >= 325).to_numpy() & (la >= 15).to_numpy() & (bb["events"].to_numpy() != "home_run")
     have_bt = "bat_speed" in bb.columns and "release_speed" in bb.columns \
         and bb["bat_speed"].notna().mean() > 0.3
     if have_bt:
@@ -700,7 +706,7 @@ def _labels_core(bb, pa, min_bbe):
         gpa = pa[pa["batter"] == bid]
         ab = int(gpa["events"].isin(_AB_EVENTS).sum())
         iso = (sum(iso_num.get(e, 0) for e in gpa["events"]) / ab) if ab else 0.0
-        hr = int(g["events"].eq("home_run").sum())
+        hr = int((g["events"].to_numpy() == "home_run").sum())
         pct = lambda col: 100.0 * float(g[col].sum()) / n
         n_trk = int(g["tracked"].sum())
         # Blast% over TRACKED batted balls (untracked swings shouldn't deflate the
