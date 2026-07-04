@@ -641,10 +641,29 @@ def hitter_labels(df: pd.DataFrame, start_date: str | None = None, min_bbe: int 
     w = df[df["game_date"].astype(str).str[:10] >= start_date] if start_date else df
     pa = w[w["events"].notna()]
     bb = w[w["launch_speed"].notna() & w["launch_angle"].notna()].copy()
+    for _c in ("launch_speed", "launch_angle", "launch_speed_angle", "hc_x", "hc_y",
+               "hit_distance_sc", "bat_speed", "release_speed"):
+        if _c in bb.columns:
+            bb[_c] = pd.to_numeric(bb[_c], errors="coerce")
     if bb.empty:
         LAST_LABEL_DIAG = {"skip": f"no batted balls in window >= {start_date} "
                                    f"(df rows {len(df)}, window rows {len(w)})"}
         return {}
+    try:
+        return _labels_core(bb, pa, min_bbe)
+    except Exception as e:
+        import traceback
+        tb = traceback.extract_tb(e.__traceback__)
+        last = tb[-1] if tb else None
+        LAST_LABEL_DIAG = {"skip": f"exception {type(e).__name__}: {e}"
+                                   + (f" @ line {last.lineno}: {last.line}" if last else "")}
+        globals()["LAST_LABEL_DIAG"] = LAST_LABEL_DIAG
+        print(f"[labels] EXCEPTION: {LAST_LABEL_DIAG['skip']}")
+        return {}
+
+
+def _labels_core(bb, pa, min_bbe):
+    global LAST_LABEL_DIAG
     bb["spray"] = np.degrees(np.arctan2(bb["hc_x"] - 125.42, 198.27 - bb["hc_y"]))
     bb["pull"] = np.where(bb["stand"].eq("R"), bb["spray"] <= -15.0, bb["spray"] >= 15.0)
     bb["brl"] = bb["launch_speed_angle"].eq(6)
