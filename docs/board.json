@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-03T23:01:06-04:00",
+  "generated_at": "2026-07-03T23:14:23-04:00",
   "slate_date": "2026-07-03",
   "league_avg": {
     "barrel_pct": 8.0,
@@ -590,7 +590,7 @@
         "8": 2
       },
       "hr_last_game": true,
-      "hit_label": null,
+      "hit_label": "fb",
       "lineup_spot": 8,
       "lineup_status": "confirmed",
       "trend": {
@@ -1507,7 +1507,7 @@
         "8": 1
       },
       "hr_last_game": false,
-      "hit_label": null,
+      "hit_label": "fb",
       "lineup_spot": 6,
       "lineup_status": "confirmed",
       "trend": {
@@ -1966,7 +1966,7 @@
         "6": 4
       },
       "hr_last_game": true,
-      "hit_label": null,
+      "hit_label": "fb",
       "lineup_spot": 2,
       "lineup_status": "confirmed",
       "trend": {
@@ -2440,7 +2440,7 @@
         "4": 15
       },
       "hr_last_game": true,
-      "hit_label": null,
+      "hit_label": "fb",
       "lineup_spot": 3,
       "lineup_status": "confirmed",
       "trend": {
@@ -3319,7 +3319,7 @@
         "8": 1
       },
       "hr_last_game": false,
-      "hit_label": null,
+      "hit_label": "fb",
       "lineup_spot": 4,
       "lineup_status": "confirmed",
       "trend": {
@@ -4657,7 +4657,7 @@
         "2": 1
       },
       "hr_last_game": false,
-      "hit_label": null,
+      "hit_label": "fb",
       "lineup_spot": 1,
       "lineup_status": "confirmed",
       "trend": {
@@ -5995,7 +5995,7 @@
         "7": 3
       },
       "hr_last_game": true,
-      "hit_label": null,
+      "hit_label": "fb",
       "lineup_spot": 3,
       "lineup_status": "confirmed",
       "trend": {
@@ -7349,7 +7349,7 @@
         "9": 10
       },
       "hr_last_game": true,
-      "hit_label": null,
+      "hit_label": "fb",
       "lineup_spot": 9,
       "lineup_status": "confirmed",
       "trend": {
@@ -12249,7 +12249,7 @@
         "5": 2
       },
       "hr_last_game": true,
-      "hit_label": null,
+      "hit_label": "fb",
       "lineup_spot": 2,
       "lineup_status": "confirmed",
       "trend": {
@@ -16750,7 +16750,7 @@
         "5": 1
       },
       "hr_last_game": true,
-      "hit_label": null,
+      "hit_label": "fb",
       "lineup_spot": 3,
       "lineup_status": "confirmed",
       "trend": {
@@ -18099,7 +18099,7 @@
         "5": 1
       },
       "hr_last_game": false,
-      "hit_label": null,
+      "hit_label": "fb",
       "lineup_spot": 4,
       "lineup_status": "confirmed",
       "trend": {
@@ -105928,7 +105928,44 @@
     }
   ],
   "label_diag": {
-    "skip": "exception TypeError: boolean value of NA is ambiguous @ line 415: "
+    "pool": 381,
+    "base": 39,
+    "labels": {
+      "elite": 0,
+      "fb": 15,
+      "ld": 0
+    },
+    "gates_pct": {
+      "near2": 79,
+      "iso20": 31,
+      "d300": 95,
+      "d350": 70,
+      "hh30": 22,
+      "blast5": 96,
+      "air50": 92,
+      "gb45": 83,
+      "brl10": 7,
+      "fb30": 94,
+      "ld30": 3
+    },
+    "near_misses": [
+      {
+        "id": 500743,
+        "failed": []
+      },
+      {
+        "id": 545341,
+        "failed": [
+          "ld30"
+        ]
+      },
+      {
+        "id": 592518,
+        "failed": [
+          "ld30"
+        ]
+      }
+    ]
   },
   "arms": [
     {
