@@ -595,7 +595,7 @@ def pitcher_batted_profile(df: pd.DataFrame) -> dict:
     need = {"pitcher", "launch_angle", "launch_speed"}
     if df is None or df.empty or not need.issubset(df.columns):
         return {}
-    d = df[df["launch_speed"].notna() & df["launch_angle"].notna()]
+    d = df[df["launch_speed"].notna() & df["launch_angle"].notna() & df["events"].notna()]
     if d.empty:
         return {}
     g = d.groupby("pitcher")["launch_angle"]
@@ -640,7 +640,9 @@ def hitter_labels(df: pd.DataFrame, start_date: str | None = None, min_bbe: int 
         return {}
     w = df[df["game_date"].astype(str).str[:10] >= start_date] if start_date else df
     pa = w[w["events"].notna()]
-    bb = w[w["launch_speed"].notna() & w["launch_angle"].notna()].copy()
+    # in-play only: Statcast tracks EV on some FOULS too, which would pollute every
+    # rate denominator (HH%, Brl%, LD%...) — an in-play ball always has an event
+    bb = w[w["launch_speed"].notna() & w["launch_angle"].notna() & w["events"].notna()].copy()
     for _c in ("launch_speed", "launch_angle", "launch_speed_angle", "hc_x", "hc_y",
                "hit_distance_sc", "bat_speed", "release_speed"):
         if _c in bb.columns:
