@@ -138,3 +138,22 @@ def get_handedness(player_ids: list[int]) -> dict:
                 "name": person.get("fullName", ""),
             }
     return out
+
+
+def bvp_career(batter_id: int, pitcher_id: int) -> dict | None:
+    """Career batter-vs-pitcher totals (the Stathead/BR-style number) via the official API.
+    Returns {pa, hr, ab, h} — zeros if they've never faced — or None on a request error."""
+    try:
+        data = _get(f"{BASE}/people/{int(batter_id)}/stats",
+                    {"stats": "vsPlayerTotal", "opposingPlayerId": int(pitcher_id),
+                     "group": "hitting", "sportId": 1})
+        splits = (data.get("stats") or [{}])[0].get("splits") or []
+        if not splits:
+            return {"pa": 0, "hr": 0, "ab": 0, "h": 0}
+        st = splits[0].get("stat", {}) or {}
+        return {"pa": int(st.get("plateAppearances", 0) or 0),
+                "hr": int(st.get("homeRuns", 0) or 0),
+                "ab": int(st.get("atBats", 0) or 0),
+                "h": int(st.get("hits", 0) or 0)}
+    except Exception:
+        return None

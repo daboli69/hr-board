@@ -38,6 +38,9 @@ def _load_day(date):
                 "heat": p.get("heat"), "tier": p.get("tier"),
                 "signals": p.get("score_breakdown", {}).get("signals", {}),
                 "opp_form": (p.get("opp_pitcher") or {}).get("form", {}).get("label"),
+                "iso": (p.get("windows", {}).get("L14d", {}) or {}).get("iso"),
+                "barrel_pct": (p.get("windows", {}).get("L14d", {}) or {}).get("barrel_pct"),
+                "badges": [bd["k"] for bd in (p.get("badges") or [])],
             } for p in b.get("players", [])]
     return None
 
@@ -67,32 +70,42 @@ def _tier(h):
     return "70+" if h >= 70 else "55-69" if h >= 55 else "40-54" if h >= 40 else "<40"
 
 
-def grade():
-    yesterday = (datetime.now(ZoneInfo("America/New_York")) - timedelta(days=1)).strftime("%Y-%m-%d")
-    print(f"[track] grading {yesterday}")
-    players = _load_day(yesterday)
+def grade_date(date):
+    """Grade a single date -> record dict, or None if it can't be graded yet (no snapshot,
+    or results not posted). Pure: does not read or write history.json."""
+    players = _load_day(date)
     if not players:
-        print(f"[track] no snapshot/board for {yesterday}; skipping.")
-        return
+        print(f"[track] no snapshot for {date}; skip.")
+        return None
 
     sc = None
     for attempt in range(1, 4):
         try:
-            sc = statcast(start_dt=yesterday, end_dt=yesterday)
+            sc = statcast(start_dt=date, end_dt=date)
         except Exception as e:
-            print(f"[track] statcast attempt {attempt} failed: {e}"); sc = None
+            print(f"[track] {date} statcast attempt {attempt} failed: {e}"); sc = None
         if sc is not None and len(sc) >= MIN_ROWS:
             break
         time.sleep(20 * attempt)
     if sc is None or len(sc) < MIN_ROWS:
-        print(f"[track] insufficient data for {yesterday}; skipping."); return
+        print(f"[track] insufficient data for {date}; will retry next run."); return None
 
     hrmap = _hr_map(sc)
     def homered(p): return hrmap.get(p["id"], {}).get("hr", 0) > 0
 
     tiers, forms = {}, {}
     by_signal = {k: {"cleared": {"n": 0, "hr": 0}, "not": {"n": 0, "hr": 0}} for k in SIGNALS}
+    by_badge = {}
+    by_park, by_trend = {}, {}      # does park+weather boost / trend direction actually convert?
+    by_smash, by_opener, by_spot, by_b2b, by_hlabel = {}, {}, {}, {}, {}
+    def _park_bucket(b):
+        if b is None: return "n/a"
+        if b >= 12: return "strong+"
+        if b >= 6: return "lean+"
+        if b > -6: return "neutral"
+        return "against"
     sp_hr = bp_hr = total_hr = 0
+    badge_hits = 0   # total badges carried by HR hitters, for "badges per HR"
     hr_log = []
     for p in players:
         hit = homered(p)
@@ -105,12 +118,34 @@ def grade():
             b = "cleared" if sig.get(k) else "not"
             by_signal[k][b]["n"] += 1
             by_signal[k][b]["hr"] += 1 if hit else 0
+        badges = p.get("badges") or []
+        for k in badges:
+            bb = by_badge.setdefault(k, {"n": 0, "hr": 0})
+            bb["n"] += 1; bb["hr"] += 1 if hit else 0
+        pk = by_park.setdefault(_park_bucket(p.get("park_boost")), {"n": 0, "hr": 0})
+        pk["n"] += 1; pk["hr"] += 1 if hit else 0
+        tdir = p.get("trend") or "n/a"
+        td = by_trend.setdefault(tdir, {"n": 0, "hr": 0})
+        td["n"] += 1; td["hr"] += 1 if hit else 0
+        sm = by_smash.setdefault("smash" if p.get("smash") else "rest", {"n": 0, "hr": 0})
+        sm["n"] += 1; sm["hr"] += 1 if hit else 0
+        oo = by_opener.setdefault("opener" if p.get("opener") else "sp", {"n": 0, "hr": 0})
+        oo["n"] += 1; oo["hr"] += 1 if hit else 0
+        bb2 = by_b2b.setdefault("b2b" if p.get("b2b") else "rest", {"n": 0, "hr": 0})
+        bb2["n"] += 1; bb2["hr"] += 1 if hit else 0
+        if p.get("spot"):
+            sp = by_spot.setdefault(str(p["spot"]), {"n": 0, "hr": 0})
+            sp["n"] += 1; sp["hr"] += 1 if hit else 0
+        hl = by_hlabel.setdefault(p.get("hlabel") or "none", {"n": 0, "hr": 0})
+        hl["n"] += 1; hl["hr"] += 1 if hit else 0
         if hit:
             res = hrmap[p["id"]]
             total_hr += res["hr"]; sp_hr += res["sp"]; bp_hr += res["bp"]
+            badge_hits += len(badges)
             hr_log.append({"name": p["name"], "heat": p.get("heat"), "tier": p.get("tier"),
                            "arm_form": p.get("opp_form"),
-                           "off": "SP" if res["sp"] else "BP", "hr": res["hr"]})
+                           "off": "SP" if res["sp"] else "BP", "hr": res["hr"],
+                           "badges": badges, "n_badges": len(badges)})
 
     # ---- the validation that matters: does Heat beat simple baselines? ----
     # Rank the same hitter pool by each method and check top-N HR rates head to head.
@@ -134,13 +169,33 @@ def grade():
     }
 
     record = {
-        "date": yesterday, "players": len(players),
+        "date": date, "players": len(players),
         "hitters_homered": n_hit,
         "total_hr": total_hr, "sp_hr": sp_hr, "bp_hr": bp_hr,
-        "by_tier": tiers, "by_form": forms, "by_signal": by_signal, "top_n": topN,
+        "by_tier": tiers, "by_form": forms, "by_signal": by_signal, "by_badge": by_badge,
+        "by_park": by_park, "by_trend": by_trend,
+        "by_smash": by_smash, "by_opener": by_opener, "by_spot": by_spot, "by_b2b": by_b2b,
+        "by_hlabel": by_hlabel,
+        "badges_on_hr": badge_hits, "top_n": topN,
         "ranks": ranks,
         "hr_log": sorted(hr_log, key=lambda x: (x["heat"] or 0), reverse=True),
     }
+
+    print(f"[track] {date}: {record['hitters_homered']}/{record['players']} homered, "
+          f"{total_hr} HR ({sp_hr} SP / {bp_hr} BP).")
+    return record
+
+
+LOOKBACK_DAYS = 10   # backfill any ungraded day this far back that still has a snapshot
+
+
+def grade():
+    """Backfill grader. Grades every past day within LOOKBACK that has a committed snapshot
+    and isn't already in history. Idempotent and self-healing: a missed or failed day is
+    picked up on the next run, so one skipped/delayed cron can never silently drop a day.
+    Run it a few times a day and it stays caught up on its own."""
+    tz = ZoneInfo("America/New_York")
+    today = datetime.now(tz).date()
 
     history = []
     if os.path.exists(HISTORY_PATH):
@@ -149,14 +204,29 @@ def grade():
                 history = json.load(f).get("days", [])
         except Exception:
             history = []
-    history = [d for d in history if d.get("date") != yesterday]
-    history.append(record)
+    graded = {d.get("date") for d in history}
+
+    added = []
+    for off in range(1, LOOKBACK_DAYS + 1):     # offset 1 = yesterday (first complete day)
+        date = (today - timedelta(days=off)).strftime("%Y-%m-%d")
+        if date in graded:
+            continue
+        rec = grade_date(date)                  # only returns a record if it CAN be graded
+        if rec:
+            history.append(rec)
+            graded.add(date)
+            added.append(date)
+
+    if not added:
+        print("[track] nothing new to grade — all caught up (or snapshots not ready).")
+        return
+
     history.sort(key=lambda d: d["date"])
     os.makedirs(os.path.dirname(HISTORY_PATH) or ".", exist_ok=True)
     with open(HISTORY_PATH, "w") as f:
-        json.dump({"updated": yesterday, "days": history}, f, indent=2, default=str)
-    print(f"[track] {yesterday}: {record['hitters_homered']}/{record['players']} homered, "
-          f"{total_hr} HR ({sp_hr} SP / {bp_hr} BP). history={len(history)} days.")
+        json.dump({"updated": max(graded), "days": history}, f, indent=2, default=str)
+    print(f"[track] graded {len(added)} day(s): {', '.join(sorted(added))}. "
+          f"history={len(history)} days.")
 
 
 if __name__ == "__main__":

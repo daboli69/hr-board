@@ -47,7 +47,7 @@ def pull_season(start: str, end: str) -> pd.DataFrame:
         return pd.DataFrame()
     keep = [
         "game_date", "game_pk", "batter", "pitcher", "events", "description",
-        "launch_speed", "launch_angle", "launch_speed_angle", "bb_type",
+        "launch_speed", "launch_angle", "launch_speed_angle", "bb_type", "hit_distance_sc",
         "stand", "p_throws", "type", "hc_x", "hc_y",
         "attack_angle", "bat_speed", "release_speed", "pitch_type",
         "inning", "inning_topbot", "at_bat_number", "pitch_number",
@@ -56,6 +56,34 @@ def pull_season(start: str, end: str) -> pd.DataFrame:
     ]
     keep = [c for c in keep if c in df.columns]
     return df[keep].copy()
+
+
+def batted_ball_sample(df: pd.DataFrame, batter_ids) -> dict:
+    """
+    Per-batter raw batted-ball arrays for the park/weather trajectory model:
+      {batter_id: {"ev": [...], "la": [...], "spray": [...]}}
+    Spray is the field spray angle in degrees (negative = LF / 3B side, positive =
+    RF / 1B side), same convention the trajectory engine and pull metrics use.
+    Only batted balls with exit velocity, launch angle, and hit coordinates are kept.
+    """
+    out = {}
+    need = {"launch_speed", "launch_angle", "hc_x", "hc_y", "batter"}
+    if df.empty or not need.issubset(df.columns):
+        return out
+    d = df.dropna(subset=["launch_speed", "launch_angle", "hc_x", "hc_y"])
+    if d.empty:
+        return out
+    spray = np.degrees(np.arctan2(d["hc_x"].to_numpy() - 125.42, 198.27 - d["hc_y"].to_numpy()))
+    bat = d["batter"].to_numpy()
+    ev = d["launch_speed"].to_numpy(dtype=float)
+    la = d["launch_angle"].to_numpy(dtype=float)
+    wanted = set(batter_ids)
+    for bid in wanted:
+        m = bat == bid
+        if not m.any():
+            continue
+        out[bid] = {"ev": ev[m], "la": la[m], "spray": spray[m]}
+    return out
 
 
 def _pull_metrics(bb: pd.DataFrame) -> tuple:
@@ -443,4 +471,292 @@ def career_table(start_season: int, end_season: int) -> dict:
                     # normalize fractions like 0.095 -> 9.5
                     rec[dst] = round(val * 100, 1) if val < 1.5 else round(val, 1)
         out[name] = rec
+    return out
+
+
+def bvp_table(df: pd.DataFrame) -> dict:
+    """Season batter-vs-pitcher from the slate frame -> {(batter,pitcher): [pa, hr]}.
+    PAs are rows where `events` is set (the last pitch of a plate appearance)."""
+    if df is None or df.empty or "events" not in df.columns:
+        return {}
+    pa = df[df["events"].notna()]
+    if pa.empty:
+        return {}
+    grp = pa.groupby(["batter", "pitcher"])["events"]
+    agg = grp.agg(pa="size", hr=lambda s: int((s == "home_run").sum()))
+    out = {}
+    for (b, p), row in agg.iterrows():
+        try:
+            out[(int(b), int(p))] = [int(row["pa"]), int(row["hr"])]
+        except Exception:
+            continue
+    return out
+
+
+def bullpen_arms(df: pd.DataFrame, asof: str, recent_days: int = 21, min_pitches: int = 8) -> dict:
+    """Active relievers per team in the trailing window -> {team_abbr: [pitcher_id, ...]}.
+    Same starter-exclusion logic as bullpen_profiles."""
+    from datetime import timedelta
+    if df is None or df.empty or "inning" not in df.columns:
+        return {}
+    work = df.copy()
+    work["_gd"] = pd.to_datetime(work["game_date"], errors="coerce")
+    cutoff = pd.to_datetime(asof) - timedelta(days=recent_days)
+    inn1 = work[work["inning"] == 1].sort_values(["game_pk", "inning_topbot", "at_bat_number", "pitch_number"])
+    starter_df = (inn1.groupby(["game_pk", "inning_topbot"], as_index=False).first()
+                  [["game_pk", "inning_topbot", "pitcher"]].rename(columns={"pitcher": "_starter"}))
+    work["pitch_team"] = np.where(work["inning_topbot"].eq("Top"), work["home_team"], work["away_team"])
+    work = work.merge(starter_df, on=["game_pk", "inning_topbot"], how="left")
+    pen = work[(work["pitcher"] != work["_starter"]) & (work["_gd"] >= cutoff)]
+    out = {}
+    for team, g in pen.groupby("pitch_team"):
+        if not isinstance(team, str):
+            continue
+        counts = g.groupby("pitcher").size()
+        out[team] = [int(pid) for pid, n in counts.items() if n >= min_pitches]
+    return out
+
+
+def hr_by_lineup_spot(df: pd.DataFrame) -> dict:
+    """{batter_id: {slot: hr_count}} for the season. The batting order slot cycles strictly,
+    so the k-th plate appearance by a team is in slot ((k-1) mod 9)+1 — exact even with subs."""
+    need = {"events", "at_bat_number", "inning_topbot", "home_team", "away_team", "batter"}
+    if df is None or df.empty or not need.issubset(df.columns):
+        return {}
+    pa = df[df["events"].notna()].copy()
+    if pa.empty:
+        return {}
+    pa["bteam"] = np.where(pa["inning_topbot"].eq("Top"), pa["away_team"], pa["home_team"])
+    pa = pa.sort_values(["game_pk", "bteam", "at_bat_number"])
+    pa["tidx"] = pa.groupby(["game_pk", "bteam"]).cumcount()
+    pa["slot"] = (pa["tidx"] % 9) + 1
+    hr = pa[pa["events"].eq("home_run")]
+    out = {}
+    for (bid, slot), n in hr.groupby(["batter", "slot"]).size().items():
+        out.setdefault(int(bid), {})[int(slot)] = int(n)
+    return out
+
+
+def starter_lengths(df: pd.DataFrame) -> dict:
+    """How deep each starter actually goes: {pitcher_id: {"starts": n, "med_len": innings}}.
+    Starter = first pitcher for the defense in inning 1; length = deepest inning reached
+    that game. Median across starts is robust to one blowup. Also lets the board spot
+    openers: listed 'SP' whose starts are 1-2 innings, or who has only relieved."""
+    need = {"game_pk", "inning", "inning_topbot", "at_bat_number", "pitcher"}
+    if df is None or df.empty or not need.issubset(df.columns):
+        return {}
+    d = df[["game_pk", "inning", "inning_topbot", "at_bat_number", "pitcher"]].copy()
+    # defense half: pitcher in "Top" belongs to the HOME defense, "Bot" to the AWAY defense
+    d["half"] = d["inning_topbot"].astype(str)
+    first = (d[d["inning"] == 1]
+             .sort_values("at_bat_number")
+             .groupby(["game_pk", "half"], as_index=False)
+             .first()[["game_pk", "half", "pitcher"]]
+             .rename(columns={"pitcher": "starter"}))
+    depth = (d.groupby(["game_pk", "half", "pitcher"], as_index=False)["inning"].max()
+             .rename(columns={"inning": "deep"}))
+    m = first.merge(depth, left_on=["game_pk", "half", "starter"],
+                    right_on=["game_pk", "half", "pitcher"], how="left")
+    out = {}
+    for pid, grp in m.groupby("starter"):
+        lens = grp["deep"].dropna().astype(float)
+        if len(lens):
+            out[int(pid)] = {"starts": int(len(lens)), "med_len": float(lens.median())}
+    return out
+
+
+def pitcher_appearances(df: pd.DataFrame) -> dict:
+    """{pitcher_id: total games appeared} — with starter_lengths, spots the pure reliever
+    listed as today's opener (appears often, zero traditional starts)."""
+    if df is None or df.empty or "pitcher" not in df.columns or "game_pk" not in df.columns:
+        return {}
+    g = df.groupby("pitcher")["game_pk"].nunique()
+    return {int(k): int(v) for k, v in g.items()}
+
+
+def hr_last_game(df: pd.DataFrame) -> set:
+    """Batter ids who homered in their most recent game — the 'back-to-back' fade signal
+    (public loads up on last night's HR hitters; the repeat is priced badly)."""
+    need = {"batter", "game_date", "events"}
+    if df is None or df.empty or not need.issubset(df.columns):
+        return set()
+    d = df[["batter", "game_date", "events"]].copy()
+    last = d.groupby("batter")["game_date"].max().rename("last_g")
+    d = d.merge(last, on="batter")
+    recent = d[d["game_date"] == d["last_g"]]
+    hr = recent[recent["events"].eq("home_run")]
+    return set(int(b) for b in hr["batter"].unique())
+
+
+def pitcher_batted_profile(df: pd.DataFrame) -> dict:
+    """{pitcher_id: {fb_pct, gb_pct, n}} — season batted-ball mix allowed.
+    GB = launch angle < 10 deg, FB = >= 25 deg (fly balls + popups). A fly-ball-heavy
+    arm puts more balls in HR territory — the target profile."""
+    need = {"pitcher", "launch_angle", "launch_speed"}
+    if df is None or df.empty or not need.issubset(df.columns):
+        return {}
+    d = df[df["launch_speed"].notna() & df["launch_angle"].notna() & df["events"].notna()]
+    if d.empty:
+        return {}
+    g = d.groupby("pitcher")["launch_angle"]
+    n = g.size()
+    fb = d[d["launch_angle"] >= 25].groupby("pitcher").size().reindex(n.index, fill_value=0)
+    gb = d[d["launch_angle"] < 10].groupby("pitcher").size().reindex(n.index, fill_value=0)
+    out = {}
+    for pid in n.index:
+        if n[pid] >= 30:
+            out[int(pid)] = {"fb_pct": round(float(fb[pid]) * 100.0 / float(n[pid]), 1),
+                             "gb_pct": round(float(gb[pid]) * 100.0 / float(n[pid]), 1),
+                             "n": int(n[pid])}
+    return out
+
+
+LAST_LABEL_DIAG = {}   # written by hitter_labels; the build ships it in board.json so
+                       # label problems are diagnosable from the public artifact, not logs
+
+_AB_EVENTS = {"single", "double", "triple", "home_run", "field_out", "strikeout",
+              "grounded_into_double_play", "force_out", "double_play", "field_error",
+              "fielders_choice", "fielders_choice_out", "strikeout_double_play",
+              "triple_play", "other_out"}
+
+
+def hitter_labels(df: pd.DataFrame, start_date: str | None = None, min_bbe: int = 15) -> dict:
+    """One profile label per hitter over the trailing window (same 2-week sample as the
+    model), mirroring the PF highlight rules: 'elite' (all 14 thresholds), else 'fb'
+    (all 10, FB%-based, priority), else 'ld' (all 10, LD%-based), else no label.
+
+    Approximations, stated plainly: Near HR = warning-track balls — non-HR drives
+    carrying 325+ ft with real loft (LA >= 15); Blast = squared-up contact (EV >= 80% of the bat+pitch
+    speed ceiling) with a 75+ mph swing, per Savant's public definitions, rated per
+    batted ball. Everything else is exact from Statcast fields.
+    """
+    need = {"batter", "game_date", "events", "launch_speed", "launch_angle",
+            "launch_speed_angle", "hc_x", "hc_y", "stand", "hit_distance_sc"}
+    global LAST_LABEL_DIAG
+    if df is None or df.empty or not need.issubset(df.columns):
+        missing = sorted(need - set(df.columns)) if df is not None and not df.empty else ["<empty>"]
+        print(f"[labels] skipped — missing columns: {missing}")
+        LAST_LABEL_DIAG = {"skip": f"missing columns: {missing}"}
+        return {}
+    w = df[df["game_date"].astype(str).str[:10] >= start_date] if start_date else df
+    pa = w[w["events"].notna()]
+    # in-play only: Statcast tracks EV on some FOULS too, which would pollute every
+    # rate denominator (HH%, Brl%, LD%...) — an in-play ball always has an event
+    bb = w[w["launch_speed"].notna() & w["launch_angle"].notna() & w["events"].notna()].copy()
+    for _c in ("launch_speed", "launch_angle", "launch_speed_angle", "hc_x", "hc_y",
+               "hit_distance_sc", "bat_speed", "release_speed"):
+        if _c in bb.columns:
+            bb[_c] = pd.to_numeric(bb[_c], errors="coerce")
+    for _c in ("stand", "events"):     # nullable/Arrow string dtypes -> plain objects
+        bb[_c] = np.asarray(bb[_c].astype(object).where(bb[_c].notna(), ""), dtype=object)
+    if bb.empty:
+        LAST_LABEL_DIAG = {"skip": f"no batted balls in window >= {start_date} "
+                                   f"(df rows {len(df)}, window rows {len(w)})"}
+        return {}
+    try:
+        return _labels_core(bb, pa, min_bbe)
+    except Exception as e:
+        import traceback
+        tb = traceback.extract_tb(e.__traceback__)
+        ours = [f for f in tb if "statcast_data" in (f.filename or "")]
+        last = (ours[-1] if ours else (tb[-1] if tb else None))
+        LAST_LABEL_DIAG = {"skip": f"exception {type(e).__name__}: {e}"
+                                   + (f" @ line {last.lineno}: {last.line}" if last else "")}
+        globals()["LAST_LABEL_DIAG"] = LAST_LABEL_DIAG
+        print(f"[labels] EXCEPTION: {LAST_LABEL_DIAG['skip']}")
+        return {}
+
+
+def _labels_core(bb, pa, min_bbe):
+    global LAST_LABEL_DIAG
+    spray = np.degrees(np.arctan2(bb["hc_x"].to_numpy(float) - 125.42,
+                                  198.27 - bb["hc_y"].to_numpy(float)))
+    bb["spray"] = spray
+    stand_r = (bb["stand"].to_numpy() == "R")
+    bb["pull"] = np.where(stand_r, spray <= -15.0, spray >= 15.0)
+    bb["brl"] = bb["launch_speed_angle"].eq(6)
+    la = bb["launch_angle"]
+    bb["air"] = la >= 10; bb["fb"] = la >= 25; bb["ld"] = (la >= 10) & (la < 25); bb["gb"] = la < 10
+    bb["hh"] = bb["launch_speed"] >= 95
+    dist = bb["hit_distance_sc"]
+    bb["d300"] = dist >= 300; bb["d350"] = dist >= 350
+    bb["near"] = (dist >= 325).to_numpy() & (la >= 15).to_numpy() & (bb["events"].to_numpy() != "home_run")
+    have_bt = "bat_speed" in bb.columns and "release_speed" in bb.columns \
+        and bb["bat_speed"].notna().mean() > 0.3
+    if have_bt:
+        # official Savant definition: squared-up% x 100 + bat speed >= 164 (sliding
+        # scale — a 90% squared 75mph swing and an 80% squared 85mph swing both blast)
+        ceil = 1.23 * bb["bat_speed"] + 0.198 * bb["release_speed"]
+        squp = (bb["launch_speed"] / ceil).clip(upper=1.0)
+        bb["blast"] = ((squp * 100.0 + bb["bat_speed"]) >= 164.0).fillna(False)
+        bb["tracked"] = bb["bat_speed"].notna()
+    else:
+        bb["blast"] = False
+        bb["tracked"] = False
+        print("[labels] bat tracking unavailable — Blast% criterion waived this build")
+    out = {}
+    iso_num = {"single": 0, "double": 1, "triple": 2, "home_run": 3}
+    n_pool = n_base = 0
+    gate_pass = {k: 0 for k in ("near2", "iso20", "d300", "d350", "hh30", "blast5",
+                                "air50", "gb45", "brl10", "fb30", "ld30")}
+    near_misses = []
+    for bid, g in bb.groupby("batter"):
+        n = len(g)
+        if n < min_bbe:
+            continue
+        n_pool += 1
+        gpa = pa[pa["batter"] == bid]
+        ab = int(gpa["events"].isin(_AB_EVENTS).sum())
+        iso = (sum(iso_num.get(e, 0) for e in gpa["events"]) / ab) if ab else 0.0
+        hr = int((g["events"].to_numpy() == "home_run").sum())
+        pct = lambda col: 100.0 * float(g[col].sum()) / n
+        n_trk = int(g["tracked"].sum())
+        # Blast% over TRACKED batted balls (untracked swings shouldn't deflate the
+        # rate); criterion waived when tracking is unavailable for this build/hitter
+        blast = (100.0 * float(g["blast"].sum()) / n_trk) if n_trk >= 8 else None
+        blast_ok = lambda thr: (blast is None) or (blast >= thr)
+        m = {"hr": hr, "near": int(g["near"].sum()), "iso": iso,
+             "ev": float(g["launch_speed"].mean()),
+             "d300": int(g["d300"].sum()), "d350": int(g["d350"].sum()),
+             "brl": pct("brl"), "pullbrl": 100.0 * float((g["brl"] & g["pull"]).sum()) / n,
+             "hh": pct("hh"), "air": pct("air"),
+             "fb": pct("fb"), "ld": pct("ld"), "gb": pct("gb"), "pull": pct("pull")}
+        gates_now = (("near2", m["near"] >= 2), ("iso20", m["iso"] >= 0.2),
+                     ("d300", m["d300"] >= 2), ("d350", m["d350"] >= 2),
+                     ("hh30", m["hh"] >= 30), ("blast5", blast_ok(5)),
+                     ("air50", m["air"] >= 50), ("gb45", m["gb"] < 45),
+                     ("brl10", m["brl"] >= 10), ("fb30", m["fb"] >= 30),
+                     ("ld30", m["ld"] >= 30))
+        fails = [k for k, ok in gates_now if not ok]
+        near_misses.append((len([k for k in fails if k not in ("fb30", "ld30")])
+                            + (0 if ("fb30" not in fails or "ld30" not in fails) else 1),
+                            int(bid), fails))
+        for k, ok in gates_now:
+            if ok:
+                gate_pass[k] += 1
+        base = (m["near"] >= 2 and m["iso"] >= 0.2 and m["d300"] >= 2 and m["d350"] >= 2
+                and m["hh"] >= 30 and blast_ok(5) and m["air"] >= 50 and m["gb"] < 45)
+        if base:
+            n_base += 1
+        if (m["hr"] >= 1 and m["near"] >= 2 and m["iso"] >= 0.2 and m["ev"] >= 89
+                and m["d300"] >= 2 and m["d350"] >= 2 and m["brl"] >= 18 and m["pullbrl"] >= 6
+                and m["hh"] >= 35 and blast_ok(10) and m["air"] >= 50 and m["fb"] >= 30
+                and m["gb"] < 45 and m["pull"] >= 25):
+            out[int(bid)] = "elite"
+        elif base and m["brl"] >= 10 and m["fb"] >= 30:
+            out[int(bid)] = "fb"
+        elif base and m["brl"] >= 10 and m["ld"] >= 30:
+            out[int(bid)] = "ld"
+    near_misses.sort()
+    LAST_LABEL_DIAG = {
+        "pool": n_pool, "base": n_base,
+        "labels": {k: sum(1 for v in out.values() if v == k) for k in ("elite", "fb", "ld")},
+        "gates_pct": {k: (100 * v // n_pool if n_pool else 0) for k, v in gate_pass.items()},
+        "near_misses": [{"id": bid, "failed": fl} for _, bid, fl in near_misses[:3]],
+    }
+    if n_pool:
+        print("[labels] gates: " + " ".join(f"{k}={100*v//n_pool}%" for k, v in gate_pass.items()))
+    print(f"[labels] funnel: {n_pool} hitters with {min_bbe}+ BBE -> {n_base} pass base -> "
+          f"{sum(1 for v in out.values() if v=='elite')}/{sum(1 for v in out.values() if v=='fb')}/"
+          f"{sum(1 for v in out.values() if v=='ld')} elite/fb/ld")
     return out

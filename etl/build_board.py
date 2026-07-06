@@ -14,10 +14,11 @@ from __future__ import annotations
 import json
 import os
 import time
+import numpy as np
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from etl import statsapi, statcast_data, parks, compute
+from etl import statsapi, statcast_data, parks, compute, park_model
 
 try:                       # cache Savant pulls to disk so repeat runs are fast
     from pybaseball import cache as pyb_cache
@@ -121,9 +122,75 @@ def build(date_str: str | None = None) -> dict:
         raise statcast_data.StatcastUnavailable(len(df))
 
     profiles = statcast_data.batter_profiles(df, batter_ids, date_str)
+    bb_samples = statcast_data.batted_ball_sample(df, batter_ids)
     pitch_profiles = statcast_data.pitcher_profiles(df, pitcher_ids, date_str)
     bullpens = statcast_data.bullpen_profiles(df, date_str)
     career = statcast_data.career_table(2015, now.year)
+
+    # season batter-vs-pitcher (for the Matchup tab): has this hitter homered off today's
+    # starter, or off any active arm in the opponent's pen? Computed from the slate frame.
+    bvp = {}
+    pen_arms = {}
+    pen_names = {}
+    try:
+        bvp = statcast_data.bvp_table(df)
+        pen_arms = statcast_data.bullpen_arms(df, date_str)
+        all_arms = sorted({pid for arms in pen_arms.values() for pid in arms})
+        if all_arms:
+            try:
+                pen_names = {int(k): v.get("name", "") for k, v in
+                             statsapi.get_handedness(all_arms).items()}
+            except Exception as e:
+                print(f"[build] bullpen name lookup skipped: {e}")
+        print(f"[build] BvP: {len(bvp)} matchups, {sum(len(a) for a in pen_arms.values())} active arms")
+    except Exception as e:
+        print(f"[build] BvP skipped: {e}")
+
+    # career BvP vs the starter (MLB Stats API), cached so the day's builds share one fetch
+    import time as _t
+    bvp_cache_path = os.path.join(os.path.dirname(__file__), "..", "docs", "bvp_career.json")
+    try:
+        bvp_career_cache = json.load(open(bvp_cache_path)).get("pairs", {})
+    except Exception:
+        bvp_career_cache = {}
+    _bvp_now = _t.time(); _bvp_ttl = 64800; _bvp_fetched = [0]; _BVP_MAX = 340
+
+    try:                                           # season HR distribution by batting-order slot
+        hr_spot = statcast_data.hr_by_lineup_spot(df)
+    except Exception as e:
+        hr_spot = {}; print(f"[build] hr_by_spot skipped: {e}")
+
+    try:                                           # opener detection: how deep starters really go
+        start_lens = statcast_data.starter_lengths(df)
+        p_apps = statcast_data.pitcher_appearances(df)
+    except Exception as e:
+        start_lens, p_apps = {}, {}; print(f"[build] starter lengths skipped: {e}")
+
+    try:                                           # B2B: homered in his most recent game
+        b2b_set = statcast_data.hr_last_game(df)
+    except Exception as e:
+        b2b_set = set(); print(f"[build] hr_last_game skipped: {e}")
+
+    try:                                           # per-park wind sensitivity (weekly, archived wx)
+        from etl import wind_sens as WS
+        ws_cache = os.path.join(os.path.dirname(__file__), "..", "docs", "wind_sens.json")
+        park_model.set_wind_sens(WS.load_wind_sensitivity(ws_cache, df=df))
+    except Exception as e:
+        print(f"[build] wind sensitivity skipped: {e}")
+
+    try:                                           # pitcher batted-ball mix allowed (FB% = target)
+        p_batted = statcast_data.pitcher_batted_profile(df)
+    except Exception as e:
+        p_batted = {}; print(f"[build] pitcher batted profile skipped: {e}")
+
+    try:                                           # PF-style profile labels (trailing 14d)
+        _lab_start = (datetime.strptime(date_str, "%Y-%m-%d") - timedelta(days=14)).strftime("%Y-%m-%d")
+        hit_labels = statcast_data.hitter_labels(df, _lab_start)   # same 2wk window as the model
+        print(f"[build] labels: {sum(1 for v in hit_labels.values() if v=='elite')} elite, "
+              f"{sum(1 for v in hit_labels.values() if v=='fb')} fb, "
+              f"{sum(1 for v in hit_labels.values() if v=='ld')} ld")
+    except Exception as e:
+        hit_labels = {}; print(f"[build] labels skipped: {e}")
 
     # statsapi and Statcast mostly share team abbreviations; a few differ.
     _TEAM_ALIAS = {"AZ": "ARI", "ARI": "AZ", "CWS": "CHW", "CHW": "CWS",
@@ -220,7 +287,8 @@ def build(date_str: str | None = None) -> dict:
 
         # trend (contact-quality) + the synthesized one-line read
         tr = compute.trend(prof.get("windows", {}).get("L5", {}),
-                           prof.get("windows", {}).get("L30", {}))
+                           prof.get("windows", {}).get("L30", {}),
+                           mid_w=prof.get("windows", {}).get("L15", {}))
         eff_hand = eff_side if bats == "S" else bats
         angle = compute.read_angle(
             hand=bats, trend=tr, pitch_matchup=pmatch,
@@ -267,6 +335,24 @@ def build(date_str: str | None = None) -> dict:
                 "fb_velo": ps.get("fb_velo"),
             },
         }
+
+        # opener detection: listed SP whose real starts run 1-2 innings, or a pure
+        # reliever getting the "start". Downstream, BvP-vs-SP matters less (one look)
+        # and the bullpen matters much more.
+        _bat = p_batted.get(pid)
+        if _bat:
+            opp_pitcher_obj["fb_pct"] = _bat["fb_pct"]
+            opp_pitcher_obj["gb_pct"] = _bat["gb_pct"]
+        _sl = start_lens.get(pid)
+        if _sl and _sl["starts"] >= 2 and _sl["med_len"] <= 2.0:
+            opp_pitcher_obj["opener"] = True
+            opp_pitcher_obj["start_len"] = round(_sl["med_len"], 1)
+        elif _sl is None and p_apps.get(pid, 0) >= 5:
+            opp_pitcher_obj["opener"] = True          # relieves all year, "starting" today
+            opp_pitcher_obj["start_len"] = None
+        else:
+            opp_pitcher_obj["opener"] = False
+            opp_pitcher_obj["start_len"] = round(_sl["med_len"], 1) if _sl else None
 
         # pitcher platoon splits — what he allows vs this hitter's hand
         eff_hand = eff_side if bats == "S" else bats
@@ -321,10 +407,52 @@ def build(date_str: str | None = None) -> dict:
         if oform in ("SHELLABLE", "STEADY-BAD", "SLIPPING", "HITTABLE"):
             why = (why + " · " if why else "") + f"vs {oform} arm"
 
+        opp_abbr = g["home"] if side == "away" else g["away"]
+        sp_bvp = bvp.get((bid, pid)) if pid else None
+        bp_list = []
+        for apid in pen_arms.get(opp_abbr, []):
+            rec = bvp.get((bid, apid))
+            if rec and rec[0] > 0:
+                bp_list.append({"name": pen_names.get(apid, ""), "pa": rec[0], "hr": rec[1]})
+        bp_list.sort(key=lambda x: (x["hr"], x["pa"]), reverse=True)
+        player_bvp = {
+            "sp": {"name": opp_pitcher_obj.get("name", ""),
+                   "pa": sp_bvp[0] if sp_bvp else 0, "hr": sp_bvp[1] if sp_bvp else 0},
+            "bp": [a for a in bp_list if a["name"]][:12],
+            "bp_hr": any(a["hr"] > 0 for a in bp_list),
+        }
+        if pid:                                   # career vs today's starter (cached)
+            _k = f"{bid}-{pid}"
+            _c = bvp_career_cache.get(_k)
+            _sc = None
+            if _c and (_bvp_now - _c.get("ts", 0) < _bvp_ttl):
+                _sc = {"pa": _c["pa"], "hr": _c["hr"]}
+            elif _bvp_fetched[0] < _BVP_MAX:
+                _r = statsapi.bvp_career(bid, pid)
+                _bvp_fetched[0] += 1
+                if _r is not None:
+                    bvp_career_cache[_k] = {"pa": _r["pa"], "hr": _r["hr"], "ts": _bvp_now}
+                    _sc = {"pa": _r["pa"], "hr": _r["hr"]}
+                _t.sleep(0.02)
+            if _sc is not None:
+                player_bvp["sp_career"] = {"name": opp_pitcher_obj.get("name", ""), **_sc}
+
+        # tags for having gone deep off today's arms (flow into tracker + parlay weighting)
+        _bvp_badges = []
+        if player_bvp.get("sp_career", {}).get("hr", 0) or player_bvp["sp"]["hr"]:
+            _bvp_badges.append({"t": "HR vs SP", "k": "hrsp"})
+        if player_bvp["bp_hr"]:
+            _bvp_badges.append({"t": "HR vs PEN", "k": "hrbp"})
+        badges = _bvp_badges + badges
+
         players.append({
             "id": bid,
             "name": name,
             "bats": bats,
+            "bvp": player_bvp,
+            "hr_by_spot": hr_spot.get(bid, {}),
+            "hr_last_game": bid in b2b_set,
+            "hit_label": hit_labels.get(bid),
             "lineup_spot": spot_of_batter.get(bid),
             "lineup_status": status_of_batter.get(bid, "confirmed"),
             "trend": tr,
@@ -367,6 +495,53 @@ def build(date_str: str | None = None) -> dict:
 
     players.sort(key=lambda p: p["heat"], reverse=True)
 
+    try:                                           # persist career-BvP cache for the next build
+        json.dump({"pairs": bvp_career_cache, "updated": _bvp_now}, open(bvp_cache_path, "w"))
+        print(f"[build] career BvP: {_bvp_fetched[0]} fetched this run, {len(bvp_career_cache)} cached")
+    except Exception as e:
+        print(f"[build] bvp cache write failed: {e}")
+
+    # ---- park + weather HR model: a separate lens, computed per game in one vectorized
+    # pass, attached as p["park_hr"]. Never feeds the heat score or the grader. The park's
+    # overall HR level comes from Baseball Savant (auto-pulled, rolling, handedness-split);
+    # the physics only adds per-hitter spray + live weather on top, anchored to Savant so a
+    # dimension/orientation that's slightly off can't make the park factor wrong. Wrapped so
+    # a Savant/weather outage degrades gracefully instead of breaking the board.
+    try:
+        from etl import park_factors
+        pf_cache = os.path.join(os.path.dirname(__file__), "..", "docs", "park_factors.json")
+        savant = park_factors.load_park_factors(pf_cache, df=df, year=now.year)
+        gpk_home = {g["game_pk"]: g["home"] for g in games}     # durable key for the factor lookup
+        by_game = {}
+        for p in players:
+            by_game.setdefault((p["park"], p["time"], p["game_pk"]), []).append(p)
+        for (venue, gtime, pk), ps in by_game.items():
+            evs, las, sprays, spans = [], [], [], []
+            for p in ps:
+                s = bb_samples.get(p["id"])
+                n = 0 if (s is None) else len(s["ev"])
+                spans.append((p, n))
+                if n:
+                    evs.append(s["ev"]); las.append(s["la"]); sprays.append(s["spray"])
+            if not evs:
+                continue
+            ev_all = np.concatenate(evs); la_all = np.concatenate(las); sp_all = np.concatenate(sprays)
+            hr_park, hr_neut, meta = park_model.evaluate_game(ev_all, la_all, sp_all, venue, gtime)
+            i = 0
+            for p, n in spans:
+                if not n:
+                    continue
+                hand = p.get("bats", "R")
+                sav = park_factors.factor_for(savant, venue, hand, team=gpk_home.get(pk))
+                anchor = park_model.savant_anchor(venue, hand, sav)
+                agg = park_model.aggregate_hitter(hr_park[i:i+n], hr_neut[i:i+n], meta,
+                                                  anchor=anchor, savant_factor=sav)
+                if agg:
+                    p["park_hr"] = agg
+                i += n
+    except Exception as e:
+        print(f"[build] park model skipped: {e}")
+
     # ---- decision helpers ----
     def _thin(p):
         return any(str(f).startswith("small sample") for f in p["score_breakdown"].get("flags", []))
@@ -389,7 +564,10 @@ def build(date_str: str | None = None) -> dict:
         if len(top_plays) >= 12:
             break
 
-    # Stacks (pairing): a vulnerable arm with 2+ strong hitters facing him
+    # Stacks (pairing): a target for the whole lineup — either a vulnerable arm with
+    # 2+ strong hitters facing him, OR a bullpen game (opener "start" + weak pen),
+    # which the old form filter wrongly excluded. Sorted by a blended stack score so
+    # a slightly-less-bad arm facing five monsters can outrank a worse arm facing two.
     from collections import defaultdict
     groups = defaultdict(list)
     for p in players:
@@ -398,25 +576,75 @@ def build(date_str: str | None = None) -> dict:
     for (gpk, arm), ps in groups.items():
         if not arm:
             continue
-        form = (ps[0]["opp_pitcher"].get("form") or {}).get("label", "")
-        if form not in ("SHELLABLE", "STEADY-BAD", "SLIPPING", "HITTABLE"):
+        op = ps[0]["opp_pitcher"]
+        form = (op.get("form") or {}).get("label", "")
+        pen_sc = (ps[0].get("opp_bullpen") or {}).get("score")
+        opener = bool(op.get("opener"))
+        targetable_arm = form in ("SHELLABLE", "STEADY-BAD", "SLIPPING", "HITTABLE")
+        pen_game = opener and (pen_sc or 0) >= 55
+        if not (targetable_arm or pen_game):
             continue
         strong = sorted([x for x in ps if x["heat"] >= 55], key=lambda x: x["heat"], reverse=True)
         if len(strong) < 2:
             continue
+        vuln = max(op.get("hr_score") or 0, (pen_sc or 0) if opener else 0)
+        top3 = sum(x["heat"] for x in strong[:3]) / min(3, len(strong))
         stacks.append({
             "arm": arm,
-            "form": ps[0]["opp_pitcher"].get("form"),
-            "arm_score": ps[0]["opp_pitcher"].get("hr_score"),
+            "form": op.get("form"),
+            "arm_score": op.get("hr_score"),
+            "pen_score": pen_sc,
+            "opener": opener,
+            "pen_game": pen_game,
+            "stack_score": int(round(0.55 * vuln + 0.45 * top3)),
+            "park": strong[0].get("park"),
+            "park_factor": strong[0].get("park_hr_factor"),
             "game_pk": gpk,
             "team": strong[0]["team"], "opp_team": strong[0]["opp_team"],
             "time": strong[0]["time"],
             "hitters": [{
-                "name": x["name"], "heat": x["heat"], "tier": x["tier"],
+                "id": x["id"], "name": x["name"], "heat": x["heat"], "tier": x["tier"],
                 "spot": x["lineup_spot"], "bats": x["bats"],
+                "b2b": bool(x.get("hr_last_game")),
+                "owns": any(b.get("k") in ("hrsp", "hrbp") for b in (x.get("badges") or [])),
             } for x in strong[:6]],
         })
-    stacks.sort(key=lambda s: (s["arm_score"] or 0, len(s["hitters"])), reverse=True)
+    stacks.sort(key=lambda s: (s["stack_score"], len(s["hitters"])), reverse=True)
+
+    # per-game weather summaries for the Weather dashboard (roof call, disruption status,
+    # wind rendered relative to each park's actual orientation)
+    wx_list = []
+    try:
+        from etl import weather as W, park_geometry as PG
+        for g in games:
+            lat, lon, _ = PG.park_coords(g["park"])
+            wx = W.get_weather(lat, lon, g["time"], venue=g["park"])
+            roof = W.roof_call(g["park"], wx)
+            pp = (wx or {}).get("precip_prob")
+            if roof in ("dome", "closed", "canopy") or pp is None:
+                status = "clear" if roof else "unknown"
+            elif pp < 20:
+                status = "clear"
+            elif pp < 45:
+                status = "chance"
+            elif pp < 70:
+                status = "likely"
+            else:
+                status = "postpone"
+            cf = PG.cf_bearing(g["park"])
+            frm = (wx or {}).get("wind_from_deg")
+            rel = round(((frm + 180.0) - cf) % 360.0) if (frm is not None and cf is not None) else None
+            wx_list.append({
+                "game_pk": g["game_pk"], "away": g["away"], "home": g["home"],
+                "park": g["park"], "time": g["time"],
+                "temp_f": round((wx or {}).get("temp_f")) if (wx or {}).get("temp_f") is not None else None,
+                "rh_pct": round((wx or {}).get("rh_pct")) if (wx or {}).get("rh_pct") is not None else None,
+                "precip_prob": round(pp) if pp is not None else None,
+                "wind_mph": round((wx or {}).get("wind_mph")) if (wx or {}).get("wind_mph") is not None else None,
+                "wind_rel_deg": rel, "roof": roof, "status": status,
+            })
+    except Exception as e:
+        print(f"[build] weather summaries skipped: {e}")
 
     board = {
         "generated_at": now.isoformat(timespec="seconds"),
@@ -439,6 +667,8 @@ def build(date_str: str | None = None) -> dict:
         "players": players,
         "top_plays": top_plays,
         "stacks": stacks,
+        "wx": wx_list,
+        "label_diag": getattr(statcast_data, "LAST_LABEL_DIAG", {}),
         "arms": sorted([
             {
                 "name": slate["pitchers"].get(pid, {}).get("name", str(pid)),
@@ -448,11 +678,27 @@ def build(date_str: str | None = None) -> dict:
                 "opp": next((g["away"] if g["home_pitcher_id"] == pid else g["home"]
                              for g in games if pid in (g["home_pitcher_id"], g["away_pitcher_id"])), ""),
                 "park": next((g["park"] for g in games if pid in (g["home_pitcher_id"], g["away_pitcher_id"])), ""),
+                "time": next((g["time"] for g in games if pid in (g["home_pitcher_id"], g["away_pitcher_id"])), ""),
                 "hr_score": phr.get("score"),
                 "recent_score": phr.get("recent_score"),
                 "season_score": phr.get("season_score"),
+                "delta": phr.get("delta"),
                 "form": phr.get("form"),
                 "flags": phr.get("flags", []),
+                "opener": bool(
+                    (start_lens.get(pid) and start_lens[pid]["starts"] >= 2
+                     and start_lens[pid]["med_len"] <= 2.0)
+                    or (start_lens.get(pid) is None and p_apps.get(pid, 0) >= 5)),
+                "fb_pct": (p_batted.get(pid) or {}).get("fb_pct"),
+                "gb_pct": (p_batted.get(pid) or {}).get("gb_pct"),
+                "start_len": (round(start_lens[pid]["med_len"], 1)
+                              if start_lens.get(pid) else None),
+                # heaviest 2yr HR-by-hand side, raw numbers for the strip
+                "hand_hr": (lambda ty: (max(
+                    ({"side": h, "hr": s["hr"], "pa": s["pa"]}
+                     for h, s in (ty or {}).items() if s and s.get("pa", 0) >= 100),
+                    key=lambda x: x["hr"] / max(1, x["pa"]), default=None)))(
+                        (hand2yr.get(pid) or {}).get("two_yr")),
                 "badges": compute.pitcher_badges(
                     recent=pitch_profiles.get(pid, {}).get("recent", {}),
                     score=phr.get("score"), recent_score=phr.get("recent_score"),
@@ -486,6 +732,51 @@ def main():
     with open(OUT_PATH, "w") as f:
         json.dump(board, f, indent=2, default=str)
 
+    # slate-level SMASH selection, mirrored from the UI's convergence scorer so the
+    # grader can measure the flag's real conversion rate (the whole point of the flag).
+    # Uses standard heat (the UI's default view).
+    def _smash_score(p):
+        H = p.get("heat") or 0
+        s = max(0.0, min(3.0, (H - 45) / 10.0)); r = 0
+        ks = {b["k"] for b in (p.get("badges") or [])}
+        tr = p.get("trend") or {}
+        if "lock" in ks: s += 1.5; r += 1
+        elif "hot" in ks: s += 0.75; r += 1
+        if "due" in ks: s += 1.0; r += 1
+        if tr.get("dir") == "up": s += 1.0; r += 1
+        pb = (p.get("park_hr") or {}).get("boost") or 0
+        if pb >= 12: s += 1.5; r += 1
+        elif pb >= 6: s += 0.75; r += 1
+        opnr = bool((p.get("opp_pitcher") or {}).get("opener"))
+        if "hrsp" in ks: s += (0.75 if opnr else 1.5); r += 1
+        if "hrbp" in ks: s += (1.5 if opnr else 1.0); r += 1
+        spot_hr = (p.get("hr_by_spot") or {}).get(p.get("lineup_spot") or 0, 0)
+        if spot_hr >= 3: s += 1.5; r += 1
+        elif spot_hr >= 2: s += 0.75; r += 1
+        mixd = (p.get("heat_mix") - p["heat"]) if (p.get("heat_mix") is not None and p.get("heat") is not None) else 0
+        if mixd >= 6: s += 1.0; r += 1
+        elif mixd >= 4: s += 0.5; r += 1
+        arm = (p.get("opp_pitcher") or {}).get("hr_score") or 0
+        if arm >= 65 or "arm" in ks: s += 1.0; r += 1
+        if "mix" in ks: s += 0.75; r += 1
+        if "pow" in ks: s += 0.5; r += 1
+        if "plat" in ks: s += 0.5; r += 1
+        return s, r
+    smash_ids = set()
+    try:
+        cand = []
+        for p in board["players"]:
+            if p.get("lineup_status") == "out":
+                continue
+            sc, nr = _smash_score(p)
+            if sc >= 6.5 and nr >= 3 and (p.get("heat") or 0) >= 55:
+                cand.append((sc, p["id"]))
+        cand.sort(reverse=True)
+        smash_ids = {pid for _, pid in cand[:3]}
+        print(f"[build] SMASH: {len(smash_ids)} flagged")
+    except Exception as e:
+        print(f"[build] smash calc skipped: {e}")
+
     # slim daily snapshot so the grader can grade this day even after the live
     # board rolls over to tomorrow's slate
     try:
@@ -500,6 +791,19 @@ def main():
                 "opp_form": (p["opp_pitcher"].get("form") or {}).get("label"),
                 "iso": (p.get("windows", {}).get("L14d", {}) or {}).get("iso"),
                 "barrel_pct": (p.get("windows", {}).get("L14d", {}) or {}).get("barrel_pct"),
+                # ---- enrichment: context that can't be backfilled later ----
+                "badges": [b["k"] for b in (p.get("badges") or [])],
+                "bp_score": (p.get("opp_bullpen") or {}).get("score"),
+                "sp_vuln": (p["opp_pitcher"].get("hr_score")),
+                "luck_gap": (((p.get("luck") or {}).get("recent")) or {}).get("luck_gap"),
+                "heat_mix": p.get("heat_mix"),
+                "spot": p.get("lineup_spot"),
+                "park_boost": (p.get("park_hr") or {}).get("boost"),
+                "trend": (p.get("trend") or {}).get("dir"),
+                "b2b": p.get("hr_last_game"),
+                "smash": p["id"] in smash_ids,
+                "opener": bool((p.get("opp_pitcher") or {}).get("opener")),
+                "hlabel": p.get("hit_label"),
             } for p in board["players"]],
         }
         with open(os.path.join(snap_dir, f"{board['slate_date']}.json"), "w") as f:
