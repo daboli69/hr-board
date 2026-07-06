@@ -67,8 +67,32 @@ PARK_GEO = {
 _NEUTRAL = (332,376,402,376,330, 8,8,8,8,8, 0.0, 0.0, 0, 100)
 
 
+_ALIAS = {}
+
+
+def canonical(venue):
+    """Resolve venue-name drift (sponsor prefixes, rename variants) to the table's
+    canonical name: 'UNIQLO Field at Dodger Stadium' -> 'Dodger Stadium'. Normalized
+    substring match, cached. None if truly unknown."""
+    if not venue:
+        return None
+    if venue in PARK_GEO:
+        return venue
+    if venue in _ALIAS:
+        return _ALIAS[venue]
+    n = "".join(ch for ch in venue.lower() if ch.isalnum())
+    hit = None
+    for k in PARK_GEO:
+        kn = "".join(ch for ch in k.lower() if ch.isalnum())
+        if kn in n or n in kn:
+            hit = k
+            break
+    _ALIAS[venue] = hit
+    return hit
+
+
 def _row(venue):
-    return PARK_GEO.get(venue, _NEUTRAL)
+    return PARK_GEO.get(canonical(venue) or venue, _NEUTRAL)
 
 
 def wall_at(venue, spray_deg):
@@ -94,7 +118,7 @@ def cf_bearing(venue):
 
 
 def known(venue):
-    return venue in PARK_GEO
+    return canonical(venue) is not None
 
 
 def field_wind_vector(wind_mph, wind_from_deg, venue):

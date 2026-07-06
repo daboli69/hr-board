@@ -168,3 +168,24 @@ def aggregate_hitter(hr_park_slice, hr_neutral_slice, meta, anchor=1.0, savant_f
         "savant_pf": round(savant_factor, 2) if savant_factor else None,
         "anchored": anchor != 1.0,
     }
+
+
+def game_conditions(venue, iso_time):
+    """Public wrapper: tonight's (air_density, wind_vector) for a park — fetch once
+    per game, reuse across that game's hitters (robbed scan, etc.)."""
+    rho, windv, _, _ = _conditions(venue, iso_time)
+    return rho, windv
+
+
+def clears_here(evs, las, sprays, venue, rho, windv):
+    """Boolean per ball: would these batted balls clear THIS park under THESE
+    conditions? Thin public wrapper over the internal fence check."""
+    ev = np.asarray(evs, float); la = np.asarray(las, float); sp = np.asarray(sprays, float)
+    return _clears(ev, la, sp, venue, rho, windv)
+
+
+def fence_polyline(venue, step=5):
+    """[(spray_deg, wall_ft), ...] across the outfield for drawing the park."""
+    angs = np.arange(-45.0, 45.0 + 0.1, step)
+    wd, _ = PG.wall_at(venue, angs)
+    return [[float(a), float(w)] for a, w in zip(angs, np.asarray(wd, float))]

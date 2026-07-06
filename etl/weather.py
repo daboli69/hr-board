@@ -12,6 +12,7 @@ Results are cached per (lat, lon, hour) so every hitter in the same game reuses 
 fetch. Domed/climate-controlled parks short-circuit to neutral indoor conditions.
 """
 import json
+import time
 import urllib.request
 import urllib.parse
 from datetime import datetime
@@ -31,9 +32,18 @@ RETRACTABLE = {"Chase Field", "Daikin Park", "Minute Maid Park", "loanDepot park
 CANOPY = {"T-Mobile Park"}
 
 
+def _canon(venue):
+    try:
+        from etl import park_geometry as _PG
+        return _PG.canonical(venue) or venue
+    except Exception:
+        return venue
+
+
 def roof_call(venue, wx):
     """Predicted roof state: 'dome' | 'closed' | 'canopy' | 'open' | None (open-air park).
     Heuristic: retractables close on temp >= 96F, <= 54F, or precip risk >= 45%."""
+    venue = _canon(venue)
     if venue in INDOOR:
         return "dome"
     shut = False
@@ -78,8 +88,16 @@ def get_weather(lat, lon, iso_time, venue=None, timeout=8):
             "start_date": day, "end_date": day, "timezone": "UTC",
         }
         url = "https://api.open-meteo.com/v1/forecast?" + urllib.parse.urlencode(params)
-        with urllib.request.urlopen(url, timeout=timeout) as r:
-            data = json.loads(r.read().decode())
+        data = None
+        for _try in (1, 2):
+            try:
+                with urllib.request.urlopen(url, timeout=timeout) as r:
+                    data = json.loads(r.read().decode())
+                break
+            except Exception:
+                if _try == 2:
+                    raise
+                time.sleep(1.5)
         out = _parse(data, hk)
         _CACHE[ck] = out
         return out

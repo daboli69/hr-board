@@ -55,7 +55,31 @@ def pull_season(start: str, end: str) -> pd.DataFrame:
         "estimated_woba_using_speedangle", "woba_value", "woba_denom",
     ]
     keep = [c for c in keep if c in df.columns]
-    return df[keep].copy()
+    return normalize_frame(df[keep].copy())
+
+
+_NUMERIC_COLS = ("launch_speed", "launch_angle", "launch_speed_angle", "hit_distance_sc",
+                 "hc_x", "hc_y", "bat_speed", "release_speed", "attack_angle",
+                 "inning", "at_bat_number", "pitch_number", "batter", "pitcher", "game_pk",
+                 "woba_value", "estimated_woba_using_speedangle", "release_spin_rate")
+
+
+def normalize_frame(df: pd.DataFrame) -> pd.DataFrame:
+    """Single choke point that immunizes every downstream function against pandas
+    nullable/Arrow dtypes (the runner-vs-dev skew that broke labels and the grader).
+    Values are untouched: numerics become plain float64 (NaN preserved), text becomes
+    plain objects with np.nan for missing — so .notna(), .eq(), == and boolean masks
+    all behave classically. Provably semantics-preserving; see the equivalence test."""
+    if df is None or df.empty:
+        return df
+    for c in df.columns:
+        if c in _NUMERIC_COLS:
+            df[c] = pd.to_numeric(df[c], errors="coerce").astype("float64")
+        else:
+            col = df[c]
+            if not (col.dtype == object):
+                df[c] = np.asarray(col.astype(object).where(col.notna(), np.nan), dtype=object)
+    return df
 
 
 def batted_ball_sample(df: pd.DataFrame, batter_ids) -> dict:
@@ -759,4 +783,32 @@ def _labels_core(bb, pa, min_bbe):
     print(f"[labels] funnel: {n_pool} hitters with {min_bbe}+ BBE -> {n_base} pass base -> "
           f"{sum(1 for v in out.values() if v=='elite')}/{sum(1 for v in out.values() if v=='fb')}/"
           f"{sum(1 for v in out.values() if v=='ld')} elite/fb/ld")
+    return out
+
+
+def recent_drives(df: pd.DataFrame, start_date: str, min_dist: int = 240, cap: int = 18) -> dict:
+    """Recent air balls per batter for the spray chart + robbed scan:
+    {batter: [{ev, la, spray, dist, hr, date}]} — in-play, la >= 10, tracked distance,
+    most recent `cap` per batter. Distances are the REAL observed carries."""
+    need = {"batter", "game_date", "events", "launch_speed", "launch_angle",
+            "hc_x", "hc_y", "hit_distance_sc"}
+    if df is None or df.empty or not need.issubset(df.columns):
+        return {}
+    w = df[df["game_date"].astype(str).str[:10] >= start_date]
+    d = w[w["launch_speed"].notna() & w["launch_angle"].notna() & w["events"].notna()
+          & w["hc_x"].notna() & w["hc_y"].notna() & w["hit_distance_sc"].notna()].copy()
+    d = d[(d["launch_angle"] >= 10) & (d["hit_distance_sc"] >= min_dist)]
+    if d.empty:
+        return {}
+    d["spray"] = np.degrees(np.arctan2(d["hc_x"].to_numpy(float) - 125.42,
+                                       198.27 - d["hc_y"].to_numpy(float)))
+    d = d.sort_values("game_date")
+    out = {}
+    for bid, g in d.groupby("batter"):
+        g = g.tail(cap)
+        out[int(bid)] = [{
+            "ev": round(float(r.launch_speed), 1), "la": round(float(r.launch_angle), 1),
+            "spray": round(float(r.spray), 1), "dist": int(r.hit_distance_sc),
+            "hr": (r.events == "home_run"), "date": str(r.game_date)[:10],
+        } for r in g.itertuples()]
     return out
