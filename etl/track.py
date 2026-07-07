@@ -15,6 +15,7 @@ import time
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
+import numpy as np
 from pybaseball import statcast
 
 BOARD_PATH = os.environ.get("BOARD_OUT", "docs/board.json")
@@ -45,20 +46,41 @@ def _load_day(date):
     return None
 
 
+def _normalize_sc(sc):
+    """Modern pandas hands back nullable/Arrow dtypes (Int64, string) whose masks and
+    scalars raise on NA. Coerce once so the grading math runs on plain numpy types."""
+    import pandas as pd
+    sc = sc.copy()
+    for c in ("inning", "at_bat_number", "pitch_number", "batter", "pitcher", "game_pk"):
+        if c in sc.columns:
+            sc[c] = pd.to_numeric(sc[c], errors="coerce")
+    for c in ("events", "inning_topbot"):
+        if c in sc.columns:
+            sc[c] = np.asarray(sc[c].astype(object).where(sc[c].notna(), ""), dtype=object)
+    return sc
+
+
 def _starters(sc):
     starters = {}
-    for (gp, half), grp in sc[sc["inning"] == 1].groupby(["game_pk", "inning_topbot"]):
+    inn1 = sc[sc["inning"].to_numpy() == 1]
+    for (gp, half), grp in inn1.groupby(["game_pk", "inning_topbot"]):
         g = grp.sort_values(["at_bat_number", "pitch_number"])
-        starters[(int(gp), half)] = int(g.iloc[0]["pitcher"])
+        p0 = g.iloc[0]["pitcher"]
+        if p0 == p0:                                   # NaN-safe
+            starters[(int(gp), half)] = int(p0)
     return starters
 
 
 def _hr_map(sc):
     starters = _starters(sc)
     out = {}
-    for _, row in sc[sc["events"] == "home_run"].iterrows():
+    hrs = sc[sc["events"].to_numpy() == "home_run"]
+    for _, row in hrs.iterrows():
+        if row["batter"] != row["batter"] or row["game_pk"] != row["game_pk"]:
+            continue
         bid = int(row["batter"]); gp = int(row["game_pk"]); half = row["inning_topbot"]
-        is_sp = starters.get((gp, half)) == int(row["pitcher"])
+        pit = row["pitcher"]
+        is_sp = (pit == pit) and starters.get((gp, half)) == int(pit)
         rec = out.setdefault(bid, {"hr": 0, "sp": 0, "bp": 0})
         rec["hr"] += 1
         rec["sp" if is_sp else "bp"] += 1
@@ -90,6 +112,7 @@ def grade_date(date):
     if sc is None or len(sc) < MIN_ROWS:
         print(f"[track] insufficient data for {date}; will retry next run."); return None
 
+    sc = _normalize_sc(sc)
     hrmap = _hr_map(sc)
     def homered(p): return hrmap.get(p["id"], {}).get("hr", 0) > 0
 
@@ -211,7 +234,11 @@ def grade():
         date = (today - timedelta(days=off)).strftime("%Y-%m-%d")
         if date in graded:
             continue
-        rec = grade_date(date)                  # only returns a record if it CAN be graded
+        try:
+            rec = grade_date(date)              # only returns a record if it CAN be graded
+        except Exception as e:
+            print(f"[track] {date} grade failed ({type(e).__name__}: {e}) — skipping, will retry next run.")
+            rec = None
         if rec:
             history.append(rec)
             graded.add(date)

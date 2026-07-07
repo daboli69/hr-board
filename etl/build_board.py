@@ -28,6 +28,13 @@ except Exception:
 
 ET = ZoneInfo("America/New_York")
 SEASON_START = os.environ.get("SEASON_START", "2026-03-26")
+BUILD_HEALTH = []          # subsystem skip notes; shipped in board.json as build_health
+
+
+def _hnote(sub, err):
+    BUILD_HEALTH.append({"sub": sub, "issue": f"{type(err).__name__}: {err}"[:160]})
+
+
 RECENT_DAYS = int(os.environ.get("RECENT_DAYS", "45"))  # window for L5/L15/L30
 OUT_PATH = os.environ.get("BOARD_OUT", "docs/board.json")
 MIN_STATCAST_ROWS = int(os.environ.get("MIN_STATCAST_ROWS", "5000"))
@@ -141,10 +148,10 @@ def build(date_str: str | None = None) -> dict:
                 pen_names = {int(k): v.get("name", "") for k, v in
                              statsapi.get_handedness(all_arms).items()}
             except Exception as e:
-                print(f"[build] bullpen name lookup skipped: {e}")
+                _hnote("bullpen name lookup", e); print(f"[build] bullpen name lookup skipped: {e}")
         print(f"[build] BvP: {len(bvp)} matchups, {sum(len(a) for a in pen_arms.values())} active arms")
     except Exception as e:
-        print(f"[build] BvP skipped: {e}")
+        _hnote("BvP", e); print(f"[build] BvP skipped: {e}")
 
     # career BvP vs the starter (MLB Stats API), cached so the day's builds share one fetch
     import time as _t
@@ -158,30 +165,30 @@ def build(date_str: str | None = None) -> dict:
     try:                                           # season HR distribution by batting-order slot
         hr_spot = statcast_data.hr_by_lineup_spot(df)
     except Exception as e:
-        hr_spot = {}; print(f"[build] hr_by_spot skipped: {e}")
+        hr_spot = {}; _hnote("hr_by_spot", e); print(f"[build] hr_by_spot skipped: {e}")
 
     try:                                           # opener detection: how deep starters really go
         start_lens = statcast_data.starter_lengths(df)
         p_apps = statcast_data.pitcher_appearances(df)
     except Exception as e:
-        start_lens, p_apps = {}, {}; print(f"[build] starter lengths skipped: {e}")
+        start_lens, p_apps = {}, {}; _hnote("starter lengths", e); print(f"[build] starter lengths skipped: {e}")
 
     try:                                           # B2B: homered in his most recent game
         b2b_set = statcast_data.hr_last_game(df)
     except Exception as e:
-        b2b_set = set(); print(f"[build] hr_last_game skipped: {e}")
+        b2b_set = set(); _hnote("hr_last_game", e); print(f"[build] hr_last_game skipped: {e}")
 
     try:                                           # per-park wind sensitivity (weekly, archived wx)
         from etl import wind_sens as WS
         ws_cache = os.path.join(os.path.dirname(__file__), "..", "docs", "wind_sens.json")
         park_model.set_wind_sens(WS.load_wind_sensitivity(ws_cache, df=df))
     except Exception as e:
-        print(f"[build] wind sensitivity skipped: {e}")
+        _hnote("wind sensitivity", e); print(f"[build] wind sensitivity skipped: {e}")
 
     try:                                           # pitcher batted-ball mix allowed (FB% = target)
         p_batted = statcast_data.pitcher_batted_profile(df)
     except Exception as e:
-        p_batted = {}; print(f"[build] pitcher batted profile skipped: {e}")
+        p_batted = {}; _hnote("pitcher batted profile", e); print(f"[build] pitcher batted profile skipped: {e}")
 
     try:                                           # PF-style profile labels (trailing 14d)
         _lab_start = (datetime.strptime(date_str, "%Y-%m-%d") - timedelta(days=14)).strftime("%Y-%m-%d")
@@ -190,7 +197,7 @@ def build(date_str: str | None = None) -> dict:
               f"{sum(1 for v in hit_labels.values() if v=='fb')} fb, "
               f"{sum(1 for v in hit_labels.values() if v=='ld')} ld")
     except Exception as e:
-        hit_labels = {}; print(f"[build] labels skipped: {e}")
+        hit_labels = {}; _hnote("labels", e); print(f"[build] labels skipped: {e}")
 
     # statsapi and Statcast mostly share team abbreviations; a few differ.
     _TEAM_ALIAS = {"AZ": "ARI", "ARI": "AZ", "CWS": "CHW", "CHW": "CWS",
@@ -512,10 +519,47 @@ def build(date_str: str | None = None) -> dict:
         pf_cache = os.path.join(os.path.dirname(__file__), "..", "docs", "park_factors.json")
         savant = park_factors.load_park_factors(pf_cache, df=df, year=now.year)
         gpk_home = {g["game_pk"]: g["home"] for g in games}     # durable key for the factor lookup
+
+        try:                                       # recent deep contact for spray chart + robbed scan
+            _drv_start = (datetime.strptime(date_str, "%Y-%m-%d") - timedelta(days=14)).strftime("%Y-%m-%d")
+            drives_map = statcast_data.recent_drives(df, _drv_start)
+        except Exception as e:
+            drives_map = {}; _hnote("recent drives", e); print(f"[build] recent drives skipped: {e}")
+
         by_game = {}
         for p in players:
             by_game.setdefault((p["park"], p["time"], p["game_pk"]), []).append(p)
         for (venue, gtime, pk), ps in by_game.items():
+            # tonight's conditions once per game, reused for every hitter's robbed check
+            try:
+                rho_g, wind_g = park_model.game_conditions(venue, gtime)
+            except Exception:
+                rho_g, wind_g = None, None
+            for p in ps:
+                drv = drives_map.get(p["id"]) or []
+                if not drv:
+                    continue
+                flags = [0] * len(drv)
+                if rho_g is not None:
+                    deep = [(j, d) for j, d in enumerate(drv)
+                            if (not d["hr"]) and d["dist"] >= 330 and 15 <= d["la"] <= 45]
+                    if deep:
+                        cl = park_model.clears_here([d["ev"] for _, d in deep],
+                                                    [d["la"] for _, d in deep],
+                                                    [d["spray"] for _, d in deep],
+                                                    venue, rho_g, wind_g)
+                        for (j, d), c in zip(deep, cl):
+                            if bool(c):
+                                flags[j] = 2                       # robbed: out here tonight
+                for j, d in enumerate(drv):
+                    if d["hr"]:
+                        flags[j] = 1
+                p["drives"] = [[d["spray"], d["dist"], flags[j]] for j, d in enumerate(drv)]
+                robbed = [(d, ) for j, d in enumerate(drv) if flags[j] == 2]
+                if robbed:
+                    best = max((d for j, d in enumerate(drv) if flags[j] == 2), key=lambda x: x["dist"])
+                    p["robbed"] = {"n": sum(1 for f in flags if f == 2),
+                                   "best_ft": best["dist"], "best_date": best["date"]}
             evs, las, sprays, spans = [], [], [], []
             for p in ps:
                 s = bb_samples.get(p["id"])
@@ -540,7 +584,7 @@ def build(date_str: str | None = None) -> dict:
                     p["park_hr"] = agg
                 i += n
     except Exception as e:
-        print(f"[build] park model skipped: {e}")
+        _hnote("park model", e); print(f"[build] park model skipped: {e}")
 
     # ---- decision helpers ----
     def _thin(p):
@@ -611,6 +655,48 @@ def build(date_str: str | None = None) -> dict:
         })
     stacks.sort(key=lambda s: (s["stack_score"], len(s["hitters"])), reverse=True)
 
+    # ---- fences for the spray chart + the morning briefing ----
+    fences = {}
+    try:
+        for g in games:
+            if g["park"] not in fences:
+                fences[g["park"]] = park_model.fence_polyline(g["park"])
+    except Exception as e:
+        _hnote("fences", e); print(f"[build] fences skipped: {e}")
+
+    briefing = []
+    try:
+        boosts = [(p["park_hr"]["boost"], p) for p in players
+                  if p.get("park_hr") and p["park_hr"].get("boost") is not None]
+        if boosts:
+            b, p = max(boosts, key=lambda x: x[0])
+            if b >= 8:
+                w = (p["park_hr"].get("wind_mph"))
+                briefing.append(f"Best environment: {p['park']} at +{b}%"
+                                + (f" with wind {w} mph" if w else "") + ".")
+        opener_teams = sorted({p["opp_team"] for p in players
+                               if (p.get("opp_pitcher") or {}).get("opener")})
+        if opener_teams:
+            briefing.append(("Bullpen game" if len(opener_teams) == 1 else "Bullpen games")
+                            + f" vs {', '.join(opener_teams)} — weigh the pen, not the listed arm.")
+        rb = sorted([p for p in players if p.get("robbed")],
+                    key=lambda p: (-p["robbed"]["n"], -p["robbed"]["best_ft"]))[:2]
+        for p in rb:
+            r = p["robbed"]
+            briefing.append(f"Robbed watch: {p['name']} — {r['best_ft']}ft out on {r['best_date'][5:]} "
+                            f"clears here tonight" + (f" ({r['n']} such balls)." if r["n"] > 1 else "."))
+        b2b = [p for p in players if p.get("hr_last_game") and p["heat"] >= 70]
+        if b2b:
+            names = ", ".join(p["name"] for p in b2b[:2])
+            briefing.append(f"B2B fade: {names} homered last night — bases over HR by your rules.")
+        nlab = {"elite": 0, "fb": 0, "ld": 0}
+        for p in players:
+            if p.get("hit_label"): nlab[p["hit_label"]] += 1
+        if sum(nlab.values()):
+            briefing.append(f"Profiles on slate: {nlab['elite']} ELITE · {nlab['fb']} FB · {nlab['ld']} LD.")
+    except Exception as e:
+        _hnote("briefing", e); print(f"[build] briefing skipped: {e}")
+
     # per-game weather summaries for the Weather dashboard (roof call, disruption status,
     # wind rendered relative to each park's actual orientation)
     wx_list = []
@@ -644,7 +730,7 @@ def build(date_str: str | None = None) -> dict:
                 "wind_rel_deg": rel, "roof": roof, "status": status,
             })
     except Exception as e:
-        print(f"[build] weather summaries skipped: {e}")
+        _hnote("weather summaries", e); print(f"[build] weather summaries skipped: {e}")
 
     board = {
         "generated_at": now.isoformat(timespec="seconds"),
@@ -668,7 +754,18 @@ def build(date_str: str | None = None) -> dict:
         "top_plays": top_plays,
         "stacks": stacks,
         "wx": wx_list,
+        "fences": fences,
+        "briefing": briefing,
         "label_diag": getattr(statcast_data, "LAST_LABEL_DIAG", {}),
+        "build_health": {
+            "df_rows": int(len(df)) if df is not None else 0,
+            "players": len(players), "arms_ok": True,
+            "labeled": sum(1 for p in players if p.get("hit_label")),
+            "b2b": sum(1 for p in players if p.get("hr_last_game")),
+            "openers": sum(1 for p in players if (p.get("opp_pitcher") or {}).get("opener")),
+            "stacks": len(stacks), "wx": len(wx_list),
+            "issues": BUILD_HEALTH,
+        },
         "arms": sorted([
             {
                 "name": slate["pitchers"].get(pid, {}).get("name", str(pid)),
@@ -774,8 +871,11 @@ def main():
         cand.sort(reverse=True)
         smash_ids = {pid for _, pid in cand[:3]}
         print(f"[build] SMASH: {len(smash_ids)} flagged")
+        if smash_ids:
+            _nm = [p["name"] for p in board["players"] if p["id"] in smash_ids]
+            board.setdefault("briefing", []).insert(0, "SMASH today: " + " · ".join(_nm) + ".")
     except Exception as e:
-        print(f"[build] smash calc skipped: {e}")
+        _hnote("smash calc", e); print(f"[build] smash calc skipped: {e}")
 
     # slim daily snapshot so the grader can grade this day even after the live
     # board rolls over to tomorrow's slate

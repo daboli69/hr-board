@@ -1,0 +1,2444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<title>Going Yard — MLB Home Run Board</title>
+<meta name="theme-color" content="#0E1116" />
+<meta name="description" content="A daily MLB home-run scouting board — hitters ranked by recent power form against the pitcher they face." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%230E1116' stroke='%23C8472B' stroke-width='2'/%3E%3Cpath d='M9 6c4 4 4 16 0 20M23 6c-4 4-4 16 0 20' fill='none' stroke='%23C8472B' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;900&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0E1116; --panel:#161B22; --panel-2:#1B222B; --line:#252D38;
+    --ink:#E8EDF2; --muted:#8A95A3; --faint:#5B6573;
+    --seam:#C8472B;            /* baseball-seam red, the one accent */
+    --cold:#3E7CB1; --hot:#E4572E;
+    --good:#5FB97A; --bad:#D6604A;
+    --warm:#C9A961;            /* muted amber for chips */
+    --proof:#C2A24E;           /* quiet gold — validating markers (SMASH, HR-history) */
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  body{padding-bottom:60px}
+  ::selection{background:rgba(200,71,43,.32)}
+  :focus-visible{outline:2px solid var(--seam);outline-offset:2px;border-radius:6px}
+  button{-webkit-tap-highlight-color:transparent}
+  button:active{transform:scale(.97)}
+  @media (prefers-reduced-motion:reduce){
+    *{animation-duration:.001ms!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
+  }
+  .mono{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+
+  /* ---- header ---- */
+  header{position:sticky;top:0;z-index:20;background:rgba(14,17,22,.92);
+    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--line);
+    padding:12px 16px 11px;padding-top:max(12px,env(safe-area-inset-top))}
+  header>.brand,header>.meta,header>.controls,header>#boardControls{max-width:760px;margin-left:auto;margin-right:auto}
+  .brand{display:flex;align-items:baseline;gap:10px}
+  .brand h1{font-family:Archivo;font-weight:900;font-size:21px;letter-spacing:-.02em;
+    margin:0;text-transform:uppercase}
+  .brand h1 .yard{color:var(--seam)}
+  #helpBtn{margin-left:auto;align-self:center;flex:none;width:26px;height:26px;border-radius:50%;
+    border:1px solid var(--line);background:var(--panel-2);color:var(--muted);
+    font-family:Archivo;font-weight:800;font-size:14px;cursor:pointer;line-height:1}
+  #helpBtn:active{background:var(--panel)}
+  .faq{position:fixed;inset:0;z-index:50;background:rgba(6,9,12,0);
+    display:flex;align-items:flex-end;justify-content:center;
+    visibility:hidden;opacity:0;transition:opacity .25s ease,background .25s ease,visibility 0s .25s}
+  .faq.show{visibility:visible;opacity:1;background:rgba(6,9,12,.72);
+    transition:opacity .25s ease,background .25s ease}
+  body:has(.faq.show){overflow:hidden}
+  .faq-box{background:var(--bg);border:1px solid var(--line);border-radius:18px 18px 0 0;
+    width:100%;max-width:760px;max-height:90vh;display:flex;flex-direction:column;
+    transform:translateY(100%);transition:transform .3s cubic-bezier(.32,.72,0,1)}
+  .faq.show .faq-box{transform:translateY(0)}
+  .faq-head{display:flex;align-items:center;justify-content:space-between;
+    padding:16px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg)}
+  .faq-head h2{margin:0;font-family:Archivo;font-weight:900;font-size:18px}
+  .faq-head button{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer}
+  .faq-body{padding:14px 18px 32px;overflow-y:auto}
+  .faq-lead{color:var(--muted);font-size:13px;line-height:1.6;margin:4px 0 8px}
+  .faq-body h3{font-family:Archivo;font-weight:700;font-size:13px;letter-spacing:.03em;
+    text-transform:uppercase;color:var(--seam);margin:18px 0 6px}
+  .faq-body p{font-size:13px;line-height:1.65;color:var(--ink);margin:0 0 8px}
+  .faq-body p b{color:var(--ink);font-weight:700}
+  .stamp{font-size:11px;color:var(--muted)}
+  .stamp.mono{letter-spacing:.02em}
+  .meta{display:flex;gap:14px;margin-top:6px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+  .meta b{color:var(--ink);font-weight:600}
+
+  /* onboarding */
+  .welcome{max-width:760px;margin:10px auto 0;padding:0 12px;animation:fadeIn .4s ease}
+  .welcome-in{position:relative;background:linear-gradient(135deg,rgba(200,71,43,.12),var(--panel));
+    border:1px solid var(--line);border-radius:12px;padding:13px 40px 13px 14px}
+  .welcome-in p{margin:0 0 8px;font-size:13px;line-height:1.55;color:var(--ink)}
+  .wlink{background:none;border:none;color:var(--seam);font:inherit;font-size:13px;font-weight:700;
+    cursor:pointer;padding:0}
+  .wclose{position:absolute;top:10px;right:10px;background:none;border:none;color:var(--muted);
+    font-size:15px;cursor:pointer;line-height:1;padding:4px}
+  /* loading skeleton */
+  .skel{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin:5px 0;
+    height:54px;position:relative;overflow:hidden}
+  .skel::after{content:"";position:absolute;inset:0;transform:translateX(-100%);
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.04),transparent);
+    animation:shimmer 1.4s infinite}
+  @keyframes shimmer{100%{transform:translateX(100%)}}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+
+  .controls{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center}
+  .seg{display:inline-flex;background:var(--panel);border:1px solid var(--line);
+    border-radius:9px;overflow:hidden}
+  .seg button{background:none;border:none;color:var(--muted);font:inherit;font-size:12px;
+    padding:7px 12px;cursor:pointer;font-weight:500}
+  .seg button[aria-pressed="true"]{background:var(--panel-2);color:var(--ink)}
+  #sort{max-width:100%;overflow-x:auto;scrollbar-width:none}
+  #sort::-webkit-scrollbar{display:none}
+  #sort button{white-space:nowrap}
+  #view{max-width:100%;overflow-x:auto;scrollbar-width:none}
+  #view::-webkit-scrollbar{display:none}
+  #view button{white-space:nowrap}
+  .seg-lab{color:var(--muted);font-size:11px;font-weight:600;padding:7px 10px;
+    border-right:1px solid var(--line);text-transform:uppercase;letter-spacing:.03em;
+    align-self:center;cursor:default;user-select:none}
+  #mixSeg button[aria-pressed="true"]{background:var(--hot);color:#0c0f14;font-weight:800}
+  #luckF button[aria-pressed="true"],#dryF button[aria-pressed="true"]{
+    background:var(--seam);color:#0c0f14;font-weight:700}
+  .search{flex:1;min-width:120px;background:var(--panel);border:1px solid var(--line);
+    border-radius:9px;color:var(--ink);font:inherit;font-size:13px;padding:8px 11px}
+  .search::placeholder{color:var(--faint)}
+
+  .legend{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:11px;color:var(--muted);flex-wrap:wrap}
+  .faq-legend{margin:0 0 14px}
+  #tabbar{position:fixed;left:0;right:0;bottom:0;z-index:60;display:flex;
+    background:rgba(14,17,22,.94);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border-top:1px solid var(--line);padding:7px 4px calc(7px + env(safe-area-inset-bottom))}
+  #tabbar button{flex:1;min-width:0;background:none;border:none;color:var(--faint);cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:3px;padding:3px 2px;
+    font:inherit;font-size:9px;font-weight:600;letter-spacing:.02em;
+    transition:color .14s ease;-webkit-tap-highlight-color:transparent}
+  #tabbar button svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7;
+    stroke-linecap:round;stroke-linejoin:round;transition:transform .14s ease}
+  #tabbar button[aria-pressed="true"]{color:var(--seam)}
+  #tabbar button[aria-pressed="true"] svg{transform:translateY(-1px)}
+  #tabbar button:active svg{transform:scale(.9)}
+  #main{padding-bottom:78px}
+  .cbar{display:flex;gap:8px;align-items:center;margin-top:9px}
+  .sortsel{flex:none;background:var(--panel);border:1px solid var(--line);color:var(--ink);
+    font:inherit;font-size:12px;font-weight:600;padding:8px 26px 8px 11px;border-radius:9px;
+    -webkit-appearance:none;appearance:none;cursor:pointer;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%23788696' stroke-width='1.6' stroke-linecap='round'><path d='M3 4.5L6 7.5L9 4.5'/></svg>");
+    background-repeat:no-repeat;background-position:right 9px center}
+  .chiprow{display:flex;gap:6px;align-items:center;margin-top:8px;overflow-x:auto;scrollbar-width:none}
+  .chiprow::-webkit-scrollbar{display:none}
+  .chip{flex:none;background:var(--panel);border:1px solid var(--line);color:var(--muted);
+    font:inherit;font-size:11px;font-weight:600;padding:6px 11px;border-radius:999px;cursor:pointer;
+    white-space:nowrap;-webkit-tap-highlight-color:transparent}
+  .chip[aria-pressed="true"]{border-color:var(--seam);color:var(--seam);background:rgba(200,71,43,.09)}
+  .shown-count{margin-left:auto;flex:none;font-size:11px;color:var(--faint);white-space:nowrap;padding-right:2px}
+  details.sec{margin-top:12px;border-top:1px solid var(--line)}
+  details.sec>summary{list-style:none;cursor:pointer;padding:11px 0 7px;font-family:Archivo;
+    font-weight:700;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);
+    display:flex;align-items:center;justify-content:space-between;-webkit-tap-highlight-color:transparent}
+  details.sec>summary::-webkit-details-marker{display:none}
+  details.sec>summary::after{content:"⌄";font-size:15px;line-height:1;color:var(--faint);
+    transition:transform .15s ease;margin-left:8px}
+  details.sec[open]>summary{color:var(--ink)}
+  details.sec[open]>summary::after{transform:rotate(180deg)}
+  .row{position:relative}
+  .row::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
+    background:var(--tc,transparent);border-radius:10px 0 0 10px;pointer-events:none}
+  .opener-tag{display:inline-block;font-family:"IBM Plex Mono";font-weight:700;font-size:8.5px;
+    letter-spacing:.05em;color:#9aa4b2;background:rgba(120,134,150,.12);
+    border:1px solid rgba(120,134,150,.3);padding:1px 5px;border-radius:4px;vertical-align:middle}
+  .opener-note{background:rgba(120,134,150,.08);border:1px solid rgba(120,134,150,.22);
+    border-radius:8px;padding:8px 10px;margin:6px 0 8px;font-size:11.5px;color:var(--muted);line-height:1.5}
+  .lg-scale{display:inline-flex;align-items:center;gap:8px}
+  .lg-note{color:var(--faint)}
+  .grad{height:7px;width:120px;border-radius:4px;
+    background:linear-gradient(90deg,var(--cold),#3a4250 48%,var(--hot))}
+  @media (hover:hover){.th:hover{color:var(--muted)}}
+
+  /* ---- list ---- */
+  main{padding:10px 12px 0;max-width:760px;margin:0 auto}
+  .pending{font-size:12px;color:var(--muted);background:var(--panel);
+    border:1px dashed var(--line);border-radius:10px;padding:10px 12px;margin:8px 0}
+
+  .row{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    content-visibility:auto;contain-intrinsic-size:auto 92px;
+    margin:5px 0;overflow:hidden;transition:border-color .15s ease,box-shadow .15s ease}
+  @media (hover:hover){.row:hover{border-color:#303a47}}
+  .crow{transition:background .12s ease}
+  .crow:active{background:var(--panel-2)}
+  .row.open{border-color:#33404f;box-shadow:0 4px 18px rgba(0,0,0,.25)}
+  .detail{animation:fadeIn .22s ease}
+  /* compact grid row */
+  .crow-main,.thead{display:grid;grid-template-columns:18px 34px 1fr auto;
+    gap:8px;align-items:center}
+  .crow-main{align-items:center}
+  .crow{padding:7px 9px;cursor:pointer}
+  .crow .badges{padding-left:60px;margin:3px 0 0}
+  .thead{padding:7px 9px;position:sticky;top:var(--hh,200px);z-index:8;background:var(--bg);
+    border-bottom:1px solid var(--line);margin-bottom:2px}
+  .thead .rank{width:auto}
+  .th{font-size:9.5px;letter-spacing:.04em;color:var(--faint);text-transform:uppercase;
+    font-weight:600;cursor:pointer;text-align:center;white-space:nowrap}
+  .th.cheath{text-align:center}.th.cwhoh{text-align:left}
+  .th.on{color:var(--ink)}
+  .cheat{font-family:Archivo;font-weight:900;font-size:15px;height:30px;border-radius:7px;
+    display:flex;align-items:center;justify-content:center}
+  .cwho{min-width:0}
+  .cwho .name{font-family:Archivo;font-weight:700;font-size:14px;letter-spacing:-.01em;
+    display:flex;align-items:flex-start;gap:5px;line-height:1.15}
+  .cwho .nm-txt{min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+    overflow:hidden;word-break:break-word}
+  .bats{flex:none;font-size:9px;font-weight:800;min-width:14px;height:15px;padding:0 2px;
+    display:inline-flex;align-items:center;justify-content:center;border-radius:4px;color:#0c0f14}
+  .b-R{background:#E4572E}.b-L{background:#3E7CB1}.b-S{background:#9B7EDE}.b-undefined{background:#5a6472}
+  .thr{display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;
+    height:15px;padding:0 5px;border-radius:4px;letter-spacing:.02em;color:#0c0f14;vertical-align:middle}
+  .thr.t-R{background:#E4572E}.thr.t-L{background:#3E7CB1;color:#fff}
+  .win-tag{display:inline-block;background:var(--panel-2);border:1px solid var(--line);
+    border-radius:6px;padding:2px 8px;font-size:11px;color:var(--muted);letter-spacing:.01em}
+  .fdot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:middle}
+  .fdot.ok{background:#3fb950;box-shadow:0 0 6px rgba(63,185,80,.6)}
+  .fdot.warn{background:#d9a23a}
+  .fdot.bad{background:#e5534b;animation:pulseDot 1.6s ease-in-out infinite}
+  @keyframes pulseDot{50%{opacity:.4}}
+  .stale{max-width:760px;margin:9px auto 0;padding:10px 14px;font-size:12.5px;line-height:1.5;
+    color:#f0c9a8;background:rgba(229,83,75,.1);border:1px solid rgba(229,83,75,.35);border-radius:10px}
+  .stale b{color:#f3a26a}
+  .compare-row{gap:8px}
+  .tgl{background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:9px;
+    padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;flex:1;transition:all .12s}
+  .tgl:hover{border-color:var(--muted)}
+  .tgl[aria-pressed="true"]{background:var(--hot);color:#0c0f14;border-color:var(--hot);
+    box-shadow:0 0 0 2px rgba(245,158,11,.25)}
+  #thinBtn[aria-pressed="true"]{background:var(--muted);border-color:var(--muted);box-shadow:none}
+  .fbtn{background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:9px;
+    padding:8px 13px;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+  .fbtn:hover{border-color:var(--muted)}
+  .fbtn-go{background:var(--seam);color:#0c0f14;border-color:var(--seam)}
+  .fcount[hidden]{display:none}
+  .fcount{background:var(--seam);color:#0c0f14;font-size:11px;font-weight:800;border-radius:999px;
+    min-width:17px;height:17px;display:inline-flex;align-items:center;justify-content:center;padding:0 4px}
+  .fgrp{margin-bottom:16px}
+  .traitf{display:flex;flex-wrap:wrap;gap:7px}
+  .traitf .bdg{cursor:pointer;opacity:.5;border-width:1px;transition:opacity .12s ease,box-shadow .12s ease}
+  .traitf .bdg[aria-pressed="true"]{opacity:1;box-shadow:0 0 0 2px currentColor}
+  .teamlist{display:flex;flex-wrap:wrap;gap:6px}
+  .teamchip{font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:700;letter-spacing:.02em;
+    padding:6px 10px;border-radius:8px;background:var(--panel-2);color:var(--muted);
+    border:1px solid var(--line);cursor:pointer;transition:all .12s ease}
+  .teamchip:hover{border-color:var(--muted)}
+  .teamchip.on{background:var(--seam);color:#fff;border-color:var(--seam)}
+  .fgrp>label{display:block;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;
+    letter-spacing:.05em;margin-bottom:7px}
+  .fhint{text-transform:none;font-weight:400;color:var(--muted);letter-spacing:0}
+  .gamelist{display:flex;flex-direction:column;gap:6px;max-height:230px;overflow-y:auto}
+  .gameitem{display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--line);
+    border-radius:9px;cursor:pointer;background:var(--panel-2)}
+  .gameitem.on{border-color:var(--seam);background:rgba(228,87,46,.08)}
+  .gameitem .gi-check{width:18px;height:18px;flex:0 0 18px;border:1.5px solid var(--muted);border-radius:5px;
+    display:flex;align-items:center;justify-content:center;color:var(--seam);font-weight:800;font-size:12px}
+  .gameitem.on .gi-check{border-color:var(--seam)}
+  .gi-top{font-size:13px;font-weight:700;color:var(--ink)}
+  .gi-arms{font-size:11px;color:var(--muted);font-family:'IBM Plex Mono';margin-top:2px}
+  .bdg{font-size:9px;font-weight:700;letter-spacing:.04em;padding:1px 5px;border-radius:4px;
+    line-height:1.4;border:1px solid transparent;white-space:nowrap}
+  /* one quiet family: consistent .11 tint, .28 hairline, desaturated mid-tone text.
+     Heat (the number + scale) is the only loud thing on a card — badges stay disciplined. */
+  .bk-lock{background:rgba(95,185,122,.12);color:#71bd8d;border-color:rgba(95,185,122,.28)}
+  .bk-hot{background:rgba(120,178,145,.11);color:#8ab89e;border-color:rgba(120,178,145,.26)}
+  .bk-due{background:rgba(62,124,177,.13);color:#7ea9cf;border-color:rgba(62,124,177,.3)}
+  .bk-pow{background:rgba(201,169,97,.12);color:#c6a662;border-color:rgba(201,169,97,.28)}
+  .bk-mix{background:rgba(126,138,205,.12);color:#95a2d4;border-color:rgba(126,138,205,.28)}
+  .bk-plat{background:rgba(155,126,222,.12);color:#a99cd0;border-color:rgba(155,126,222,.28)}
+  .bk-arm{background:rgba(198,110,80,.11);color:#cd977f;border-color:rgba(198,110,80,.26)}
+  .bk-pen{background:rgba(198,140,110,.1);color:#c6a48d;border-color:rgba(198,140,110,.24)}
+  .bk-cool{background:rgba(120,134,150,.12);color:#9aa4b2;border-color:rgba(120,134,150,.28)}
+  .bk-tough{background:rgba(120,134,150,.1);color:#8a95a3;border-color:rgba(120,134,150,.24)}
+  .bk-hrsp{background:rgba(194,162,78,.12);color:#c2a24e;border-color:rgba(194,162,78,.3)}
+  .bk-hrbp{background:rgba(191,144,104,.12);color:#bf9068;border-color:rgba(191,144,104,.28)}
+  .h4-sub{font-weight:600;color:var(--faint);font-size:10px;text-transform:none;letter-spacing:0}
+  .spotrow{display:flex;gap:4px}
+  .spotcell{flex:1;border:1px solid var(--line);border-radius:7px;padding:6px 0 4px;text-align:center;background:var(--panel)}
+  .spotcell.cur{border-color:#f4c84a;box-shadow:0 0 0 1px #f4c84a inset}
+  .spotn{font-family:"IBM Plex Mono";font-weight:800;font-size:14px;color:var(--ink)}
+  .spotcell .spotlbl{font-size:9px;color:var(--muted);margin-top:1px}
+  .spot-note{font-size:11px;color:var(--muted);margin-top:6px}
+  .clearflag{display:inline-block;margin:0 5px 0 0;font-family:"IBM Plex Mono";font-weight:700;font-size:8.5px;letter-spacing:.06em;color:var(--proof);background:rgba(194,162,78,.08);padding:1px 5px;border-radius:4px;border:1px solid rgba(194,162,78,.38);vertical-align:middle}
+  .clearnote{background:rgba(194,162,78,.07);border:1px solid rgba(194,162,78,.28);border-radius:9px;padding:9px 11px;margin:2px 0 12px;font-size:12px;color:var(--ink);line-height:1.5}
+  .hlab{display:inline-block;font-family:"IBM Plex Mono";font-weight:700;font-size:8.5px;letter-spacing:.05em;padding:1px 5px;border-radius:4px;vertical-align:middle;border:1px solid transparent}
+  .hl-elite{color:#e05252;background:rgba(239,68,68,.09);border-color:rgba(239,68,68,.38)}
+  .hl-fb{color:#4fb96f;background:rgba(34,197,94,.09);border-color:rgba(34,197,94,.36)}
+  .hl-ld{color:#cfb63a;background:rgba(245,214,10,.08);border-color:rgba(245,214,10,.32)}
+  .traitf .hlab{cursor:pointer;font:inherit;font-family:"IBM Plex Mono";font-size:9.5px;padding:4px 9px}
+  .traitf .hlab[aria-pressed="true"]{outline:1.5px solid currentColor;outline-offset:1px}
+  .hlab-note{font-size:11px;color:var(--muted);margin:0 0 12px;line-height:1.5}
+  .brief{background:linear-gradient(180deg,rgba(200,71,43,.06),transparent 80%),var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-bottom:10px}
+  .brief-h{font-family:Archivo;font-weight:800;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--seam);margin-bottom:5px}
+  .brief-ln{font-size:12.5px;color:var(--ink);line-height:1.55;padding:1.5px 0}
+  .robtag{display:inline-block;font-family:"IBM Plex Mono";font-weight:700;font-size:8.5px;letter-spacing:.04em;color:#d98a66;background:rgba(200,71,43,.10);border:1px solid rgba(200,71,43,.35);padding:1px 5px;border-radius:4px;vertical-align:middle}
+  .spray-wrap{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:8px 8px 4px}
+  .sprayviz{width:100%;height:auto;display:block}
+  .spray-key{display:flex;gap:12px;flex-wrap:wrap;padding:4px 4px 6px;font-size:9.5px;color:var(--muted)}
+  .spray-key i{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px;vertical-align:-1px}
+  .bullbear{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+  .bb-col{border:1px solid var(--line);border-radius:10px;padding:9px 10px;background:var(--panel-2)}
+  .bb-h{font-family:Archivo;font-weight:800;font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;margin-bottom:5px}
+  .bb-bull .bb-h{color:var(--good)} .bb-bear .bb-h{color:var(--bad)}
+  .bb-li{font-size:11px;color:var(--muted);line-height:1.5;padding:1.5px 0}
+  .bb-li::before{content:"· ";color:var(--faint)}
+  .bb-none{color:var(--faint);font-style:italic}
+  .tt-wrap{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:14px}
+  .tt-h{font-family:Archivo;font-weight:800;font-size:14px;display:flex;flex-direction:column;gap:2px;margin-bottom:9px}
+  .tt-h span{font-weight:500;font-size:10.5px;color:var(--faint);letter-spacing:0}
+  .tt-cols,.tt-row{display:grid;grid-template-columns:1fr auto 26px 52px 30px;gap:7px;align-items:center}
+  .tt-cols{font-size:9px;text-transform:uppercase;letter-spacing:.04em;color:var(--faint);padding:0 2px 5px;border-bottom:1px solid var(--line)}
+  .tt-cols .tt-rate,.tt-cols .tt-bet{text-align:right}.tt-cols .tt-n,.tt-cols .tt-live{text-align:center}
+  .tt-row{padding:6px 2px;border-bottom:1px solid rgba(255,255,255,.03);font-size:12px}
+  .tt-tag{min-width:0;overflow:hidden}
+  .tt-rate{font-family:"IBM Plex Mono";font-weight:700;text-align:right;color:var(--ink)}
+  .tt-rate em{font-style:normal;font-size:10px;color:var(--muted);margin-left:2px}
+  .tt-n,.tt-live{font-family:"IBM Plex Mono";text-align:center;color:var(--muted);font-size:11px}
+  .tt-bet{font-family:"IBM Plex Mono";text-align:right;font-size:11px;color:var(--muted)}
+  .tt-bet i{font-style:normal;font-size:9px;color:var(--faint)}
+  .tt-trust .tt-rate{color:var(--good)}.tt-fade .tt-rate{color:var(--bad)}.tt-thin .tt-rate{color:var(--warm)}
+  .tt-trust .tt-live{color:var(--good)}
+  .tt-sub-h{font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--faint);margin:11px 0 5px}
+  .tt-combo{display:flex;justify-content:space-between;align-items:center;padding:4px 2px;font-size:12px;gap:8px}
+  .tt-combo-tags{display:flex;align-items:center;flex-wrap:wrap;gap:2px;min-width:0}
+  .tt-combo b{font-family:"IBM Plex Mono"}
+  .tt-combo i{font-style:normal;font-size:9px;color:var(--faint);margin-left:3px}
+  .tt-plus{color:var(--faint);margin:0 2px;font-size:10px}
+  .tt-legend{font-size:10px;color:var(--faint);line-height:1.55;margin-top:10px}
+  .mixd{font-family:'IBM Plex Mono';font-weight:800;font-size:11px;padding:1px 5px;border-radius:5px;margin-right:4px}
+  .mixd.up{background:rgba(245,158,11,.18);color:#fbbf24}
+  .mixd.down{background:rgba(62,124,177,.18);color:#7fb0dd}
+  .mixd.flat{background:var(--panel-2);color:var(--faint)}
+  .bpchip{display:inline-block;font-family:"IBM Plex Mono";font-weight:800;font-size:10px;color:#0c0f14;
+    padding:1px 6px;border-radius:5px;vertical-align:middle}
+  .parkbox{background:var(--panel-2);border:1px solid var(--line);border-radius:11px;padding:11px 13px;margin:0 0 12px}
+  .parkbox-h{font-family:Archivo;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .pk-boost{font-family:"IBM Plex Mono";font-weight:800;font-size:13px;padding:2px 8px;border-radius:6px}
+  .pk-boost.pos{color:#56c878;background:rgba(63,185,80,.14)}
+  .pk-boost.neg{color:#e98980;background:rgba(229,83,75,.14)}
+  .parkbox-sub{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5}
+  .parkbox-cond{font-family:"IBM Plex Mono";font-size:11.5px;color:var(--seam);margin-top:5px;font-weight:600}
+  .parkbox-note{font-size:11px;color:var(--faint);margin-top:6px;line-height:1.45}
+  .liststar{color:#f4c84a;margin-left:5px;font-size:12px}
+  .listbtn{display:inline-block;margin:2px 0 10px;padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--muted);font-family:Archivo;font-weight:700;font-size:12px;cursor:pointer}
+  .listbtn.on{color:#f4c84a;border-color:#f4c84a}
+  .pl-wrap{padding:4px 0 20px}
+  .pl-conf{background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:13px 14px;margin-bottom:14px}
+  .pl-conf-h{font-family:Archivo;font-weight:800;font-size:13px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+  .pl-conf-h span{font-family:"IBM Plex Mono";font-size:11px;font-weight:700}
+  .pl-conf-bar{height:7px;background:var(--panel);border-radius:5px;overflow:hidden;margin:9px 0 8px}
+  .pl-conf-bar span{display:block;height:100%;border-radius:5px;transition:width .4s}
+  .pl-conf-sub{font-size:11.5px;color:var(--muted);line-height:1.5}
+  .pl-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 13px;margin-bottom:11px}
+  .pl-card-h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+  .pl-card-h b{font-family:Archivo;font-weight:800;font-size:14px}
+  .pl-comb{font-family:"IBM Plex Mono";font-weight:800;font-size:13px;color:var(--seam)}
+  .pl-leg{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--line)}
+  .pl-leg-main b{font-size:13px}
+  .pl-meta{font-size:10.5px;color:var(--muted);display:block;margin-top:1px}
+  .pl-leg-prob{font-family:"IBM Plex Mono";font-weight:800;font-size:14px;text-align:right;white-space:nowrap}
+  .pl-leg-prob span{display:block;font-size:10px;font-weight:600;color:var(--faint)}
+  .pl-foot{font-size:10px;color:var(--faint);margin-top:7px}
+  .pl-card-thin{opacity:.6}
+  .pl-inputs{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .pl-in{font-family:"IBM Plex Mono";font-size:9.5px;font-weight:700;padding:3px 7px;border-radius:20px;border:1px solid var(--line);letter-spacing:.02em}
+  .pl-in.on{color:var(--ink);border-color:var(--seam)}
+  .pl-in.off{color:var(--faint)}
+  .pl-tags{display:flex;gap:5px;margin-top:3px}
+  .pl-tag{font-family:"IBM Plex Mono";font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px}
+  .pl-tag.lb{color:var(--seam);border:1px solid var(--seam)}
+  .pl-tag.up{color:var(--hot);border:1px solid var(--hot)}
+  .pl-tag.dn{color:var(--cool);border:1px solid var(--cool)}
+  .pl-tag.sl{color:var(--good);border:1px solid var(--good)}
+  .pl-tag.warn{background:rgba(198,110,80,.12);color:#cd977f;border-color:rgba(198,110,80,.3)}
+  .pl-tag.mx{color:var(--warm);border:1px solid var(--warm)}
+  .pl-tag.tg{color:var(--seam);border:1px solid var(--line)}
+  .pl-sub{font-size:10.5px;color:var(--muted);margin:-2px 0 6px}
+  .mu-wrap{padding:4px 0 20px}
+  .mu-head{font-family:Archivo;font-weight:800;font-size:14px;display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:12px}
+  .mu-head span{font-family:"IBM Plex Mono";font-size:10.5px;font-weight:600;color:var(--muted)}
+  .mu-card{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-bottom:8px}
+  .mu-card.mu-on{border-color:var(--hot)}
+  .mu-top{display:flex;align-items:baseline;gap:7px;margin-bottom:6px;flex-wrap:wrap}
+  .mu-top b{font-family:Archivo;font-weight:800;font-size:14px}
+  .mu-meta{font-size:10.5px;color:var(--muted)}
+  .mu-row{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:3px 0;border-top:1px solid var(--line)}
+  .mu-lab{color:var(--muted);font-size:11px}
+  .mu-hr{color:var(--proof);font-weight:700;font-family:"IBM Plex Mono";font-size:11px}
+  .mu-faced{color:var(--ink);font-family:"IBM Plex Mono";font-size:11px}
+  .mu-none{color:var(--faint);font-size:11px}
+  .mu-heat{font-family:"IBM Plex Mono";font-weight:800;font-size:12px;color:#0c1116;padding:2px 6px;border-radius:6px;min-width:24px;text-align:center}
+  .mu-src{font-size:9.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.03em}
+  .mu-yr{font-size:9.5px;color:var(--muted);margin-left:4px}
+  .mu-sort{margin-bottom:12px}
+  .mu-sort button[aria-pressed="true"]{background:var(--panel-2);color:var(--ink)}
+  .pl-note{font-size:11.5px;color:var(--muted);line-height:1.55;margin-top:6px;padding:0 2px}
+  .arm-nm .badges{margin-top:4px}
+  .cmini{font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.45;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .cmetrics{display:grid;grid-template-columns:repeat(4,minmax(34px,40px));gap:5px}
+  .cm{font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;text-align:center;
+    padding:5px 0;border-radius:6px;font-variant-numeric:tabular-nums}
+  .row.open .crow{background:var(--panel-2)}
+  .rank{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--faint);text-align:right}
+  .bats{font-size:10px;color:var(--muted);border:1px solid var(--line);border-radius:4px;
+    padding:1px 4px;font-weight:600}
+  .matchup{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.45}
+  .matchup .vs{color:var(--ink)}
+  .vuln{color:var(--seam);font-weight:600}
+  .armbadge{display:inline-block;font-size:11px;font-weight:600;color:var(--muted);
+    border:1px solid var(--line);border-radius:5px;padding:2px 7px;line-height:1.5}
+  .arms{background:var(--panel);border:1px solid var(--line);border-radius:14px;margin:9px 0 4px;overflow:hidden;transition:border-color .15s ease}
+  @media (hover:hover){.arms:hover,.tp:hover{border-color:#303a47}}
+  .arms-head,.tp-head,.gameitem{transition:background .12s ease}
+  .arms-head:active,.tp-head:active,.gameitem:active{background:var(--panel-2)}
+  .arms-head{display:flex;align-items:center;justify-content:space-between;padding:11px 13px;cursor:pointer}
+  .arms-head h3{margin:0;font-family:Archivo;font-weight:700;font-size:13px;letter-spacing:.02em;text-transform:uppercase}
+  .arms-head .sub{font-size:11px;color:var(--muted)}
+  .arms-body{display:none;border-top:1px solid var(--line)}
+  .arms.open .arms-body{display:block}
+  .arm-row{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;
+    padding:9px 13px;border-bottom:1px solid var(--line);font-size:12px}
+  .arm-row:last-child{border-bottom:none}
+  .arm-sc{font-family:Archivo;font-weight:900;font-size:17px;width:38px;text-align:center;border-radius:8px;padding:3px 0}
+  .arm-nm{min-width:0}
+  .arm-nm b{font-weight:600}
+  .arm-tag{font-size:10px;font-weight:700;letter-spacing:.05em;padding:2px 7px;border-radius:5px}
+  .arm-sub{font-size:10px;color:var(--faint);font-family:"IBM Plex Mono";margin-top:1px}
+  .arm-sub b{color:var(--muted)}
+  .arm-hand{color:var(--faint)}
+  .arm-tap{cursor:pointer}
+  @media (hover:hover){.arm-tap:hover{background:var(--panel-2)}}
+  .arm-note{font-size:10px;color:var(--faint);padding:8px 2px 2px;line-height:1.5}
+  .fbv{color:var(--bad);font-size:10px}.gbv{color:var(--good);font-size:10px}
+  .fbv.hi,.gbv.hi{font-weight:800;font-size:11px}
+  .odds-line{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:0 0 12px;font-size:12px;color:var(--ink)}
+  .odds-line b{font-family:"IBM Plex Mono"}
+  .odds-line span{display:block;font-size:10px;color:var(--faint);margin-top:3px;line-height:1.45}
+  .wx-wrap{max-width:760px;margin:0 auto}
+  .wx-head{font-family:Archivo;font-weight:800;font-size:15px;display:flex;flex-direction:column;gap:2px;margin:4px 0 8px}
+  .wx-head span{font-weight:500;font-size:10.5px;color:var(--faint)}
+  .wx-legend{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+  .wx-key{display:inline-flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)}
+  .wx-key i,.wx-status i{width:8px;height:8px;border-radius:50%;display:inline-block}
+  .wx-card{display:grid;grid-template-columns:1.3fr .8fr 1.2fr 64px 44px;gap:8px;align-items:center;
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:8px;
+    content-visibility:auto;contain-intrinsic-size:auto 110px}
+  .wx-teams{font-family:Archivo;font-weight:800;font-size:14px;display:flex;gap:5px;align-items:baseline}
+  .wx-teams span{color:var(--faint);font-size:11px;font-weight:500}
+  .wx-sub{font-size:10.5px;color:var(--muted)}
+  .wx-status{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted);margin-top:3px}
+  .wx-cond{font-size:11px;color:var(--ink);margin-bottom:3px}
+  .wx-roof{display:inline-block;font-family:"IBM Plex Mono";font-weight:700;font-size:8px;letter-spacing:.05em;color:#9aa4b2;background:rgba(120,134,150,.12);border:1px solid rgba(120,134,150,.3);padding:1px 4px;border-radius:4px}
+  .wx-c3{display:flex;gap:9px}
+  .wx-c3 div{display:flex;flex-direction:column;align-items:center}
+  .wx-c3 b{font-family:"IBM Plex Mono";font-size:13px;color:var(--ink)}
+  .wx-c3 span{font-size:7.5px;color:var(--faint);letter-spacing:.05em}
+  .wx-diamond{width:56px;height:56px}
+  .wx-nowind{font-size:9px;color:var(--faint);text-align:center}
+  .wx-c5{display:flex;flex-direction:column;align-items:center}
+  .wx-c5 b{font-family:"IBM Plex Mono";font-size:15px;color:var(--ink)}
+  .wx-c5 span{font-size:7.5px;color:var(--faint)}
+  @media (max-width:480px){.wx-card{grid-template-columns:1.3fr 1fr 60px 40px}.wx-c2{display:none}}
+  /* tracker */
+  .trk{max-width:760px;margin:0 auto}
+  .trk-sum{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin:8px 0;font-size:13px;line-height:1.6}
+  .trk-sum b{color:var(--ink)}
+  .trk h3{font-family:Archivo;font-weight:700;font-size:13px;letter-spacing:.02em;text-transform:uppercase;margin:18px 0 8px}
+  .trk-row{display:grid;grid-template-columns:78px 1fr 64px;gap:10px;align-items:center;padding:7px 2px;font-size:13px}
+  .trk-row .lab{color:var(--muted);font-weight:600}
+  .trk-bar{height:18px;background:var(--panel-2);border-radius:5px;overflow:hidden}
+  .trk-bar>span{display:block;height:100%;background:linear-gradient(90deg,var(--cold),var(--hot))}
+  .trk-row .val{font-family:"IBM Plex Mono",monospace;font-size:12px;text-align:right;color:var(--ink)}
+  .trk-day{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin:7px 0;padding:11px 13px;font-size:12.5px}
+  .trk-day .d{font-family:Archivo;font-weight:700;font-size:14px}
+  .trk-day .ln{color:var(--muted);margin-top:3px;line-height:1.5}
+  /* top plays + tier */
+  .tier{font-size:8px;font-weight:800;letter-spacing:.04em;padding:1px 4px;border-radius:4px;margin-left:4px}
+  .tier.LOADED{background:#E4572E;color:#fff}
+  .tier.STRONG{background:#E0913A;color:#1a1a1a}
+  .tier.SOLID{background:#3E7CB1;color:#fff}
+  .tier.LEAN{background:var(--panel-2);color:var(--muted);border:1px solid var(--line)}
+  .tier.THIN{background:transparent;color:var(--faint);border:1px solid var(--line)}
+  .tp{background:var(--panel);border:1px solid var(--seam);border-radius:14px;margin:9px 0 4px;overflow:hidden}
+  .tp-head{display:flex;align-items:center;justify-content:space-between;padding:11px 13px;cursor:pointer}
+  .tp-head h3{margin:0;font-family:Archivo;font-weight:900;font-size:14px;letter-spacing:.02em;text-transform:uppercase}
+  .tp-head h3 .y{color:var(--seam)}
+  .tp-body{border-top:1px solid var(--line);display:none}
+  .tp-cat-h{display:flex;align-items:baseline;gap:7px;padding:9px 13px 5px;font-family:Archivo;
+    font-weight:800;font-size:12px;letter-spacing:.03em;color:var(--ink);
+    border-top:1px solid var(--line);background:var(--panel-2)}
+  .tp-cat:first-child .tp-cat-h{border-top:none}
+  .tp-cat-h span{font-family:'IBM Plex Mono';font-weight:400;font-size:10.5px;
+    text-transform:none;letter-spacing:0;color:var(--muted)}
+  .tp.open .tp-body{display:block}
+  .tp-row{padding:9px 13px;border-bottom:1px solid var(--line)}
+  .tp-row:last-child{border-bottom:none}
+  .tp-row .top{display:flex;align-items:center;gap:8px}
+  .tp-row .hc{font-family:Archivo;font-weight:900;font-size:15px;width:34px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex:none}
+  .tp-row .nm{font-family:Archivo;font-weight:700;font-size:14px}
+  .tp-row .why{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.45}
+  .spot{font-size:9px;color:var(--faint);border:1px solid var(--line);border-radius:4px;padding:1px 4px;font-family:"IBM Plex Mono",monospace}
+  /* stacks */
+  .stack{background:var(--panel);border:1px solid var(--line);border-radius:14px;margin:9px 0;overflow:hidden;transition:border-color .15s ease;content-visibility:auto;contain-intrinsic-size:auto 220px}
+  @media (hover:hover){.stack:hover{border-color:#303a47}}
+  .stacks-intro{font-size:12px;color:var(--muted);line-height:1.55;padding:6px 4px 10px}
+
+  /* ===== Bet log ===== */
+  .betswrap{max-width:760px;margin:0 auto;padding-top:4px}
+  .bl-intro{font-size:12.5px;color:var(--muted);line-height:1.55;padding:4px 4px 12px}
+  .bl-intro b{color:var(--ink)}
+  .bl-form{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px;margin-bottom:14px}
+  .bl-form select,.bl-form input{background:var(--panel-2);border:1px solid var(--line);border-radius:9px;
+    color:var(--ink);font:inherit;font-size:14px;padding:10px 12px;width:100%}
+  .bl-legs{display:flex;flex-wrap:wrap;gap:6px;margin:11px 0}
+  .bl-empty{font-size:12px;color:var(--faint)}
+  .bl-leg{display:inline-flex;align-items:center;gap:6px;background:var(--panel-2);border:1px solid var(--line);
+    border-radius:8px;padding:5px 9px;font-size:13px;font-weight:600}
+  .bl-leg b{color:var(--seam);font-family:"IBM Plex Mono"}
+  .bl-leg button,.bl-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:0 2px;line-height:1}
+  .bl-search-wrap{position:relative;margin-bottom:11px}
+  .bl-sugg{display:flex;flex-direction:column;gap:2px;margin-top:4px}
+  .bl-opt{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 11px;
+    background:var(--panel-2);border:1px solid var(--line);border-radius:9px;cursor:pointer;font-size:13px}
+  .bl-opt:active{background:var(--line)}
+  .bl-opt-r{color:var(--muted);font-size:11px;font-family:"IBM Plex Mono"}
+  .bl-opt-free{color:var(--seam);justify-content:flex-start}
+  .bl-money{display:flex;gap:9px;margin-bottom:12px}
+  .bl-money label{flex:1;font-size:11px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+  .bl-save{width:100%;background:var(--seam);color:#fff;border:none;border-radius:10px;padding:12px;
+    font-size:14px;font-weight:700;cursor:pointer}
+  .bl-stats{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
+  .bl-stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:6px}
+  .bl-stat{text-align:center;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:10px 4px}
+  .bl-stat .v{font-family:Archivo;font-weight:800;font-size:18px}
+  .bl-stat .v.pos{color:#3fb950}.bl-stat .v.neg{color:#e5534b}
+  .bl-stat .k{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-top:2px}
+  .bl-sub-h{font-family:Archivo;font-weight:800;font-size:12px;letter-spacing:.03em;color:var(--ink);margin:16px 0 9px}
+  .bl-hint{font-size:12px;color:var(--muted);line-height:1.5}
+  .bl-bar{display:flex;align-items:center;gap:9px;margin:7px 0}
+  .bl-bar .bdg{flex:none;min-width:78px;text-align:center}
+  .bl-tier{flex:none;min-width:78px;font-family:"IBM Plex Mono";font-size:12px;font-weight:700;color:var(--muted)}
+  .bl-bartrack{flex:1;height:8px;background:var(--panel-2);border-radius:5px;overflow:hidden}
+  .bl-barfill{height:100%;background:linear-gradient(90deg,var(--cold),var(--hot));border-radius:5px}
+  .bl-barv{flex:none;font-family:"IBM Plex Mono";font-size:11px;color:var(--muted);min-width:62px;text-align:right}
+  .bl-h{font-family:Archivo;font-weight:800;font-size:13px;margin:4px 0 8px;letter-spacing:.02em}
+  .bl-none{color:var(--muted);text-align:center;padding:26px;font-size:13px}
+  .bl-bet{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
+  .bl-bet-head{display:flex;justify-content:space-between;align-items:flex-start}
+  .bl-bet-head b{font-family:Archivo;font-size:14px}
+  .bl-bet-sub{font-size:11px;color:var(--muted);margin-top:2px;font-family:"IBM Plex Mono"}
+  .bl-blegs{margin:10px 0}
+  .bl-bleg{padding:8px 0;border-top:1px solid var(--line)}
+  .bl-bleg-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .bl-bnm{font-weight:700;font-size:13px}
+  .bl-bh{font-family:"IBM Plex Mono";font-size:11px;color:var(--muted)}
+  .bl-bleg .badges{margin-top:5px}
+  .bl-hit{background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:4px 9px;
+    font-size:11px;font-weight:700;cursor:pointer;color:var(--muted);white-space:nowrap}
+  .bl-hit.hit{background:rgba(63,185,80,.18);color:#56c878;border-color:rgba(63,185,80,.45)}
+  .bl-hit.miss{background:rgba(229,83,75,.16);color:#e98980;border-color:rgba(229,83,75,.4)}
+  .bl-result{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .bl-rseg button.on.win{background:#2ea05d;color:#fff}
+  .bl-rseg button.on.loss{background:#c2403a;color:#fff}
+  .bl-pay{font-size:11px;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
+  .bl-pay input{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;color:var(--ink);
+    font:inherit;font-size:13px;padding:6px 9px;width:90px}
+  .stack-head{display:flex;align-items:flex-start;gap:11px;padding:12px 13px;border-bottom:1px solid var(--line);background:var(--panel-2)}
+  .stack-head .sc{font-family:Archivo;font-weight:900;font-size:16px;width:40px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex:none}
+  .stack-head .nm{font-family:Archivo;font-weight:700;font-size:15px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .stack-head .sub{font-size:11px;color:var(--muted);margin-top:2px}
+  .stack-head .badges{margin-top:6px}
+  .stack-h{display:grid;grid-template-columns:36px 1fr;gap:11px;align-items:start;padding:9px 13px;border-bottom:1px solid var(--line)}
+  .stack-h:last-child{border-bottom:none}
+  .stack-h .hh{font-family:Archivo;font-weight:800;height:30px;text-align:center;border-radius:7px;
+    display:flex;align-items:center;justify-content:center;font-size:14px}
+  .stack-who{min-width:0}
+  .stack-nm{font-family:Archivo;font-weight:700;font-size:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;line-height:1.2}
+  .stack-who .badges{margin-top:5px}
+  .caret{color:var(--faint);font-size:13px;transition:transform .18s ease}
+  .row.open .caret{transform:rotate(90deg)}
+  .row.thin{opacity:.5}
+
+  /* ---- metric strip ---- */
+  .strip{display:flex;gap:0;border-top:1px solid var(--line);overflow-x:auto;
+    -webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .strip::-webkit-scrollbar{display:none}
+  .mcell{flex:1;min-width:64px;padding:9px 4px 10px;text-align:center;
+    border-right:1px solid var(--line)}
+  .mcell:last-child{border-right:none}
+  .mcell .k{font-size:9px;letter-spacing:.06em;color:var(--faint);text-transform:uppercase}
+  .mcell .r{font-family:"IBM Plex Mono",monospace;font-size:15px;font-weight:600;
+    margin-top:4px;border-radius:6px;padding:2px 0;font-variant-numeric:tabular-nums}
+  .mcell .sc{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--muted);
+    margin-top:3px;font-variant-numeric:tabular-nums}
+
+  /* ---- expand ---- */
+  .detail{display:none;border-top:1px solid var(--line);background:var(--panel-2);padding:13px}
+  .row.open .detail{display:block}
+  .dname{display:flex;align-items:center;gap:8px;font-family:Archivo;font-weight:900;
+    font-size:21px;letter-spacing:-.02em;margin:2px 0 8px;flex-wrap:wrap}
+  .dname .dspot{font-family:'IBM Plex Mono';font-size:12px;font-weight:600;color:var(--muted);
+    border:1px solid var(--line);border-radius:5px;padding:1px 6px}
+  .angle{font-size:13px;line-height:1.5;color:var(--ink);background:linear-gradient(90deg,rgba(228,87,46,.13),transparent);
+    border-left:3px solid var(--seam);padding:8px 11px;border-radius:0 8px 8px 0;margin:0 0 12px}
+  .detail h4{margin:0 0 8px;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  table.win{width:100%;border-collapse:collapse;font-family:"IBM Plex Mono",monospace;font-size:12px}
+  table.win th,table.win td{padding:5px 6px;text-align:right;border-bottom:1px solid var(--line)}
+  table.win th:first-child,table.win td:first-child{text-align:left;color:var(--muted)}
+  table.win thead th{color:var(--faint);font-weight:500;font-size:10px;letter-spacing:.05em}
+  .arm{margin-top:14px;font-size:12px;color:var(--muted);line-height:1.6}
+  .arm b{color:var(--ink)}
+  .bd{margin-top:12px;display:flex;flex-wrap:wrap;gap:6px}
+  .bd span{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--muted);
+    background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:3px 7px}
+
+  .empty{color:var(--muted);text-align:center;padding:48px 24px;font-size:14px;line-height:1.6;
+    max-width:420px;margin:0 auto}
+  footer{max-width:760px;margin:18px auto 0;padding:0 14px;color:var(--faint);font-size:11px;line-height:1.6}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <h1>Going <span class="yard">Yard</span></h1>
+    <span class="stamp mono" id="stamp" title="Tap to refresh the board" style="cursor:pointer">—</span>
+    <button id="helpBtn" onclick="document.getElementById('faq').classList.add('show')" aria-label="How to use">?</button>
+  </div>
+  <div class="meta" id="meta"></div>
+  <div id="boardControls">
+  <div class="controls cbar">
+    <select id="sortSel" class="sortsel" aria-label="Sort board by">
+      <option value="heat">Sort · Heat</option>
+      <option value="trend">Sort · Trend</option>
+      <option value="bp">Sort · Bullpen</option>
+      <option value="bomb">Sort · Bomb</option>
+      <option value="park">Sort · Park</option>
+      <option value="name">Sort · Name</option>
+      <option value="time">Sort · Time</option>
+    </select>
+    <input class="search" id="search" placeholder="Search hitter or team…" />
+    <button id="filtersBtn" class="fbtn" onclick="document.getElementById('filterSheet').classList.add('show')">⚙ Filters<span id="filtCount" class="fcount" hidden></span></button>
+  </div>
+  <div class="controls chiprow">
+    <button id="mixBtn" class="chip" aria-pressed="false" title="Re-rank by EV/barrel vs this pitcher's mix">vs Pitch Mix</button>
+    <button id="thinBtn" class="chip" aria-pressed="false" title="Hide hitters with thin recent samples">Hide small</button>
+    <button id="listBtn" class="chip" aria-pressed="false" title="Show only players on your list">★ My List</button>
+    <span id="shown" class="shown-count"></span>
+  </div>
+
+  </div>
+</header>
+
+<div id="welcome" class="welcome" hidden>
+  <div class="welcome-in">
+    <p><strong>New here?</strong> Going Yard ranks today's hitters by their recent power form against the pitcher they face. Tap any row for the full breakdown.</p>
+    <button class="wlink" onclick="document.getElementById('faq').classList.add('show')">How it works →</button>
+    <button class="wclose" onclick="dismissWelcome()" aria-label="Dismiss">✕</button>
+  </div>
+</div>
+
+  <div id="filterSheet" class="faq">
+    <div class="faq-box">
+      <div class="faq-head">
+        <h2>Filters</h2>
+        <button onclick="document.getElementById('filterSheet').classList.remove('show')" aria-label="Close">✕</button>
+      </div>
+      <div class="faq-body">
+        <div class="fgrp"><label>Games <span class="fhint">tap to compare specific matchups · ▸ = vulnerable starter</span></label>
+          <div id="gameList" class="gamelist"></div>
+        </div>
+        <div class="fgrp"><label>Teams <span class="fhint">tap to filter to specific teams</span></label>
+          <div id="teamList" class="teamlist"></div>
+        </div>
+        <div class="fgrp"><label>Heat floor</label>
+          <div class="seg" id="floor">
+            <button data-min="0" aria-pressed="true">All</button>
+            <button data-min="40">40+</button>
+            <button data-min="55">55+</button>
+            <button data-min="70">70+</button>
+          </div>
+        </div>
+        <div class="fgrp"><label>Opposing starter <span class="fhint">drop strong SP — keep only hitters facing a vulnerable starter</span></label>
+          <div class="seg" id="spF">
+            <button data-sp="0" aria-pressed="true">All</button>
+            <button data-sp="50">soft 50+</button>
+            <button data-sp="65">weak 65+</button>
+            <button data-sp="80">shellable 80+</button>
+          </div>
+        </div>
+        <div class="fgrp"><label>Bats</label>
+          <div class="seg" id="bats">
+            <button data-bat="" aria-pressed="true">All</button>
+            <button data-bat="R">R</button>
+            <button data-bat="L">L</button>
+            <button data-bat="S">S</button>
+          </div>
+        </div>
+        <div class="fgrp"><label>Profile <span class="fhint">PF-style hitter labels — pick any, shows hitters carrying one of them</span></label>
+          <div id="hlabF" class="traitf">
+            <button class="hlab hl-elite" data-hlab="elite" aria-pressed="false">ELITE</button>
+            <button class="hlab hl-fb" data-hlab="fb" aria-pressed="false">FB BATTER</button>
+            <button class="hlab hl-ld" data-hlab="ld" aria-pressed="false">LD BATTER</button>
+          </div>
+        </div>
+        <div class="fgrp"><label>Traits <span class="fhint">tap a badge to show only those hitters</span></label>
+          <div id="traitF" class="traitf">
+            <button class="bdg bk-arm" data-trait="arm" aria-pressed="false">WEAK ARM</button>
+            <button class="bdg bk-plat" data-trait="plat" aria-pressed="false">PLATOON</button>
+            <button class="bdg bk-mix" data-trait="mix" aria-pressed="false">PITCH EDGE</button>
+            <button class="bdg bk-pow" data-trait="pow" aria-pressed="false">POWER</button>
+            <button class="bdg bk-lock" data-trait="lock" aria-pressed="false">HOT</button>
+            <button class="bdg bk-hot" data-trait="hot" aria-pressed="false">WARMING</button>
+            <button class="bdg bk-due" data-trait="due" aria-pressed="false">DUE</button>
+            <button class="bdg bk-cool" data-trait="cool" aria-pressed="false">MAY COOL</button>
+          </div>
+        </div>
+        <div class="fgrp"><label>HR drought</label>
+          <div class="seg" id="dryF">
+            <button data-dry="l5">0 HR · L5</button>
+            <button data-dry="w2">0 HR · 2wk</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:18px">
+          <button class="fbtn" style="flex:1" onclick="clearFilters()">Clear all</button>
+          <button class="fbtn fbtn-go" style="flex:1" onclick="document.getElementById('filterSheet').classList.remove('show')">Done</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<div id="faq" class="faq">
+  <div class="faq-box">
+    <div class="faq-head">
+      <h2>How to use <span class="yard">Going Yard</span></h2>
+      <button onclick="document.getElementById('faq').classList.remove('show')" aria-label="Close">✕</button>
+    </div>
+    <div class="faq-body">
+      <p class="faq-lead">A daily board that ranks hitters on how likely they are to go yard, using free Statcast + MLB data. Everything updates itself through the day — no input needed. It's a research tool, not betting advice.</p>
+      <div class="legend faq-legend"><span class="lg-scale"><span>cool</span><div class="grad"></div><span>elite</span></span><span class="lg-note">Heat color scale · metric chips turn orange when they clear the "good" mark.</span></div>
+
+      <h3>The board</h3>
+      <p><b>Heat (0–100)</b> ranks each hitter on six power signals over the last 2 weeks — Pull-air%, Barrel%, ISO, Exit Velo, Ideal Attack Angle%, SLG — then nudges for the opposing pitcher's vulnerability. Higher = better HR spot. The chip runs blue (cold) → orange (elite).</p>
+      <p>The <b>four cells</b> (Pull / EV / Brl / IAA) show those signals at a glance — orange means it cleared the "good" mark, blue means below. <b>Tap any column header</b> (HEAT, PULL, EV, BRL, IAA) to re-sort the whole slate by that stat — that's how you find a low-Heat guy who's elite in one area.</p>
+      <p><b>Tap any row</b> to open full detail: recent/season/career for every signal, the trend windows, the opposing arm, bullpen, pitch matchup, and luck.</p>
+
+      <h3>Badges</h3>
+      <p><b>R / L / S</b> (orange/blue/purple) = a hitter bats right, left, or switch; pitchers show <b>RHP / LHP</b> in the same colors. The trait badges flag why a hitter is interesting — matchup first: <b>WEAK ARM</b> (facing a shellable starter), <b>PLATOON</b> (strong HR history vs this arm's hand), <b>PITCH EDGE</b> (barrels the pitch this arm throws most), <b>POWER</b> (top-end exit velo, 112+ mph).</p>
+      <p>Then one <b>form</b> read per hitter — a simple spectrum so you never see a contradiction: <b>DUE</b> (hitting it hard but unlucky — results lag his contact), <b>WARMING</b> (contact quality trending up), <b>HOT</b> (elite contact and results match — genuinely hot, earned), <b>MAY COOL</b> (results have run well above his contact and may regress). <b>▲ / ▼</b> = power-form trend with % change. <b>proj</b> = lineup not posted, using last game's order. <b>#1–#9</b> = batting-order spot.</p>
+
+      <h3>Filters & sorting</h3>
+      <p><b>Heat / Trend / BP / Bomb / Park / Name / Time</b> sort the list — <b>BP</b> ranks by how vulnerable the opposing bullpen is to each hitter's hand, <b>Bomb</b> ranks by raw long-ball ceiling (season max exit velo nudged by recent form; the "NNN EV" chip shows the ceiling), and <b>Park</b> ranks by today's park &amp; weather HR boost (the chip shows the % swing plus wind).</p>
+
+      <h3>Park &amp; weather model</h3>
+      <p>A separate, physics-based read — its own lens that <b>never touches the Heat score</b>. It flies each hitter's actual batted balls (exit velocity, launch angle, spray direction) through the real wall distances and heights of today's park, under today's temperature and wind, and counts how many clear the fence versus a neutral park. That gives a <b>per-hitter</b> boost, not a flat park factor: a dead-pull hitter gets more from a short porch on his side, and wind/heat scale with how often he already lives near the wall. Tap any row for the full read — expected HR per 100 batted balls here vs neutral, plus the conditions used. Two honest limits, shared by every public version of this (Ballpark Pal included): batted-ball backspin is estimated from launch conditions, not measured, and closed retractable roofs can't be detected, so treat it as a strong secondary signal — and for the final per-hitter precision, Ballpark Pal is still the authority.</p>
+
+      <p>In <b>⚙ Filters</b>: <b>Games</b> and <b>Teams</b> narrow to specific matchups or clubs, <b>Heat floor</b> (40/55/70+) cuts the long tail, <b>Opposing starter</b> drops strong SP so you only see hitters facing a vulnerable one, <b>Bats</b> shows one handedness, and <b>Traits</b> lets you tap any badge to show only hitters carrying it (tap several to stack them). Every filter combines, so you can stack (say) a vulnerable starter + weak bullpen sort + a trait + a team at once. <b>Hide small samples</b> drops hitters under ~25 PA in the window.</p>
+
+      <h3>Top Plays & Stacks</h3>
+      <p><b>Top Plays</b> (panel up top) = the strongest non-thin hitters not facing a sharp arm, each with a one-line "why" — your fast scan. <b>Stacks</b> (view toggle) groups hot hitters by the vulnerable arm they share — built for grand-slam parlays / same-game pairing.</p>
+
+      <h3>The pitcher</h3>
+      <p><b>Arms Today</b> ranks starters by how shellable they are. Form labels: <b>SHELLABLE</b> (bad & getting worse — prime), <b>STEADY-BAD</b> (consistently hittable — still a target), <b>SLIPPING</b> (was fine, now cracking), <b>BAD-IMPROVING / BOUNCING-BACK</b> (downgrade — numbers improving), <b>DEALING</b> (avoid). <b>Arm badges</b> spell out the specific vulnerability behind the label: <b>HR PRONE</b> (gives up bombs), <b>BARRELED</b> (barreled ≥10%), <b>LOUD</b> (hard contact/high EV allowed), <b>PULL-AIR</b> (pulled fly balls allowed), <b>WEAK vs R/L</b> (which hand's taken him deep over 2yr — target those hitters), <b>VELO ↓</b> (velo trending down), <b>SLIPPING</b> (recent worse than season), <b>TOUGH</b> (low vulnerability — avoid). <b>Platoon</b> shows whether the arm gets hit harder by RHB or LHB, and the score vs your hitter's hand. <b>Opposing bullpen</b> shows the pen's HR-vulnerability and its split vs your hitter's hand.</p>
+
+      <h3>Pitch matchup & luck (context only)</h3>
+      <p><b>vs Pitch Mix toggle</b> (top controls): re-ranks the board by each hitter's EV/launch-angle/whiff <i>weighted to the opposing starter's pitch mix</i> over the last 2 weeks — a guy who crushes fastballs rises against a fastball-heavy arm. Toggle off to return to standard Heat instantly. Barrel% stays overall. Each card shows the mix-adjusted EV and how Heat shifts.</p>
+      <p><b>Pitch matchup</b> = the hitter's barrel% by pitch family (Fastball/Breaking/Offspeed) crossed with the arm's usage. <b>Contact luck</b> = expected (xwOBAcon) vs actual; a positive gap means he's hitting it well but unlucky (<b>DUE</b>). Overperforming only flags <b>MAY COOL</b> when results run far above his contact; if the underlying contact is itself elite he reads <b>HOT</b> — earned, not lucky. <b>Starter HRs by hand</b> = actual HRs the starter allowed to RHB vs LHB, over a 2-year sample and this year. None of these affect Heat unless the mix toggle is on.</p>
+
+      <h3>Tracker</h3>
+      <p>Grades the model against reality each morning. <b>Model vs baselines</b> is the one that matters: does Heat's top 10 homer more than just sorting by ISO or barrel%? If yes, the model is genuinely finding HR hitters better than the simple stats. The rest shows HR rate by Heat tier, by arm form, top-N success, which signals correlate to HRs, and a daily log. It needs a few graded days to mean anything.</p>
+
+      <h3>Bets</h3>
+      <p>Your private bet log — stored only on this device, nothing leaves your phone. Log each bet, pick the player(s) from today's board (their badges and Heat are captured automatically), then after games mark each as <b>HR ✓</b> or <b>no HR</b> and set the result. Over time it shows your record, net, and ROI — plus the payoff feature: <b>HR rate by badge</b>, so you learn which badges actually convert for you (does HOT homer more than MAY COOL?) and which are noise.</p>
+
+      <h3>Freshness</h3>
+      <p>The dot by the title shows build health: <b>green</b> = fresh, <b>amber</b> = a few hours old, <b>red</b> = likely stale or showing an older slate. The board builds at 6:30am, 10am, 12pm, 3pm, 5pm and 7pm ET; if one is missed or you're viewing yesterday's slate, a banner warns you before you bet.</p>
+
+      <h3>How it updates</h3>
+      <p>The board rebuilds through the day (6:30am, 10am, 12pm, 3pm, 5pm, 7pm ET) as lineups post; the grader runs each morning after games are final. Park factor is shown for context but isn't baked into Heat — the data and matchup drive the ranking. All of it is tunable, and none of it is betting advice.</p>
+    </div>
+  </div>
+</div>
+
+<main id="main"><div style="max-width:760px;margin:0 auto;padding-top:6px">
+  <div class="skel"></div><div class="skel"></div><div class="skel"></div>
+  <div class="skel"></div><div class="skel"></div><div class="skel"></div>
+</div></main>
+<footer id="foot"></footer>
+
+<nav id="tabbar" aria-label="Primary navigation">
+  <button data-view="board" aria-pressed="true"><svg viewBox="0 0 20 20"><circle cx="4" cy="5.5" r="1"/><circle cx="4" cy="10" r="1"/><circle cx="4" cy="14.5" r="1"/><line x1="7.5" y1="5.5" x2="16" y2="5.5"/><line x1="7.5" y1="10" x2="16" y2="10"/><line x1="7.5" y1="14.5" x2="16" y2="14.5"/></svg><span>Board</span></button>
+  <button data-view="stacks" aria-pressed="false"><svg viewBox="0 0 20 20"><path d="M10 3l7 3.5-7 3.5-7-3.5L10 3z"/><path d="M3 10.5l7 3.5 7-3.5"/></svg><span>Stacks</span></button>
+  <button data-view="matchup" aria-pressed="false"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="6.2"/><line x1="10" y1="1.5" x2="10" y2="4"/><line x1="10" y1="16" x2="10" y2="18.5"/><line x1="1.5" y1="10" x2="4" y2="10"/><line x1="16" y1="10" x2="18.5" y2="10"/><circle cx="10" cy="10" r="1.4"/></svg><span>Matchup</span></button>
+  <button data-view="parlays" aria-pressed="false"><svg viewBox="0 0 20 20"><path d="M8.5 11.5a3 3 0 010-4l1.5-1.5a3 3 0 014 0 3 3 0 010 4l-.8.8"/><path d="M11.5 8.5a3 3 0 010 4L10 14a3 3 0 01-4 0 3 3 0 010-4l.8-.8"/></svg><span>Parlays</span></button>
+  <button data-view="bets" aria-pressed="false"><svg viewBox="0 0 20 20"><path d="M5 3.5h10v13l-2-1.3-2 1.3-2-1.3-2 1.3V3.5z"/><line x1="7.5" y1="7.5" x2="12.5" y2="7.5"/><line x1="7.5" y1="10.5" x2="12.5" y2="10.5"/></svg><span>Bets</span></button>
+  <button data-view="weather" aria-pressed="false"><svg viewBox="0 0 20 20"><path d="M5.5 13.5a3.5 3.5 0 01.4-6.98 4.5 4.5 0 018.7 1.2A3 3 0 0114 13.5H5.5z"/><line x1="7" y1="16" x2="7" y2="17.5"/><line x1="10.5" y1="16" x2="10.5" y2="17.5"/><line x1="14" y1="16" x2="14" y2="17.5"/></svg><span>Weather</span></button>
+  <button data-view="tracker" aria-pressed="false"><svg viewBox="0 0 20 20"><polyline points="3 14 8 9 11 12 17 5"/><polyline points="12.5 5 17 5 17 9.5"/></svg><span>Tracker</span></button>
+</nav>
+
+<script>
+// first-visit onboarding (no login; persists locally, fails open)
+function dismissWelcome(){try{localStorage.setItem("gy_seen","1")}catch(e){}const w=document.getElementById("welcome");if(w)w.hidden=true;}
+(function(){try{if(!localStorage.getItem("gy_seen")){const w=document.getElementById("welcome");if(w)w.hidden=false;}}catch(e){}})();
+
+// team-color left accent on each card (primary/most-visible-on-dark hue per club)
+const TEAMCOL={ARI:"#A71930",ATL:"#CE1141",BAL:"#DF4601",BOS:"#BD3039",CHC:"#0E3386",CWS:"#C4CED4",CHW:"#C4CED4",CIN:"#C6011F",CLE:"#E31937",COL:"#8B6BB1",DET:"#4A7FBF",HOU:"#EB6E1F",KC:"#1B7AC7",KCR:"#1B7AC7",LAA:"#BA0021",LAD:"#1E90D6",MIA:"#00A3E0",MIL:"#FFC52F",MIN:"#D31145",NYM:"#FF5910",NYY:"#3B7DD8",OAK:"#00A67E",ATH:"#00A67E",PHI:"#E81828",PIT:"#FDB827",SD:"#FFC425",SDP:"#FFC425",SF:"#FD5A1E",SFG:"#FD5A1E",SEA:"#2D9B8E",STL:"#C41E3A",TB:"#4A9BD4",TBR:"#4A9BD4",TEX:"#3A7BD5",TOR:"#1D77C9",WSH:"#E0114A",WSN:"#E0114A"};
+function teamCol(t){ return (t&&TEAMCOL[t])||"transparent"; }
+
+// remember where the user was: view, sort, board toggles — restored next open
+function savePrefs(){ try{ localStorage.setItem("gy_prefs", JSON.stringify({view,sortKey,mixView,hideThin,listFilter})); }catch(e){} }
+function loadPrefs(){ try{ return JSON.parse(localStorage.getItem("gy_prefs")||"{}")||{}; }catch(e){ return {}; } }
+
+// turn any "<h4>Title</h4> …body…" block into a collapsible section (native details)
+function collapseWrap(html, open){
+  if(!html) return "";
+  const m=html.match(/^\s*<h4[^>]*>([\s\S]*?)<\/h4>([\s\S]*)$/);
+  if(!m) return html;
+  return `<details class="sec"${open?" open":""}><summary>${m[1]}</summary>${m[2]}</details>`;
+}
+
+// the four signals that drive the ranking, in your order, with poor/good/elite anchors
+const CORE = [
+  {k:"pull_air_pct", label:"Pull%",    poor:28, good:40, elite:55, fmt:v=>fmt(v,1)},
+  {k:"avg_ev",       label:"EV",       poor:86, good:88.5, elite:91.5, fmt:v=>fmt(v,1)},
+  {k:"barrel_pct",   label:"Brl%",     poor:6,  good:11, elite:17, fmt:v=>fmt(v,1)},
+  {k:"ideal_aa_pct", label:"IdealAA%", poor:45, good:58, elite:70, fmt:v=>fmt(v,1)},
+];
+const EXTRA = [
+  {k:"iso",        label:"ISO",     fmt:v=>fmt(v,3,true)},
+  {k:"slg",        label:"SLG",     fmt:v=>fmt(v,3,true)},
+  {k:"bat_speed",  label:"Bat Spd", fmt:v=>fmt(v,1)},
+  {k:"hardhit_pct",label:"HH%",     fmt:v=>fmt(v,1)},
+  {k:"launch_angle",label:"LA",     fmt:v=>fmt(v,1)},
+  {k:"fb_pct",     label:"FB%",      fmt:v=>fmt(v,1)},
+  {k:"pull_pct",   label:"Pull(all)",fmt:v=>fmt(v,1)},
+];
+let BOARD=null, HISTORY=null, view="board", sortKey="heat", q="", hideThin=false, minHeat=0, spFloor=0, gameSel=new Set(), batFilter="", traitSel=new Set(), labSel=new Set(), teamSel=new Set(), drySel=new Set(), mixView=false, listFilter=false, muSort="hist";
+// effective heat: vs-pitch-mix variant when the toggle is on, else standard
+function H(p){return (mixView && p.heat_mix!=null) ? p.heat_mix : p.heat;}
+
+function fmt(v,d,strip){
+  if(v===null||v===undefined||Number.isNaN(v)) return "–";
+  let s=Number(v).toFixed(d);
+  if(strip) s=s.replace(/^0/,"");
+  return s;
+}
+// threshold tint for the four signals: hot above good, blue below poor, neutral between
+function threshTint(v, m){
+  if(v===null||v===undefined) return "transparent";
+  if(v>=m.elite) return "rgba(228,87,46,.42)";
+  if(v>=m.good)  return "rgba(228,87,46,.22)";
+  if(v<m.poor)   return "rgba(62,124,177,.30)";
+  return "transparent";
+}
+function chipColor(h){                         // 0..100 -> cold..hot
+  const t=Math.max(0,Math.min(100,h))/100;
+  const cold=[62,124,177], mid=[58,66,80], hot=[228,87,46];
+  const lerp=(a,b,x)=>a.map((v,i)=>Math.round(v+(b[i]-v)*x));
+  const c = t<0.5? lerp(cold,mid,t*2) : lerp(mid,hot,(t-0.5)*2);
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+function timeStr(iso){
+  if(!iso) return "";
+  try{const d=new Date(iso);
+    return d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});}catch{return "";}
+}
+
+function hrByHandBlock(op){
+  const two=op.hr_by_hand_2yr;
+  const row=(lbl,r,l)=>`<div class="arm"><span style="color:var(--muted)">${lbl}</span> vs RHB <b style="color:var(--seam)">${r&&r.hr!=null?r.hr:'–'}</b> HR${r&&r.pa?` <span style="color:var(--muted)">(${r.pa} PA)</span>`:''} · vs LHB <b style="color:var(--seam)">${l&&l.hr!=null?l.hr:'–'}</b> HR${l&&l.pa?` <span style="color:var(--muted)">(${l.pa} PA)</span>`:''}</div>`;
+  if(two && (two.two_yr||two.this_yr)){
+    let out=`<h4 style="margin-top:14px">Starter — actual HRs allowed by batter hand</h4>`;
+    if(two.two_yr) out+=row("2-yr", two.two_yr.R, two.two_yr.L);
+    if(two.this_yr) out+=row("this yr", two.this_yr.R, two.this_yr.L);
+    return out;
+  }
+  // fallback: this-season only (from the main pull)
+  const hb=op.hr_by_hand;
+  if(hb && (hb.R_hr!=null || hb.L_hr!=null)){
+    return `<h4 style="margin-top:14px">Starter — actual HRs allowed by batter hand</h4>`+
+      row("this yr", {hr:hb.R_hr,pa:hb.R_pa}, {hr:hb.L_hr,pa:hb.L_pa});
+  }
+  return "";
+}
+function spotBlock(p){
+  const hs=p.hr_by_spot||{};
+  const vals=Object.values(hs);
+  if(!vals.length) return "";
+  const tot=vals.reduce((a,b)=>a+b,0), m=Math.max(1,...vals);
+  const cells=[1,2,3,4,5,6,7,8,9].map(s=>{
+    const n=hs[s]||0, cur=p.lineup_spot===s, op=n?(0.2+0.55*n/m).toFixed(2):0;
+    return `<div class="spotcell${cur?' cur':''}" style="${n?`background:rgba(244,200,74,${op})`:''}"><div class="spotn">${n||'·'}</div><div class="spotlbl">${s}</div></div>`;
+  }).join("");
+  return `<h4 style="margin-top:14px">HR by lineup spot <span class="h4-sub">season · ${tot} HR</span></h4>
+    <div class="spotrow">${cells}</div>
+    ${p.lineup_spot?`<div class="spot-note">Batting <b>${p.lineup_spot}</b> today${hs[p.lineup_spot]?` — <b>${hs[p.lineup_spot]}</b> HR from this spot`:` — none from this spot yet`}.</div>`:""}`;
+}
+function pitchBlock(p){
+  const us=p.pitch_usage, hs=p.pitch_splits, pm=p.pitch_matchup;
+  if(!us && !hs) return "";
+  const LAB={FB:"Fastball",BR:"Breaking",OFF:"Offspeed"};
+  let rows="";
+  ["FB","BR","OFF"].forEach(f=>{
+    const u=us?us[f]:null, h=hs?hs[f]:null;
+    if(u==null && !h) return;
+    const brl=(h&&h.barrel_pct!=null)?h.barrel_pct:null;
+    const col=brl==null?"var(--muted)":(brl>=14?"var(--hot)":brl>=9?"var(--ink)":"var(--muted)");
+    rows+=`<div class="arm-row" style="grid-template-columns:72px 1fr 1fr">
+      <div style="color:var(--muted);font-size:12px">${LAB[f]}</div>
+      <div style="font-size:12px">sees <b>${u!=null?u+"%":"–"}</b></div>
+      <div style="font-size:12px">brl <b style="color:${col}">${brl!=null?brl+"%":"–"}</b>${(h&&h.hr)?` · ${h.hr} HR`:""}</div>
+    </div>`;
+  });
+  if(!rows) return "";
+  let head="";
+  if(pm&&pm.best&&pm.edge!=null){
+    const fav=pm.edge>=2;
+    head=`<div style="font-size:12px;color:${fav?'var(--seam)':'var(--muted)'};margin-bottom:6px">${fav?'▸ ':''}sees ${pm.best.usage}% ${pm.best.label}, barrels it <b>${pm.best.barrel}%</b>${fav?' — mix feeds his power':''}</div>`;
+  }
+  // vs-mix adjusted EV/LA/whiff + how Heat shifts under the mix view
+  let mixLine="";
+  if(p.mix && p.mix.avg_ev!=null){
+    const ov=p.ev_overall, mv=p.mix.avg_ev;
+    const d=(ov!=null)?+(mv-ov).toFixed(1):null;
+    const dc=d==null?'var(--muted)':(d>=1?'var(--hot)':d<=-1?'var(--cold)':'var(--muted)');
+    const hd=(p.heat_mix!=null&&p.heat!=null)?p.heat_mix-p.heat:null;
+    mixLine=`<div style="font-size:12px;margin:8px 0 2px;padding:8px;border:1px solid var(--line);border-radius:8px">
+      <b>vs this mix (2wk):</b> EV <b style="color:${dc}">${mv}</b>${ov!=null?` <span style="color:var(--muted)">(overall ${ov}${d!=null?`, ${d>0?'+':''}${d}`:''})</span>`:''}${p.mix.barrel_pct!=null?` · brl <b style="color:var(--hot)">${p.mix.barrel_pct}%</b>`:''}${p.mix.la!=null?` · LA <b>${p.mix.la}°</b>`:''}${p.mix.whiff_pct!=null?` · whiff <b>${p.mix.whiff_pct}%</b>`:''}
+      ${hd!=null?`<br><span style="color:var(--muted)">Heat vs-mix: <b style="color:${hd>0?'var(--hot)':hd<0?'var(--cold)':'var(--ink)'}">${p.heat_mix}</b> (${hd>0?'+':''}${hd} vs standard ${p.heat}) — toggle "vs Pitch Mix" up top to rank by this</span>`:''}
+    </div>`;
+  }
+  return `<h4 style="margin-top:16px">Pitch matchup — his damage vs the arm's mix</h4>${head}<div>${rows}</div>${mixLine}`;
+}
+function luckBlock(p){
+  const L=p.luck; if(!L) return "";
+  function line(w,lbl){
+    if(!w||w.xwobacon==null) return "";
+    const x=w.xwobacon, a=w.wobacon, g=w.luck_gap;
+    const elite=x!=null&&x>=0.420, weak=x!=null&&x<0.360;
+    let read="", col="var(--muted)";
+    if(g!=null){
+      if(g>=0.045){ read="due — hitting it hard, results lagging"; col="var(--good)"; }
+      else if(g<=-0.090){ read="may cool — results above what his contact supports"; col="var(--bad)"; }
+      else if(elite){ read="hot — elite contact, the heat is earned"; col="var(--good)"; }
+      else if(weak){ read="fair — underlying contact is light"; col="var(--muted)"; }
+      else { read="fair — results in line with his contact"; col="var(--muted)"; }
+    }
+    return `<div class="arm-row" style="grid-template-columns:50px 1fr auto">
+      <div style="color:var(--muted);font-size:12px">${lbl}</div>
+      <div style="font-size:12px">xwOBAcon <b>${x.toFixed(3)}</b> vs <b>${a!=null?a.toFixed(3):'–'}</b> actual${w.bb_count?` · ${w.barrel_pct!=null?w.barrel_pct+'% brl':''}${w.hr!=null?', '+w.hr+' HR':''}`:''}</div>
+      <div style="font-size:11px;color:${col};font-weight:700">${g!=null?(g>0?'+':'')+g.toFixed(3):''}</div>
+    </div>${read?`<div style="font-size:11px;color:${col};margin:-3px 0 7px 50px">${read}</div>`:''}`;
+  }
+  const r=line(L.recent,"2wk"), s=line(L.season,"szn");
+  if(!r&&!s) return "";
+  return `<h4 style="margin-top:16px">Contact luck — expected vs actual (on contact)</h4>${r}${s}`;
+}
+function throwBadge(t){ return (t==="R"||t==="L") ? `<span class="thr t-${t}">${t}HP</span>` : ""; }
+function badgeChips(p,max){
+  const bs=(p.badges||[]);
+  if(!bs.length) return "";
+  const show=max?bs.slice(0,max):bs;
+  const LBL={"COOLING":"MAY COOL","REGRESSION":"MAY COOL","HEATING":"WARMING","LOCKED IN":"HOT","MIX EDGE":"PITCH EDGE"};
+  const lbl=t=>LBL[t]||t;   // legacy data shows new labels until next build
+  return `<div class="badges">${show.map(b=>`<span class="bdg bk-${b.k}">${lbl(b.t)}</span>`).join("")}</div>`;
+}
+function trendBadge(t){
+  if(!t||t.dir==="flat") return "";
+  if(t.dir==="up") return `<span style="color:var(--good);font-weight:700">▲${t.new?"new":(t.pct!=null?t.pct+"%":"")}</span>`;
+  return `<span style="color:var(--bad);font-weight:700">▼${t.pct!=null?Math.abs(t.pct)+"%":""}</span>`;
+}
+function trendVal(t){
+  if(!t) return -1;
+  if(t.dir==="up") return t.new?120:(t.pct||20);
+  if(t.dir==="down") return t.pct||-20;
+  return 0;
+}
+function bpVal(p){const bp=p.opp_bullpen||{}; const v=bp.vs_hand!=null?bp.vs_hand:bp.score; return v!=null?v:-1;}
+// Long-ball / distance ceiling: how hard he CAN hit it (season max EV), nudged by recent form.
+function lbCeil(p){const mx=p.max_ev||{}; return mx.season!=null?mx.season:mx.recent;}
+function _lbn(v,lo,hi){ if(v==null) return null; return Math.max(0,Math.min(100,(v-lo)/(hi-lo)*100)); }
+// loft: distance needs launch in the long-ball band (~10-30°); penalize too flat / too steep
+function _lbLoft(la){ if(la==null) return null; if(la>=12&&la<=28) return 100; if(la<12) return Math.max(0,100-(12-la)*9); return Math.max(0,100-(la-28)*7); }
+function lbVal(p){
+  const mx=p.max_ev||{}, m=p.metrics||{};
+  const ceil=lbCeil(p), reMax=mx.recent;
+  const reAvg=(m.avg_ev||{}).recent, brl=(m.barrel_pct||{}).recent, iso=(m.iso||{}).recent, la=(m.launch_angle||{}).recent;
+  if(ceil==null&&reAvg==null&&brl==null) return -1;
+  // 0-100 composite: raw ceiling leads, but barrels (EV+angle), loft, form & ISO all drive distance
+  const parts=[
+    [_lbn(ceil,105,118), 0.38],   // how hard he CAN hit it
+    [_lbn(brl,5,20),     0.20],   // how often he barrels it (EV + ideal angle)
+    [_lbn(reAvg,86,93),  0.15],   // current contact form
+    [_lbLoft(la),        0.12],   // launch in the long-ball band
+    [_lbn(iso,0.130,0.320), 0.10],// power output
+    [_lbn(reMax,105,118),0.05],   // recent peak
+  ];
+  let s=0,w=0; for(const pr of parts){ if(pr[0]!=null){ s+=pr[0]*pr[1]; w+=pr[1]; } }
+  return w?s/w:-1;
+}
+function evColor(mx){ if(mx==null) return "var(--panel-2)"; return chipColor(Math.max(0,Math.min(100,(mx-100)/16*100))); }
+// Park+weather lens: rank by the park/weather HR boost vs neutral (the conditions edge,
+// like Ballpark Pal's headline) — exp100 breaks ties so power shows through.
+function pkVal(p){const k=p.park_hr; if(!k||k.boost==null) return -999; return k.boost*1000+(k.exp100||0);}
+
+// SMASH conviction: fires when the whole model converges on a hitter, not just raw Heat.
+// Heat contributes, but so do trend, historical BvP, lineup-spot power, park+weather, pitch
+// mix, and a vulnerable arm. 70+ Heat still auto-fires; lower Heat needs signals to stack.
+// Not all are required — that's the point: exceptions get through when enough else points here.
+function smashConviction(p){
+  const H_=H(p);
+  let s=Math.max(0, Math.min(3, (H_-45)/10));     // heat contribution (0 at 45 → 3 at 75+)
+  const r=[];
+  const ks=new Set((p.badges||[]).map(b=>b.k));
+  // genuinely hot / earned contact — the "he's just hot rn" case, weighted heavily
+  if(ks.has("lock")){ s+=1.5; r.push("genuinely hot"); }
+  else if(ks.has("hot")){ s+=0.75; r.push("form warming"); }
+  if(ks.has("due")){ s+=1.0; r.push("hitting it hard, due"); }   // hard contact, results lagging
+  if(p.trend && p.trend.dir==="up"){ s+=1.0; r.push(p.trend.new?"heating up (new)":"trending up"); }
+  // park + weather
+  const pb=(p.park_hr && p.park_hr.boost!=null)?p.park_hr.boost:0;
+  if(pb>=12){ s+=1.5; r.push("park + weather"); } else if(pb>=6){ s+=0.75; r.push("park lean"); }
+  // historical BvP — vs an opener you get one look, so owning him matters less and
+  // the pen (7-8 innings of the game) matters more
+  const opnr=!!(p.opp_pitcher&&p.opp_pitcher.opener);
+  if(ks.has("hrsp")){ s+=(opnr?0.75:1.5); r.push(opnr?"owns the opener (1x look)":"owns the starter"); }
+  if(ks.has("hrbp")){ s+=(opnr?1.5:1.0); r.push(opnr?"HR off their pen (bulk of game)":"HR off their pen"); }
+  // lineup-spot power
+  const spotHR=(p.hr_by_spot && p.lineup_spot)?(p.hr_by_spot[p.lineup_spot]||0):0;
+  if(spotHR>=3){ s+=1.5; r.push(`${spotHR} HR from spot ${p.lineup_spot}`); }
+  else if(spotHR>=2){ s+=0.75; r.push(`HR from spot ${p.lineup_spot}`); }
+  // pitch-mix edge (graduated so a near-miss still counts)
+  const mixd=(p.heat_mix!=null && p.heat!=null)?(p.heat_mix-p.heat):0;
+  if(mixd>=6){ s+=1.0; r.push("pitch-mix edge"); } else if(mixd>=4){ s+=0.5; r.push("pitch-mix lean"); }
+  // vulnerable arm (badge OR high HR-allowed score — counted once)
+  const armSc=(p.opp_pitcher && p.opp_pitcher.hr_score!=null)?p.opp_pitcher.hr_score:0;
+  if(armSc>=65 || ks.has("arm")){ s+=1.0; r.push("vulnerable arm"); }
+  // contact / matchup quality
+  if(ks.has("mix")){ s+=0.75; r.push("barrels this mix"); }
+  if(ks.has("pow")){ s+=0.5; r.push("loud power"); }
+  if(ks.has("plat")){ s+=0.5; r.push("platoon edge"); }
+  return {score:s, reasons:r};
+}
+// slate-level SMASH selection, cached per board + mix-view state (used by the board,
+// Top Plays, and Stacks so all three agree on who the day's calls are)
+function slateSmash(){
+  if(!BOARD||!BOARD.players) return new Map();
+  if(BOARD._smash && BOARD._smash.key===mixView) return BOARD._smash.map;
+  const m=new Map();
+  try{
+    const cand=[];
+    BOARD.players.forEach(p=>{ if(p.lineup_status==="out") return;
+      const sm=smashConviction(p);
+      if(sm.score>=6.5 && sm.reasons.length>=3 && H(p)>=55) cand.push({id:p.id,sm});
+    });
+    cand.sort((a,b)=>b.sm.score-a.sm.score);
+    cand.slice(0,3).forEach(x=>m.set(x.id,x.sm));
+  }catch(e){}
+  BOARD._smash={key:mixView,map:m};
+  return m;
+}
+const HLAB={elite:["ELITE","hl-elite","cleared all 14 elite fly-ball thresholds"],
+  fb:["FB BATTER","hl-fb","cleared all 10 fly-ball thresholds"],
+  ld:["LD BATTER","hl-ld","cleared all 10 line-drive thresholds"]};
+function hlabPill(p){const h=HLAB[p.hit_label];return h?`<span class="hlab ${h[1]}">${h[0]}</span> `:"";}
+function sprayChart(p){
+  const fence=(BOARD.fences||{})[p.park];
+  if(!fence||!p.drives||!p.drives.length) return "";
+  const W=300,H=250,ox=W/2,oy=H-14,sc=(H-30)/460;
+  const pt=(spray,dist)=>[ox+dist*sc*Math.sin(spray*Math.PI/180), oy-dist*sc*Math.cos(spray*Math.PI/180)];
+  const fpath=fence.map((f,i)=>{const[x,y]=pt(f[0],f[1]);return (i?"L":"M")+x.toFixed(1)+" "+y.toFixed(1);}).join(" ");
+  const [lx,ly]=pt(-45,fence[0][1]), [rx,ry]=pt(45,fence[fence.length-1][1]);
+  const dots=p.drives.map(d=>{const[x,y]=pt(d[0],Math.min(d[1],455));
+    const c=d[2]===1?"var(--gold,#e8c15a)":d[2]===2?"var(--seam)":"#5a6675";
+    const r=d[2]?3.4:2.4;
+    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="${c}" fill-opacity="${d[2]?0.95:0.55}"/>`;}).join("");
+  return `<h4 style="margin-top:16px">His last 2 weeks in ${p.park}</h4>
+    <div class="spray-wrap"><svg viewBox="0 0 ${W} ${H}" class="sprayviz">
+      <path d="M ${ox} ${oy} L ${lx.toFixed(1)} ${ly.toFixed(1)}" stroke="var(--line)" stroke-width="1"/>
+      <path d="M ${ox} ${oy} L ${rx.toFixed(1)} ${ry.toFixed(1)}" stroke="var(--line)" stroke-width="1"/>
+      <path d="${fpath}" fill="none" stroke="var(--muted)" stroke-width="1.6"/>
+      ${dots}</svg>
+    <div class="spray-key"><span><i style="background:#e8c15a"></i>HR</span><span><i style="background:var(--seam)"></i>out where hit — clears here</span><span><i style="background:#5a6675"></i>other air balls</span></div></div>`;
+}
+function bullBear(p){
+  const bull=[],bear=[];
+  const ks=new Set((p.badges||[]).map(b=>b.k));
+  const tr=p.trend||{}; const op=p.opp_pitcher||{}; const pk=(p.park_hr||{}).boost;
+  const lg=((p.luck||{}).recent||{}).luck_gap;
+  if(ks.has("lock")) bull.push("elite, earned contact right now");
+  if(tr.dir==="up") bull.push("form rising"+(tr.pct?` (+${tr.pct}%)`:" (new-hot)"));
+  if(ks.has("due")) bull.push("hitting it harder than results show — due");
+  if(pk!=null&&pk>=6) bull.push(`park + weather lean +${pk}%`);
+  if(ks.has("hrsp")&&!op.opener) bull.push("owns tonight's starter");
+  if(ks.has("hrbp")) bull.push("has taken their pen deep");
+  if(p.robbed) bull.push(`${p.robbed.n} recent ball${p.robbed.n>1?"s":""} that clear${p.robbed.n>1?"":"s"} this park`);
+  if(p.hit_label==="elite") bull.push("ELITE profile — all 14 thresholds");
+  if(ks.has("mix")) bull.push("barrels this arm's pitch mix");
+  if(p.lineup_spot&&p.lineup_spot<=4) bull.push(`bats ${p.lineup_spot} — max PAs`);
+  const w=(p.windows||{}).L14d||{};
+  if((w.bb_count||0)<15) bear.push(`thin 2wk sample (${w.bb_count||0} BBE)`);
+  if(tr.dir==="down") bear.push("form fading"+(tr.pct?` (${tr.pct}%)`:""));
+  if(lg!=null&&lg<=-0.06) bear.push("running hot above his contact — regression risk");
+  if(p.hr_last_game) bear.push("homered last night — your B2B fade rule");
+  const fl=((op.form||{}).label)||"";
+  if(fl==="DEALING") bear.push("the arm is dealing right now");
+  if(op.hr_score!=null&&op.hr_score<=35&&fl!=="DEALING") bear.push(`tough arm (${op.hr_score})`);
+  if(pk!=null&&pk<=-6) bear.push(`park + weather working against him (${pk}%)`);
+  if(ks.has("hrsp")&&op.opener) bear.push("owns the opener — but only sees him once");
+  if(ks.has("cool")) bear.push("results have outrun his contact quality");
+  if(!bull.length&&!bear.length) return "";
+  const li=a=>a.slice(0,3).map(x=>`<div class="bb-li">${x}</div>`).join("")||'<div class="bb-li bb-none">nothing stands out</div>';
+  return `<div class="bullbear"><div class="bb-col bb-bull"><div class="bb-h">The case</div>${li(bull)}</div>
+    <div class="bb-col bb-bear"><div class="bb-h">The concern</div>${li(bear)}</div></div>`;
+}
+function render(){
+  const main=document.getElementById("main");
+  if(!BOARD){return;}
+  const _lb=document.getElementById("listBtn"); if(_lb) _lb.textContent="★ My List"+(listCount()?` (${listCount()})`:"");
+  let players=BOARD.players.slice();
+  const isThin=p=>((p.score_breakdown&&p.score_breakdown.flags)||[]).some(f=>f.indexOf("small sample")===0);
+  if(hideThin) players=players.filter(p=>!isThin(p));
+  if(listFilter) players=players.filter(p=>listHas(p.id));
+  if(minHeat>0) players=players.filter(p=>H(p)>=minHeat);
+  if(spFloor>0) players=players.filter(p=>(((p.opp_pitcher||{}).hr_score)??0)>=spFloor);
+  if(gameSel.size) players=players.filter(p=>gameSel.has(String(p.game_pk)));
+  if(teamSel.size) players=players.filter(p=>teamSel.has(p.team));
+  if(batFilter) players=players.filter(p=>(p.bats||"R")===batFilter);
+  if(labSel.size){
+    players=players.filter(p=>labSel.has(p.hit_label));   // OR: labels are one-per-hitter
+  }
+  if(traitSel.size){
+    players=players.filter(p=>{
+      const ks=new Set((p.badges||[]).map(b=>b.k));
+      return [...traitSel].every(k=>ks.has(k));   // must carry every selected trait
+    });
+  }
+  if(drySel.size){
+    players=players.filter(p=>{
+      const l5=p.hr_recent&&p.hr_recent.L5===0;
+      const w2=(p.luck&&p.luck.recent)?p.luck.recent.hr===0:false;
+      return (drySel.has("l5")&&l5) || (drySel.has("w2")&&w2);
+    });
+  }
+  if(q){const t=q.toLowerCase();
+    players=players.filter(p=>p.name.toLowerCase().includes(t)||(p.team||"").toLowerCase().includes(t)||(p.opp_team||"").toLowerCase().includes(t));}
+  const sortVal=(p,k)=>{
+    if(k==="arm") return (p.opp_pitcher&&p.opp_pitcher.hr_score!=null)?p.opp_pitcher.hr_score:-1;
+    if(["pull_air_pct","avg_ev","barrel_pct","ideal_aa_pct"].indexOf(k)>=0){
+      const v=(p.metrics[k]||{}).recent; return v==null?-1:v;
+    }
+    return H(p);
+  };
+  players.sort((a,b)=>{
+    if(sortKey==="name") return a.name.localeCompare(b.name);
+    if(sortKey==="time") return (a.time||"").localeCompare(b.time||"")|| b.heat-a.heat;
+    if(sortKey==="trend") return trendVal(b.trend)-trendVal(a.trend)|| b.heat-a.heat;
+    if(sortKey==="bp") return bpVal(b)-bpVal(a)|| b.heat-a.heat;
+    if(sortKey==="bomb") return lbVal(b)-lbVal(a)|| b.heat-a.heat;
+    if(sortKey==="park") return pkVal(b)-pkVal(a)|| b.heat-a.heat;
+    return sortVal(b,sortKey)-sortVal(a,sortKey);
+  });
+  const sc=document.getElementById("shown"); if(sc) sc.textContent=players.length+" shown";
+  updateFiltCount();
+
+  // SMASH is a slate-level call, not a per-card threshold: only hitters where nearly
+  // everything converges (score >= 6.5 with 3+ distinct reasons and real Heat), capped
+  // at the top 3 of the day. Rare by design — the flag only means something if the
+  // hitters carrying it convert at a rate the rest of the board can't match.
+  const smashSet=slateSmash();
+  const _R=trackerRates(), _BR=betRates();   // for the model-odds line on each card
+
+  let html="";
+  if(BOARD.briefing&&BOARD.briefing.length&&!q&&!gameSel.size){
+    html+=`<div class="brief"><div class="brief-h">Today</div>${BOARD.briefing.slice(0,6).map(l=>`<div class="brief-ln">${l}</div>`).join("")}</div>`;
+  }
+  if(BOARD.lineups_pending&&BOARD.lineups_pending.length){
+    html+=`<div class="pending">${BOARD.lineups_pending.length} game(s) waiting on lineups — they fill in automatically as teams post them.</div>`;
+  }
+  if(BOARD.projected_games&&BOARD.projected_games.length){
+    const g=BOARD.projected_games.map(x=>`${x.away}@${x.home}`).join(", ");
+    html+=`<div class="pending" style="border-color:var(--seam);color:var(--ink)">
+      <b>Projected lineups</b> (last game's order) for ${BOARD.projected_games.length} game(s) — today's not posted yet: ${g}.
+      Probable pitchers are live, so matchups are real; bats update automatically when lineups drop.</div>`;
+  }
+  // Top Plays: a diversified shortlist — not just top-10 heat, but several angles.
+  // SMASH convergence picks take first (they're the day's highest-conviction calls),
+  // then heat, mix edges, BvP history, risers, complete profiles, due. UI-only.
+  if(BOARD.players&&BOARD.players.length&&!q&&!gameSel.size&&minHeat===0&&sortKey==="heat"){
+    const thinP=p=>!(p.windows&&p.windows.L14d&&(p.windows.L14d.bb_count||0)>=8);
+    const dealing=p=>(((p.opp_pitcher||{}).form)||{}).label==="DEALING";
+    const pool=BOARD.players.filter(p=>p.heat!=null&&!thinP(p)&&!dealing(p));
+    const used=new Set();
+    const take=(arr,n)=>{const o=[];for(const p of arr){if(used.has(p.id))continue;o.push(p);used.add(p.id);if(o.length>=n)break;}return o;};
+    const sig=(p,k)=>((p.metrics[k]||{}).recent);
+    const mixGain=p=>(p.heat_mix==null?0:p.heat_mix-p.heat);
+    const hasBvp=p=>{const ks=new Set((p.badges||[]).map(b=>b.k));return ks.has("hrsp")||ks.has("hrbp");};
+    const smashTop=take([...pool].filter(p=>smashSet.has(p.id)).sort((a,b)=>smashSet.get(b.id).score-smashSet.get(a.id).score),3);
+    const heatTop=take([...pool].sort((a,b)=>b.heat-a.heat),4);
+    const mixTop=take([...pool].filter(p=>mixGain(p)>=3).sort((a,b)=>mixGain(b)-mixGain(a)),3);
+    const bvpTop=take([...pool].filter(hasBvp).sort((a,b)=>b.heat-a.heat),3);
+    const riseTop=take([...pool].filter(p=>p.trend&&p.trend.dir==="up").sort((a,b)=>((b.trend.pct??99))-((a.trend.pct??99))),3);
+    const comp=p=>sig(p,"pull_air_pct")>=40&&sig(p,"avg_ev")>=88.5&&sig(p,"barrel_pct")>=11&&sig(p,"ideal_aa_pct")>=58;
+    const compTop=take([...pool].filter(comp).sort((a,b)=>b.heat-a.heat),3);
+    const lk=p=>(p.luck&&p.luck.recent)||{};
+    const dueTop=take([...pool].filter(p=>lk(p).luck_gap>=0.045&&lk(p).xwobacon>=0.380).sort((a,b)=>lk(b).luck_gap-lk(a).luck_gap),3);
+    const cats=[
+      {t:'<span class="clearflag" style="font-size:9.5px">SMASH</span>',d:"everything converges — the day's calls",ps:smashTop,note:p=>{const sm=smashSet.get(p.id);return sm?sm.reasons.slice(0,4).join(" · "):"";}},
+      {t:"Top Heat",d:"highest overall",ps:heatTop},
+      {t:"⚙ Mix Edges",d:"climb vs this arm's mix",ps:mixTop,mix:true},
+      {t:"● Owns the Arm",d:"has homered off today's SP or pen",ps:bvpTop},
+      {t:"▲ Risers",d:"contact trending up",ps:riseTop},
+      {t:"◆ Complete",d:"clear all four signals",ps:compTop},
+      {t:"◇ Due",d:"strong contact, unlucky",ps:dueTop},
+    ].filter(c=>c.ps.length);
+    const prow=(p,extra,note)=>{
+      const armSc=(p.opp_pitcher&&p.opp_pitcher.hr_score!=null)?p.opp_pitcher.hr_score:null;
+      const armBit=armSc!=null?` · arm <b style="color:${chipColor(armSc)}">${armSc}</b>`:"";
+      const b2b=p.hr_last_game?` <span class="pl-tag warn" style="vertical-align:middle">B2B</span>`:"";
+      return `<div class="tp-row"><div class="top">
+        <div class="hc" style="background:${chipColor(p.heat)}">${p.heat}</div>
+        <div><span class="nm">${p.name}</span>${b2b}${p.lineup_spot?` <span class="spot">#${p.lineup_spot}</span>`:""}
+          <span style="color:var(--muted);font-size:11px"> ${p.team}→${p.opp_team} · ${timeStr(p.time)}${armBit}</span>${extra||""}</div>
+      </div><div class="why">${note||p.angle||p.why||""}</div></div>`;
+    };
+    const body=cats.map(c=>`<div class="tp-cat"><div class="tp-cat-h">${c.t}<span>${c.d}</span></div>${
+      c.ps.map(p=>prow(p,c.mix?` <span class="mixd up">▲${mixGain(p)}</span>`:"",c.note?c.note(p):null)).join("")}</div>`).join("");
+    const total=used.size;
+    html+=`<div class="tp" id="tpPanel">
+      <div class="tp-head" onclick="document.getElementById('tpPanel').classList.toggle('open')">
+        <h3>Top <span class="y">Plays</span> · ${total}</h3>
+        <span class="sub" style="font-size:11px;color:var(--muted)">${cats.length} angles · tap to expand</span>
+      </div>
+      <div class="tp-body">${body}</div>
+    </div>`;
+  }
+  // Arms today: starters ranked by HR vulnerability
+  if(BOARD.arms&&BOARD.arms.length){
+    let arows="";
+    BOARD.arms.forEach(a=>{
+      if(a.hr_score==null) return;
+      const f=a.form||{label:"",color:"#8A95A3"};
+      const d=(a.recent_score!=null&&a.season_score!=null)?(a.recent_score-a.season_score):null;
+      const dArrow=d==null?"":(d>=6?` <span style="color:var(--bad)">▲${d}</span>`:d<=-6?` <span style="color:var(--good)">▼${Math.abs(d)}</span>`:"");
+      const hh=a.hand_hr?`<span class="arm-hand">${a.hand_hr.side}HB: ${a.hand_hr.hr} HR / ${a.hand_hr.pa} PA 2yr</span>`:"";
+      const fbgb=(a.fb_pct!=null&&a.gb_pct!=null)?(a.fb_pct>=a.gb_pct
+        ?` · <b class="fbv hi">FB ${a.fb_pct.toFixed(0)}%</b> <span class="gbv">GB ${a.gb_pct.toFixed(0)}%</span>`
+        :` · <span class="fbv">FB ${a.fb_pct.toFixed(0)}%</span> <b class="gbv hi">GB ${a.gb_pct.toFixed(0)}%</b>`):"";
+      arows+=`<div class="arm-row arm-tap" onclick="armFilter('${(a.opp||"").replace(/'/g,"")}')" title="Tap to show the bats facing him">
+        <div class="arm-sc" style="background:${chipColor(a.hr_score)}">${a.hr_score}</div>
+        <div class="arm-nm"><b>${a.name}</b> ${throwBadge(a.throws)}${a.opener?' <span class="opener-tag">OPENER</span>':''} <span style="color:var(--muted)">${a.team}→${a.opp} · ${timeStr(a.time)}</span>
+          <div class="arm-sub">rec <b>${a.recent_score??"–"}</b> · szn <b>${a.season_score??"–"}</b>${dArrow}${fbgb}${hh?" · "+hh:""}</div>
+          ${badgeChips(a,4)}</div>
+        <div class="arm-tag" style="color:${f.color};border:1px solid ${f.color}">${f.label}</div>
+      </div>`;
+    });
+    const shellable=BOARD.arms.filter(a=>a.form&&(a.form.label==="SHELLABLE"||a.form.label==="SLIPPING"||a.form.label==="STEADY-BAD")).length;
+    html+=`<div class="arms" id="armsPanel">
+      <div class="arms-head" onclick="document.getElementById('armsPanel').classList.toggle('open')">
+        <h3>Arms Today</h3>
+        <span class="sub">${shellable} targetable · tap to ${'expand'}</span>
+      </div>
+      <div class="arms-body">${arows}<div class="arm-note">rec · szn = HR-vulnerability by window (▲ red = cracking, ▼ green = sharpening). <b style="color:var(--bad)">FB%</b> arms put balls in the air — the target profile; <b style="color:var(--good)">GB%</b> arms suppress it. Tap any arm to filter the board to the bats facing him.</div></div>
+    </div>`;
+  }
+  {
+    const rb=(BOARD.players||[]).filter(p=>p.robbed).sort((a,b)=>(b.robbed.n-a.robbed.n)||(b.robbed.best_ft-a.robbed.best_ft));
+    if(rb.length&&!q&&!gameSel.size){
+      html+=`<div class="arms" id="robPanel">
+        <div class="arms-head" onclick="document.getElementById('robPanel').classList.toggle('open')">
+          <h3>Robbed <span class="y">Board</span></h3>
+          <span class="sub">${rb.length} would-be HRs land here tonight · tap to expand</span>
+        </div>
+        <div class="arms-body">${rb.slice(0,10).map(p=>`<div class="arm-row">
+          <div class="arm-sc" style="background:${chipColor(p.heat)}">${p.heat}</div>
+          <div class="arm-nm"><b>${p.name}</b> <span style="color:var(--muted)">${p.team}→${p.opp_team}</span>
+            <div class="arm-sub">${p.robbed.best_ft}ft out on ${p.robbed.best_date.slice(5)} — clears ${p.park} tonight${p.robbed.n>1?` · ${p.robbed.n} such balls`:""}</div></div>
+        </div>`).join("")}<div class="arm-note">His real batted balls from the last 2 weeks, flown through tonight's walls and weather. A ball that died where it was hit but clears here is the sharpest recent-contact signal there is.</div></div>
+      </div>`;
+    }
+  }
+  if(!players.length){
+    const noLineups=!BOARD.players||!BOARD.players.length;
+    const msg = noLineups
+      ? `Lineups aren't posted yet for the ${BOARD.slate_date} slate (${(BOARD.games||[]).length} games).<br>Hitters fill in automatically through the day as teams post lineups — usually a few hours before each game.`
+      : `No hitters match these filters.<br><button class="wlink" style="margin-top:10px" onclick="clearFilters()">Clear all filters</button>`;
+    main.innerHTML=html+`<div class="empty">${msg}</div>`;
+    return;
+  }
+
+  // when vs-Pitch-Mix is on, show how many spots each hitter moved vs standard Heat
+  let mixDelta={};
+  if(mixView){
+    const std=[...players].sort((a,b)=>b.heat-a.heat);
+    const mix=[...players].sort((a,b)=>(b.heat_mix??b.heat)-(a.heat_mix??a.heat));
+    const sr={}; std.forEach((p,i)=>sr[p.id]=i);
+    mix.forEach((p,i)=>{mixDelta[p.id]=sr[p.id]-i;});
+  }
+
+  players.forEach((p,i)=>{
+    const col=chipColor(H(p));
+    const op=p.opp_pitcher||{};
+    const form=op.form||null;
+    const md=mixView?(mixDelta[p.id]||0):null;
+    const mdChip=(md!=null)?`<span class="mixd ${md>0?'up':md<0?'down':'flat'}">${md>0?'▲':md<0?'▼':'='}${md?Math.abs(md):''}</span>`:"";
+    const bpv=(sortKey==="bp")?bpVal(p):null;
+    const bpChip=(bpv!=null&&bpv>=0)?`<span class="bpchip" style="background:${chipColor(bpv)}">pen ${bpv}</span> `:"";
+    const lbc=(sortKey==="bomb")?lbCeil(p):null;
+    const lbChip=(lbc!=null)?`<span class="bpchip" style="background:${evColor(lbc)}">${lbc.toFixed(0)} EV</span> `:"";
+    const pk=(sortKey==="park")?p.park_hr:null;
+    const pkChip=(pk&&pk.exp100!=null)?`<span class="bpchip" style="background:${chipColor(pk.score)}">${pk.boost>=0?"+":""}${pk.boost}%${pk.wind_mph?` · ${pk.wind_mph}mph`:""}</span> `:"";
+    const armBadge = (op.hr_score!=null)
+      ? `<span class="armbadge" style="border-color:${form?form.color:'var(--line)'};color:${form?form.color:'var(--muted)'}">`
+        +`${throwBadge(op.throws)} ${op.name||'arm'} · HR ${op.hr_score}${form?` · ${form.label}`:''}</span>${op.opener?` <span class="opener-tag">OPENER${op.start_len?` · ~${op.start_len} IP`:''}</span>`:''}`
+      : (op.name?`<span class="armbadge">${throwBadge(op.throws)} ${op.name}</span>${op.opener?` <span class="opener-tag">OPENER</span>`:''}`:'');
+
+    let strip="";
+    CORE.forEach(m=>{
+      const cell=p.metrics[m.k]||{};
+      strip+=`<div class="mcell">
+        <div class="k">${m.label}</div>
+        <div class="r" style="background:${threshTint(cell.recent,m)}">${m.fmt(cell.recent)}</div>
+        <div class="sc">${m.fmt(cell.season)} · ${m.fmt(cell.career)}</div>
+      </div>`;
+    });
+
+    // extra context metrics (recent · season · career)
+    let extra="";
+    EXTRA.forEach(m=>{
+      const cell=p.metrics[m.k]||{};
+      extra+=`<div class="mcell">
+        <div class="k">${m.label}</div>
+        <div class="r">${m.fmt(cell.recent)}</div>
+        <div class="sc">${m.fmt(cell.season)} · ${m.fmt(cell.career)}</div>
+      </div>`;
+    });
+
+    // detail: trend across windows for the four signals
+    const W=["L5","L14d","L30"];
+    let wrows="";
+    [["Pull%","pull_air_pct",1],["EV","avg_ev",1],["Brl%","barrel_pct",1],["IdealAA%","ideal_aa_pct",1],["HR","hr",0],["BBE","bb_count",0]].forEach(([lab,key,dec])=>{
+      let tds="";
+      W.forEach(w=>{const val=(p.windows[w]||{})[key];
+        tds+=`<td>${(key==="hr"||key==="bb_count")?(val??"–"):fmt(val,dec)}</td>`;});
+      wrows+=`<tr><td>${lab}</td>${tds}</tr>`;
+    });
+    const bd=p.score_breakdown||{};
+    const flags=(bd.flags||[]);
+    const _bdSkip=new Set(["note","flags","signals","tier","cleared"]);
+    const bdChips=Object.entries(bd).filter(([k,v])=>!_bdSkip.has(k)&&typeof v!=="object")
+      .map(([k,v])=>`<span>${k.replace(/_/g," ")}: ${v}</span>`).join("");
+    const flagChips=flags.map(f=>`<span style="color:var(--ink);border-color:var(--seam)">${f}</span>`).join("");
+
+    // opposing-arm block: recent vs season HR-vulnerability + red flags
+    const PR=op.recent||{}, PS=op.season||{};
+    const prow=(lab,key,dec)=>`<tr><td>${lab}</td><td>${fmt(PR[key],dec)}</td><td>${fmt(PS[key],dec)}</td></tr>`;
+    const armFlags=(op.flags||[]).map(f=>`<span style="color:var(--ink);border-color:${form?form.color:'var(--seam)'}">${f}</span>`).join("");
+    const armBlock = (op.hr_score!=null) ? `
+        <h4 style="margin-top:16px">Opposing arm — HR vulnerability
+          <span style="color:${form?form.color:'var(--muted)'}">${op.hr_score}/100${form?` · ${form.label}`:''}</span></h4>
+        ${op.opener?`<div class="opener-note">Opener — his starts run ${op.start_len?`~${op.start_len} inning${op.start_len>1.5?'s':''}`:'short (usually relieves)'}. This hitter likely sees him once, then it's a bullpen game: weigh the pen section below over the starter matchup.</div>`:''}
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px">recent ${op.recent_score??'–'} · season ${op.season_score??'–'} (2wk vs season)</div>
+        <table class="win"><thead><tr><th>${op.name||'arm'} (${op.throws||'?'}HP)</th><th>2wk</th><th>Szn</th></tr></thead><tbody>
+          ${prow('Barrel% allowed','barrel_pct_allowed',1)}
+          ${prow('HardHit% allowed','hardhit_pct_allowed',1)}
+          ${prow('EV allowed','avg_ev_allowed',1)}
+          ${prow('HR/PA%','hr_per_pa',1)}
+          ${prow('Ideal AA allowed','ideal_aa_allowed',1)}
+          ${prow('Pull-air allowed','pull_air_allowed',1)}
+          ${prow('SwStr% (whiff)','swstr_pct_allowed',1)}
+          ${prow('FB velo','fb_velo',1)}
+        </tbody></table>
+        ${op.recent&&op.recent.velo_trend!=null?`<div class="arm">Velo trend (2wk vs szn): <b style="color:${op.recent.velo_trend<=-0.8?'var(--seam)':'var(--ink)'}">${op.recent.velo_trend>0?'+':''}${op.recent.velo_trend} mph</b></div>`:''}
+        ${hrByHandBlock(op)}
+        ${armFlags?`<div class="bd" style="margin-top:10px">${armFlags}</div>`:'<div class="arm">No red flags.</div>'}
+        ${p.opp_bullpen?`
+          <h4 style="margin-top:16px">Opposing bullpen — HR vulnerability
+            <span style="color:${p.opp_bullpen.form?p.opp_bullpen.form.color:'var(--muted)'}">${p.opp_bullpen.score}/100${p.opp_bullpen.form?` · ${p.opp_bullpen.form.label}`:''}</span></h4>
+          <div style="font-size:11px;color:var(--muted)">${p.opp_bullpen.arms||'?'} relievers${p.opp_bullpen.vs_hand!=null?` · <b style="color:var(--seam)">vs ${op.vs_hand||p.bats}HB (this hitter): ${p.opp_bullpen.vs_hand}</b>`:''}${p.opp_bullpen.platoon&&p.opp_bullpen.platoon.worse?` · pen mashed by ${p.opp_bullpen.platoon.worse==='R'?'RHB':'LHB'} (R ${p.opp_bullpen.platoon.R??'–'} / L ${p.opp_bullpen.platoon.L??'–'})`:''}</div>
+          ${p.opp_bullpen.flags&&p.opp_bullpen.flags.length?`<div class="arm" style="margin-top:6px">pen flags: ${p.opp_bullpen.flags.join(' · ')}</div>`:''}`:''}
+    ` : `<div class="arm"><b>Opposing arm:</b> ${op.name||'—'}</div>`;
+
+    // compact mini-cells for the four signals (threshold-colored)
+    let mini="";
+    CORE.forEach(m=>{
+      const v=(p.metrics[m.k]||{}).recent;
+      mini+=`<div class="cm" style="background:${threshTint(v,m)}">${m.fmt(v)}</div>`;
+    });
+    const armSc = (p.opp_pitcher&&p.opp_pitcher.hr_score!=null)?p.opp_pitcher.hr_score:null;
+    const armCol = armSc!=null?chipColor(armSc):"transparent";
+    const sm = smashSet.get(p.id) || null;
+
+    html+=`<div class="row${isThin(p)?" thin":""}" data-i="${i}" style="--tc:${teamCol(p.team)}">
+      <div class="crow" onclick="toggle(this)">
+        <div class="crow-main">
+          <div class="rank mono">${i+1}</div>
+          <div class="cheat" style="background:${col}">${H(p)}</div>
+          <div class="cwho">
+            <div class="name"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span class="nm-txt">${p.name}</span><span class="liststar"${listHas(p.id)?"":" hidden"}>★</span></div>
+            <div class="cmini">${sm?'<span class="clearflag">SMASH</span> ':""}${hlabPill(p)}${p.robbed?`<span class="robtag">ROBBED${p.robbed.n>1?" ×"+p.robbed.n:""}</span> `:""}${bpChip}${lbChip}${pkChip}${mdChip}${trendBadge(p.trend)?trendBadge(p.trend)+" ":""}${p.lineup_status==="projected"?`<span class="spot" style="color:var(--seam);border-color:var(--seam)">proj</span> `:""}${p.lineup_spot?`#${p.lineup_spot} · `:""}${p.team}→${p.opp_team} · ${timeStr(p.time)}${armSc!=null?` · arm <b style="color:${armCol}">${armSc}</b>`:""} · ${(p.windows&&p.windows.L14d&&p.windows.L14d.pa!=null)?`${p.windows.L14d.pa}PA`:"–"}</div>
+          </div>
+          <div class="cmetrics">${mini}</div>
+        </div>
+        ${badgeChips(p,4)}
+      </div>
+      <div class="detail">
+        <div class="dname"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span>${p.name}</span>${p.lineup_spot?`<span class="dspot">#${p.lineup_spot}</span>`:""}</div>
+        <button class="listbtn${listHas(p.id)?" on":""}" data-pid="${p.id}" data-nm="${encodeURIComponent(p.name)}" onclick="toggleListBtn(this,event)">${listHas(p.id)?"★ On your list — tap to remove":"☆ Add to my list"}</button>
+        ${sm?`<div class="clearnote"><b>Everything's pointing here.</b> ${sm.reasons.length?sm.reasons.slice(0,5).join(" · ")+". ":""}The matchup's already priced into this number — trust it, don't talk yourself out of it over one cold reading.</div>`:""}
+        ${(function(){const h=HLAB[p.hit_label];return h?`<div class="hlab-note"><span class="hlab ${h[1]}">${h[0]}</span> ${h[2]} over the trailing 2 weeks — same window as the model. One label max, FB outranks LD, none if any threshold missed.</div>`:"";})()}
+        ${sprayChart(p)}
+        ${bullBear(p)}
+        ${(function(){try{const ms=hitterScore(p,_R,_BR);return `<div class="odds-line">Model odds <b>${(ms.prob*100).toFixed(0)}%</b> · <b>${americanFair(ms.prob)}</b><span>this model only — heat · trend · pitch mix · park+weather · contact luck · your tag history. Fair value, independent of any book; compare it to the posted line to find where they disagree.</span></div>`;}catch(e){return "";}})()}
+        ${p.angle?`<div class="angle">${p.angle}</div>`:""}
+        ${badgeChips(p)}
+        <div class="matchup" style="margin-bottom:10px">${p.team} vs ${p.opp_team} · ${timeStr(p.time)} · ${p.park||""} · park ${fmt(p.park_hr_factor,2)}× · ${armBadge}</div>
+        ${(p.max_ev&&p.max_ev.season!=null)?`<div class="arm" style="margin:-4px 0 8px"><b>${p.name.split(' ').slice(-1)[0]}'s max EV:</b> <b style="color:var(--hot)">${p.max_ev.season}</b> mph season${p.max_ev.recent!=null?` · ${p.max_ev.recent} last 2wk`:""}</div>`:""}
+        ${p.park_hr?`<div class="parkbox">
+          <div class="parkbox-h">Park &amp; weather model <span class="pk-boost ${p.park_hr.boost>=0?'pos':'neg'}">${p.park_hr.boost>=0?'+':''}${p.park_hr.boost}% HR</span></div>
+          <div class="parkbox-sub"><b style="color:var(--ink)">${p.park_hr.exp100}</b> expected HR per 100 batted balls here vs <b style="color:var(--ink)">${p.park_hr.neutral100}</b> in a neutral park · ${p.park_hr.n} batted balls modeled</div>
+          <div class="parkbox-cond">${p.park_hr.indoor?"indoor — roof / climate controlled":(p.park_hr.weather?`${p.park_hr.temp_f!=null?p.park_hr.temp_f+"°F":""}${p.park_hr.wind_mph!=null?` · wind ${p.park_hr.wind_mph} mph`:""}`:"park geometry only · live weather unavailable")}${p.park_hr.savant_pf!=null?` · park ${p.park_hr.savant_pf}×`:""}</div>
+          <div class="parkbox-note">${p.park_hr.savant_pf!=null?"Anchored to this season's empirical HR park factor (computed from Statcast batted balls); physics adds this hitter's spray + today's weather on top. ":""}His real batted balls flown through this park's walls. Secondary read — separate from Heat.</div>
+        </div>`:""}
+        ${spotBlock(p)}
+        <h4>Four signals — recent · season · career</h4>
+        <div class="strip" style="border:1px solid var(--line);border-radius:10px">${strip}</div>
+        <details class="sec"><summary>Trend — last 2 wk vs game windows</summary>
+        <table class="win"><thead><tr><th></th><th>L5</th><th>2wk</th><th>L30</th></tr></thead>
+        <tbody>${wrows}</tbody></table></details>
+        <details class="sec"><summary>Context — recent · season · career</summary>
+        <div class="strip" style="border:1px solid var(--line);border-radius:10px">${extra}</div></details>
+        ${collapseWrap(pitchBlock(p))}
+        ${collapseWrap(luckBlock(p))}
+        ${flagChips?`<div class="bd" style="margin-top:12px">${flagChips}</div>`:""}
+        ${armBlock}
+        <div class="bd">${bdChips}</div>
+      </div>
+    </div>`;
+  });
+  main.innerHTML=thead()+html;
+  setHH();
+}
+function thead(){
+  const cols=[["pull_air_pct","PULL"],["avg_ev","EV"],["barrel_pct","BRL"],["ideal_aa_pct","IAA"]];
+  let cells=cols.map(([k,l])=>`<div class="th ${sortKey===k?'on':''}" onclick="setSort('${k}')">${l}${sortKey===k?' ▼':''}</div>`).join("");
+  return `<div class="thead">
+    <div class="rank"></div>
+    <div class="th cheath ${sortKey==='heat'?'on':''}" onclick="setSort('heat')">HEAT${sortKey==='heat'?' ▼':''}</div>
+    <div class="th cwhoh ${sortKey==='name'?'on':''}" onclick="setSort('name')">PLAYER${sortKey==='name'?' ▼':''}</div>
+    <div class="cmetrics">${cells}</div>
+  </div>`;
+}
+function setHH(){const h=document.querySelector("header");if(h)document.documentElement.style.setProperty("--hh",h.offsetHeight+"px");}
+// Build-health: how fresh is the data, and is it even today's slate? Bettors act on this.
+function setFreshness(){
+  if(!BOARD||!BOARD.generated_at) return;
+  const gen=new Date(BOARD.generated_at);
+  const stamp=document.getElementById("stamp"); if(!stamp) return;
+  const mins=Math.max(0,Math.round((Date.now()-gen.getTime())/60000));
+  const ago = mins<60 ? `${mins}m ago` : mins<1440 ? `${Math.floor(mins/60)}h ${mins%60}m ago` : `${Math.floor(mins/1440)}d ago`;
+  // largest scheduled gap is 6:30am→10am (3.5h); flag amber past ~4h, red past ~7h of daytime staleness
+  let dot = mins<240 ? "ok" : mins<420 ? "warn" : "bad";
+  // is the board showing an older slate than today (ET)?
+  const etToday=new Date().toLocaleDateString("en-CA",{timeZone:"America/New_York"});
+  const oldSlate = BOARD.slate_date && BOARD.slate_date < etToday;
+  if(oldSlate) dot="bad";
+  stamp.innerHTML=`<span class="fdot ${dot}"></span>updated ${gen.toLocaleTimeString([],{hour:"numeric",minute:"2-digit"})} · ${ago}`;
+  // stale banner — only when it genuinely warrants a heads-up
+  let banner=document.getElementById("staleBanner");
+  if(oldSlate || dot==="bad"){
+    if(!banner){banner=document.createElement("div");banner.id="staleBanner";banner.className="stale";
+      const h=document.querySelector("header");h.parentNode.insertBefore(banner,h.nextSibling);}
+    banner.innerHTML = oldSlate
+      ? `<b>Heads up:</b> showing the ${fmtSlate(BOARD.slate_date)} board — today's slate hasn't built yet. It fills in through the morning.`
+      : `<b>Heads up:</b> this board last built ${ago}. A scheduled update may have been missed — double-check before betting.`;
+    banner.hidden=false;
+  } else if(banner){ banner.hidden=true; }
+}
+function fmtSlate(s){const t=String(s).split("-").map(Number);return new Date(t[0],t[1]-1,t[2]).toLocaleDateString([],{month:"short",day:"numeric"});}
+window.addEventListener("resize",setHH);
+window.addEventListener("orientationchange",()=>setTimeout(setHH,100));
+window.addEventListener("resize",setHH);
+function setSort(k){ sortKey=k; const s=document.getElementById("sortSel"); if(s) s.value=k; savePrefs(); render(); }
+function renderView(){
+  const safe=fn=>{ try{ fn(); }catch(e){ console.error("render",e);
+    const m=document.getElementById("main");
+    if(m) m.innerHTML=`<div class="empty">This tab hit a snag rendering today's data — the rest of the app is fine.<br>Tap another tab or check back after the next board update.</div>`; } };
+  if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="matchup") safe(renderMatchup); else if(view==="stacks") safe(renderStacks); else if(view==="bets") safe(renderBets); else if(view==="weather") safe(renderWeather); else safe(render);
+}
+
+// Weather dashboard: today's slate, one card per game — conditions, roof call,
+// disruption status, and the wind drawn over a diamond oriented to that park.
+const WX_STATUS={clear:["Clear","var(--good)"],chance:["Chance for delay","var(--warm)"],
+  likely:["Delay likely","#E0913A"],postpone:["Postponement likely","var(--bad)"],unknown:["No forecast","var(--faint)"]};
+function renderWeather(){
+  const main=document.getElementById("main");
+  const wx=(BOARD&&BOARD.wx)||[];
+  if(!wx.length){ main.innerHTML=`<div class="empty">No weather data on this board yet — it attaches on the next build.</div>`; return; }
+  const legend=Object.entries(WX_STATUS).filter(([k])=>k!=="unknown").map(([k,[lab,col]])=>
+    `<span class="wx-key"><i style="background:${col}"></i>${lab}</span>`).join("");
+  const card=g=>{
+    const st=WX_STATUS[g.status]||WX_STATUS.unknown;
+    const roofBadge=g.roof?`<span class="wx-roof">${g.roof==="dome"?"DOME":g.roof==="closed"?"ROOF CLOSED":g.roof==="canopy"?"CANOPY":"ROOF OPEN"}</span>`:"";
+    const cond=g.precip_prob==null?"—":g.precip_prob>=45?"Rain risk":g.precip_prob>=20?"Clouds/showers":"Clear";
+    const arrow=(g.wind_rel_deg!=null&&g.wind_mph)?`
+      <svg class="wx-diamond" viewBox="0 0 60 60">
+        <rect x="19" y="19" width="22" height="22" transform="rotate(45 30 30)" fill="none" stroke="var(--line)" stroke-width="1.5"/>
+        <circle cx="30" cy="41" r="1.6" fill="var(--muted)"/>
+        <g transform="rotate(${g.wind_rel_deg} 30 30)">
+          <line x1="30" y1="44" x2="30" y2="16" stroke="var(--seam)" stroke-width="2.2" stroke-linecap="round"/>
+          <path d="M30 12 L25.5 20 L34.5 20 Z" fill="var(--seam)"/>
+        </g>
+      </svg>`:`<div class="wx-nowind">${g.roof&&g.roof!=="open"?"no wind indoors":"calm / n/a"}</div>`;
+    return `<div class="wx-card">
+      <div class="wx-c1"><div class="wx-teams"><b>${g.away}</b><span>@</span><b>${g.home}</b></div>
+        <div class="wx-sub">${timeStr(g.time)}</div><div class="wx-sub">${g.park||""}</div>
+        <div class="wx-status"><i style="background:${st[1]}"></i>${st[0]}</div></div>
+      <div class="wx-c2"><div class="wx-cond">${cond}</div>${roofBadge}</div>
+      <div class="wx-c3"><div><b>${g.temp_f??"–"}°</b><span>TEMP</span></div><div><b>${g.precip_prob??"–"}%</b><span>PRECIP</span></div><div><b>${g.rh_pct??"–"}%</b><span>HUMID</span></div></div>
+      <div class="wx-c4">${arrow}</div>
+      <div class="wx-c5"><b>${g.wind_mph??"–"}</b><span>MPH</span></div>
+    </div>`;
+  };
+  main.innerHTML=`<div class="wx-wrap">
+    <div class="wx-head">Game-day weather<span>today's slate · forecasts averaged over the first three game hours</span></div>
+    <div class="wx-legend">${legend}</div>
+    ${wx.map(card).join("")}
+    <div class="pl-note">Arrow shows where the wind blows <i>to</i>, drawn over each park's real orientation — straight up = out to center. Roof calls on retractable parks are predicted from the forecast (heat, cold, or rain risk). The park &amp; weather model on every hitter card already prices all of this in, including each park's learned wind sensitivity.</div>
+  </div>`;
+}
+
+function renderStacks(){
+  const main=document.getElementById("main");
+  const stacks=(BOARD&&BOARD.stacks)||[];
+  if(!stacks.length){
+    main.innerHTML=`<div class="empty">No stacks yet.<br>A stack is a whole lineup worth attacking — a vulnerable starter (or a bullpen game) with two or more Heat-55+ bats facing him. They fill in as lineups post.</div>`;
+    return;
+  }
+  const pmap={}; (BOARD.players||[]).forEach(p=>{pmap[p.id]=p;pmap[p.name]=p;});
+  const armap={}; (BOARD.arms||[]).forEach(a=>{armap[a.name]=a;});
+  const smash=slateSmash();
+  let html=`<div style="max-width:760px;margin:0 auto">
+    <div class="stacks-intro">Lineups worth attacking — a vulnerable arm (or a bullpen game) with a cluster of in-form bats. Your "pitcher gives it up → take multiple players" spots. ● = has homered off today's arms. Tap a header to see all his bats on the board.</div>`;
+  stacks.forEach(s=>{
+    const f=s.form||{label:"",color:"#8A95A3"};
+    const arm=armap[s.arm];
+    const armBadges=arm?badgeChips(arm,4):"";
+    const rows=s.hitters.map(h=>{
+      const pl=(h.id!=null&&pmap[h.id])||pmap[h.name];
+      const bdg=pl?badgeChips(pl,3):"";
+      const sm=h.id!=null&&smash.has(h.id);
+      return `<div class="stack-h">
+        <div class="hh" style="background:${chipColor(h.heat)}">${h.heat}</div>
+        <div class="stack-who">
+          <div class="stack-nm"><span class="bats b-${(pl&&pl.bats)||(h.bats||'R')}">${h.bats||"?"}</span><span class="nm-txt">${h.owns?'<span style="color:var(--proof)">●</span> ':''}${h.name}</span>${sm?' <span class="clearflag">SMASH</span>':''}${h.b2b?' <span class="pl-tag warn">B2B</span>':''}${h.spot?`<span class="spot">#${h.spot}</span>`:""}</div>
+          ${bdg}
+        </div>
+      </div>`;
+    }).join("");
+    const envBits=[];
+    if(s.pen_game) envBits.push('<b style="color:var(--seam)">bullpen game</b>');
+    if(s.arm_score!=null) envBits.push(`arm <b style="color:${chipColor(s.arm_score)}">${s.arm_score}</b>`);
+    if(s.pen_score!=null) envBits.push(`pen <b style="color:${chipColor(s.pen_score)}">${s.pen_score}</b>`);
+    if(s.park_factor!=null) envBits.push(`park ${fmt(s.park_factor,2)}×`);
+    html+=`<div class="stack">
+      <div class="stack-head arm-tap" onclick="armFilter('${(s.team||"").replace(/'/g,"")}')" title="Show all his bats on the board">
+        <div class="sc" style="background:${chipColor(s.stack_score??s.arm_score)}">${s.stack_score??s.arm_score??"–"}</div>
+        <div style="flex:1;min-width:0">
+          <div class="nm">${s.arm} ${throwBadge(arm&&arm.throws)}${s.opener?' <span class="opener-tag">OPENER</span>':''} <span class="arm-tag" style="color:${f.color};border:1px solid ${f.color}">${f.label}</span></div>
+          <div class="sub">${envBits.join(" · ")}</div>
+          <div class="sub">${s.opp_team} bats · ${timeStr(s.time)} · ${s.hitters.length} in-form facing him</div>
+          ${armBadges}
+        </div>
+      </div>
+      ${rows}
+    </div>`;
+  });
+  html+=`<div class="pl-note">Stack score blends the arm's HR-vulnerability (or the pen's, in a bullpen game) with the strength of the top bats facing it — so a decent arm facing five monsters can outrank a terrible arm facing two.</div></div>`;
+  main.innerHTML=html;
+}
+
+function toggle(el){ el.closest(".row").classList.toggle("open"); }
+// tap an arm (Arms Today or a Stack header) -> board filters to the bats facing him
+function armFilter(team){
+  if(!team) return;
+  q=team;
+  const s=document.getElementById("search"); if(s) s.value=team;
+  if(view!=="board"){
+    view="board";
+    [...document.querySelectorAll("#tabbar button")].forEach(x=>x.setAttribute("aria-pressed",x.dataset.view==="board"));
+    const bc=document.getElementById("boardControls"); if(bc) bc.style.display="";
+    savePrefs();
+  }
+  render(); setHH();
+  const th=document.querySelector(".thead"); if(th) th.scrollIntoView({block:"start",behavior:"smooth"});
+}
+
+// ===== Personal bet log (stored on this device) + badge-conversion analytics =====
+const BET_TYPES=["Longest HR jackpot","Grand slam parlay","Round robin","Single HR","Other"];
+const BKLABEL={arm:"WEAK ARM",plat:"PLATOON",mix:"PITCH EDGE",pow:"POWER",lock:"HOT",hot:"WARMING",due:"DUE",cool:"MAY COOL",hrsp:"HR vs SP",hrbp:"HR vs PEN",pen:"WEAK PEN",tough:"TOUGH"};
+function loadBets(){try{return JSON.parse(localStorage.getItem("gy_bets")||"[]");}catch(e){return[];}}
+function saveBets(b){try{localStorage.setItem("gy_bets",JSON.stringify(b));}catch(e){}}
+// --- My List: players you're keen on, kept by MLBAM id so it persists across days ---
+function listGet(){try{return JSON.parse(localStorage.getItem("gy_list")||"[]");}catch(e){return[];}}
+function listSet(a){try{localStorage.setItem("gy_list",JSON.stringify(a));}catch(e){}}
+function listHas(id){return listGet().some(x=>x.id===id);}
+function listCount(){return listGet().length;}
+function listToggle(id,name){const a=listGet();const i=a.findIndex(x=>x.id===id);if(i>=0)a.splice(i,1);else a.push({id,name});listSet(a);return i<0;}
+function toggleListBtn(btn,ev){
+  if(ev) ev.stopPropagation();
+  const id=+btn.dataset.pid, nm=decodeURIComponent(btn.dataset.nm||"");
+  const added=listToggle(id,nm);
+  btn.classList.toggle("on",added);
+  btn.textContent=added?"★ On your list — tap to remove":"☆ Add to my list";
+  const row=btn.closest(".row"); if(row){const st=row.querySelector(".liststar"); if(st) st.hidden=!added;}
+  const lb=document.getElementById("listBtn"); if(lb){lb.textContent=`★ My List${listCount()?` (${listCount()})`:""}`;}
+  if(listFilter) render();
+}
+let betDraft={type:BET_TYPES[0],stake:"",odds:"",legs:[]};
+
+function renderBets(){
+  const main=document.getElementById("main");
+  const bets=loadBets().sort((a,b)=>(b.date||"").localeCompare(a.date||"")||(b.id-a.id));
+  main.innerHTML=`<div class="betswrap">
+    <div class="bl-intro">Log your daily bets to track <b>your</b> ROI — and learn which badges actually convert to homers. Stored only on this device.</div>
+    ${betFormHTML()}
+    ${betStatsHTML(bets)}
+    ${betListHTML(bets)}
+  </div>`;
+  const s=document.getElementById("betSearch"); if(s) s.oninput=()=>betSearch(s.value);
+}
+function betFormHTML(){
+  const legs=betDraft.legs.map((lg,i)=>`<span class="bl-leg">${lg.name}${lg.heat!=null?` <b>${lg.heat}</b>`:""} <button onclick="betRemoveLeg(${i})" aria-label="remove">✕</button></span>`).join("");
+  return `<div class="bl-form">
+    <select id="betType" onchange="betDraft.type=this.value">
+      ${BET_TYPES.map(t=>`<option ${t===betDraft.type?"selected":""}>${t}</option>`).join("")}
+    </select>
+    <div class="bl-legs">${legs||'<span class="bl-empty">add the player(s) in this bet ↓</span>'}</div>
+    <div class="bl-search-wrap">
+      <input id="betSearch" placeholder="Search today's hitters to add…" autocomplete="off"/>
+      <div id="betSugg" class="bl-sugg"></div>
+    </div>
+    <div class="bl-money">
+      <label>Stake $<input id="betStake" type="number" inputmode="decimal" value="${betDraft.stake}" oninput="betDraft.stake=this.value"/></label>
+      <label>Odds<input id="betOdds" placeholder="+450" value="${betDraft.odds}" oninput="betDraft.odds=this.value"/></label>
+    </div>
+    <button class="bl-save" onclick="betSave()">Log bet</button>
+  </div>`;
+}
+function betSearch(v){
+  const box=document.getElementById("betSugg"); if(!box)return;
+  v=(v||"").trim().toLowerCase();
+  if(!v||!BOARD||!BOARD.players){box.innerHTML="";return;}
+  const hits=BOARD.players.filter(p=>p.name.toLowerCase().includes(v)).slice(0,6);
+  box.innerHTML=hits.map(p=>`<div class="bl-opt" onclick="betAddLeg('${p.id}')"><span>${p.name}</span><span class="bl-opt-r">${p.team} · H ${p.heat??"–"}</span></div>`).join("")
+    +`<div class="bl-opt bl-opt-free" onclick="betAddFree()">+ add as text</div>`;
+}
+function betAddLeg(id){
+  const p=(BOARD.players||[]).find(x=>String(x.id)===String(id)); if(!p)return;
+  betDraft.legs.push({name:p.name,team:p.team,heat:p.heat,badges:(p.badges||[]).map(b=>b.k),hit:"pending"});
+  renderBets();
+}
+function betAddFree(){
+  const s=document.getElementById("betSearch"); const v=s?s.value.trim():"";
+  if(v) betDraft.legs.push({name:v,team:"",heat:null,badges:[],hit:"pending"});
+  renderBets();
+}
+function betRemoveLeg(i){betDraft.legs.splice(i,1);renderBets();}
+function betSave(){
+  if(!betDraft.legs.length){alert("Add at least one player to the bet.");return;}
+  const bets=loadBets();
+  bets.push({id:Date.now(),date:new Date().toLocaleDateString("en-CA",{timeZone:"America/New_York"}),
+    type:betDraft.type,stake:betDraft.stake,odds:betDraft.odds,result:"pending",payout:"",legs:betDraft.legs});
+  saveBets(bets);
+  betDraft={type:betDraft.type,stake:"",odds:"",legs:[]};
+  renderBets();
+}
+function betSetResult(id,r){const bets=loadBets();const b=bets.find(x=>x.id===id);if(!b)return;b.result=r;if(r!=="win")b.payout="";saveBets(bets);renderBets();}
+function betSetPayout(id,v){const bets=loadBets();const b=bets.find(x=>x.id===id);if(b){b.payout=v;saveBets(bets);}}
+function betSetPayoutDone(id,v){betSetPayout(id,v);renderBets();}
+function betCycleHit(id,i){const bets=loadBets();const b=bets.find(x=>x.id===id);if(!b||!b.legs[i])return;const c=b.legs[i].hit;b.legs[i].hit=c==="pending"?"hit":c==="hit"?"miss":"pending";saveBets(bets);renderBets();}
+function betDelete(id){if(!confirm("Delete this bet?"))return;saveBets(loadBets().filter(x=>x.id!==id));renderBets();}
+function betListHTML(bets){
+  if(!bets.length) return `<div class="bl-none">No bets logged yet — log one above to start tracking.</div>`;
+  return `<h3 class="bl-h">Logged bets · ${bets.length}</h3>`+bets.map(b=>{
+    const legs=(b.legs||[]).map((lg,i)=>{
+      const bd=(lg.badges||[]).map(k=>`<span class="bdg bk-${k}">${BKLABEL[k]||k}</span>`).join("");
+      const hc=lg.hit==="hit"?"hit":lg.hit==="miss"?"miss":"";
+      const hl=lg.hit==="hit"?"HR ✓":lg.hit==="miss"?"no HR":"did he homer?";
+      return `<div class="bl-bleg"><div class="bl-bleg-top">
+          <span class="bl-bnm">${lg.name}${lg.heat!=null?` <span class="bl-bh">H${lg.heat}</span>`:""}</span>
+          <button class="bl-hit ${hc}" onclick="betCycleHit(${b.id},${i})">${hl}</button></div>
+        ${bd?`<div class="badges">${bd}</div>`:""}</div>`;
+    }).join("");
+    const r=b.result;
+    return `<div class="bl-bet">
+      <div class="bl-bet-head"><div><b>${b.type}</b><div class="bl-bet-sub">${b.date}${b.stake?` · $${b.stake}`:""}${b.odds?` · ${b.odds}`:""}</div></div>
+        <button class="bl-del" onclick="betDelete(${b.id})" aria-label="delete">✕</button></div>
+      <div class="bl-blegs">${legs}</div>
+      <div class="bl-result"><div class="seg bl-rseg">
+          <button class="${r==='pending'?'on':''}" onclick="betSetResult(${b.id},'pending')">Pending</button>
+          <button class="${r==='win'?'on win':''}" onclick="betSetResult(${b.id},'win')">Won</button>
+          <button class="${r==='loss'?'on loss':''}" onclick="betSetResult(${b.id},'loss')">Lost</button>
+        </div>${r==="win"?`<label class="bl-pay">profit $<input type="number" inputmode="decimal" value="${b.payout||""}" oninput="betSetPayout(${b.id},this.value)" onchange="betSetPayoutDone(${b.id},this.value)"/></label>`:""}</div>
+    </div>`;
+  }).join("");
+}
+function betStats(bets){
+  let staked=0,net=0,w=0,l=0;const byBadge={},byTier={};
+  const TIER=h=>h>=70?"70+":h>=55?"55–69":h>=40?"40–54":"<40";
+  bets.forEach(b=>{
+    const stake=+b.stake||0;
+    if(b.result==="win"){staked+=stake;net+=(+b.payout||0);w++;}
+    else if(b.result==="loss"){staked+=stake;net-=stake;l++;}
+    (b.legs||[]).forEach(lg=>{
+      if(lg.hit!=="hit"&&lg.hit!=="miss")return;
+      const hit=lg.hit==="hit"?1:0;
+      (lg.badges||[]).forEach(k=>{const o=byBadge[k]=byBadge[k]||{h:0,n:0};o.h+=hit;o.n++;});
+      if(lg.heat!=null){const t=TIER(lg.heat);const o=byTier[t]=byTier[t]||{h:0,n:0};o.h+=hit;o.n++;}
+    });
+  });
+  return {staked,net,w,l,byBadge,byTier};
+}
+function betStatsHTML(bets){
+  if(!bets.length) return "";
+  const st=betStats(bets);
+  const roi=st.staked>0?Math.round(st.net/st.staked*100):null;
+  const money=`<div class="bl-stat-grid">
+    <div class="bl-stat"><div class="v">${st.w}-${st.l}</div><div class="k">record</div></div>
+    <div class="bl-stat"><div class="v ${st.net>=0?'pos':'neg'}">${st.net>=0?"+":"−"}$${Math.abs(st.net).toFixed(0)}</div><div class="k">net</div></div>
+    <div class="bl-stat"><div class="v ${roi!=null&&roi>=0?'pos':'neg'}">${roi!=null?(roi>=0?"+":"")+roi+"%":"–"}</div><div class="k">ROI</div></div>
+    <div class="bl-stat"><div class="v">$${st.staked.toFixed(0)}</div><div class="k">staked</div></div>
+  </div>`;
+  const bk=Object.entries(st.byBadge).sort((a,b)=>b[1].n-a[1].n);
+  const badgeRows=bk.length?bk.map(([k,o])=>{const pct=Math.round(o.h/o.n*100);
+    return `<div class="bl-bar"><span class="bdg bk-${k}">${BKLABEL[k]||k}</span>
+      <div class="bl-bartrack"><div class="bl-barfill" style="width:${pct}%"></div></div>
+      <span class="bl-barv">${pct}% · ${o.h}/${o.n}</span></div>`;}).join("")
+    :`<div class="bl-hint">Mark each player “HR ✓” or “no HR” on your logged bets and this fills in — showing which badges actually homer for you.</div>`;
+  const order=["70+","55–69","40–54","<40"];
+  const tierRows=order.filter(t=>st.byTier[t]).map(t=>{const o=st.byTier[t];const pct=Math.round(o.h/o.n*100);
+    return `<div class="bl-bar"><span class="bl-tier">${t}</span>
+      <div class="bl-bartrack"><div class="bl-barfill" style="width:${pct}%"></div></div>
+      <span class="bl-barv">${pct}% · ${o.h}/${o.n}</span></div>`;}).join("");
+  return `<div class="bl-stats">${money}
+    <div class="bl-sub-h">HR rate by badge</div>${badgeRows}
+    ${tierRows?`<div class="bl-sub-h">HR rate by Heat tier</div>${tierRows}`:""}</div>`;
+}
+
+// ---------- Parlay generator (groundwork) ----------
+// Blends the model's prior (Heat + park) with the tracker's EMPIRICAL HR rates, leaning
+// further toward what's actually converting as graded days accumulate. Thin now, sharper later.
+function tierOf(h){ return h>=70?"70+":h>=55?"55-69":h>=40?"40-54":"<40"; }
+
+function trackerRates(){
+  const R={base:0.10, tiers:{}, badges:{}, topn:{}, totalHR:0, players:0, days:0};
+  if(!HISTORY||!HISTORY.days||!HISTORY.days.length) return R;
+  const tiers={}, badges={}, topn={}; let hr=0, players=0;
+  HISTORY.days.forEach(d=>{
+    players+=d.players||0; hr+=d.total_hr||0;
+    Object.entries(d.by_tier||{}).forEach(([k,v])=>{const t=tiers[k]||(tiers[k]={n:0,hr:0});t.n+=v.n;t.hr+=v.hr;});
+    Object.entries(d.by_badge||{}).forEach(([k,v])=>{const a=badges[k]||(badges[k]={n:0,hr:0});a.n+=v.n;a.hr+=v.hr;});
+    Object.entries(d.top_n||{}).forEach(([k,v])=>{const a=topn[k]||(topn[k]={n:0,hr:0});a.n+=v.n;a.hr+=v.hr;});
+  });
+  R.totalHR=hr; R.players=players; R.days=HISTORY.days.length;
+  R.base = players? hr/players : 0.10;
+  const K=30;  // shrink small samples toward the base rate
+  Object.entries(tiers).forEach(([k,o])=>{ R.tiers[k]=(o.hr + R.base*K)/(o.n + K); });
+  Object.entries(badges).forEach(([k,o])=>{ R.badges[k]=(o.hr + R.base*K)/(o.n + K); });
+  Object.entries(topn).forEach(([k,o])=>{ R.topn[k]=o.n?(o.hr + R.base*K)/(o.n + K):R.base; });
+  return R;
+}
+
+// Your own bet log -> per-TAG hit rate. We don't care which player it was, only which
+// tags were on the legs that hit. Aggregated across all your graded legs and shrunk, so
+// today's hitters get nudged by the tag combos that have actually worked for YOU.
+function betRates(){
+  const B={badges:{}, base:0.0, legs:0};
+  let hit=0, n=0;
+  (loadBets()||[]).forEach(b=>(b.legs||[]).forEach(l=>{
+    if(l.hit!=="hit" && l.hit!=="miss") return;
+    const win=l.hit==="hit"; n++; if(win) hit++;
+    (l.badges||[]).forEach(k=>{ const a=B.badges[k]||(B.badges[k]={n:0,hit:0}); a.n++; if(win) a.hit++; });
+  }));
+  B.legs=n; B.base = n? hit/n : 0.0;
+  return B;
+}
+
+// Combined tag lift from BOTH the tracker tab and your bet tab — rewards the TAGS that
+// actually homer (never the individual player). Geometric mean across a hitter's tags so a
+// long tag list can't run away.
+function tagLift(badges, R, BR){
+  if(!badges || !badges.length) return 1;
+  let prod=1, used=0;
+  badges.forEach(b=>{
+    const lifts=[];
+    if(R.days && R.badges[b.k]!=null && R.base>0) lifts.push(R.badges[b.k]/R.base);          // tracker tab
+    if(BR.legs && BR.badges[b.k] && BR.base>0){                                               // bet tab
+      const a=BR.badges[b.k], K=4;
+      lifts.push(((a.hit + BR.base*K)/(a.n + K))/BR.base);
+    }
+    if(!lifts.length) return;
+    prod *= lifts.reduce((s,x)=>s+x,0)/lifts.length; used++;
+  });
+  return used ? Math.max(0.75, Math.min(1.5, Math.pow(prod, 1/used))) : 1;
+}
+
+// Composite "parlay value" — every signal you named, combined:
+//   data quality (Heat) · trending up (rescues a cold-tag guy who's playing hot) · good
+//   pitch mix · most-hit tags (bet+tracker) · tracker tier rate · park · sample confidence.
+function hitterScore(p, R, BR){
+  const base = (Math.max(0, Math.min(100, p.heat||0)))/100;                 // data quality
+  const tv = trendVal(p.trend);                                            // trend: up rescues, down dampens (never kills)
+  const trend = 1 + Math.max(-0.15, Math.min(0.18, tv/200));
+  const mixd = (p.heat_mix!=null && p.heat!=null) ? (p.heat_mix - p.heat) : 0;  // good pitch mix
+  const mix = 1 + Math.max(-0.10, Math.min(0.15, mixd/100));
+  const tags = tagLift(p.badges, R, BR);                                   // tags most hit (both tabs)
+  const tier = R.days ? Math.max(0.8, Math.min(1.3, (R.tiers[tierOf(p.heat)] ?? R.base)/R.base)) : 1;  // tracker
+  const park = (p.park_hr && p.park_hr.boost!=null) ? (1 + p.park_hr.boost/300) : 1;
+  // contact luck: gap = expected − actual on contact. Positive = earned quality not paying
+  // yet (due, small boost); negative = running hot above his contact (regression haircut).
+  const lg = ((p.luck||{}).recent||{}).luck_gap;
+  const luck = (lg!=null) ? (1 + Math.max(-0.07, Math.min(0.08, lg*1.2))) : 1;
+  const n = (p.sample && (p.sample.season || p.sample.L30)) || 0;          // downweight thin-sample noise
+  const conf = 0.6 + 0.4*Math.max(0, Math.min(1, n/60));
+  const score = base*trend*mix*tags*tier*park*luck*conf;
+  const prob = Math.max(0.03, Math.min(0.42, 0.05 + score*0.16));          // for fair-odds display only
+  return {score, prob, trend, mix, tags, luck, conf};
+}
+
+function americanFair(prob){
+  if(prob<=0) return "—";
+  const dec=1/prob;
+  return dec>=2 ? "+"+Math.round((dec-1)*100) : "-"+Math.round(100/(dec-1));
+}
+
+// Variety-first selection: one hitter per game, a cap on how many "chalk" (top-of-board)
+// legs are allowed, and optional odds bands so a parlay spreads across safe/medium/longshot
+// instead of stacking the obvious names.
+function buildVariety(ranked, legs, opts){
+  opts = opts || {};
+  const chalkN = opts.chalkN ?? 6, maxChalk = opts.maxChalk ?? 1, bands = opts.bands;
+  const usedG = new Set(), out = []; let chalk = 0;
+  const isChalk = p => p._rank < chalkN;
+  const tryPick = (pred) => {
+    for(const p of ranked){
+      if(out.indexOf(p) >= 0 || usedG.has(p.game_pk)) continue;
+      if(pred && !pred(p)) continue;
+      if(isChalk(p) && chalk >= maxChalk) continue;
+      out.push(p); usedG.add(p.game_pk); if(isChalk(p)) chalk++; return true;
+    }
+    return false;
+  };
+  if(bands){
+    const probs = ranked.map(p=>p._prob).slice().sort((a,b)=>b-a);
+    const hi = probs[Math.floor(probs.length*0.33)] ?? 1, lo = probs[Math.floor(probs.length*0.66)] ?? 0;
+    const predOf = b => b==="short" ? (p=>p._prob>=hi) : b==="long" ? (p=>p._prob<=lo) : (p=>p._prob<hi && p._prob>lo);
+    bands.forEach(b => { if(out.length<legs && !tryPick(predOf(b))) tryPick(null); });
+  }
+  while(out.length < legs){ if(!tryPick(null)) break; }
+  return out;
+}
+
+// Slot-based builder for your actual bet formats: each leg has its own eligibility rule,
+// with hard caps enforced across the whole ticket (one per game, max chalk, max B2B).
+// If a slot can't fill on a thin slate it relaxes to best-available rather than dying.
+function buildSlots(ranked, slots, opts){
+  opts=opts||{};
+  const chalkN=opts.chalkN??5, maxChalk=opts.maxChalk??1, maxB2B=opts.maxB2B??1;
+  const usedG=new Set(), out=[]; let chalk=0, b2b=0;
+  const ok=p=>out.indexOf(p)<0 && !usedG.has(p.game_pk)
+    && !(p._rank<chalkN && chalk>=maxChalk)
+    && !(p.hr_last_game && b2b>=maxB2B);
+  const take=p=>{ out.push(p); usedG.add(p.game_pk);
+    if(p._rank<chalkN) chalk++; if(p.hr_last_game) b2b++; };
+  for(const pred of slots){
+    let pick=ranked.find(p=>ok(p)&&(!pred||pred(p)));
+    if(!pick) pick=ranked.find(p=>ok(p));
+    if(pick) take(pick);
+  }
+  return out;
+}
+
+// ---------- Matchup tab: historical batter-vs-pitcher ----------
+function setMuSort(k){ muSort=k; renderMatchup(); }
+function renderMatchup(){
+  const main=document.getElementById("main");
+  if(!BOARD||!BOARD.players){ main.innerHTML=`<div class="empty">Board not loaded.</div>`; return; }
+  const ps=BOARD.players.filter(p=>p.lineup_status!=="out" && p.bvp);
+  if(!ps.length){ main.innerHTML=`<div class="empty">No matchup data yet — rebuild the board to populate batter-vs-pitcher history.</div>`; return; }
+  const spRec=p=>p.bvp.sp_career||p.bvp.sp;                 // prefer career, fall back to season
+  const bpHrN=p=>p.bvp.bp.filter(a=>a.hr>0).length;
+  const histScore=p=>spRec(p).hr*1000 + (bpHrN(p)?500:0) + spRec(p).pa*5 + (p.heat||0)/100;
+  const sorters={
+    hist:(a,b)=>histScore(b)-histScore(a),
+    sphr:(a,b)=>(spRec(b).hr-spRec(a).hr)||(spRec(b).pa-spRec(a).pa),
+    sppa:(a,b)=>(spRec(b).pa-spRec(a).pa)||(spRec(b).hr-spRec(a).hr),
+    bphr:(a,b)=>(bpHrN(b)-bpHrN(a))||(b.bvp.bp.length-a.bvp.bp.length),
+    heat:(a,b)=>(b.heat||0)-(a.heat||0),
+  };
+  const withHist=ps.filter(p=>spRec(p).pa>0 || p.bvp.bp.length).sort(sorters[muSort]||sorters.hist);
+  const none=ps.length-withHist.length;
+  const sbtn=(k,lab)=>`<button onclick="setMuSort('${k}')" aria-pressed="${muSort===k}">${lab}</button>`;
+  const card=p=>{
+    const b=p.bvp, sp=spRec(p), career=!!b.sp_career, spHot=sp.hr>0;
+    const opnr=!!(p.opp_pitcher&&p.opp_pitcher.opener);
+    const seasonTag=(career && b.sp && (b.sp.pa>0) ) ? `<span class="mu-yr">${b.sp.hr}/${b.sp.pa} this yr</span>` : "";
+    const spLine = sp.pa>0
+      ? `<span class="${spHot?'mu-hr':'mu-faced'}">${spHot?`● ${sp.hr} HR`:`${sp.hr} HR`} · ${sp.pa} PA</span> <span class="mu-src">${career?"career":"season"}</span>${seasonTag}`
+      : `<span class="mu-none">not faced${career?" (career)":" this year"}</span>`;
+    const bpHr=b.bp.filter(a=>a.hr>0);
+    const bpLine = bpHr.length
+      ? bpHr.map(a=>`<span class="mu-hr">● ${a.name} <b>${a.hr}</b>HR/${a.pa}PA</span>`).join(" ")
+      : (b.bp.length? `<span class="mu-faced">faced ${b.bp.length} of their pen · 0 HR</span>` : `<span class="mu-none">no pen history</span>`);
+    return `<div class="mu-card${(spHot||bpHr.length)?' mu-on':''}">
+      <div class="mu-top"><span class="mu-heat" style="background:${chipColor(p.heat||0)}">${p.heat??"–"}</span><b>${p.name}</b> ${listHas(p.id)?'<span class="liststar">★</span>':''}<span class="mu-meta">${p.team}→${p.opp_team} · ${timeStr(p.time)}</span></div>
+      <div class="mu-row"><span class="mu-lab">vs ${opnr?'opener':'SP'} ${sp.name||b.sp.name||"—"}${opnr?' <span class="opener-tag">1x look</span>':''}</span><span>${spLine}</span></div>
+      <div class="mu-row"><span class="mu-lab">vs their pen${opnr?' <b style="color:var(--ink)">← bulk of the game</b>':''}</span><span>${bpLine}</span></div>
+    </div>`;
+  };
+  main.innerHTML=`<div class="mu-wrap">
+    <div class="mu-head">Historical matchups<span>${withHist.length} with history${none?` · ${none} not faced`:""}</span></div>
+    <div class="seg mu-sort" id="muSort">${sbtn("hist","Best")}${sbtn("sphr","SP HR")}${sbtn("sppa","SP PA")}${sbtn("bphr","Pen HR")}${sbtn("heat","Heat")}</div>
+    ${withHist.map(card).join("")}
+    <div class="pl-note">Batter-vs-pitcher: HR &amp; PA off today's starter (career when available, season otherwise) and off active arms in the opponent's bullpen. ● = has gone deep off him. Heat chip on the left. Hitters with no history vs today's arms are hidden.</div>
+  </div>`;
+}
+
+// Trust table — which tags actually convert to HRs in YOUR data (tracker + bet log), so you
+// know what to lean on when pairing. Never invents; only shows tags with real graded samples.
+function trustTable(R, BR){
+  const raw={};
+  if(HISTORY&&HISTORY.days) HISTORY.days.forEach(d=>Object.entries(d.by_badge||{}).forEach(([k,v])=>{
+    const a=raw[k]||(raw[k]={n:0,hr:0}); a.n+=v.n; a.hr+=v.hr; }));
+  const live={};
+  if(BOARD&&BOARD.players) BOARD.players.forEach(p=>{ if(p.lineup_status==="out") return;
+    new Set((p.badges||[]).map(b=>b.k)).forEach(k=>{ live[k]=(live[k]||0)+1; }); });
+  const keys=new Set([...Object.keys(raw), ...Object.keys(BR.badges||{})]);
+  const rows=[...keys].map(k=>{
+    const tr=raw[k]||{n:0,hr:0};
+    const trRate=tr.n?tr.hr/tr.n:null;
+    const lift=(trRate!=null&&R.base>0)?trRate/R.base:null;
+    const bt=(BR.badges||{})[k]||{n:0,hit:0};
+    const btRate=bt.n?bt.hit/bt.n:null;
+    let verdict="neutral";
+    if(lift!=null){
+      if(lift>=1.25 && tr.n>=20) verdict="trust";
+      else if(lift>=1.25) verdict="thin";
+      else if(lift<=0.8 && tr.n>=20) verdict="fade";
+    }
+    return {k, trN:tr.n, trRate, lift, btN:bt.n, btRate, live:live[k]||0, verdict};
+  }).filter(r=>r.trN>0||r.btN>0);
+  rows.sort((a,b)=>{ const la=a.lift==null?-1:a.lift, lb=b.lift==null?-1:b.lift; return lb-la || b.trN-a.trN; });
+  return rows;
+}
+// 2-tag combos from your bet legs that have actually hit — the pairing edges live here.
+function comboTrust(){
+  const combos={};
+  (loadBets()||[]).forEach(b=>(b.legs||[]).forEach(l=>{
+    if(l.hit!=="hit"&&l.hit!=="miss") return;
+    const win=l.hit==="hit"; const ks=[...new Set(l.badges||[])].sort();
+    for(let i=0;i<ks.length;i++) for(let j=i+1;j<ks.length;j++){
+      const key=ks[i]+"\u0001"+ks[j]; const a=combos[key]||(combos[key]={n:0,hit:0}); a.n++; if(win) a.hit++; }
+  }));
+  return Object.entries(combos).filter(([,v])=>v.n>=3)
+    .map(([k,v])=>({ks:k.split("\u0001"), n:v.n, hit:v.hit, rate:v.hit/v.n}))
+    .sort((a,b)=>b.rate-a.rate||b.n-a.n).slice(0,6);
+}
+function renderParlays(){
+  const main=document.getElementById("main");
+  if(!BOARD||!BOARD.players){ main.innerHTML=`<div class="empty">Board not loaded.</div>`; return; }
+  const R=trackerRates();
+  const BR=betRates();
+  const w=R.totalHR/(R.totalHR+150);
+  const rankMap={};
+  BOARD.players.slice().sort((a,b)=>(b.heat||0)-(a.heat||0)).forEach((p,i)=>{ rankMap[p.id]=i; });
+  const ranked=BOARD.players.filter(p=>p.lineup_status!=="out")
+    .map(p=>{ try{ const s=hitterScore(p,R,BR);
+      return Object.assign({}, p, {_score:s.score,_prob:s.prob,_trend:s.trend,_mix:s.mix,_tags:s.tags,_luck:s.luck,_rank:rankMap[p.id]??99}); }
+      catch(e){ return Object.assign({}, p, {_score:0,_prob:0.02,_trend:1,_mix:1,_tags:1,_luck:1,_rank:rankMap[p.id]??99}); } })
+    .sort((a,b)=>b._score-a._score);
+
+  const leg=(p,extra)=>{
+    const tags=[];
+    if(p._rank<14) tags.push(`<span class="pl-tag lb">#${p._rank+1} board</span>`);
+    else if(p._rank>=20) tags.push(`<span class="pl-tag sl">sleeper</span>`);
+    if(p.trend && p.trend.dir==="up") tags.push(`<span class="pl-tag up">▲ trending</span>`);
+    if(p._mix>1.03) tags.push(`<span class="pl-tag mx">mix+</span>`);
+    if(p._tags>1.05) tags.push(`<span class="pl-tag tg">tags+</span>`);
+    if(p._luck>1.02) tags.push(`<span class="pl-tag up">due</span>`);
+    else if(p._luck<0.98) tags.push(`<span class="pl-tag warn">running hot</span>`);
+    if(p.hr_last_game) tags.push(`<span class="pl-tag warn">B2B</span>`);
+    if(p.opp_pitcher&&p.opp_pitcher.opener) tags.push(`<span class="pl-tag sl">opener gm</span>`);
+    if(extra) tags.unshift(extra);
+    return `<div class="pl-leg">
+      <div class="pl-leg-main"><b>${p.name}</b> <span class="pl-meta">${p.team}→${p.opp_team} · ${timeStr(p.time)}${p.why?` · ${p.why}`:""}</span>${tags.length?`<div class="pl-tags">${tags.join("")}</div>`:""}</div>
+      <div class="pl-leg-prob">${(p._prob*100).toFixed(0)}%<span>${americanFair(p._prob)}</span></div>
+    </div>`;
+  };
+  const cardShell=(title,sub,picks,legFn,foot,noComb)=>`<div class="pl-card">
+      <div class="pl-card-h"><b>${title}</b>${(picks.length>1&&!noComb)?`<span class="pl-comb">${(picks.reduce((a,p)=>a*p._prob,1)*100).toFixed(1)}% · ${americanFair(picks.reduce((a,p)=>a*p._prob,1))}</span>`:""}</div>
+      ${sub?`<div class="pl-sub">${sub}</div>`:""}
+      ${picks.map(legFn||leg).join("")}
+      <div class="pl-foot">${foot||"combined model probability if independent · fair odds, not book odds"}</div>
+    </div>`;
+  const thinCard=(title,msg)=>`<div class="pl-card pl-card-thin"><div class="pl-card-h"><b>${title}</b></div><div class="pl-foot">${msg}</div></div>`;
+
+  // ---- Bet 1 · Longest HR Jackpot: distance ceiling on names the field ignores ----
+  const jackpotCard=()=>{
+    const mev=p=>((p.max_ev||{}).season ?? (p.max_ev||{}).recent) || 0;
+    const elig=ranked.filter(p=>!p.hr_last_game && p._rank>=4 && (p.heat||0)>=45 && mev(p)>=108);
+    if(elig.length<2) return thinCard("Longest HR Jackpot — candidates","Not enough non-chalk, non-B2B power on this slate yet — fills in as lineups post.");
+    const dist=p=>{
+      const ev=(Math.min(118,Math.max(105,mev(p)))-105)/13;                 // raw distance ceiling
+      const pk=(p.park_hr&&p.park_hr.boost!=null)?Math.max(-0.5,Math.min(1,p.park_hr.boost/20)):0;
+      const iso=((p.windows||{}).L14d||{}).iso||0;
+      return ev*0.5 + pk*0.3 + Math.min(1,iso/0.30)*0.2;
+    };
+    const picks=elig.slice().sort((a,b)=>dist(b)-dist(a)).slice(0,3);
+    return cardShell("Longest HR Jackpot — candidates",
+      "distance ceiling on mid-tier names: never chalk, never B2B — the winner is usually 400ft+ from someone the field skipped",
+      picks,
+      p=>leg(p,`<span class="pl-tag lb">${mev(p)?mev(p).toFixed(1)+" max EV":""}${(p.park_hr&&p.park_hr.boost>0)?` · park +${p.park_hr.boost}%`:""}</span>`),
+      "single entries, not a parlay — ranked by raw distance ceiling (max EV · park/weather · ISO)", true);
+  };
+
+  // ---- Bet 2 · Best board · 3-leg: highest composite likelihood, one per team ----
+  // Full blend, never heat alone: trend, pitch mix, contact luck, your tag history
+  // (tracker + bet log), tracker tier conversion, park+weather, sample confidence.
+  const best3Card=()=>{
+    const used=new Set(); const picks=[];
+    for(const p of ranked){
+      if(picks.length>=3) break;
+      if(used.has(p.team)) continue;
+      if(p.hr_last_game && picks.some(x=>x.hr_last_game)) continue;   // max 1 B2B
+      picks.push(p); used.add(p.team);
+    }
+    if(picks.length<3) return thinCard("Best Board · 3-leg","Fewer than 3 teams with eligible hitters — comes back on a fuller slate.");
+    return cardShell("Best Board · 3-leg",
+      "the model's three strongest plays, one per team — ranked by the full blend (heat · trend · pitch mix · contact luck · your tag + tracker history · park), never heat alone",
+      picks,
+      p=>leg(p,(p.heat!=null&&p._score!=null)?`<span class="pl-tag lb">blend ${(p._score*100).toFixed(0)} · heat ${p.heat}</span>`:null));
+  };
+
+  // ---- Bet 3 · Round robin by 2s: 5 games, odds spread, score mix, capped chalk/B2B ----
+  const rrCard=()=>{
+    const H_=p=>p.heat||0;
+    const picks=buildSlots(ranked,[
+      p=>H_(p)>=75,
+      p=>H_(p)>=55&&H_(p)<75,
+      p=>H_(p)>=55&&H_(p)<75,
+      p=>H_(p)>=40&&H_(p)<55,
+      p=>H_(p)<55&&p._rank>=20,
+    ],{chalkN:5,maxChalk:1,maxB2B:1});
+    if(picks.length<5) return thinCard("Round Robin by 2s · 5-leg","Fewer than 5 games with eligible hitters — need 5 different games. Comes back on a fuller slate.");
+    const pairs=[]; for(let i=0;i<5;i++) for(let j=i+1;j<5;j++) pairs.push(picks[i]._prob*picks[j]._prob);
+    const expHits=pairs.reduce((a,x)=>a+x,0);
+    return cardShell("Round Robin by 2s · 5-leg",
+      "5 different games · score mix 75+ / two 55-74 / 40-54 / sleeper · max 1 chalk, max 1 B2B — the longshot pays 4 combos when it lands",
+      picks, null,
+      `10 two-leg combos · expected combo hits at model odds: ${expHits.toFixed(1)} of 10`);
+  };
+
+  const confPct=Math.round(w*100);
+  const confColor = w<0.15?"var(--cool)":w<0.5?"var(--warm)":"var(--hot)";
+
+  let trustHTML="";
+  try{
+    const rows=trustTable(R,BR);
+    const pct=x=>x==null?"–":(x*100).toFixed(0)+"%";
+    if(!rows.length){
+      trustHTML=`<div class="tt-wrap"><div class="tt-h">Trust table<span>grade a few days or log some bets — this fills in with the tags that actually convert for you</span></div></div>`;
+    } else {
+      const rowHtml=rows.map(r=>`<div class="tt-row tt-${r.verdict}">
+          <span class="tt-tag"><span class="bdg bk-${r.k}">${BKLABEL[r.k]||r.k}</span></span>
+          <span class="tt-rate">${pct(r.trRate)}${r.lift!=null?` <em>${r.lift.toFixed(2)}×</em>`:""}</span>
+          <span class="tt-n">${r.trN||"–"}</span>
+          <span class="tt-bet">${r.btN?`${pct(r.btRate)} <i>${r.btN}</i>`:"–"}</span>
+          <span class="tt-live">${r.live||"–"}</span>
+        </div>`).join("");
+      const combos=comboTrust();
+      const comboHtml=combos.length?`<div class="tt-sub-h">Combos that hit — your bets</div>${combos.map(c=>`<div class="tt-combo"><span class="tt-combo-tags">${c.ks.map(k=>`<span class="bdg bk-${k}">${BKLABEL[k]||k}</span>`).join('<span class="tt-plus">+</span>')}</span><span><b>${(c.rate*100).toFixed(0)}%</b> <i>${c.hit}/${c.n}</i></span></div>`).join("")}`:"";
+      trustHTML=`<div class="tt-wrap">
+          <div class="tt-h">Trust table<span>${R.days?`${R.days} graded day${R.days>1?"s":""}`:"no tracker yet"}${BR.legs?` · ${BR.legs} bet legs`:""} · lean green · fade red · ignore thin</span></div>
+          <div class="tt-cols"><span class="tt-tag">tag</span><span class="tt-rate">converts</span><span class="tt-n">n</span><span class="tt-bet">bets</span><span class="tt-live">live</span></div>
+          ${rowHtml}
+          ${comboHtml}
+          <div class="tt-legend"><b>converts</b> = HR rate for hitters carrying that tag (× vs board average) · <b>n</b> = tagged hitters graded · <b>bets</b> = your own hit rate on legs with that tag · <b>live</b> = how many carry it on today's board. Pair toward green tags that are live today; the generator below already weights these, this shows you the why.</div>
+        </div>`;
+    }
+  }catch(e){ trustHTML=""; }
+
+  let cardsHTML="";
+  try{
+    cardsHTML = jackpotCard() + best3Card() + rrCard();
+  }catch(e){ cardsHTML=`<div class="pl-card pl-card-thin"><div class="pl-foot">Couldn't build suggestions for this slate — check back once lineups post.</div></div>`; }
+
+  main.innerHTML=`
+    <div class="pl-wrap">
+      <div class="pl-conf">
+        <div class="pl-conf-h">Suggestion engine
+          <span style="color:${confColor}">${R.days?`${R.days} graded day${R.days>1?"s":""} · ${R.totalHR} HR tracked`:"no tracker data yet"}</span></div>
+        <div class="pl-conf-bar"><span style="width:${Math.max(4,confPct)}%;background:${confColor}"></span></div>
+        <div class="pl-conf-sub">Blends every signal — not just the top names. ${w<0.3?"Tracker is still thin, so tag/tier weighting is light for now and sharpens as graded days pile up.":"Tracker is now meaningfully steering the tag and tier weighting."}</div>
+        <div class="pl-inputs">
+          <span class="pl-in on">Heat / data</span>
+          <span class="pl-in on">Trend</span>
+          <span class="pl-in on">Pitch mix</span>
+          <span class="pl-in ${(R.days||BR.legs)?"on":"off"}">Tags: tracker+bets</span>
+          <span class="pl-in ${R.days?"on":"off"}">Tracker${R.days?` · ${R.days}d`:""}</span>
+          <span class="pl-in on">Variety</span>
+        </div>
+      </div>
+      ${trustHTML}
+      ${cardsHTML}
+      <div class="pl-note">Built around your three bets. Legs blend Heat, trend, pitch mix, contact luck (due hitters up, lucky hitters trimmed), your tag history, and park — with the hard rules baked in: never chalk or B2B in the jackpot, one hitter per team in the best-board 3-leg, five games with a score mix and capped chalk/B2B in the round robin. Odds/totals aren't in the free data — the environment lean is a park+arm proxy, so verify the 8.5+ total and the wind before firing.</div>
+    </div>`;
+}
+
+function renderTracker(){
+  const main=document.getElementById("main");
+  if(!HISTORY||!HISTORY.days||!HISTORY.days.length){
+    main.innerHTML=`<div class="empty">No graded days yet.<br>The tracker fills in each morning after games are final.</div>`;
+    return;
+  }
+  const days=HISTORY.days.slice();
+  // cumulative aggregates
+  const TIER_ORDER=["70+","55-69","40-54","<40"];
+  const tiers={}, forms={}, sigAgg={}, badgeAgg={}, topAgg={}, rankAgg={heat:{},iso:{},barrel:{},base:{}}, smashAgg={}, parkAgg={}, trendAgg={}, b2bAgg={}, opAgg={}; let sp=0,bp=0,tot=0,homered=0,players=0,badgesOnHr=0;
+  days.forEach(d=>{
+    players+=d.players||0; homered+=d.hitters_homered||0; tot+=d.total_hr||0;
+    sp+=d.sp_hr||0; bp+=d.bp_hr||0; badgesOnHr+=d.badges_on_hr||0;
+    Object.entries(d.by_tier||{}).forEach(([k,v])=>{const t=tiers[k]||(tiers[k]={n:0,hr:0});t.n+=v.n;t.hr+=v.hr;});
+    Object.entries(d.by_form||{}).forEach(([k,v])=>{const t=forms[k]||(forms[k]={n:0,hr:0});t.n+=v.n;t.hr+=v.hr;});
+    Object.entries(d.by_signal||{}).forEach(([k,v])=>{const a=sigAgg[k]||(sigAgg[k]={cleared:{n:0,hr:0},not:{n:0,hr:0}});a.cleared.n+=v.cleared.n;a.cleared.hr+=v.cleared.hr;a.not.n+=v.not.n;a.not.hr+=v.not.hr;});
+    Object.entries(d.by_badge||{}).forEach(([k,v])=>{const a=badgeAgg[k]||(badgeAgg[k]={n:0,hr:0});a.n+=v.n;a.hr+=v.hr;});
+    Object.entries(d.top_n||{}).forEach(([k,v])=>{const a=topAgg[k]||(topAgg[k]={n:0,hr:0});a.n+=v.n;a.hr+=v.hr;});
+    Object.entries(d.by_smash||{}).forEach(([k,v])=>{const a=smashAgg[k]||(smashAgg[k]={n:0,hr:0});a.n+=v.n;a.hr+=v.hr;});
+    Object.entries(d.by_park||{}).forEach(([k,v])=>{const a=parkAgg[k]||(parkAgg[k]={n:0,hr:0});a.n+=v.n;a.hr+=v.hr;});
+    Object.entries(d.by_trend||{}).forEach(([k,v])=>{const a=trendAgg[k]||(trendAgg[k]={n:0,hr:0});a.n+=v.n;a.hr+=v.hr;});
+    Object.entries(d.by_b2b||{}).forEach(([k,v])=>{const a=b2bAgg[k]||(b2bAgg[k]={n:0,hr:0});a.n+=v.n;a.hr+=v.hr;});
+    Object.entries(d.by_opener||{}).forEach(([k,v])=>{const a=opAgg[k]||(opAgg[k]={n:0,hr:0});a.n+=v.n;a.hr+=v.hr;});
+    if(d.ranks){["heat","iso","barrel","base"].forEach(m=>{Object.entries(d.ranks[m]||{}).forEach(([k,v])=>{const a=rankAgg[m][k]||(rankAgg[m][k]={n:0,hr:0});a.n+=v.n;a.hr+=v.hr;});});}
+  });
+  const rate=(o)=>o.n?100*o.hr/o.n:0;
+  const maxTierRate=Math.max(1,...Object.values(tiers).map(rate));
+  const maxFormRate=Math.max(1,...Object.values(forms).map(rate));
+
+  const bar=(o,max)=>{
+    const r=rate(o);
+    return `<div class="trk-bar"><span style="width:${Math.min(100,100*r/max)}%"></span></div>
+      <div class="val">${r.toFixed(1)}% <span style="color:var(--faint)">${o.hr}/${o.n}</span></div>`;
+  };
+
+  let tierRows=TIER_ORDER.filter(t=>tiers[t]).map(t=>
+    `<div class="trk-row"><div class="lab">${t}</div>${bar(tiers[t],maxTierRate)}</div>`).join("");
+
+  const FORM_ORDER=["SHELLABLE","STEADY-BAD","SLIPPING","HITTABLE","BAD-IMPROVING","STEADY","BOUNCING-BACK","DEALING"];
+  let formRows=FORM_ORDER.filter(f=>forms[f]).map(f=>
+    `<div class="trk-row"><div class="lab" style="font-size:11px">${f}</div>${bar(forms[f],maxFormRate)}</div>`).join("");
+
+  // Top-N success
+  const TOP_ORDER=["5","10","25"];
+  const maxTopRate=Math.max(1,...TOP_ORDER.filter(k=>topAgg[k]).map(k=>rate(topAgg[k])));
+  let topRows=TOP_ORDER.filter(k=>topAgg[k]).map(k=>
+    `<div class="trk-row"><div class="lab">Top ${k}</div>${bar(topAgg[k],maxTopRate)}</div>`).join("");
+
+  // THE validation: Heat vs ISO-only vs Barrel-only vs base rate (top 10)
+  const N="10";
+  const methods=[["heat","Heat (model)"],["iso","ISO only"],["barrel","Barrel% only"],["base","Base rate"]];
+  const avail=methods.filter(([m])=>rankAgg[m][N]&&rankAgg[m][N].n);
+  const maxCmp=Math.max(1,...avail.map(([m])=>rate(rankAgg[m][N])));
+  let cmpRows=avail.map(([m,lbl])=>{
+    const o=rankAgg[m][N]; const isHeat=m==="heat";
+    return `<div class="trk-row"><div class="lab" style="${isHeat?'color:var(--seam);font-weight:700':''}">${lbl}</div>${bar(o,maxCmp)}</div>`;
+  }).join("");
+  let verdict="";
+  if(rankAgg.heat[N]&&rankAgg.heat[N].n){
+    const hr=rate(rankAgg.heat[N]);
+    const beat=["iso","barrel","base"].filter(m=>rankAgg[m][N]&&rankAgg[m][N].n).map(m=>rate(rankAgg[m][N]));
+    const best=Math.max(...beat, 0);
+    const win=hr>best+0.01;
+    verdict=`<div style="font-size:12px;margin:6px 0 2px;color:${win?'var(--good)':'var(--bad)'}">${win
+      ? '✓ Heat is beating its own inputs — the composite is adding value.'
+      : 'Heat is NOT yet beating ISO/barrel alone. Small sample, or the composite needs work.'}</div>`;
+  }
+
+  // Signal -> HR correlation (cleared vs not, with lift)
+  const SIG_LABEL={pull_air_pct:"Pull-air%",barrel_pct:"Barrel%",iso:"ISO",avg_ev:"EV",ideal_aa_pct:"Ideal AA%",slg:"SLG"};
+  let sigRows=Object.keys(SIG_LABEL).filter(k=>sigAgg[k]).map(k=>{
+    const a=sigAgg[k];
+    const rc=a.cleared.n?100*a.cleared.hr/a.cleared.n:0;
+    const rn=a.not.n?100*a.not.hr/a.not.n:0;
+    const lift=rc-rn, lc=lift>=0?"var(--good)":"var(--bad)";
+    return `<div class="trk-row" style="grid-template-columns:84px 1fr 52px">
+      <div class="lab" style="font-size:11px">${SIG_LABEL[k]}</div>
+      <div style="font-size:12px;color:var(--muted)">cleared <b style="color:var(--ink)">${rc.toFixed(1)}%</b> · below ${rn.toFixed(1)}%</div>
+      <div class="val" style="color:${lc};font-weight:700">${lift>=0?"+":""}${lift.toFixed(1)}</div>
+    </div>`;
+  }).join("");
+
+  // Badge -> HR correlation (across ALL ranked hitters, every day — high power)
+  const baseRate=players?100*homered/players:0;
+  const badgeOrder=Object.entries(badgeAgg).filter(([k,o])=>o.n).sort((a,b)=>rate(b[1])-rate(a[1]));
+  const maxBadgeRate=Math.max(1,baseRate,...badgeOrder.map(([k,o])=>rate(o)));
+  let badgeRows=badgeOrder.map(([k,o])=>{
+    const lift=rate(o)-baseRate;
+    return `<div class="trk-row"><div class="lab"><span class="bdg bk-${k}">${(typeof BKLABEL!=="undefined"&&BKLABEL[k])||k}</span></div>${bar(o,maxBadgeRate)}
+      <div class="val" style="color:${lift>=0?'var(--good)':'var(--bad)'};font-weight:700;min-width:42px">${lift>=0?"+":""}${lift.toFixed(1)}</div></div>`;
+  }).join("");
+  const avgBadgesHr = tot ? (badgesOnHr/tot) : 0;
+
+  // Conviction & context conversion — the section that answers "should the weights
+  // change?" with data instead of priors. Fills in as graded days accumulate.
+  const pairRow=(lab,o,ref)=>{ if(!o||!o.n) return "";
+    const lift=rate(o)-(ref&&ref.n?rate(ref):baseRate);
+    return `<div class="trk-row" style="grid-template-columns:84px 1fr 52px">
+      <div class="lab" style="font-size:11px">${lab}</div>
+      <div style="font-size:12px;color:var(--muted)"><b style="color:var(--ink)">${rate(o).toFixed(1)}%</b> · ${o.hr}/${o.n}${ref&&ref.n?` · rest ${rate(ref).toFixed(1)}%`:""}</div>
+      <div class="val" style="color:${lift>=0?'var(--good)':'var(--bad)'};font-weight:700">${lift>=0?"+":""}${lift.toFixed(1)}</div></div>`; };
+  let convRows="";
+  convRows+=pairRow('<span class="clearflag" style="font-size:8.5px">SMASH</span>',smashAgg.smash,smashAgg.rest);
+  ["up","flat","down"].forEach(k=>{ if(trendAgg[k]) convRows+=pairRow("trend "+k,trendAgg[k]); });
+  ["strong+","lean+","neutral","against"].forEach(k=>{ if(parkAgg[k]) convRows+=pairRow("park "+k,parkAgg[k]); });
+  convRows+=pairRow("B2B (HR y'day)",b2bAgg.b2b,b2bAgg.rest);
+  convRows+=pairRow("vs opener",opAgg.opener,opAgg.sp);
+  const hlAgg={}; days.forEach(d=>Object.entries(d.by_hlabel||{}).forEach(([k,v])=>{const a=hlAgg[k]||(hlAgg[k]={n:0,hr:0});a.n+=v.n;a.hr+=v.hr;}));
+  [["elite",'<span class="hlab hl-elite">ELITE</span>'],["fb",'<span class="hlab hl-fb">FB BATTER</span>'],["ld",'<span class="hlab hl-ld">LD BATTER</span>']].forEach(([k,lab])=>{ if(hlAgg[k]) convRows+=pairRow(lab,hlAgg[k],hlAgg.none); });
+  const spotAgg={}; days.forEach(d=>Object.entries(d.by_spot||{}).forEach(([k,v])=>{const a=spotAgg[k]||(spotAgg[k]={n:0,hr:0});a.n+=v.n;a.hr+=v.hr;}));
+  const maxSpotRate=Math.max(1,...Object.values(spotAgg).map(rate));
+  const spotStrip=Object.keys(spotAgg).length?`<div class="spotrow" style="margin-top:6px">${[1,2,3,4,5,6,7,8,9].map(s=>{
+    const o=spotAgg[String(s)]; const r=o?rate(o):0; const op=o&&o.n?(0.15+0.6*r/maxSpotRate).toFixed(2):0;
+    return `<div class="spotcell" style="${o?`background:rgba(244,200,74,${op})`:''}"><div class="spotn" style="font-size:11px">${o?r.toFixed(0)+"%":"·"}</div><div class="spotlbl">${s}</div></div>`;}).join("")}</div>`:"";
+
+  let dayRows=days.slice().reverse().map(d=>{
+    const top=(d.hr_log||[]).slice(0,4).map(h=>`${h.name} (${h.heat}, ${h.off}${h.n_badges?`, ${h.n_badges} tag${h.n_badges>1?"s":""}`:""})`).join(" · ");
+    return `<div class="trk-day"><div class="d">${d.date}</div>
+      <div class="ln"><b style="color:var(--ink)">${d.hitters_homered}/${d.players}</b> ranked hitters homered ·
+        ${d.total_hr} HR · ${d.sp_hr} off SP / ${d.bp_hr} off BP</div>
+      ${top?`<div class="ln">${top}</div>`:""}</div>`;
+  }).join("");
+
+  main.innerHTML=`<div class="trk">
+    <div class="trk-sum"><b>${days.length}</b> days graded · <b>${homered}</b> of ${players} ranked hitters homered ·
+      <b>${tot}</b> HR total · <b>${sp}</b> off starters / <b>${bp}</b> off the pen
+      ${tot?`(${(100*sp/tot).toFixed(0)}% SP)`:""}</div>
+    <h3>⚖︎ Model vs baselines — top 10 HR rate</h3>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">the real test: does Heat beat just sorting by ISO or barrel%? it has to clear these to have edge.</div>
+    ${cmpRows||'<div class="ln" style="color:var(--muted)">— needs a few graded days —</div>'}
+    ${verdict}
+    <h3>HR rate by Heat tier</h3>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">does a higher Heat actually produce more HRs?</div>
+    ${tierRows||'<div class="ln" style="color:var(--muted)">—</div>'}
+    <h3>Conviction &amp; context signals</h3>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">SMASH, trend, park boost, B2B and opener conversion vs the field — this is the section that will say whether the weights should change. Right column = lift.</div>
+    ${convRows||'<div class="ln" style="color:var(--muted)">— fills in as new graded days arrive —</div>'}
+    ${spotStrip?`<div style="font-size:11px;color:var(--muted);margin:8px 0 2px">HR rate by lineup spot</div>${spotStrip}`:""}
+    <h3>HR rate by opposing-arm form</h3>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">do shellable / steady-bad arms get taken deep more?</div>
+    ${formRows||'<div class="ln" style="color:var(--muted)">—</div>'}
+    <h3>Top-N hit rate</h3>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">how often do the top 5 / 10 / 25 by Heat homer?</div>
+    ${topRows||'<div class="ln" style="color:var(--muted)">—</div>'}
+    <h3>Signal → HR correlation</h3>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">HR rate when a signal cleared "good" vs below — bigger lift = more predictive</div>
+    ${sigRows||'<div class="ln" style="color:var(--muted)">—</div>'}
+    <h3>HR rate by badge</h3>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">how often hitters carrying each badge homered, across every ranked hitter. Right column = lift vs the ${baseRate.toFixed(1)}% base rate. ${tot?`HR hitters carried <b style="color:var(--ink)">${avgBadgesHr.toFixed(1)}</b> badges on average.`:""}</div>
+    ${badgeRows||'<div class="ln" style="color:var(--muted)">— needs a few graded days —</div>'}
+    <h3>Daily log</h3>
+    ${dayRows}
+  </div>`;
+}
+
+document.getElementById("sortSel").addEventListener("change",e=>{
+  sortKey=e.target.value; savePrefs(); render();
+});
+let _qT=null;
+document.getElementById("search").addEventListener("input",e=>{
+  clearTimeout(_qT); _qT=setTimeout(()=>{ q=e.target.value; render(); },140);
+});
+document.getElementById("stamp").addEventListener("click",()=>{ load(); });
+document.getElementById("thinBtn").addEventListener("click",e=>{
+  hideThin=!hideThin; e.target.setAttribute("aria-pressed",hideThin); savePrefs(); render();
+});
+document.getElementById("listBtn").addEventListener("click",e=>{
+  listFilter=!listFilter; e.target.setAttribute("aria-pressed",listFilter); savePrefs(); render();
+});
+document.getElementById("mixBtn").addEventListener("click",e=>{
+  mixView=!mixView; e.target.setAttribute("aria-pressed",mixView); savePrefs(); render();
+});
+function populateGames(){
+  const list=document.getElementById("gameList");
+  if(!BOARD||!BOARD.games){if(list)list.innerHTML="";return;}
+  // opposing-starter vulnerability per game, derived from players
+  const sp={};
+  BOARD.players.forEach(p=>{
+    const op=p.opp_pitcher||{};
+    (sp[p.game_pk]=sp[p.game_pk]||{})[p.opp_team]={name:op.name||"",score:op.hr_score};
+  });
+  const games=BOARD.games.slice().sort((a,b)=>(a.time||"").localeCompare(b.time||""));
+  const vul=s=>s!=null&&s>=65;
+  const arm=(ab,o)=>`${ab} <b style="color:${vul(o&&o.score)?'var(--seam)':'var(--muted)'}">${(o&&o.score!=null)?o.score:'–'}${vul(o&&o.score)?' ▸':''}</b>`;
+  list.innerHTML=games.map(g=>{
+    const m=sp[g.game_pk]||{}; const on=gameSel.has(String(g.game_pk));
+    return `<div class="gameitem ${on?'on':''}" data-pk="${g.game_pk}">
+      <div class="gi-check">${on?'✓':''}</div>
+      <div class="gi-body"><div class="gi-top">${g.away} @ ${g.home} · ${timeStr(g.time)}</div>
+      <div class="gi-arms">SP vuln: ${arm(g.away,m[g.away])} · ${arm(g.home,m[g.home])}</div></div>
+    </div>`;
+  }).join("");
+}
+document.getElementById("gameList").addEventListener("click",e=>{
+  const it=e.target.closest(".gameitem"); if(!it)return;
+  const pk=it.dataset.pk;
+  if(gameSel.has(pk)) gameSel.delete(pk); else gameSel.add(pk);
+  populateGames(); updateFiltCount(); render();
+});
+function populateTeams(){
+  const list=document.getElementById("teamList");
+  if(!BOARD||!BOARD.players){if(list)list.innerHTML="";return;}
+  const teams=[...new Set(BOARD.players.map(p=>p.team).filter(Boolean))].sort();
+  list.innerHTML=teams.map(t=>`<button class="teamchip${teamSel.has(t)?' on':''}" data-team="${t}">${t}</button>`).join("");
+}
+document.getElementById("teamList").addEventListener("click",e=>{
+  const b=e.target.closest(".teamchip"); if(!b)return;
+  const t=b.dataset.team;
+  if(teamSel.has(t)) teamSel.delete(t); else teamSel.add(t);
+  populateTeams(); updateFiltCount(); render();
+});
+function updateFiltCount(){
+  const n=gameSel.size+teamSel.size+traitSel.size+labSel.size+drySel.size+(batFilter?1:0)+(minHeat>0?1:0)+(spFloor>0?1:0)+(hideThin?1:0)+(mixView?1:0);
+  const el=document.getElementById("filtCount");
+  if(!el)return;
+  if(n>0){el.textContent=n;el.hidden=false;}else{el.hidden=true;}
+}
+function clearFilters(){
+  gameSel.clear(); teamSel.clear(); batFilter=""; traitSel.clear(); labSel.clear(); drySel.clear(); minHeat=0; spFloor=0; hideThin=false; mixView=false;
+  document.querySelectorAll('#floor button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.min==="0"));
+  document.querySelectorAll('#spF button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.sp==="0"));
+  document.querySelectorAll('#bats button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.bat===""));
+  document.querySelectorAll('#traitF button,#hlabF button,#dryF button').forEach(x=>x.setAttribute('aria-pressed','false'));
+  document.getElementById('mixBtn').setAttribute('aria-pressed','false');
+  document.getElementById('thinBtn').setAttribute('aria-pressed','false');
+  populateGames(); populateTeams(); updateFiltCount(); render();
+}
+document.getElementById("floor").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b)return;
+  minHeat=+b.dataset.min;
+  [...document.querySelectorAll("#floor button")].forEach(x=>x.setAttribute("aria-pressed",x===b));
+  render();
+});
+document.getElementById("spF").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b)return;
+  spFloor=+b.dataset.sp;
+  [...document.querySelectorAll("#spF button")].forEach(x=>x.setAttribute("aria-pressed",x===b));
+  render();
+});
+document.getElementById("bats").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b)return;
+  batFilter=b.dataset.bat;
+  [...document.querySelectorAll("#bats button")].forEach(x=>x.setAttribute("aria-pressed",x===b));
+  render();
+});
+document.getElementById("traitF").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b)return;
+  const k=b.dataset.trait;
+  if(traitSel.has(k)) traitSel.delete(k); else traitSel.add(k);
+  b.setAttribute("aria-pressed", traitSel.has(k));
+  updateFiltCount(); render();
+});
+document.getElementById("hlabF").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b)return;
+  const k=b.dataset.hlab;
+  if(labSel.has(k)) labSel.delete(k); else labSel.add(k);
+  b.setAttribute("aria-pressed",labSel.has(k));
+  updateFiltCount(); render();
+});
+
+document.getElementById("dryF").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b)return;
+  const k=b.dataset.dry;
+  if(drySel.has(k)) drySel.delete(k); else drySel.add(k);
+  b.setAttribute("aria-pressed", drySel.has(k));
+  render();
+});
+document.getElementById("tabbar").addEventListener("click",async e=>{
+  const b=e.target.closest("button"); if(!b)return;
+  view=b.dataset.view;
+  [...document.querySelectorAll("#tabbar button")].forEach(x=>x.setAttribute("aria-pressed",x===b));
+  document.getElementById("boardControls").style.display = view==="board"?"":"none";
+  savePrefs();
+  if((view==="tracker"||view==="parlays") && !HISTORY){ await loadHistory(); }
+  renderView();
+  setHH();
+  window.scrollTo({top:0,behavior:"instant"});
+});
+
+async function loadHistory(){
+  try{
+    const r=await fetch("./history.json?t="+Date.now(),{cache:"no-store"});
+    HISTORY=await r.json();
+  }catch(err){ HISTORY={days:[]}; }
+}
+
+async function load(){
+  try{
+    const res=await fetch("./board.json?t="+Date.now(),{cache:"no-store"});
+    BOARD=await res.json();
+  }catch(err){
+    document.getElementById("main").innerHTML=
+      `<div class="empty">The board isn't available right now.<br>It refreshes automatically through the day — check back in a few minutes.</div>`;
+    return;
+  }
+  setFreshness();
+  if(window._freshTimer) clearInterval(window._freshTimer);
+  window._freshTimer=setInterval(setFreshness,60000);   // keep "x ago" + stale state live
+  const rw=BOARD.recent_window;
+  const fmtD=s=>{const t=String(s).split("-").map(Number);return new Date(t[0],t[1]-1,t[2]).toLocaleDateString([],{month:"short",day:"numeric"});};
+  document.getElementById("meta").innerHTML=
+    `<span><b>${fmtD(BOARD.slate_date)}</b> slate</span>
+     <span><b>${BOARD.games.length}</b> games</span>
+     <span><b>${BOARD.players.length}</b> hitters</span>
+     ${rw?`<span class="win-tag">Trailing 14 days · ${fmtD(rw.start)} – ${fmtD(rw.end)}</span>`:""}`;
+  // build the multi-game selector with per-game starter vulnerability
+  populateGames();
+  populateTeams();
+  document.getElementById("foot").textContent=
+    "All metrics = last 2 weeks. Heat ranks the four signals: Pull% (40%+ good), "+
+    "EV (88.5+ good), Barrel%, Ideal Attack Angle% (58%+ good), then nudged by the opposing arm. "+
+    "Orange = clears the good mark, blue = below. Tunable, not betting advice.";
+  // restore last session — sort, board toggles, and which view you were on
+  const pf=loadPrefs();
+  if(pf.sortKey){ sortKey=pf.sortKey; const s=document.getElementById("sortSel"); if(s) s.value=sortKey; }
+  if(typeof pf.mixView==="boolean"){ mixView=pf.mixView; const m=document.getElementById("mixBtn"); if(m) m.setAttribute("aria-pressed",mixView); }
+  if(typeof pf.hideThin==="boolean"){ hideThin=pf.hideThin; const t=document.getElementById("thinBtn"); if(t) t.setAttribute("aria-pressed",hideThin); }
+  if(typeof pf.listFilter==="boolean"){ listFilter=pf.listFilter; const l=document.getElementById("listBtn"); if(l) l.setAttribute("aria-pressed",listFilter); }
+  if(pf.view && pf.view!=="board"){
+    view=pf.view;
+    [...document.querySelectorAll("#tabbar button")].forEach(x=>x.setAttribute("aria-pressed",x.dataset.view===view));
+    document.getElementById("boardControls").style.display="none";
+  }
+  if((view==="tracker"||view==="parlays") && !HISTORY){ await loadHistory(); }
+  renderView();
+  setHH();
+}
+load();
+setInterval(load, 5*60*1000);   // refresh if a new board.json was published
+</script>
+</body>
+</html>
