@@ -45,7 +45,7 @@ jobs:
         env:
           SEASON_START: "2026-03-26"   # opening day; bump each season
           RECENT_DAYS: "45"
-        run: python -m etl.build_board
+        run: python tests/canary.py && python -m etl.build_board
 
       - name: Commit updated board
         run: |

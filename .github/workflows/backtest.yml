@@ -1,0 +1,27 @@
+name: Backtest
+on:
+  workflow_dispatch:
+    inputs:
+      season_start:
+        description: "Season start date (YYYY-MM-DD)"
+        default: "2026-03-25"
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install pandas numpy pybaseball requests
+      - name: Replay the season
+        env:
+          BT_SEASON_START: ${{ github.event.inputs.season_start }}
+        run: python -m etl.backtest
+      - name: Commit results
+        run: |
+          git config user.name "backtest-bot"
+          git config user.email "actions@github.com"
+          git add docs/backtest.json
+          git commit -m "backtest results" || echo "no changes"
+          git pull --rebase --autostash && git push

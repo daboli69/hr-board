@@ -655,6 +655,14 @@ def build(date_str: str | None = None) -> dict:
         })
     stacks.sort(key=lambda s: (s["stack_score"], len(s["hitters"])), reverse=True)
 
+    try:                                       # career HR milestone watch
+        mstones = statcast_data.career_hr_milestones([p["id"] for p in players])
+        for p in players:
+            if p["id"] in mstones:
+                p["milestone"] = mstones[p["id"]]
+    except Exception as e:
+        _hnote("milestones", e); print(f"[build] milestones skipped: {e}")
+
     # ---- fences for the spray chart + the morning briefing ----
     fences = {}
     try:
@@ -689,6 +697,11 @@ def build(date_str: str | None = None) -> dict:
         if b2b:
             names = ", ".join(p["name"] for p in b2b[:2])
             briefing.append(f"B2B fade: {names} homered last night — bases over HR by your rules.")
+        ms1 = [p for p in players if (p.get("milestone") or {}).get("away") == 1]
+        for p in ms1[:2]:
+            m = p["milestone"]
+            briefing.append(f"Milestone watch: {p['name']} sits at {m['career_hr']} career HR — "
+                            f"one swing from {m['next']}.")
         nlab = {"elite": 0, "fb": 0, "ld": 0}
         for p in players:
             if p.get("hit_label"): nlab[p["hit_label"]] += 1

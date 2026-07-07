@@ -286,6 +286,12 @@
   .brief-h{font-family:Archivo;font-weight:800;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--seam);margin-bottom:5px}
   .brief-ln{font-size:12.5px;color:var(--ink);line-height:1.55;padding:1.5px 0}
   .robtag{display:inline-block;font-family:"IBM Plex Mono";font-weight:700;font-size:8.5px;letter-spacing:.04em;color:#d98a66;background:rgba(200,71,43,.10);border:1px solid rgba(200,71,43,.35);padding:1px 5px;border-radius:4px;vertical-align:middle}
+  .mstone{display:inline-block;font-family:"IBM Plex Mono";font-weight:700;font-size:8.5px;letter-spacing:.03em;color:#d9bd6a;background:rgba(232,193,90,.09);border:1px solid rgba(232,193,90,.32);padding:1px 5px;border-radius:4px;vertical-align:middle;white-space:nowrap;margin:1px 4px 1px 0}
+  .bk-row{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+  .bk-note{font-size:10px;color:var(--faint)}
+  .cmini{line-height:1.95}
+  .clearflag,.hlab,.robtag,.spot,.opener-tag{white-space:nowrap;margin:1px 4px 1px 0}
+  .cmini .clearflag,.cmini .hlab,.cmini .robtag{vertical-align:middle}
   .spray-wrap{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:8px 8px 4px}
   .sprayviz{width:100%;height:auto;display:block}
   .spray-key{display:flex;gap:12px;flex-wrap:wrap;padding:4px 4px 6px;font-size:9.5px;color:var(--muted)}
@@ -1272,6 +1278,23 @@ function render(){
       </div>`;
     }
   }
+  {
+    const ms=(BOARD.players||[]).filter(p=>p.milestone).sort((a,b)=>a.milestone.away-b.milestone.away);
+    if(ms.length&&!q&&!gameSel.size){
+      html+=`<div class="arms" id="msPanel">
+        <div class="arms-head" onclick="document.getElementById('msPanel').classList.toggle('open')">
+          <h3>Milestone <span class="y">Watch</span></h3>
+          <span class="sub">${ms.length} chasing a number tonight · tap to expand</span>
+        </div>
+        <div class="arms-body">${ms.slice(0,10).map(p=>`<div class="arm-row">
+          <div class="arm-sc" style="background:${chipColor(p.heat)}">${p.heat}</div>
+          <div class="arm-nm"><b>${p.name}</b> <span style="color:var(--muted)">${p.team}→${p.opp_team} · ${timeStr(p.time)}</span>
+            <div class="arm-sub"><b>${p.milestone.career_hr}</b> career HR — ${p.milestone.away===1?"ONE away from":p.milestone.away+" away from"} <b>${p.milestone.next}</b></div></div>
+          ${p.milestone.away===1?'<div class="arm-tag" style="color:var(--gold,#e8c15a);border:1px solid var(--gold,#e8c15a)">1 AWAY</div>':""}
+        </div>`).join("")}<div class="arm-note">Career round numbers within reach tonight. Milestone chases are narrative gold — and the books know it, so check whether his HR price is inflated before riding the story.</div></div>
+      </div>`;
+    }
+  }
   if(!players.length){
     const noLineups=!BOARD.players||!BOARD.players.length;
     const msg = noLineups
@@ -1390,7 +1413,7 @@ function render(){
           <div class="cheat" style="background:${col}">${H(p)}</div>
           <div class="cwho">
             <div class="name"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span class="nm-txt">${p.name}</span><span class="liststar"${listHas(p.id)?"":" hidden"}>★</span></div>
-            <div class="cmini">${sm?'<span class="clearflag">SMASH</span> ':""}${hlabPill(p)}${p.robbed?`<span class="robtag">ROBBED${p.robbed.n>1?" ×"+p.robbed.n:""}</span> `:""}${bpChip}${lbChip}${pkChip}${mdChip}${trendBadge(p.trend)?trendBadge(p.trend)+" ":""}${p.lineup_status==="projected"?`<span class="spot" style="color:var(--seam);border-color:var(--seam)">proj</span> `:""}${p.lineup_spot?`#${p.lineup_spot} · `:""}${p.team}→${p.opp_team} · ${timeStr(p.time)}${armSc!=null?` · arm <b style="color:${armCol}">${armSc}</b>`:""} · ${(p.windows&&p.windows.L14d&&p.windows.L14d.pa!=null)?`${p.windows.L14d.pa}PA`:"–"}</div>
+            <div class="cmini">${sm?'<span class="clearflag">SMASH</span> ':""}${hlabPill(p)}${p.robbed?`<span class="robtag">ROBBED${p.robbed.n>1?" ×"+p.robbed.n:""}</span> `:""}${p.milestone?`<span class="mstone">HR ${p.milestone.career_hr} → ${p.milestone.next}</span> `:""}${bpChip}${lbChip}${pkChip}${mdChip}${trendBadge(p.trend)?trendBadge(p.trend)+" ":""}${p.lineup_status==="projected"?`<span class="spot" style="color:var(--seam);border-color:var(--seam)">proj</span> `:""}${p.lineup_spot?`#${p.lineup_spot} · `:""}${p.team}→${p.opp_team} · ${timeStr(p.time)}${armSc!=null?` · arm <b style="color:${armCol}">${armSc}</b>`:""} · ${(p.windows&&p.windows.L14d&&p.windows.L14d.pa!=null)?`${p.windows.L14d.pa}PA`:"–"}</div>
           </div>
           <div class="cmetrics">${mini}</div>
         </div>
@@ -1611,10 +1634,47 @@ function toggleListBtn(btn,ev){
 }
 let betDraft={type:BET_TYPES[0],stake:"",odds:"",legs:[]};
 
+function exportData(){
+  try{
+    const payload={v:1, exported:new Date().toISOString(),
+      bets:JSON.parse(localStorage.getItem("gy_bets")||"[]"),
+      list:JSON.parse(localStorage.getItem("gy_list")||"[]"),
+      prefs:JSON.parse(localStorage.getItem("gy_prefs")||"{}")};
+    const blob=new Blob([JSON.stringify(payload,null,1)],{type:"application/json"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download="going-yard-backup-"+new Date().toISOString().slice(0,10)+".json";
+    a.click(); URL.revokeObjectURL(a.href);
+  }catch(e){ alert("Backup failed: "+e.message); }
+}
+function importData(inp){
+  const f=inp.files&&inp.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const d=JSON.parse(r.result);
+      if(!d||!Array.isArray(d.bets)) throw new Error("not a Going Yard backup");
+      const cur=JSON.parse(localStorage.getItem("gy_bets")||"[]");
+      if(cur.length&&!confirm(`Replace ${cur.length} logged bet(s) with ${d.bets.length} from the backup?`)) return;
+      localStorage.setItem("gy_bets",JSON.stringify(d.bets));
+      if(Array.isArray(d.list)) localStorage.setItem("gy_list",JSON.stringify(d.list));
+      renderBets();
+      alert(`Restored ${d.bets.length} bet(s).`);
+    }catch(e){ alert("Restore failed: "+e.message); }
+    inp.value="";
+  };
+  r.readAsText(f);
+}
 function renderBets(){
   const main=document.getElementById("main");
   const bets=loadBets().sort((a,b)=>(b.date||"").localeCompare(a.date||"")||(b.id-a.id));
   main.innerHTML=`<div class="betswrap">
+    <div class="bk-row">
+      <button class="chip" onclick="exportData()">⬇ Backup bets</button>
+      <button class="chip" onclick="document.getElementById('impFile').click()">⬆ Restore</button>
+      <input type="file" id="impFile" accept=".json" hidden onchange="importData(this)"/>
+      <span class="bk-note">your bet log lives on this phone only — back it up</span>
+    </div>
     <div class="bl-intro">Log your daily bets to track <b>your</b> ROI — and learn which badges actually convert to homers. Stored only on this device.</div>
     ${betFormHTML()}
     ${betStatsHTML(bets)}
@@ -2110,10 +2170,38 @@ function renderParlays(){
     </div>`;
 }
 
+function btSection(main){
+  if(BACKTEST&&BACKTEST.days){
+    const bt=BACKTEST, bb=bt.base_pct||0;
+    const row=(lab,v)=>{ if(!v||!v.n) return "";
+      const r=100*v.hr/v.n, lift=r-bb;
+      return `<div class="trk-row" style="grid-template-columns:84px 1fr 52px"><div class="lab" style="font-size:11px">${lab}</div>
+        <div style="font-size:12px;color:var(--muted)"><b style="color:var(--ink)">${r.toFixed(1)}%</b> · ${v.hr}/${v.n}</div>
+        <div class="val" style="color:${lift>=0?'var(--good)':'var(--bad)'};font-weight:700">${lift>=0?"+":""}${lift.toFixed(1)}</div></div>`; };
+    let btHTML=`<h3>Season backtest</h3>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px">${bt.days} slates replayed as-of each morning (leak-checked) · base ${bb}% · core model only</div>`;
+    ["70+","55-69","40-54","<40"].forEach(t=>btHTML+=row("heat "+t,(bt.by_tier||{})[t]));
+    ["5","10","25"].forEach(k=>btHTML+=row("top "+k,(bt.top_n||{})[k]));
+    const cal=bt.calib||{};
+    const bins=Object.keys(cal).sort((a,b)=>a-b).filter(k=>cal[k].n>=40);
+    if(bins.length){
+      btHTML+=`<div style="font-size:11px;color:var(--muted);margin:8px 0 3px">calibration — HR rate by heat band</div>`;
+      bins.forEach(k=>{const v=cal[k];const r=100*v.hr/v.n;
+        btHTML+=`<div class="trk-row" style="grid-template-columns:56px 1fr 60px"><div class="lab" style="font-size:11px">${k}-${+k+9}</div>
+          <div class="bar"><i style="width:${Math.min(100,r*3.5)}%"></i></div>
+          <div class="val" style="font-size:11px">${r.toFixed(1)}%</div></div>`;});
+    }
+    if(bt.notes) btHTML+=`<div class="pl-note">${bt.notes.join(" · ")}</div>`;
+    const trkEl=main.querySelector(".trk");
+    if(trkEl) trkEl.insertAdjacentHTML("beforeend", btHTML);
+    else main.insertAdjacentHTML("beforeend", `<div class="trk">${btHTML}</div>`);
+  }
+}
 function renderTracker(){
   const main=document.getElementById("main");
   if(!HISTORY||!HISTORY.days||!HISTORY.days.length){
     main.innerHTML=`<div class="empty">No graded days yet.<br>The tracker fills in each morning after games are final.</div>`;
+    btSection(main);
     return;
   }
   const days=HISTORY.days.slice();
@@ -2263,6 +2351,7 @@ function renderTracker(){
     <h3>Daily log</h3>
     ${dayRows}
   </div>`;
+  btSection(main);
 }
 
 document.getElementById("sortSel").addEventListener("change",e=>{
@@ -2389,7 +2478,9 @@ document.getElementById("tabbar").addEventListener("click",async e=>{
   window.scrollTo({top:0,behavior:"instant"});
 });
 
+let BACKTEST=null;
 async function loadHistory(){
+  try{ const r=await fetch("backtest.json?t="+Date.now()); if(r.ok) BACKTEST=await r.json(); }catch(e){}
   try{
     const r=await fetch("./history.json?t="+Date.now(),{cache:"no-store"});
     HISTORY=await r.json();

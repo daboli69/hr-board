@@ -812,3 +812,42 @@ def recent_drives(df: pd.DataFrame, start_date: str, min_dist: int = 240, cap: i
             "hr": (r.events == "home_run"), "date": str(r.game_date)[:10],
         } for r in g.itertuples()]
     return out
+
+
+def career_hr_milestones(batter_ids, within: int = 5, timeout: int = 12) -> dict:
+    """Career HR totals for slate hitters via statsapi (batched), flagging anyone
+    within `within` of a round-number milestone (every 50 from 100 up, plus 500s).
+    {batter_id: {"career_hr": n, "next": milestone, "away": k}} — only near-milestone
+    hitters are returned. Fails soft to {} on any network/shape issue."""
+    import json as _json
+    import urllib.request
+    ids = [int(b) for b in batter_ids]
+    totals = {}
+    for i in range(0, len(ids), 80):
+        chunk = ids[i:i + 80]
+        url = ("https://statsapi.mlb.com/api/v1/people?personIds="
+               + ",".join(map(str, chunk))
+               + "&hydrate=stats(group=[hitting],type=[career])")
+        try:
+            with urllib.request.urlopen(url, timeout=timeout) as r:
+                data = _json.loads(r.read().decode())
+        except Exception as e:
+            print(f"[milestones] batch fetch failed: {e}")
+            continue
+        for person in data.get("people", []):
+            try:
+                for s in person.get("stats", []):
+                    for sp in s.get("splits", []):
+                        hr = sp.get("stat", {}).get("homeRuns")
+                        if hr is not None:
+                            totals[int(person["id"])] = int(hr)
+            except Exception:
+                continue
+    out = {}
+    marks = list(range(100, 900, 50))
+    for bid, hr in totals.items():
+        nxt = next((m for m in marks if m > hr), None)
+        if nxt is not None and (nxt - hr) <= within:
+            out[bid] = {"career_hr": hr, "next": nxt, "away": nxt - hr}
+    print(f"[milestones] {len(totals)} careers fetched, {len(out)} near a milestone")
+    return out
