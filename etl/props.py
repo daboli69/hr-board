@@ -200,11 +200,67 @@ def hrr_heat(batter_recent, pitcher_prof, lineup_spot=None, hr_heat=None):
     }
 
 
-def k_heat(batter_recent, pitcher_prof):
-    """0-100 score for likelihood of the hitter striking out. Higher = more K prone.
-    OVER Ks: pick high k_heat. UNDER Ks: pick low k_heat.
+_PK_ANCHORS = {
+    # pitcher's own K stuff (14-day trailing, blends toward season)
+    "k_pct":       {"floor": 15.0,  "good": 24.0,  "elite": 30.0},
+    "swstr":       {"floor": 8.0,   "good": 12.0,  "elite": 15.0},
+    # opposing lineup K vulnerability (season, averaged across projected lineup)
+    "opp_lineup_k":{"floor": 18.0,  "good": 24.0,  "elite": 28.0},
+}
 
-    Both sides use 14-day trailing form via the same pattern hit_heat uses."""
+
+def pitcher_k_heat(pitcher_prof, opp_lineup_k_pct=None, opener=False):
+    """0-100 score for pitcher-K-total prop (OVER 5.5 Ks, OVER 6.5 Ks, etc).
+    Higher = more likely to hit the OVER on Ks.
+
+    Signals (2-week methodology, same 60-PA confidence-blender pattern):
+      * pitcher K% (his own strikeout rate, trailing 14 days blended)
+      * pitcher SwStr% (leading indicator — batters missing his stuff)
+      * opposing lineup K vulnerability (avg K% across opposing hitters)
+      * volume flag — an opener throwing 1 IP tops has almost no path to
+        a 5+ K game; his score gets multiplied down accordingly.
+
+    Returns (score, breakdown) with the same shape as heat_score / hit_heat."""
+    if not pitcher_prof:
+        return None, {}
+    p = _pitcher_2wk(pitcher_prof)
+    signals = {
+        "k_pct":         _norm(p.get("k_pct_allowed"),   _PK_ANCHORS["k_pct"]),
+        "swstr":         _norm(p.get("swstr_pct_allowed"), _PK_ANCHORS["swstr"]),
+        "opp_lineup_k":  _norm(opp_lineup_k_pct,          _PK_ANCHORS["opp_lineup_k"])
+                         if opp_lineup_k_pct is not None else None,
+    }
+    weights = {"k_pct": 2.5, "swstr": 1.6, "opp_lineup_k": 1.4}
+    numer = 0.0; denom = 0.0
+    for k, v in signals.items():
+        if v is None: continue
+        w = weights[k]; numer += w * v; denom += w
+    if not denom:
+        return None, {"signals": signals}
+    raw = numer / denom
+    # Confidence from the recent-vs-season blend weight — a pitcher with 60+
+    # recent PA gets the full score, one with 10 PA gets pulled toward league median.
+    conf = 0.5 + 0.5 * (p.get("recent_weight") or 0.0)
+    score = 100.0 * (0.40 + conf * (raw - 0.40))
+    # Opener downgrade: a listed opener throwing 1 IP caps out at ~2 Ks
+    # regardless of stuff; the K prop line is almost always a full-appearance
+    # number, so an opener's chance of hitting O5.5 is structurally near zero.
+    if opener:
+        score = score * 0.35
+    return round(max(0.0, min(100.0, score)), 1), {
+        "signals": signals, "conf": round(conf, 2), "raw": round(raw, 3),
+        "pitcher_recent_weight": p.get("recent_weight"),
+        "opener": bool(opener),
+    }
+
+
+# Legacy hitter K score kept as internal helper — not surfaced on the Props tab
+# (bettors bet pitcher K props, not hitter K props). Retained in case a future
+# feature wants it as a Bear-side signal ("this hitter is likely to K vs this arm").
+def k_heat_hitter(batter_recent, pitcher_prof):
+    """0-100 score for likelihood the hitter strikes out this game. Kept as
+    internal helper; not exposed in the UI. See pitcher_k_heat for the actual
+    prop-facing K score."""
     if not batter_recent:
         return None, {}
     b = batter_recent

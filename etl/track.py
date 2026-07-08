@@ -30,7 +30,7 @@ def _load_day(date):
     if os.path.exists(snap):
         with open(snap) as f:
             d = json.load(f)
-            return d.get("players", []), d.get("parlay_picks", [])
+            return d.get("players", []), d.get("parlay_picks", []), d.get("pitcher_props", [])
     if os.path.exists(BOARD_PATH):
         with open(BOARD_PATH) as f:
             b = json.load(f)
@@ -43,8 +43,10 @@ def _load_day(date):
                 "iso": (p.get("windows", {}).get("L14d", {}) or {}).get("iso"),
                 "barrel_pct": (p.get("windows", {}).get("L14d", {}) or {}).get("barrel_pct"),
                 "badges": [bd["k"] for bd in (p.get("badges") or [])],
-            } for p in b.get("players", [])], b.get("parlay_picks", [])
-    return None, []
+                "hit_heat": p.get("hit_heat"),
+                "hrr_heat": p.get("hrr_heat"),
+            } for p in b.get("players", [])], b.get("parlay_picks", []), b.get("pitcher_props", [])
+    return None, [], []
 
 
 def _normalize_sc(sc):
@@ -178,13 +180,25 @@ PA_EVENTS_TRACK = {
 
 
 def _k_map(sc):
-    """{bid: n_strikeouts}"""
+    """{bid: n_strikeouts} — hitter K counts (kept for internal use)"""
     out = {}
     ks = sc[sc["events"].isin(list(K_EVENTS))]
     for _, row in ks.iterrows():
         if row["batter"] != row["batter"]:
             continue
         out[int(row["batter"])] = out.get(int(row["batter"]), 0) + 1
+    return out
+
+
+def _pitcher_k_map(sc):
+    """{pitcher_id: n_strikeouts_thrown} — the number that pitcher K props settle on."""
+    out = {}
+    ks = sc[sc["events"].isin(list(K_EVENTS))]
+    for _, row in ks.iterrows():
+        pit = row.get("pitcher")
+        if pit != pit:
+            continue
+        out[int(pit)] = out.get(int(pit), 0) + 1
     return out
 
 
@@ -196,7 +210,7 @@ def _tier(h):
 def grade_date(date):
     """Grade a single date -> record dict, or None if it can't be graded yet (no snapshot,
     or results not posted). Pure: does not read or write history.json."""
-    players, parlay_picks = _load_day(date)
+    players, parlay_picks, pitcher_props = _load_day(date)
     if not players:
         print(f"[track] no snapshot for {date}; skip.")
         return None
@@ -217,6 +231,7 @@ def grade_date(date):
     hrmap = _hr_map(sc)
     hrrmap = _hrr_map(sc)
     kmap = _k_map(sc)
+    pkmap = _pitcher_k_map(sc)
     def homered(p): return hrmap.get(p["id"], {}).get("hr", 0) > 0
     def got_hits(p, n=1): return hrrmap.get(p["id"], {}).get("hits", 0) >= n
     def hrr_val(p):
@@ -330,7 +345,6 @@ def grade_date(date):
 
     by_hit_tier, by_hit2_tier = {}, {}
     by_hrr_tier = {}
-    by_k_tier, by_k2_tier = {}, {}
     for p in players:
         # 1+ hit and 2+ hit tiers off hit_heat
         ht = _prop_tier(p.get("hit_heat"))
@@ -346,12 +360,22 @@ def grade_date(date):
         eh["sum"] += v; eh["sum_ct"] += 1
         if v >= 2: eh["hit2"] += 1
         if v >= 3: eh["hit3"] += 1
-        # K tiers off k_heat
-        kt = _prop_tier(p.get("k_heat"))
-        ek = by_k_tier.setdefault(kt, {"n": 0, "hit": 0}); ek["n"] += 1
-        if struck_out(p, 1): ek["hit"] += 1
-        ek2 = by_k2_tier.setdefault(kt, {"n": 0, "hit": 0}); ek2["n"] += 1
-        if struck_out(p, 2): ek2["hit"] += 1
+
+    # Pitcher K props: track by pitcher_k_heat tier. For each tier, record
+    # n_pitchers, actual K totals thrown, and O5.5/O6.5/O7.5 hit rates.
+    by_pk_tier = {}
+    for pp in pitcher_props or []:
+        kh = pp.get("k_heat")
+        if kh is None:
+            continue
+        tier = _prop_tier(kh)
+        actual_ks = pkmap.get(pp.get("id"), 0)
+        e = by_pk_tier.setdefault(tier, {"n": 0, "total_ks": 0, "o5": 0, "o6": 0, "o7": 0})
+        e["n"] += 1
+        e["total_ks"] += actual_ks
+        if actual_ks >= 6: e["o5"] += 1  # over 5.5
+        if actual_ks >= 7: e["o6"] += 1  # over 6.5
+        if actual_ks >= 8: e["o7"] += 1  # over 7.5
 
     # Top-N by each prop score, same idea as HR top_n
     def _prop_topN(key, hit_fn, ns=(5, 10, 25)):
@@ -360,12 +384,27 @@ def grade_date(date):
         return {str(n): {"n": min(n, len(rk)), "hit": sum(1 for p in rk[:n] if hit_fn(p))}
                 for n in ns}
 
+    # Top-N for pitcher K props — different sizes because there are fewer starters
+    def _pk_topN(ns=(3, 5, 10)):
+        rk = sorted((pp for pp in (pitcher_props or []) if pp.get("k_heat") is not None),
+                    key=lambda pp: pp.get("k_heat") or 0, reverse=True)
+        out = {}
+        for n in ns:
+            top = rk[:n]
+            ks_thrown = [pkmap.get(pp.get("id"), 0) for pp in top]
+            out[str(n)] = {
+                "n": len(top),
+                "total_ks": sum(ks_thrown),
+                "o5": sum(1 for k in ks_thrown if k >= 6),
+                "o6": sum(1 for k in ks_thrown if k >= 7),
+            }
+        return out
+
     by_props = {
         "hit1": {"by_tier": by_hit_tier, "top_n": _prop_topN("hit_heat", lambda p: got_hits(p, 1))},
         "hit2": {"by_tier": by_hit2_tier, "top_n": _prop_topN("hit_heat", lambda p: got_hits(p, 2))},
-        "k1":   {"by_tier": by_k_tier, "top_n": _prop_topN("k_heat", lambda p: struck_out(p, 1))},
-        "k2":   {"by_tier": by_k2_tier, "top_n": _prop_topN("k_heat", lambda p: struck_out(p, 2))},
         "hrr":  {"by_tier": by_hrr_tier, "top_n": _prop_topN("hrr_heat", lambda p: hrr_val(p) >= 2)},
+        "pk":   {"by_tier": by_pk_tier, "top_n": _pk_topN()},
     }
 
     record = {
