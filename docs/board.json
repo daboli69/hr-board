@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-08T18:03:32-04:00",
+  "generated_at": "2026-07-08T18:26:40-04:00",
   "slate_date": "2026-07-08",
   "league_avg": {
     "barrel_pct": 8.0,
@@ -146769,6 +146769,7 @@
     ]
   },
   "briefing": [
+    "SMASH today: Dansby Swanson \u00b7 Jake McCarthy \u00b7 Rafael Devers.",
     "Best environment: PNC Park at +150% with wind 5 mph.",
     "Robbed watch: Curtis Mead \u2014 368ft out on 07-06 clears here tonight (3 such balls).",
     "Robbed watch: Brandon Marsh \u2014 395ft out on 07-05 clears here tonight (2 such balls).",
@@ -146828,7 +146829,12 @@
     "openers": 0,
     "stacks": 5,
     "wx": 15,
-    "issues": []
+    "issues": [
+      {
+        "sub": "pitcher K props",
+        "issue": "NameError: name 'pitch_profiles' is not defined"
+      }
+    ]
   },
   "arms": [
     {
@@ -148093,6 +148099,90 @@
         }
       ],
       "platoon": null
+    }
+  ],
+  "pitcher_props": [],
+  "parlay_picks": [
+    {
+      "kind": "jackpot",
+      "legs": [
+        {
+          "id": 670541,
+          "name": "Yordan Alvarez",
+          "team": "HOU",
+          "heat": 46
+        },
+        {
+          "id": 694212,
+          "name": "Samuel Basallo",
+          "team": "BAL",
+          "heat": 58
+        },
+        {
+          "id": 646240,
+          "name": "Rafael Devers",
+          "team": "SF",
+          "heat": 56
+        }
+      ]
+    },
+    {
+      "kind": "best3",
+      "legs": [
+        {
+          "id": 691406,
+          "name": "Junior Caminero",
+          "team": "TB",
+          "heat": 88
+        },
+        {
+          "id": 669003,
+          "name": "Garrett Mitchell",
+          "team": "MIL",
+          "heat": 79
+        },
+        {
+          "id": 595978,
+          "name": "Austin Hedges",
+          "team": "CLE",
+          "heat": 72
+        }
+      ]
+    },
+    {
+      "kind": "rr5",
+      "legs": [
+        {
+          "id": 691406,
+          "name": "Junior Caminero",
+          "team": "TB",
+          "heat": 88
+        },
+        {
+          "id": 621020,
+          "name": "Dansby Swanson",
+          "team": "CHC",
+          "heat": 71
+        },
+        {
+          "id": 683357,
+          "name": "Owen Caissie",
+          "team": "MIA",
+          "heat": 71
+        },
+        {
+          "id": 679529,
+          "name": "Spencer Torkelson",
+          "team": "DET",
+          "heat": 54
+        },
+        {
+          "id": 545341,
+          "name": "Randal Grichuk",
+          "team": "CWS",
+          "heat": 54
+        }
+      ]
     }
   ]
 }
