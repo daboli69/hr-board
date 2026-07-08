@@ -349,6 +349,7 @@ def build(date_str: str | None = None) -> dict:
         _bat = p_batted.get(pid)
         if _bat:
             opp_pitcher_obj["fb_pct"] = _bat["fb_pct"]
+            opp_pitcher_obj["ld_pct"] = _bat.get("ld_pct")
             opp_pitcher_obj["gb_pct"] = _bat["gb_pct"]
         _sl = start_lens.get(pid)
         if _sl and _sl["starts"] >= 2 and _sl["med_len"] <= 2.0:
@@ -520,11 +521,16 @@ def build(date_str: str | None = None) -> dict:
         savant = park_factors.load_park_factors(pf_cache, df=df, year=now.year)
         gpk_home = {g["game_pk"]: g["home"] for g in games}     # durable key for the factor lookup
 
-        try:                                       # recent deep contact for spray chart + robbed scan
+        try:                                       # spray chart uses last 14d for volume
             _drv_start = (datetime.strptime(date_str, "%Y-%m-%d") - timedelta(days=14)).strftime("%Y-%m-%d")
             drives_map = statcast_data.recent_drives(df, _drv_start)
+            # robbed scan uses only the last 3 days — we care about recent-recent contact
+            # ("did he just miss last night?"), not a two-week-old fly out
+            _rob_start = (datetime.strptime(date_str, "%Y-%m-%d") - timedelta(days=3)).strftime("%Y-%m-%d")
+            robbed_drives = statcast_data.recent_drives(df, _rob_start, min_dist=320)
         except Exception as e:
-            drives_map = {}; _hnote("recent drives", e); print(f"[build] recent drives skipped: {e}")
+            drives_map = {}; robbed_drives = {}
+            _hnote("recent drives", e); print(f"[build] recent drives skipped: {e}")
 
         by_game = {}
         for p in players:
@@ -536,13 +542,21 @@ def build(date_str: str | None = None) -> dict:
             except Exception:
                 rho_g, wind_g = None, None
             for p in ps:
+                # spray chart: 2-week volume so the picture has data points
                 drv = drives_map.get(p["id"]) or []
-                if not drv:
-                    continue
+                # robbed scan: only last 3 days — recent-recent contact only
+                rob_drv = robbed_drives.get(p["id"]) or []
                 flags = [0] * len(drv)
-                if rho_g is not None:
-                    deep = [(j, d) for j, d in enumerate(drv)
-                            if (not d["hr"]) and d["dist"] >= 330 and 15 <= d["la"] <= 45]
+                # mark HRs in the spray drives
+                for j, d in enumerate(drv):
+                    if d["hr"]:
+                        flags[j] = 1
+                # robbed check runs on the tight 3-day set, ignoring HRs; flagged
+                # results get folded back into the spray chart flags by (date, dist)
+                rob_hits = []
+                if rho_g is not None and rob_drv:
+                    deep = [(j, d) for j, d in enumerate(rob_drv)
+                            if (not d["hr"]) and d["dist"] >= 320 and 15 <= d["la"] <= 45]
                     if deep:
                         cl = park_model.clears_here([d["ev"] for _, d in deep],
                                                     [d["la"] for _, d in deep],
@@ -550,15 +564,16 @@ def build(date_str: str | None = None) -> dict:
                                                     venue, rho_g, wind_g)
                         for (j, d), c in zip(deep, cl):
                             if bool(c):
-                                flags[j] = 2                       # robbed: out here tonight
-                for j, d in enumerate(drv):
-                    if d["hr"]:
-                        flags[j] = 1
-                p["drives"] = [[d["spray"], d["dist"], flags[j]] for j, d in enumerate(drv)]
-                robbed = [(d, ) for j, d in enumerate(drv) if flags[j] == 2]
-                if robbed:
-                    best = max((d for j, d in enumerate(drv) if flags[j] == 2), key=lambda x: x["dist"])
-                    p["robbed"] = {"n": sum(1 for f in flags if f == 2),
+                                rob_hits.append(d)
+                                # mark in spray chart too if same ball is present
+                                for jj, sd in enumerate(drv):
+                                    if sd["date"] == d["date"] and abs(sd["dist"] - d["dist"]) <= 2:
+                                        flags[jj] = 2
+                if drv:
+                    p["drives"] = [[d["spray"], d["dist"], flags[j]] for j, d in enumerate(drv)]
+                if rob_hits:
+                    best = max(rob_hits, key=lambda x: x["dist"])
+                    p["robbed"] = {"n": len(rob_hits),
                                    "best_ft": best["dist"], "best_date": best["date"]}
             evs, las, sprays, spans = [], [], [], []
             for p in ps:
@@ -656,7 +671,9 @@ def build(date_str: str | None = None) -> dict:
     stacks.sort(key=lambda s: (s["stack_score"], len(s["hitters"])), reverse=True)
 
     try:                                       # career HR milestone watch
-        mstones = statcast_data.career_hr_milestones([p["id"] for p in players])
+        _id_to_team = {p["id"]: p.get("team") for p in players}
+        mstones = statcast_data.career_hr_milestones(
+            [p["id"] for p in players], id_to_team=_id_to_team)
         for p in players:
             if p["id"] in mstones:
                 p["milestone"] = mstones[p["id"]]
@@ -800,6 +817,7 @@ def build(date_str: str | None = None) -> dict:
                      and start_lens[pid]["med_len"] <= 2.0)
                     or (start_lens.get(pid) is None and p_apps.get(pid, 0) >= 5)),
                 "fb_pct": (p_batted.get(pid) or {}).get("fb_pct"),
+                "ld_pct": (p_batted.get(pid) or {}).get("ld_pct"),
                 "gb_pct": (p_batted.get(pid) or {}).get("gb_pct"),
                 "start_len": (round(start_lens[pid]["med_len"], 1)
                               if start_lens.get(pid) else None),
@@ -890,6 +908,108 @@ def main():
     except Exception as e:
         _hnote("smash calc", e); print(f"[build] smash calc skipped: {e}")
 
+    # ---- Auto-tracked parlays: pick server-side so the grader can score them ----
+    # Uses simplified rules that mirror the app's UI logic (heat as the ranking
+    # score in place of the client-side blend, but same filters/constraints).
+    # Records get flagged by strategy so we can measure whether each type actually
+    # pays off vs the base rate — closes the "are parlays actually winning?" question.
+    parlay_picks = []
+    try:
+        live_p = [p for p in board["players"] if p.get("lineup_status") != "out"]
+        by_heat = sorted(live_p, key=lambda p: -(p.get("heat") or 0))
+
+        # Jackpot: top-3 mid-tier by (max_ev + park_hr + iso), not B2B, heat>=45
+        def _mev(p):
+            m = p.get("max_ev") or {}
+            return m.get("season") or m.get("recent") or 0
+        def _rk(p):
+            for i, x in enumerate(by_heat):
+                if x["id"] == p["id"]:
+                    return i
+            return 99
+        jp_pool = [p for p in live_p
+                   if not p.get("hr_last_game")
+                   and _rk(p) >= 4
+                   and (p.get("heat") or 0) >= 45
+                   and _mev(p) >= 108]
+        def _dist(p):
+            ev = (min(118.0, max(105.0, _mev(p))) - 105.0) / 13.0
+            pk = (p.get("park_hr") or {}).get("boost") or 0
+            pk = max(-0.5, min(1.0, pk / 20.0))
+            iso = ((p.get("windows") or {}).get("L14d") or {}).get("iso") or 0
+            return ev * 0.5 + pk * 0.3 + min(1.0, iso / 0.30) * 0.2
+        jp = sorted(jp_pool, key=_dist, reverse=True)[:3]
+        if jp:
+            parlay_picks.append({
+                "kind": "jackpot",
+                "legs": [{"id": p["id"], "name": p["name"], "team": p["team"], "heat": p.get("heat")} for p in jp],
+            })
+
+        # Best3: top-3 by heat, one per team, at most 1 B2B
+        best3, seen_teams, b2b_used = [], set(), False
+        for p in by_heat:
+            if len(best3) >= 3:
+                break
+            if p["team"] in seen_teams:
+                continue
+            if p.get("hr_last_game"):
+                if b2b_used:
+                    continue
+                b2b_used = True
+            best3.append(p); seen_teams.add(p["team"])
+        if len(best3) == 3:
+            parlay_picks.append({
+                "kind": "best3",
+                "legs": [{"id": p["id"], "name": p["name"], "team": p["team"], "heat": p.get("heat")} for p in best3],
+            })
+
+        # Round Robin by 2s: 5 legs across tiers, 5 different games,
+        # max 1 chalk (top-3 board), max 1 B2B
+        def _pick_from(pool, avoid_ids, avoid_games, chalk_used, b2b_used):
+            for p in pool:
+                if p["id"] in avoid_ids:
+                    continue
+                if p["game_pk"] in avoid_games:
+                    continue
+                is_chalk = _rk(p) < 3
+                if is_chalk and chalk_used:
+                    continue
+                if p.get("hr_last_game") and b2b_used:
+                    continue
+                return p
+            return None
+
+        rr_slots = [
+            lambda p: (p.get("heat") or 0) >= 75,
+            lambda p: 55 <= (p.get("heat") or 0) < 75,
+            lambda p: 55 <= (p.get("heat") or 0) < 75,
+            lambda p: 40 <= (p.get("heat") or 0) < 55,
+            lambda p: (p.get("heat") or 0) < 55 and _rk(p) >= 20,
+        ]
+        rr_picks = []
+        used_ids, used_games = set(), set()
+        chalk_used = b2b_used = False
+        for slot in rr_slots:
+            pool = [p for p in by_heat if slot(p)]
+            p = _pick_from(pool, used_ids, used_games, chalk_used, b2b_used)
+            if p is None:
+                break
+            rr_picks.append(p)
+            used_ids.add(p["id"]); used_games.add(p["game_pk"])
+            if _rk(p) < 3: chalk_used = True
+            if p.get("hr_last_game"): b2b_used = True
+        if len(rr_picks) == 5:
+            parlay_picks.append({
+                "kind": "rr5",
+                "legs": [{"id": p["id"], "name": p["name"], "team": p["team"], "heat": p.get("heat")} for p in rr_picks],
+            })
+
+        board["parlay_picks"] = parlay_picks
+        print(f"[build] parlay picks: {len(parlay_picks)} strategies "
+              f"({', '.join(pk['kind'] for pk in parlay_picks) or 'none — thin slate'})")
+    except Exception as e:
+        _hnote("parlay picks", e); print(f"[build] parlay picks skipped: {e}")
+
     # slim daily snapshot so the grader can grade this day even after the live
     # board rolls over to tomorrow's slate
     try:
@@ -897,6 +1017,7 @@ def main():
         os.makedirs(snap_dir, exist_ok=True)
         snap = {
             "date": board["slate_date"],
+            "parlay_picks": parlay_picks,
             "players": [{
                 "id": p["id"], "name": p["name"], "team": p["team"],
                 "heat": p["heat"], "tier": p.get("tier"), "cleared": p.get("cleared"),

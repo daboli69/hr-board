@@ -613,9 +613,10 @@ def hr_last_game(df: pd.DataFrame) -> set:
 
 
 def pitcher_batted_profile(df: pd.DataFrame) -> dict:
-    """{pitcher_id: {fb_pct, gb_pct, n}} — season batted-ball mix allowed.
-    GB = launch angle < 10 deg, FB = >= 25 deg (fly balls + popups). A fly-ball-heavy
-    arm puts more balls in HR territory — the target profile."""
+    """{pitcher_id: {fb_pct, ld_pct, gb_pct, n}} — season batted-ball mix allowed.
+    GB = launch angle < 10 deg, LD = 10-24 deg, FB = >= 25 deg. The three sum to
+    ~100 (rounding). A fly-ball-heavy arm puts more balls in HR territory — the
+    target profile. A ground-ball-heavy arm suppresses HRs."""
     need = {"pitcher", "launch_angle", "launch_speed"}
     if df is None or df.empty or not need.issubset(df.columns):
         return {}
@@ -624,14 +625,19 @@ def pitcher_batted_profile(df: pd.DataFrame) -> dict:
         return {}
     g = d.groupby("pitcher")["launch_angle"]
     n = g.size()
-    fb = d[d["launch_angle"] >= 25].groupby("pitcher").size().reindex(n.index, fill_value=0)
-    gb = d[d["launch_angle"] < 10].groupby("pitcher").size().reindex(n.index, fill_value=0)
+    la = d["launch_angle"]
+    fb = d[la >= 25].groupby("pitcher").size().reindex(n.index, fill_value=0)
+    ld = d[(la >= 10) & (la < 25)].groupby("pitcher").size().reindex(n.index, fill_value=0)
+    gb = d[la < 10].groupby("pitcher").size().reindex(n.index, fill_value=0)
     out = {}
     for pid in n.index:
         if n[pid] >= 30:
-            out[int(pid)] = {"fb_pct": round(float(fb[pid]) * 100.0 / float(n[pid]), 1),
-                             "gb_pct": round(float(gb[pid]) * 100.0 / float(n[pid]), 1),
-                             "n": int(n[pid])}
+            out[int(pid)] = {
+                "fb_pct": round(float(fb[pid]) * 100.0 / float(n[pid]), 1),
+                "ld_pct": round(float(ld[pid]) * 100.0 / float(n[pid]), 1),
+                "gb_pct": round(float(gb[pid]) * 100.0 / float(n[pid]), 1),
+                "n": int(n[pid]),
+            }
     return out
 
 
@@ -814,11 +820,59 @@ def recent_drives(df: pd.DataFrame, start_date: str, min_dist: int = 240, cap: i
     return out
 
 
-def career_hr_milestones(batter_ids, within: int = 5, timeout: int = 12) -> dict:
+# Franchise HR leader benchmarks (top ~5 all-time per team). These are static
+# reference points to flag when a hitter is within reach of a team-history number.
+# Names + totals per team (approximate, curated). If a hitter passes one, it's a
+# real narrative moment worth watching.
+TEAM_HR_LEADERS = {
+    "ARI": [("Luis Gonzalez", 224), ("Paul Goldschmidt", 209), ("Steve Finley", 153)],
+    "ATL": [("Hank Aaron", 733), ("Eddie Mathews", 493), ("Chipper Jones", 468), ("Dale Murphy", 371)],
+    "BAL": [("Cal Ripken Jr.", 431), ("Eddie Murray", 343), ("Boog Powell", 303), ("Brooks Robinson", 268)],
+    "BOS": [("Ted Williams", 521), ("David Ortiz", 483), ("Carl Yastrzemski", 452), ("Jim Rice", 382)],
+    "CHC": [("Sammy Sosa", 545), ("Ernie Banks", 512), ("Billy Williams", 392), ("Ron Santo", 337)],
+    "CWS": [("Frank Thomas", 448), ("Paul Konerko", 432), ("Harold Baines", 221), ("Carlton Fisk", 214)],
+    "CHW": [("Frank Thomas", 448), ("Paul Konerko", 432), ("Harold Baines", 221)],
+    "CIN": [("Johnny Bench", 389), ("Frank Robinson", 324), ("Adam Dunn", 270), ("Tony Perez", 287)],
+    "CLE": [("Jim Thome", 337), ("Albert Belle", 242), ("Manny Ramirez", 236), ("Earl Averill", 226)],
+    "COL": [("Todd Helton", 369), ("Larry Walker", 258), ("Nolan Arenado", 235), ("Charlie Blackmon", 227)],
+    "DET": [("Al Kaline", 399), ("Norm Cash", 373), ("Hank Greenberg", 306), ("Miguel Cabrera", 373)],
+    "HOU": [("Jeff Bagwell", 449), ("Lance Berkman", 326), ("Craig Biggio", 291), ("Jose Altuve", 232)],
+    "KC": [("George Brett", 317), ("Mike Sweeney", 197), ("Amos Otis", 193), ("Salvador Perez", 250)],
+    "KCR": [("George Brett", 317), ("Mike Sweeney", 197), ("Salvador Perez", 250)],
+    "LAA": [("Mike Trout", 378), ("Tim Salmon", 299), ("Garret Anderson", 272), ("Brian Downing", 222)],
+    "LAD": [("Duke Snider", 389), ("Eric Karros", 270), ("Ron Cey", 228), ("Steve Garvey", 211)],
+    "MIA": [("Giancarlo Stanton", 267), ("Dan Uggla", 154), ("Miguel Cabrera", 138)],
+    "MIL": [("Ryan Braun", 352), ("Robin Yount", 251), ("Prince Fielder", 230), ("Cecil Cooper", 201)],
+    "MIN": [("Harmon Killebrew", 559), ("Kirby Puckett", 207), ("Kent Hrbek", 293), ("Joe Mauer", 143)],
+    "NYM": [("Darryl Strawberry", 252), ("David Wright", 242), ("Mike Piazza", 220), ("Howard Johnson", 192)],
+    "NYY": [("Babe Ruth", 659), ("Mickey Mantle", 536), ("Lou Gehrig", 493), ("Joe DiMaggio", 361), ("Yogi Berra", 358), ("Aaron Judge", 315)],
+    "OAK": [("Mark McGwire", 363), ("Reggie Jackson", 269), ("Jose Canseco", 254), ("Sal Bando", 192)],
+    "ATH": [("Mark McGwire", 363), ("Reggie Jackson", 269), ("Jose Canseco", 254)],
+    "PHI": [("Mike Schmidt", 548), ("Ryan Howard", 382), ("Del Ennis", 259), ("Chase Utley", 233)],
+    "PIT": [("Willie Stargell", 475), ("Ralph Kiner", 301), ("Barry Bonds", 176), ("Andrew McCutchen", 203)],
+    "SD": [("Nate Colbert", 163), ("Adrian Gonzalez", 161), ("Manny Machado", 197), ("Fernando Tatis Jr.", 155)],
+    "SDP": [("Nate Colbert", 163), ("Adrian Gonzalez", 161), ("Manny Machado", 197)],
+    "SF": [("Willie Mays", 646), ("Barry Bonds", 586), ("Willie McCovey", 469), ("Mel Ott", 511)],
+    "SFG": [("Willie Mays", 646), ("Barry Bonds", 586), ("Willie McCovey", 469)],
+    "SEA": [("Ken Griffey Jr.", 417), ("Edgar Martinez", 309), ("Nelson Cruz", 163), ("Kyle Seager", 242)],
+    "STL": [("Stan Musial", 475), ("Albert Pujols", 469), ("Mark McGwire", 220), ("Ken Boyer", 255)],
+    "TB": [("Evan Longoria", 261), ("Carlos Pena", 163), ("Aubrey Huff", 128), ("Jose Bautista", 59)],
+    "TBR": [("Evan Longoria", 261), ("Carlos Pena", 163)],
+    "TEX": [("Juan Gonzalez", 372), ("Rafael Palmeiro", 321), ("Iván Rodríguez", 217), ("Adrián Beltré", 199)],
+    "TOR": [("Carlos Delgado", 336), ("José Bautista", 288), ("Vernon Wells", 223), ("Vladimir Guerrero Jr.", 195)],
+    "WSH": [("Ryan Zimmerman", 284), ("Alfonso Soriano", 46), ("Bryce Harper", 184), ("Juan Soto", 119)],
+    "WSN": [("Ryan Zimmerman", 284), ("Bryce Harper", 184), ("Juan Soto", 119)],
+}
+
+
+def career_hr_milestones(batter_ids, id_to_team=None, within: int = 5, timeout: int = 12) -> dict:
     """Career HR totals for slate hitters via statsapi (batched), flagging anyone
-    within `within` of a round-number milestone (every 50 from 100 up, plus 500s).
-    {batter_id: {"career_hr": n, "next": milestone, "away": k}} — only near-milestone
-    hitters are returned. Fails soft to {} on any network/shape issue."""
+    within `within` of a round-number milestone (every 50 from 50 up) OR within
+    `within` of passing a franchise HR leader on their current team.
+    {batter_id: {"career_hr": n, "next": m, "away": k, "kind": "career"|"team",
+                 "target": name-if-team}} — only near-milestone hitters returned.
+    id_to_team: optional {batter_id: team_abbr} so team-specific comparisons work.
+    Fails soft to {} on any network/shape issue."""
     import json as _json
     import urllib.request
     ids = [int(b) for b in batter_ids]
@@ -844,10 +898,26 @@ def career_hr_milestones(batter_ids, within: int = 5, timeout: int = 12) -> dict
             except Exception:
                 continue
     out = {}
-    marks = list(range(100, 900, 50))
+    # round-50 milestones from 50 upward
+    marks = list(range(50, 900, 50))
+    id_to_team = id_to_team or {}
     for bid, hr in totals.items():
+        best = None  # best candidate = smallest "away" value
+        # career round number
         nxt = next((m for m in marks if m > hr), None)
         if nxt is not None and (nxt - hr) <= within:
-            out[bid] = {"career_hr": hr, "next": nxt, "away": nxt - hr}
+            best = {"career_hr": hr, "next": nxt, "away": nxt - hr, "kind": "career"}
+        # franchise leader (only if we know the team)
+        team = id_to_team.get(bid)
+        if team and team in TEAM_HR_LEADERS:
+            for name, mark in TEAM_HR_LEADERS[team]:
+                if mark > hr and (mark + 1 - hr) <= within:  # passing them = mark+1
+                    away = mark + 1 - hr
+                    cand = {"career_hr": hr, "next": mark + 1, "away": away,
+                            "kind": "team", "target": name, "target_hr": mark, "team": team}
+                    if best is None or away < best["away"]:
+                        best = cand
+        if best is not None:
+            out[bid] = best
     print(f"[milestones] {len(totals)} careers fetched, {len(out)} near a milestone")
     return out

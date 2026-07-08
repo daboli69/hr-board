@@ -45,10 +45,16 @@
   .brand h1{font-family:Archivo;font-weight:900;font-size:21px;letter-spacing:-.02em;
     margin:0;text-transform:uppercase}
   .brand h1 .yard{color:var(--seam)}
-  #helpBtn{margin-left:auto;align-self:center;flex:none;width:26px;height:26px;border-radius:50%;
+  #helpBtn{align-self:center;flex:none;width:26px;height:26px;border-radius:50%;
     border:1px solid var(--line);background:var(--panel-2);color:var(--muted);
     font-family:Archivo;font-weight:800;font-size:14px;cursor:pointer;line-height:1}
   #helpBtn:active{background:var(--panel)}
+  #btGuideBtn{margin-left:auto;align-self:center;flex:none;height:26px;padding:0 10px;
+    border-radius:14px;border:1px solid var(--line);background:var(--panel-2);
+    color:var(--seam);font-family:Archivo;font-weight:800;font-size:10.5px;
+    letter-spacing:.03em;cursor:pointer;line-height:1;text-transform:uppercase;
+    margin-right:6px}
+  #btGuideBtn:active{background:var(--panel)}
   .faq{position:fixed;inset:0;z-index:50;background:rgba(6,9,12,0);
     display:flex;align-items:flex-end;justify-content:center;
     visibility:hidden;opacity:0;transition:opacity .25s ease,background .25s ease,visibility 0s .25s}
@@ -394,8 +400,9 @@
   .mu-sort button[aria-pressed="true"]{background:var(--panel-2);color:var(--ink)}
   .pl-note{font-size:11.5px;color:var(--muted);line-height:1.55;margin-top:6px;padding:0 2px}
   .arm-nm .badges{margin-top:4px}
-  .cmini{font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.45;
-    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .cmini{font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.55;
+    display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;
+    word-break:normal;overflow-wrap:break-word}
   .cmetrics{display:grid;grid-template-columns:repeat(4,minmax(34px,40px));gap:5px}
   .cm{font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;text-align:center;
     padding:5px 0;border-radius:6px;font-variant-numeric:tabular-nums}
@@ -431,7 +438,9 @@
   @media (hover:hover){.arm-tap:hover{background:var(--panel-2)}}
   .arm-note{font-size:10px;color:var(--faint);padding:8px 2px 2px;line-height:1.5}
   .fbv{color:var(--bad);font-size:10px}.gbv{color:var(--good);font-size:10px}
-  .fbv.hi,.gbv.hi{font-weight:800;font-size:11px}
+  .ldv{color:var(--faint);font-size:10px}
+  .fbv.hi,.gbv.hi,.ldv.hi{font-weight:800;font-size:11px}
+  .ldv.hi{color:var(--muted)}
   .odds-line{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:0 0 12px;font-size:12px;color:var(--ink)}
   .odds-line b{font-family:"IBM Plex Mono"}
   .odds-line span{display:block;font-size:10px;color:var(--faint);margin-top:3px;line-height:1.45}
@@ -623,6 +632,7 @@
   <div class="brand">
     <h1>Going <span class="yard">Yard</span></h1>
     <span class="stamp mono" id="stamp" title="Tap to refresh the board" style="cursor:pointer">—</span>
+    <button id="btGuideBtn" onclick="showBetGuide()" aria-label="How to bet using the app" title="Data-driven picking guide">How to Bet</button>
     <button id="helpBtn" onclick="document.getElementById('faq').classList.add('show')" aria-label="How to use">?</button>
   </div>
   <div class="meta" id="meta"></div>
@@ -634,6 +644,8 @@
       <option value="bp">Sort · Bullpen</option>
       <option value="bomb">Sort · Bomb</option>
       <option value="park">Sort · Park</option>
+      <option value="hrsp">Sort · HR vs SP</option>
+      <option value="hrbp">Sort · HR vs PEN</option>
       <option value="name">Sort · Name</option>
       <option value="time">Sort · Time</option>
     </select>
@@ -712,6 +724,8 @@
             <button class="bdg bk-hot" data-trait="hot" aria-pressed="false">WARMING</button>
             <button class="bdg bk-due" data-trait="due" aria-pressed="false">DUE</button>
             <button class="bdg bk-cool" data-trait="cool" aria-pressed="false">MAY COOL</button>
+            <button class="bdg bk-hrsp" data-trait="hrsp" aria-pressed="false">HR vs SP</button>
+            <button class="bdg bk-hrbp" data-trait="hrbp" aria-pressed="false">HR vs PEN</button>
           </div>
         </div>
         <div class="fgrp"><label>HR drought</label>
@@ -777,6 +791,16 @@
       <h3>How it updates</h3>
       <p>The board rebuilds through the day (6:30am, 10am, 12pm, 3pm, 5pm, 7pm ET) as lineups post; the grader runs each morning after games are final. Park factor is shown for context but isn't baked into Heat — the data and matchup drive the ranking. All of it is tunable, and none of it is betting advice.</p>
     </div>
+  </div>
+</div>
+
+<div id="betGuide" class="faq">
+  <div class="faq-box">
+    <div class="faq-head">
+      <h2>How to Bet with <span class="yard">Going Yard</span></h2>
+      <button onclick="document.getElementById('betGuide').classList.remove('show')" aria-label="Close">✕</button>
+    </div>
+    <div class="faq-body" id="betGuideBody">Loading…</div>
   </div>
 </div>
 
@@ -1157,6 +1181,13 @@ function render(){
     if(sortKey==="bp") return bpVal(b)-bpVal(a)|| b.heat-a.heat;
     if(sortKey==="bomb") return lbVal(b)-lbVal(a)|| b.heat-a.heat;
     if(sortKey==="park") return pkVal(b)-pkVal(a)|| b.heat-a.heat;
+    if(sortKey==="hrsp"||sortKey==="hrbp"){
+      // sort hitters carrying the badge first (by heat within), then everyone else by heat
+      const hasBadge=(p,k)=>((p.badges||[]).some(x=>x.k===k))?1:0;
+      const key=sortKey;
+      const bh=hasBadge(b,key), ah=hasBadge(a,key);
+      return bh-ah || b.heat-a.heat;
+    }
     return sortVal(b,sortKey)-sortVal(a,sortKey);
   });
   const sc=document.getElementById("shown"); if(sc) sc.textContent=players.length+" shown";
@@ -1242,9 +1273,15 @@ function render(){
       const d=(a.recent_score!=null&&a.season_score!=null)?(a.recent_score-a.season_score):null;
       const dArrow=d==null?"":(d>=6?` <span style="color:var(--bad)">▲${d}</span>`:d<=-6?` <span style="color:var(--good)">▼${Math.abs(d)}</span>`:"");
       const hh=a.hand_hr?`<span class="arm-hand">${a.hand_hr.side}HB: ${a.hand_hr.hr} HR / ${a.hand_hr.pa} PA 2yr</span>`:"";
-      const fbgb=(a.fb_pct!=null&&a.gb_pct!=null)?(a.fb_pct>=a.gb_pct
-        ?` · <b class="fbv hi">FB ${a.fb_pct.toFixed(0)}%</b> <span class="gbv">GB ${a.gb_pct.toFixed(0)}%</span>`
-        :` · <span class="fbv">FB ${a.fb_pct.toFixed(0)}%</span> <b class="gbv hi">GB ${a.gb_pct.toFixed(0)}%</b>`):"";
+      // FB/LD/GB batted-ball mix (sums to ~100). Whichever profile is highest gets
+      // bolded — FB = target (red = attack), GB = avoid (green = pass), LD = neutral.
+      let fbgb="";
+      if(a.fb_pct!=null&&a.gb_pct!=null){
+        const fb=a.fb_pct, ld=(a.ld_pct!=null?a.ld_pct:Math.max(0,100-a.fb_pct-a.gb_pct)), gb=a.gb_pct;
+        const mx=Math.max(fb,ld,gb);
+        const cls=(v,base)=>`<span class="${base}${v===mx?" hi":""}">${base==="fbv"?"FB":base==="ldv"?"LD":"GB"} ${v.toFixed(0)}%</span>`;
+        fbgb=` · ${cls(fb,"fbv")} ${cls(ld,"ldv")} ${cls(gb,"gbv")}`;
+      }
       arows+=`<div class="arm-row arm-tap" onclick="armFilter('${(a.opp||"").replace(/'/g,"")}')" title="Tap to show the bats facing him">
         <div class="arm-sc" style="background:${chipColor(a.hr_score)}">${a.hr_score}</div>
         <div class="arm-nm"><b>${a.name}</b> ${throwBadge(a.throws)}${a.opener?' <span class="opener-tag">OPENER</span>':''} <span style="color:var(--muted)">${a.team}→${a.opp} · ${timeStr(a.time)}</span>
@@ -1259,7 +1296,7 @@ function render(){
         <h3>Arms Today</h3>
         <span class="sub">${shellable} targetable · tap to ${'expand'}</span>
       </div>
-      <div class="arms-body">${arows}<div class="arm-note">rec · szn = HR-vulnerability by window (▲ red = cracking, ▼ green = sharpening). <b style="color:var(--bad)">FB%</b> arms put balls in the air — the target profile; <b style="color:var(--good)">GB%</b> arms suppress it. Tap any arm to filter the board to the bats facing him.</div></div>
+      <div class="arms-body">${arows}<div class="arm-note">rec · szn = HR-vulnerability by window (▲ red = cracking, ▼ green = sharpening). Batted-ball mix: <b style="color:var(--bad)">FB%</b> = target (balls in the air), <b style="color:var(--muted)">LD%</b> = neutral, <b style="color:var(--good)">GB%</b> = avoid (suppresses HRs). Whichever is highest is bolded. Tap any arm to filter the board to the bats facing him.</div></div>
     </div>`;
   }
   {
@@ -1274,7 +1311,7 @@ function render(){
           <div class="arm-sc" style="background:${chipColor(p.heat)}">${p.heat}</div>
           <div class="arm-nm"><b>${p.name}</b> <span style="color:var(--muted)">${p.team}→${p.opp_team}</span>
             <div class="arm-sub">${p.robbed.best_ft}ft out on ${p.robbed.best_date.slice(5)} — clears ${p.park} tonight${p.robbed.n>1?` · ${p.robbed.n} such balls`:""}</div></div>
-        </div>`).join("")}<div class="arm-note">His real batted balls from the last 2 weeks, flown through tonight's walls and weather. A ball that died where it was hit but clears here is the sharpest recent-contact signal there is.</div></div>
+        </div>`).join("")}<div class="arm-note">His real batted balls from the last 3 days, flown through tonight's walls and weather. A ball that died where it was hit but clears here — especially from a homestand where he's back at the same park — is the sharpest recent-recent contact signal there is.</div></div>
       </div>`;
     }
   }
@@ -1286,12 +1323,20 @@ function render(){
           <h3>Milestone <span class="y">Watch</span></h3>
           <span class="sub">${ms.length} chasing a number tonight · tap to expand</span>
         </div>
-        <div class="arms-body">${ms.slice(0,10).map(p=>`<div class="arm-row">
-          <div class="arm-sc" style="background:${chipColor(p.heat)}">${p.heat}</div>
-          <div class="arm-nm"><b>${p.name}</b> <span style="color:var(--muted)">${p.team}→${p.opp_team} · ${timeStr(p.time)}</span>
-            <div class="arm-sub"><b>${p.milestone.career_hr}</b> career HR — ${p.milestone.away===1?"ONE away from":p.milestone.away+" away from"} <b>${p.milestone.next}</b></div></div>
-          ${p.milestone.away===1?'<div class="arm-tag" style="color:var(--gold,#e8c15a);border:1px solid var(--gold,#e8c15a)">1 AWAY</div>':""}
-        </div>`).join("")}<div class="arm-note">Career round numbers within reach tonight. Milestone chases are narrative gold — and the books know it, so check whether his HR price is inflated before riding the story.</div></div>
+        <div class="arms-body">${ms.slice(0,15).map(p=>{
+          const m=p.milestone;
+          const isTeam=m.kind==="team";
+          const descr=isTeam
+            ? `${m.away===1?"ONE HR from":m.away+" HR from"} passing <b>${m.target}</b> for ${m.team}'s ${m.target_hr}-HR mark`
+            : `${m.away===1?"ONE away from":m.away+" away from"} <b>${m.next}</b>`;
+          const kindTag=isTeam?'<span class="mstone" style="color:#8ea6d9;border-color:rgba(142,166,217,.4);background:rgba(142,166,217,.08)">TEAM</span>':'';
+          return `<div class="arm-row">
+            <div class="arm-sc" style="background:${chipColor(p.heat)}">${p.heat}</div>
+            <div class="arm-nm"><b>${p.name}</b> ${kindTag} <span style="color:var(--muted)">${p.team}→${p.opp_team} · ${timeStr(p.time)}</span>
+              <div class="arm-sub"><b>${m.career_hr}</b> career HR — ${descr}</div></div>
+            ${m.away===1?'<div class="arm-tag" style="color:var(--gold,#e8c15a);border:1px solid var(--gold,#e8c15a)">1 AWAY</div>':""}
+          </div>`;
+        }).join("")}<div class="arm-note">Career round-50 milestones AND franchise HR leaderboard chases. Milestone stories are narrative gold — and the books know it, so check whether his HR price is inflated before riding the story.</div></div>
       </div>`;
     }
   }
@@ -1413,7 +1458,7 @@ function render(){
           <div class="cheat" style="background:${col}">${H(p)}</div>
           <div class="cwho">
             <div class="name"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span class="nm-txt">${p.name}</span><span class="liststar"${listHas(p.id)?"":" hidden"}>★</span></div>
-            <div class="cmini">${sm?'<span class="clearflag">SMASH</span> ':""}${hlabPill(p)}${p.robbed?`<span class="robtag">ROBBED${p.robbed.n>1?" ×"+p.robbed.n:""}</span> `:""}${p.milestone?`<span class="mstone">HR ${p.milestone.career_hr} → ${p.milestone.next}</span> `:""}${bpChip}${lbChip}${pkChip}${mdChip}${trendBadge(p.trend)?trendBadge(p.trend)+" ":""}${p.lineup_status==="projected"?`<span class="spot" style="color:var(--seam);border-color:var(--seam)">proj</span> `:""}${p.lineup_spot?`#${p.lineup_spot} · `:""}${p.team}→${p.opp_team} · ${timeStr(p.time)}${armSc!=null?` · arm <b style="color:${armCol}">${armSc}</b>`:""} · ${(p.windows&&p.windows.L14d&&p.windows.L14d.pa!=null)?`${p.windows.L14d.pa}PA`:"–"}</div>
+            <div class="cmini">${sm?'<span class="clearflag">SMASH</span> ':""}${hlabPill(p)}${p.robbed?`<span class="robtag">ROBBED${p.robbed.n>1?" ×"+p.robbed.n:""}</span> `:""}${p.milestone?`<span class="mstone">${p.milestone.kind==="team"?`vs ${p.milestone.target.split(" ").pop()}: ${p.milestone.away===1?"1 HR":p.milestone.away+" HR"}`:`HR ${p.milestone.career_hr} → ${p.milestone.next}`}</span> `:""}${bpChip}${lbChip}${pkChip}${mdChip}${trendBadge(p.trend)?trendBadge(p.trend)+" ":""}${p.lineup_status==="projected"?`<span class="spot" style="color:var(--seam);border-color:var(--seam)">proj</span> `:""}${p.lineup_spot?`#${p.lineup_spot} · `:""}${p.team}→${p.opp_team} · ${timeStr(p.time)}${armSc!=null?` · arm <b style="color:${armCol}">${armSc}</b>`:""} · ${(p.windows&&p.windows.L14d&&p.windows.L14d.pa!=null)?`${p.windows.L14d.pa}PA`:"–"}</div>
           </div>
           <div class="cmetrics">${mini}</div>
         </div>
@@ -2197,6 +2242,147 @@ function btSection(main){
     else main.insertAdjacentHTML("beforeend", `<div class="trk">${btHTML}</div>`);
   }
 }
+// ------- Tracker-adaptive "How to Bet" guide -------
+// Reads the same HISTORY.days aggregation renderTracker builds, produces a ranked
+// picking guide that changes as the sample grows. Signals are placed into buckets
+// by their lift AND their sample size: only signals with n>=100 make the "use" list,
+// higher-lift ones rank higher; small-n signals get called out as "don't trust yet."
+async function showBetGuide(){
+  const modal=document.getElementById("betGuide");
+  const body=document.getElementById("betGuideBody");
+  if(!HISTORY){ try{ await loadHistory(); }catch(e){} }
+  body.innerHTML=computeBetGuideHTML();
+  modal.classList.add("show");
+}
+
+function computeBetGuideHTML(){
+  const days=(HISTORY&&HISTORY.days)||[];
+  if(!days.length){
+    return `<p class="faq-lead">The picking guide adapts to your tracker data as it grows — right now the tracker is empty, so use this basic method:</p>
+      <h3>The starter method</h3>
+      <ol><li><b>Start with Heat top-25.</b> That's your validated pool.</li>
+      <li><b>Verify the matchup</b> (opener flag, park/weather boost) — these are facts, not stats.</li>
+      <li><b>Break ties with Barrel% margin</b> (season-strongest single signal in the model).</li>
+      <li><b>Check Bull/Bear</b> — if two Bear flags stack (thin sample + tough arm), skip.</li>
+      <li><b>Compare model odds to the book</b> before firing.</li></ol>
+      <p style="font-size:11px;color:var(--muted)">Come back once you have a week of graded data — this whole guide rewrites itself with your numbers.</p>`;
+  }
+
+  // aggregate (mirrors renderTracker)
+  let players=0,homered=0;
+  const tiers={}, badges={}, park={}, trend={}, hlabel={}, form={}, smash={}, opener={}, b2b={}, spot={};
+  const sig={};
+  days.forEach(d=>{
+    players+=d.players||0; homered+=d.hitters_homered||0;
+    Object.entries(d.by_tier||{}).forEach(([k,v])=>{const t=tiers[k]||(tiers[k]={n:0,hr:0});t.n+=v.n;t.hr+=v.hr;});
+    Object.entries(d.by_badge||{}).forEach(([k,v])=>{const t=badges[k]||(badges[k]={n:0,hr:0});t.n+=v.n;t.hr+=v.hr;});
+    Object.entries(d.by_park||{}).forEach(([k,v])=>{const t=park[k]||(park[k]={n:0,hr:0});t.n+=v.n;t.hr+=v.hr;});
+    Object.entries(d.by_trend||{}).forEach(([k,v])=>{const t=trend[k]||(trend[k]={n:0,hr:0});t.n+=v.n;t.hr+=v.hr;});
+    Object.entries(d.by_hlabel||{}).forEach(([k,v])=>{const t=hlabel[k]||(hlabel[k]={n:0,hr:0});t.n+=v.n;t.hr+=v.hr;});
+    Object.entries(d.by_form||{}).forEach(([k,v])=>{const t=form[k]||(form[k]={n:0,hr:0});t.n+=v.n;t.hr+=v.hr;});
+    Object.entries(d.by_smash||{}).forEach(([k,v])=>{const t=smash[k]||(smash[k]={n:0,hr:0});t.n+=v.n;t.hr+=v.hr;});
+    Object.entries(d.by_opener||{}).forEach(([k,v])=>{const t=opener[k]||(opener[k]={n:0,hr:0});t.n+=v.n;t.hr+=v.hr;});
+    Object.entries(d.by_b2b||{}).forEach(([k,v])=>{const t=b2b[k]||(b2b[k]={n:0,hr:0});t.n+=v.n;t.hr+=v.hr;});
+    Object.entries(d.by_signal||{}).forEach(([k,v])=>{const a=sig[k]||(sig[k]={c:{n:0,hr:0},x:{n:0,hr:0}});a.c.n+=v.cleared.n;a.c.hr+=v.cleared.hr;a.x.n+=v.not.n;a.x.hr+=v.not.hr;});
+  });
+  const base=players?100*homered/players:0;
+  const rate=o=>o&&o.n?100*o.hr/o.n:0;
+
+  // classify a signal by n + lift into: use/tiebreak/watch/ignore
+  const classify=(name,label,agg,restKey,minLift=1.0,minN=100)=>{
+    const v=agg[name]; if(!v||!v.n) return null;
+    const r=rate(v);
+    let ref=base;
+    if(restKey&&agg[restKey]) ref=rate(agg[restKey]);
+    const lift=r-ref;
+    let bucket;
+    if(v.n<40) bucket="ignore";
+    else if(v.n<100) bucket=Math.abs(lift)>=3?"watch":"ignore";
+    else if(lift>=minLift) bucket="use";
+    else if(lift>=-minLift) bucket="tiebreak";
+    else bucket="fade";
+    return {label, r, n:v.n, hr:v.hr, lift, bucket};
+  };
+
+  const results=[];
+  // labels
+  results.push(classify("elite","ELITE label",hlabel,"none"));
+  results.push(classify("fb","FB BATTER label",hlabel,"none"));
+  results.push(classify("ld","LD BATTER label",hlabel,"none"));
+  // badges — the ones we know exist
+  ["lock","hot","due","cool","pow","plat","mix","arm","hrsp","hrbp"].forEach(k=>{
+    const nice={lock:"HOT badge",hot:"WARMING badge",due:"DUE badge",cool:"MAY COOL badge",
+      pow:"POWER badge",plat:"PLATOON badge",mix:"PITCH EDGE badge",arm:"WEAK ARM badge",
+      hrsp:"HR vs SP badge",hrbp:"HR vs PEN badge"}[k];
+    results.push(classify(k,nice,badges,null,1.0,80));
+  });
+  // conviction / context
+  results.push(classify("up","Trend UP",trend,"down"));
+  results.push(classify("smash","SMASH pick",smash,"rest",2.0,50));
+  results.push(classify("opener","vs Opener",opener,"sp"));
+  results.push(classify("b2b","B2B (HR yesterday)",b2b,"rest"));
+  // park tiers
+  results.push(classify("strong+","Park strong+",park,null,1.0,150));
+  results.push(classify("lean+","Park lean+",park,null,1.0,80));
+  // arm form (huge lift in your data was STEADY-BAD)
+  Object.entries(form).forEach(([k,v])=>{
+    const c=classify(k,`vs ${k} arm`,form,null,2.0,80);
+    if(c) results.push(c);
+  });
+
+  const rows=results.filter(x=>x);
+  const use=rows.filter(x=>x.bucket==="use").sort((a,b)=>b.lift-a.lift);
+  const tie=rows.filter(x=>x.bucket==="tiebreak").sort((a,b)=>b.lift-a.lift);
+  const watch=rows.filter(x=>x.bucket==="watch").sort((a,b)=>b.lift-a.lift);
+  const fade=rows.filter(x=>x.bucket==="fade").sort((a,b)=>a.lift-b.lift);
+  const ignore=rows.filter(x=>x.bucket==="ignore");
+
+  const li=x=>`<li><b>${x.label}</b> — ${x.r.toFixed(1)}% (${x.hr}/${x.n}, ${x.lift>=0?"+":""}${x.lift.toFixed(1)} lift)</li>`;
+
+  const topTier=tiers["70+"]?rate(tiers["70+"]):null;
+  const topTierN=tiers["70+"]?tiers["70+"].n:0;
+
+  return `<p class="faq-lead">A step-by-step picking method built from <b>your ${days.length} graded days</b> (${players} hitter-days, base ${base.toFixed(1)}% HR rate). This rewrites itself as your tracker grows.</p>
+
+    <h3>Step 1 — Start with Heat rank</h3>
+    <p>The core model has ${topTierN>0?`your 70+ tier converting at <b>${topTier.toFixed(1)}%</b> vs the ${base.toFixed(1)}% field baseline`:"the 70+ tier as your validated top group"} (n=${topTierN}). This is the only signal with real load-bearing evidence. Sort the board by Heat and work from the top-25 down.</p>
+
+    <h3>Step 2 — Verify matchup facts</h3>
+    <p>Before trusting any name: check the opener flag (bullpen game means starter matters less), the park/weather boost, and whether the opposing arm is DEALING or SHELLABLE. These are conditions, not statistical signals — they always matter regardless of sample size.</p>
+
+    <h3>Step 3 — Use these tags as real tiebreakers</h3>
+    ${use.length?`<p>Signals in your data with meaningful lift AND enough sample (n≥100):</p><ul>${use.map(li).join("")}</ul>`:`<p style="color:var(--muted)">No signals have crossed the n≥100 + meaningful-lift threshold yet. Keep collecting.</p>`}
+
+    ${tie.length?`<h3>Step 4 — Coin-flip tiebreakers (small edge, enough sample)</h3>
+      <p>These signals have enough sample to trust the direction but the edge is thin:</p>
+      <ul>${tie.map(li).join("")}</ul>`:""}
+
+    ${watch.length?`<h3>Watch (interesting but not ready)</h3>
+      <p>Real-looking lift but sample under 100 — track these, don't bet on them yet:</p>
+      <ul>${watch.map(li).join("")}</ul>`:""}
+
+    ${fade.length?`<h3>Consider fading</h3>
+      <p>Signals showing meaningful <b>negative</b> lift with real sample. Use as Bear-side flags:</p>
+      <ul>${fade.map(li).join("")}</ul>`:""}
+
+    ${ignore.length?`<h3>Ignore for now (samples too thin)</h3>
+      <p style="color:var(--muted)">These haven't accumulated enough data to trust either direction. They may become real signals later:</p>
+      <p style="font-size:11.5px;color:var(--muted)">${ignore.map(x=>`${x.label} (${x.n})`).join(" · ")}</p>`:""}
+
+    <h3>Step 5 — Read the Bull/Bear panel</h3>
+    <p>Open any card and check the Bear column. Take the flags seriously in this order (from your data):
+    <b>arm is DEALING</b> (validated: -0.7 lift), <b>thin sample</b> (data-quality issue),
+    then stacking flags like park-against + tough arm. One Bear flag on an otherwise strong Heat pick = ignore. Two or more stacking, especially DEALING + thin = drop him.</p>
+
+    <h3>Step 6 — Compare to the book</h3>
+    <p>The edge lives in the gap between the model's fair odds (on every card) and what the book is offering. If book price implies a lower HR probability than the model → possible +EV. If it implies a higher probability → no edge.</p>
+
+    <h3>On parlays</h3>
+    <p>HR at ~15% × 3 legs ≈ <b>0.3–0.6%</b> combined. Prefer single bets over stacking legs. If parlaying, use the app's Round Robin format — pairs of legs pay out, not all-or-nothing.</p>
+
+    <p style="font-size:11px;color:var(--faint);margin-top:16px;padding:10px;background:var(--panel-2);border-radius:8px">This guide auto-updates as your tracker grows. Signals move buckets as their sample sizes cross thresholds (n≥100 = trustworthy). Not betting advice.</p>`;
+}
+
 function renderTracker(){
   const main=document.getElementById("main");
   if(!HISTORY||!HISTORY.days||!HISTORY.days.length){
@@ -2348,10 +2534,54 @@ function renderTracker(){
     <h3>HR rate by badge</h3>
     <div style="font-size:11px;color:var(--muted);margin-bottom:4px">how often hitters carrying each badge homered, across every ranked hitter. Right column = lift vs the ${baseRate.toFixed(1)}% base rate. ${tot?`HR hitters carried <b style="color:var(--ink)">${avgBadgesHr.toFixed(1)}</b> badges on average.`:""}</div>
     ${badgeRows||'<div class="ln" style="color:var(--muted)">— needs a few graded days —</div>'}
+    ${parlaySection(days,baseRate)}
     <h3>Daily log</h3>
     ${dayRows}
   </div>`;
   btSection(main);
+}
+
+// ------- Parlay performance section (auto-tracked) -------
+function parlaySection(days, baseRate){
+  const parlay={};
+  days.forEach(d=>{
+    Object.entries(d.by_parlay||{}).forEach(([k,v])=>{
+      const a=parlay[k]||(parlay[k]={n:0,leg_n:0,leg_hr:0,all_hit:0,any_hit:0,pair_hits:0});
+      a.n+=v.n||0; a.leg_n+=v.leg_n||0; a.leg_hr+=v.leg_hr||0;
+      a.all_hit+=v.all_hit||0; a.any_hit+=v.any_hit||0; a.pair_hits+=v.pair_hits||0;
+    });
+  });
+  const kinds=Object.keys(parlay);
+  if(!kinds.length) return "";
+  const nice={jackpot:"Longest HR Jackpot (top-3 mid-tier)",best3:"Best Board 3-leg (top-3 by heat, 1/team)",rr5:"Round Robin by 2s (5 legs)"};
+  const explain={jackpot:"legs graded as singles — each leg's HR rate is the key number.",
+    best3:"3-leg parlay — all_hit is the parlay winning outright.",
+    rr5:"5 legs, 10 possible 2-leg pairs per parlay — pair_hits is how many pairs actually converted."};
+  let rows="";
+  kinds.forEach(k=>{
+    const v=parlay[k];
+    if(!v.leg_n) return;
+    const legR=100*v.leg_hr/v.leg_n;
+    const lift=legR-baseRate;
+    const allR=v.n?100*v.all_hit/v.n:0;
+    const anyR=v.n?100*v.any_hit/v.n:0;
+    const extra=k==="rr5"?` · avg pair hits/day: <b style="color:var(--ink)">${(v.pair_hits/(v.n||1)).toFixed(2)}</b> of 10`:"";
+    rows+=`<div class="trk-row" style="grid-template-columns:1fr 60px;padding:8px 0;border-top:1px solid var(--line)">
+      <div>
+        <div style="font-family:Archivo;font-weight:800;font-size:11.5px;color:var(--ink)">${nice[k]||k}</div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-top:2px">
+          ${v.n} slate${v.n===1?"":"s"} · legs hit <b style="color:var(--ink)">${legR.toFixed(1)}%</b> (${v.leg_hr}/${v.leg_n})${lift>=0?` <span style="color:var(--good)">+${lift.toFixed(1)}</span>`:` <span style="color:var(--bad)">${lift.toFixed(1)}</span>`} vs ${baseRate.toFixed(1)}% base
+          ${k!=="jackpot"?` · <b>${allR.toFixed(0)}%</b> hit all · <b>${anyR.toFixed(0)}%</b> hit any${extra}`:""}
+        </div>
+        <div style="font-size:10.5px;color:var(--faint);margin-top:3px">${explain[k]||""}</div>
+      </div>
+      <div style="text-align:right;font-family:'IBM Plex Mono';font-size:14px;font-weight:800;color:${legR>=baseRate?'var(--good)':'var(--bad)'}">${legR.toFixed(1)}%</div>
+    </div>`;
+  });
+  if(!rows) return "";
+  return `<h3>Parlay performance</h3>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">how the auto-generated parlays actually converted. Leg rate is the honest number — if it's not beating the base rate, the parlay strategy isn't earning.</div>
+    ${rows}`;
 }
 
 document.getElementById("sortSel").addEventListener("change",e=>{

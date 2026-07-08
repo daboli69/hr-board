@@ -29,7 +29,8 @@ def _load_day(date):
     snap = os.path.join(SNAP_DIR, f"{date}.json")
     if os.path.exists(snap):
         with open(snap) as f:
-            return json.load(f).get("players", [])
+            d = json.load(f)
+            return d.get("players", []), d.get("parlay_picks", [])
     if os.path.exists(BOARD_PATH):
         with open(BOARD_PATH) as f:
             b = json.load(f)
@@ -42,8 +43,8 @@ def _load_day(date):
                 "iso": (p.get("windows", {}).get("L14d", {}) or {}).get("iso"),
                 "barrel_pct": (p.get("windows", {}).get("L14d", {}) or {}).get("barrel_pct"),
                 "badges": [bd["k"] for bd in (p.get("badges") or [])],
-            } for p in b.get("players", [])]
-    return None
+            } for p in b.get("players", [])], b.get("parlay_picks", [])
+    return None, []
 
 
 def _normalize_sc(sc):
@@ -95,7 +96,7 @@ def _tier(h):
 def grade_date(date):
     """Grade a single date -> record dict, or None if it can't be graded yet (no snapshot,
     or results not posted). Pure: does not read or write history.json."""
-    players = _load_day(date)
+    players, parlay_picks = _load_day(date)
     if not players:
         print(f"[track] no snapshot for {date}; skip.")
         return None
@@ -191,6 +192,29 @@ def grade_date(date):
         "base": {str(n): {"n": len(players), "hr": n_hit} for n in (5, 10, 25)},
     }
 
+    # ---- parlay grading: how did the auto-generated picks actually do? ----
+    # For each strategy captured in the snapshot, record: legs_n, legs_hr,
+    # all_hit (whole parlay), any_hit. Also expected combo count for RR.
+    by_parlay = {}
+    for pk in parlay_picks or []:
+        kind = pk.get("kind"); legs = pk.get("legs") or []
+        if not kind or not legs:
+            continue
+        hits = [1 if hrmap.get(l.get("id"), {}).get("hr", 0) > 0 else 0 for l in legs]
+        entry = by_parlay.setdefault(kind, {
+            "n": 0, "leg_n": 0, "leg_hr": 0, "all_hit": 0, "any_hit": 0, "pair_hits": 0,
+        })
+        entry["n"] += 1
+        entry["leg_n"] += len(legs)
+        entry["leg_hr"] += sum(hits)
+        if hits and all(hits): entry["all_hit"] += 1
+        if any(hits): entry["any_hit"] += 1
+        # round-robin: count pair combos that hit (any 2 legs both homered)
+        if kind == "rr5" and len(legs) >= 2:
+            pair_hits = sum(1 for i in range(len(hits)) for j in range(i+1, len(hits))
+                            if hits[i] and hits[j])
+            entry["pair_hits"] += pair_hits
+
     record = {
         "date": date, "players": len(players),
         "hitters_homered": n_hit,
@@ -199,6 +223,7 @@ def grade_date(date):
         "by_park": by_park, "by_trend": by_trend,
         "by_smash": by_smash, "by_opener": by_opener, "by_spot": by_spot, "by_b2b": by_b2b,
         "by_hlabel": by_hlabel,
+        "by_parlay": by_parlay,
         "badges_on_hr": badge_hits, "top_n": topN,
         "ranks": ranks,
         "hr_log": sorted(hr_log, key=lambda x: (x["heat"] or 0), reverse=True),
