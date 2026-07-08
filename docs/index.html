@@ -2408,10 +2408,9 @@ function computeBetGuideHTML(){
     <p style="font-size:11px;color:var(--faint);margin-top:16px;padding:10px;background:var(--panel-2);border-radius:8px">This guide auto-updates as your tracker grows. Signals move buckets as their sample sizes cross thresholds (n≥100 = trustworthy). Not betting advice.</p>`;
 }
 
-// ---- Other Props tab (hits, HRR, strikeouts) --------------------------------
-// Parallel to the HR board, using each player's independent prop scores
-// (hit_heat, hrr_heat, k_heat) computed server-side in build_board via props.py.
-// Zero interaction with the HR heat model — pure display of separate scores.
+// ---- Other Props tab (hits, HRR, pitcher strikeouts) ----------------------
+// Hits + HRR are hitter-level (rank BOARD.players). Ks is pitcher-level (rank
+// BOARD.pitcher_props). Zero interaction with the HR heat model.
 let propsView="hit";                            // "hit" | "hrr" | "k"
 
 function propsCardColor(v){
@@ -2422,61 +2421,82 @@ function propsCardColor(v){
   return "rgba(88,102,120,.12)";
 }
 function propsScore(p,view){
-  return view==="hit"?p.hit_heat: view==="hrr"?p.hrr_heat: view==="k"?p.k_heat: null;
+  return view==="hit"?p.hit_heat: view==="hrr"?p.hrr_heat: null;
 }
 
 function renderProps(){
   const main=document.getElementById("main");
   if(!BOARD||!BOARD.players){ main.innerHTML=`<div class="empty">Board not loaded.</div>`; return; }
-  // filter to live/probable lineup
-  const players=BOARD.players.filter(p=>p.lineup_status!=="out");
-  const scored=players.filter(p=>propsScore(p,propsView)!=null);
-  scored.sort((a,b)=>propsScore(b,propsView)-propsScore(a,propsView));
-
-  const meta={
-    hit: {title:"Hits", sub:"1+ hits / 2+ hits — sorted by hit_heat (xBA + contact + LD + discipline + opposing arm hittability)",
-          scoreLabel:"HIT", propLabels:["1+ H","2+ H"], side:"OVER"},
-    hrr: {title:"Hits + Runs + RBIs", sub:"HRR — hit_heat plus lineup-spot PA multiplier plus HR upside (elite HR hitters get a boost since a HR = 1H+1R+1RBI)",
-          scoreLabel:"HRR", propLabels:["Bet 2+","Bet 3+"], side:"OVER"},
-    k:   {title:"Strikeouts", sub:"K prone score — hitter K% + SwStr% + opposing pitcher K/9 + opposing SwStr%. Higher = OVER on Ks; lower = UNDER.",
-          scoreLabel:"K%", propLabels:["Over 0.5","Over 1.5"], side:"OVER"},
-  }[propsView];
 
   const subTabs=`
     <div class="prop-subtabs">
       <button data-p="hit" class="${propsView==='hit'?'on':''}">Hits</button>
       <button data-p="hrr" class="${propsView==='hrr'?'on':''}">HRR</button>
-      <button data-p="k" class="${propsView==='k'?'on':''}">Ks</button>
+      <button data-p="k" class="${propsView==='k'?'on':''}">Pitcher Ks</button>
     </div>`;
 
-  // top 3 as callouts, rest in a list
-  const rows=scored.map((p,i)=>{
-    const sc=propsScore(p,propsView);
-    const bg=propsCardColor(sc);
-    const rank=i+1;
-    const tag = sc>=70?"TIER 1": sc>=55?"TIER 2": sc>=40?"TIER 3":"low";
-    const armForm=(p.opp_pitcher&&p.opp_pitcher.form)?p.opp_pitcher.form.label:"";
-    const heatRef=`HR heat ${p.heat}`;
-    return `<div class="prop-row" style="background:${bg}">
-      <div class="prop-rk">${rank}</div>
-      <div class="prop-sc">${sc.toFixed(0)}</div>
-      <div class="prop-body">
-        <div class="prop-nm"><b>${p.name}</b> <span class="prop-meta">${p.team}→${p.opp_team} · ${timeStr(p.time)}${p.lineup_spot?` · #${p.lineup_spot}`:""}</span></div>
-        <div class="prop-sub">${heatRef}${armForm?` · vs ${armForm} arm`:""}${propsView==="hrr"?` · spot #${p.lineup_spot||"?"}`:""}</div>
-        <div class="prop-tags"><span class="prop-tier">${tag}</span></div>
-      </div>
-    </div>`;
-  }).join("");
+  let inner="";
+  if(propsView==="k"){
+    // Ks = PITCHER-level view. Rank BOARD.pitcher_props by k_heat.
+    const arms=(BOARD.pitcher_props||[]).slice().sort((a,b)=>(b.k_heat||0)-(a.k_heat||0));
+    const rows=arms.map((a,i)=>{
+      const sc=a.k_heat, bg=propsCardColor(sc);
+      const tag = sc>=70?"TIER 1": sc>=55?"TIER 2": sc>=40?"TIER 3":"low";
+      const opener=a.opener?'<span class="mstone" style="color:#c17a52;border-color:rgba(193,122,82,.4);background:rgba(193,122,82,.10)">OPENER</span>':'';
+      const oppK=a.opp_lineup_k_pct!=null?` · opp lineup K% ${a.opp_lineup_k_pct.toFixed(1)}`:"";
+      const kp=a.k_pct!=null?` · his K% ${a.k_pct.toFixed(1)}`:"";
+      const ss=a.swstr_pct!=null?` · SwStr ${a.swstr_pct.toFixed(1)}%`:"";
+      return `<div class="prop-row" style="background:${bg}">
+        <div class="prop-rk">${i+1}</div>
+        <div class="prop-sc">${sc.toFixed(0)}</div>
+        <div class="prop-body">
+          <div class="prop-nm"><b>${a.name||"—"}</b> ${opener}<span class="prop-meta">${a.team||"?"} vs ${a.opp_team||"?"} · ${timeStr(a.time)}${a.throws?` · ${a.throws}HP`:""}</span></div>
+          <div class="prop-sub">${(kp+ss+oppK).replace(/^ · /,"")}</div>
+          <div class="prop-tags"><span class="prop-tier">${tag}</span>${a.form?.label?` <span class="mstone" style="color:var(--muted);background:var(--panel);border-color:var(--line)">${a.form.label}</span>`:""}</div>
+        </div>
+      </div>`;
+    }).join("");
+    inner=`
+      <h2 class="prop-h">Pitcher Strikeouts</h2>
+      <div class="prop-lead">Ranked by pitcher K-heat — his own K% + SwStr% (2-week blended) plus opposing lineup K vulnerability. Higher = better OVER on his K total prop.</div>
+      ${subTabs}
+      <div class="prop-note">${arms.length} starters ranked. <b>OPENER</b> tag = downgraded automatically since openers throw ~1 IP and can't hit a 5.5-K line. Opposing lineup K% is the average trailing-14-day K rate across the batters he's facing.</div>
+      ${rows||'<div class="empty">No arms scored yet — need probable starters + arm profiles.</div>'}
+      <div class="prop-note" style="margin-top:12px"><b>Reading K scores:</b> HIGH k_heat = bet OVER on his K total (typical lines are 5.5 or 6.5). LOW k_heat = bet UNDER. Opener flag means the LISTED pitcher won't throw enough innings for a normal K prop line — usually a play-through-with-caution.</div>`;
+  } else {
+    // Hits + HRR: hitter-level view
+    const players=BOARD.players.filter(p=>p.lineup_status!=="out");
+    const scored=players.filter(p=>propsScore(p,propsView)!=null);
+    scored.sort((a,b)=>propsScore(b,propsView)-propsScore(a,propsView));
+    const meta={
+      hit: {title:"Hits", sub:"1+ hits / 2+ hits — sorted by hit_heat (xBA + contact + LD + discipline + opposing arm hittability, all 2-week blended)"},
+      hrr: {title:"Hits + Runs + RBIs", sub:"HRR — hit_heat plus lineup-spot PA multiplier plus HR upside (elite HR hitters get a boost since a HR = 1H+1R+1RBI)"},
+    }[propsView];
+    const rows=scored.map((p,i)=>{
+      const sc=propsScore(p,propsView);
+      const bg=propsCardColor(sc);
+      const tag = sc>=70?"TIER 1": sc>=55?"TIER 2": sc>=40?"TIER 3":"low";
+      const armForm=(p.opp_pitcher&&p.opp_pitcher.form)?p.opp_pitcher.form.label:"";
+      const heatRef=`HR heat ${p.heat}`;
+      return `<div class="prop-row" style="background:${bg}">
+        <div class="prop-rk">${i+1}</div>
+        <div class="prop-sc">${sc.toFixed(0)}</div>
+        <div class="prop-body">
+          <div class="prop-nm"><b>${p.name}</b> <span class="prop-meta">${p.team}→${p.opp_team} · ${timeStr(p.time)}${p.lineup_spot?` · #${p.lineup_spot}`:""}</span></div>
+          <div class="prop-sub">${heatRef}${armForm?` · vs ${armForm} arm`:""}${propsView==="hrr"?` · spot #${p.lineup_spot||"?"}`:""}</div>
+          <div class="prop-tags"><span class="prop-tier">${tag}</span></div>
+        </div>
+      </div>`;
+    }).join("");
+    inner=`
+      <h2 class="prop-h">${meta.title}</h2>
+      <div class="prop-lead">${meta.sub}</div>
+      ${subTabs}
+      <div class="prop-note">${scored.length} eligible hitters ranked. Score is 0-100, tiers same as HR heat. This is a separate model from HR heat — sample maturity, tracker verification, and betting discipline all reset here; treat scores as informational until the tracker validates them.</div>
+      ${rows||'<div class="empty">No scored players yet — needs lineups + arm data.</div>'}`;
+  }
 
-  main.innerHTML=`<div class="prop-wrap">
-    <h2 class="prop-h">${meta.title}</h2>
-    <div class="prop-lead">${meta.sub}</div>
-    ${subTabs}
-    <div class="prop-note">${scored.length} eligible hitters ranked. Score is 0-100, tiers same as HR heat. This is a separate model from HR heat — sample maturity, tracker verification, and betting discipline all reset here; treat scores as informational until the tracker validates them.</div>
-    ${rows||'<div class="empty">No scored players yet — needs lineups + arm data.</div>'}
-    ${propsView==="k"?`<div class="prop-note" style="margin-top:12px"><b>Reading K scores:</b> HIGH k_heat = bet OVER on K props (this hitter's K% and the opposing arm's K stuff both project a strikeout). LOW k_heat = bet UNDER on K props (contact hitter facing a low-K arm). The list is sorted highest→lowest — scroll to the bottom for the best UNDER candidates.</div>`:""}
-  </div>`;
-
+  main.innerHTML=`<div class="prop-wrap">${inner}</div>`;
   [...document.querySelectorAll(".prop-subtabs button")].forEach(b=>{
     b.addEventListener("click",()=>{ propsView=b.dataset.p; renderProps(); });
   });
