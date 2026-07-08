@@ -2461,7 +2461,11 @@ function renderProps(){
       <div class="prop-lead">Ranked by pitcher K-heat — his own K% + SwStr% (2-week blended) plus opposing lineup K vulnerability. Higher = better OVER on his K total prop.</div>
       ${subTabs}
       <div class="prop-note">${arms.length} starters ranked. <b>OPENER</b> tag = downgraded automatically since openers throw ~1 IP and can't hit a 5.5-K line. Opposing lineup K% is the average trailing-14-day K rate across the batters he's facing.</div>
-      ${rows||'<div class="empty">No arms scored yet — need probable starters + arm profiles.</div>'}
+      ${rows||`<div class="empty">${
+        BOARD.pitcher_props===undefined
+          ? "Waiting for the next build. The Pitcher Ks feature needs the updated <code>etl/build_board.py</code> deployed and the &quot;Update HR Board&quot; workflow to run — the current board.json was built before this feature existed. Push the new file and re-run the workflow."
+          : "No arms scored yet — needs probable starters + arm profiles. Should populate on the next build."
+      }</div>`}
       <div class="prop-note" style="margin-top:12px"><b>Reading K scores:</b> HIGH k_heat = bet OVER on his K total (typical lines are 5.5 or 6.5). LOW k_heat = bet UNDER. Opener flag means the LISTED pitcher won't throw enough innings for a normal K prop line — usually a play-through-with-caution.</div>`;
   } else {
     // Hits + HRR: hitter-level view
