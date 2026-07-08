@@ -18,7 +18,7 @@ import numpy as np
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from etl import statsapi, statcast_data, parks, compute, park_model
+from etl import statsapi, statcast_data, parks, compute, park_model, props
 
 try:                       # cache Savant pulls to disk so repeat runs are fast
     from pybaseball import cache as pyb_cache
@@ -496,6 +496,12 @@ def build(date_str: str | None = None) -> dict:
             "max_ev": {"recent": recent.get("max_ev"), "season": season.get("max_ev")},
             "heat": score,
             "score_breakdown": breakdown,
+            # Props scores — parallel track for the Other Props tab, NEVER touch heat.
+            # hrr_heat needs lineup_spot + HR heat; computed as a post-attach step.
+            "hit_heat": props.hit_heat(recent, pprof)[0],
+            "k_heat": props.k_heat(recent, pprof)[0],
+            "hrr_heat": props.hrr_heat(recent, pprof,
+                lineup_spot=spot_of_batter.get(bid), hr_heat=score)[0],
             "metrics": metrics,
             "windows": prof.get("windows", {}),
             "hr_recent": {w: prof.get("windows", {}).get(w, {}).get("hr") for w in ("L5", "L15", "L30")},
@@ -1038,6 +1044,10 @@ def main():
                 "smash": p["id"] in smash_ids,
                 "opener": bool((p.get("opp_pitcher") or {}).get("opener")),
                 "hlabel": p.get("hit_label"),
+                # Props-scoring fields (parallel to heat, never fed back in)
+                "hit_heat": p.get("hit_heat"),
+                "k_heat": p.get("k_heat"),
+                "hrr_heat": p.get("hrr_heat"),
             } for p in board["players"]],
         }
         with open(os.path.join(snap_dir, f"{board['slate_date']}.json"), "w") as f:

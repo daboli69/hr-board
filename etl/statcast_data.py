@@ -52,7 +52,8 @@ def pull_season(start: str, end: str) -> pd.DataFrame:
         "attack_angle", "bat_speed", "release_speed", "pitch_type",
         "inning", "inning_topbot", "at_bat_number", "pitch_number",
         "home_team", "away_team",
-        "estimated_woba_using_speedangle", "woba_value", "woba_denom",
+        "estimated_woba_using_speedangle", "estimated_ba_using_speedangle",
+        "woba_value", "woba_denom",
     ]
     keep = [c for c in keep if c in df.columns]
     return normalize_frame(df[keep].copy())
@@ -61,7 +62,8 @@ def pull_season(start: str, end: str) -> pd.DataFrame:
 _NUMERIC_COLS = ("launch_speed", "launch_angle", "launch_speed_angle", "hit_distance_sc",
                  "hc_x", "hc_y", "bat_speed", "release_speed", "attack_angle",
                  "inning", "at_bat_number", "pitch_number", "batter", "pitcher", "game_pk",
-                 "woba_value", "estimated_woba_using_speedangle", "release_spin_rate")
+                 "woba_value", "estimated_woba_using_speedangle",
+                 "estimated_ba_using_speedangle", "release_spin_rate")
 
 
 def normalize_frame(df: pd.DataFrame) -> pd.DataFrame:
@@ -269,6 +271,24 @@ def _agg_metrics(rows: pd.DataFrame) -> dict:
     iso = round((doubles + 2 * triples + 3 * hr) / ab, 3) if ab > 0 else None
     slg = round((singles + 2 * doubles + 3 * triples + 4 * hr) / ab, 3) if ab > 0 else None
 
+    # Hits-props signals (parallel track to the HR heat model — used only for the
+    # Other Props tab, never fed back into heat_score):
+    hits = int(singles + doubles + triples + hr)
+    ba = round(hits / ab, 3) if ab > 0 else None
+    bb_pct = pct(walks, pa)                                    # walk rate (plate discipline)
+    xba = None                                                  # expected BA on contact
+    if n_bb and "estimated_ba_using_speedangle" in bb:
+        xba_ser = bb["estimated_ba_using_speedangle"].dropna()
+        if len(xba_ser) >= 8:
+            xba = round(float(xba_ser.mean()), 3)
+    # line-drive % — highest BABIP bucket by launch angle
+    ld_pct_hit = pct(((bb["launch_angle"] >= 10) & (bb["launch_angle"] < 25)).sum(), n_bb) if n_bb else None
+    # contact % = 100 - swinging strike %  (pitches where the batter didn't whiff)
+    contact_pct = None
+    if pitches:
+        swstr = rows["description"].isin(SWING_STRIKE).sum()
+        contact_pct = round(100.0 * (1 - swstr / pitches), 1)
+
     pull_pct, pull_air_pct = _pull_metrics(bb)
     ideal_aa_pct, bat_speed = _ideal_aa(rows)
 
@@ -304,6 +324,14 @@ def _agg_metrics(rows: pd.DataFrame) -> dict:
         "luck_gap": luck_gap,
         "swstr_pct": pct(rows["description"].isin(SWING_STRIKE).sum(), pitches),
         "k_pct": pct(ks, pa),
+        # Hits-props signals (used ONLY by the Other Props tab, not the HR heat model):
+        "ba": ba,
+        "xba": xba,
+        "bb_pct": bb_pct,
+        "ld_pct_hit": ld_pct_hit,
+        "contact_pct": contact_pct,
+        "hits": hits,
+        "ab": int(ab) if ab is not None else 0,
         "hr": int(hr),
         "pa": int(pa),
         "bb_count": int(n_bb),
@@ -350,6 +378,14 @@ def _pitcher_metrics(rows: pd.DataFrame) -> dict:
     pa = rows["events"].isin(PA_EVENTS).sum()
     pitches = len(rows)
     hr = int((rows["events"] == "home_run").sum())
+    ev = rows["events"]
+    ks_allowed = int(ev.isin(["strikeout", "strikeout_double_play"]).sum())
+    walks_allowed = int(ev.isin(["walk", "intent_walk"]).sum())
+    hbp_allowed = int((ev == "hit_by_pitch").sum())
+    sacs_allowed = int(ev.isin(["sac_fly", "sac_bunt", "sac_fly_double_play"]).sum())
+    ci_allowed = int((ev == "catcher_interf").sum())
+    ab_allowed = pa - walks_allowed - hbp_allowed - sacs_allowed - ci_allowed
+    hits_allowed = int(ev.isin(["single", "double", "triple", "home_run"]).sum())
 
     def pct(num, den):
         return round(100.0 * num / den, 1) if den else None
@@ -364,6 +400,13 @@ def _pitcher_metrics(rows: pd.DataFrame) -> dict:
         if len(fb):
             fb_velo = round(fb["release_speed"].mean(), 1)
 
+    # xBA allowed (opponent expected BA on contact) — needed for hit props
+    xba_allowed = None
+    if n_bb and "estimated_ba_using_speedangle" in bb:
+        xba_ser = bb["estimated_ba_using_speedangle"].dropna()
+        if len(xba_ser) >= 12:
+            xba_allowed = round(float(xba_ser.mean()), 3)
+
     return {
         "barrel_pct_allowed": pct((bb["launch_speed_angle"] == 6).sum(), n_bb) if "launch_speed_angle" in bb else None,
         "hardhit_pct_allowed": pct((bb["launch_speed"] >= 95).sum(), n_bb),
@@ -374,6 +417,12 @@ def _pitcher_metrics(rows: pd.DataFrame) -> dict:
         "hr_per_pa": pct(hr, pa),
         "hr_allowed": hr,
         "swstr_pct_allowed": pct(rows["description"].isin(SWING_STRIKE).sum(), pitches),
+        # Hit-props signals (used by props tab only):
+        "k_pct_allowed": pct(ks_allowed, pa),
+        "bb_pct_allowed": pct(walks_allowed, pa),
+        "ba_allowed": round(hits_allowed / ab_allowed, 3) if ab_allowed > 0 else None,
+        "xba_allowed": xba_allowed,
+        "ld_pct_allowed": pct(((bb["launch_angle"] >= 10) & (bb["launch_angle"] < 25)).sum(), n_bb) if n_bb else None,
         "fb_velo": fb_velo,
         "bbe": int(n_bb),
         "pa": int(pa),

@@ -88,6 +88,106 @@ def _hr_map(sc):
     return out
 
 
+HIT_EVENTS = {"single", "double", "triple", "home_run"}
+K_EVENTS = {"strikeout", "strikeout_double_play"}
+# Runs/RBI attribution is not in the raw Statcast frame, so we approximate:
+#   * Runs: whenever a hitter is credited with reaching base AND a later event in
+#     the same half-inning is any hit/HR (they score). Approximation only —
+#     doesn't catch every path home. For prop-tracking purposes it's a floor.
+#   * RBIs: HRs = auto RBI. Other hits w/ runners on = approximated as +1 RBI
+#     when a previous batter in the same half-inning reached and hasn't scored.
+# We use a lightweight rebuild: process each half-inning's PA events in order,
+# tracking who's on base, and credit R/RBI on that basis.
+
+
+def _hrr_map(sc):
+    """{bid: (hits, runs, rbis)} — hits are exact, runs/rbis approximated by
+    walking each half-inning's PA events in order and tracking base state."""
+    out = {}
+    # sort by (game_pk, inning, inning_topbot, at_bat_number, pitch_number)
+    # so the final row of each PA has the outcome
+    df = sc.sort_values(["game_pk", "inning", "inning_topbot", "at_bat_number", "pitch_number"])
+    # keep only rows with a real PA-ending event
+    pa_df = df[df["events"].isin(list(PA_EVENTS_TRACK))]
+    if pa_df.empty:
+        return out
+    for (gp, inn, half), grp in pa_df.groupby(["game_pk", "inning", "inning_topbot"], sort=False):
+        # walk in AB order, one row per PA
+        seen = set()
+        base = {}      # runner_id -> 1/2/3 (base occupied)
+        for _, row in grp.iterrows():
+            ab = row.get("at_bat_number")
+            if ab in seen or row["batter"] != row["batter"]:
+                continue
+            seen.add(ab)
+            bid = int(row["batter"])
+            ev = row["events"]
+            rec = out.setdefault(bid, {"hits": 0, "runs": 0, "rbis": 0})
+            if ev in HIT_EVENTS:
+                rec["hits"] += 1
+                # Everyone on base scores conservatively on a HR;
+                # on other hits, we credit 1 rbi if runners were on
+                if ev == "home_run":
+                    rec["rbis"] += 1 + len(base)      # self + runners on
+                    rec["runs"] += 1
+                    for runner in list(base):
+                        rr = out.setdefault(runner, {"hits": 0, "runs": 0, "rbis": 0})
+                        rr["runs"] += 1
+                    base = {}
+                elif ev in ("single", "double", "triple"):
+                    # approximate: on double/triple everyone scores; on single, r3 scores
+                    if ev == "single":
+                        if 3 in [b for b in base.values()]:
+                            for runner, b in list(base.items()):
+                                if b == 3:
+                                    out.setdefault(runner, {"hits":0,"runs":0,"rbis":0})["runs"] += 1
+                                    rec["rbis"] += 1
+                                    del base[runner]
+                    else:                              # double or triple
+                        for runner in list(base):
+                            out.setdefault(runner, {"hits":0,"runs":0,"rbis":0})["runs"] += 1
+                            rec["rbis"] += 1
+                        base = {}
+                    # then the batter takes his base
+                    base[bid] = 1 if ev == "single" else 2 if ev == "double" else 3
+            elif ev in ("walk", "intent_walk", "hit_by_pitch"):
+                # walk with runner on 1st -> everyone forces up 1
+                if 1 in base.values():
+                    for runner in list(base):
+                        if base[runner] == 3:
+                            out.setdefault(runner, {"hits":0,"runs":0,"rbis":0})["runs"] += 1
+                            rec["rbis"] += 1
+                            del base[runner]
+                        elif base[runner] == 2:
+                            base[runner] = 3
+                        elif base[runner] == 1:
+                            base[runner] = 2
+                base[bid] = 1
+            # everything else (outs, K, sacs, etc) leaves base state approximately unchanged
+    return out
+
+
+# PA_EVENTS defined in statcast_data — mirror it here to avoid an extra import at load time
+PA_EVENTS_TRACK = {
+    "single", "double", "triple", "home_run", "field_out", "strikeout",
+    "strikeout_double_play", "walk", "hit_by_pitch", "sac_fly", "sac_bunt",
+    "field_error", "grounded_into_double_play", "force_out", "double_play",
+    "fielders_choice", "fielders_choice_out", "catcher_interf", "intent_walk",
+    "triple_play", "sac_fly_double_play",
+}
+
+
+def _k_map(sc):
+    """{bid: n_strikeouts}"""
+    out = {}
+    ks = sc[sc["events"].isin(list(K_EVENTS))]
+    for _, row in ks.iterrows():
+        if row["batter"] != row["batter"]:
+            continue
+        out[int(row["batter"])] = out.get(int(row["batter"]), 0) + 1
+    return out
+
+
 def _tier(h):
     if h is None: return "n/a"
     return "70+" if h >= 70 else "55-69" if h >= 55 else "40-54" if h >= 40 else "<40"
@@ -115,7 +215,14 @@ def grade_date(date):
 
     sc = _normalize_sc(sc)
     hrmap = _hr_map(sc)
+    hrrmap = _hrr_map(sc)
+    kmap = _k_map(sc)
     def homered(p): return hrmap.get(p["id"], {}).get("hr", 0) > 0
+    def got_hits(p, n=1): return hrrmap.get(p["id"], {}).get("hits", 0) >= n
+    def hrr_val(p):
+        h = hrrmap.get(p["id"], {})
+        return h.get("hits", 0) + h.get("runs", 0) + h.get("rbis", 0)
+    def struck_out(p, n=1): return kmap.get(p["id"], 0) >= n
 
     tiers, forms = {}, {}
     by_signal = {k: {"cleared": {"n": 0, "hr": 0}, "not": {"n": 0, "hr": 0}} for k in SIGNALS}
@@ -215,6 +322,52 @@ def grade_date(date):
                             if hits[i] and hits[j])
             entry["pair_hits"] += pair_hits
 
+    # ---- Props grading: tier conversion for hit_heat, hrr_heat, k_heat ----
+    # Same tier framework as HR heat, applied to each prop's independent score.
+    def _prop_tier(v):
+        if v is None: return "n/a"
+        return "70+" if v >= 70 else "55-69" if v >= 55 else "40-54" if v >= 40 else "<40"
+
+    by_hit_tier, by_hit2_tier = {}, {}
+    by_hrr_tier = {}
+    by_k_tier, by_k2_tier = {}, {}
+    for p in players:
+        # 1+ hit and 2+ hit tiers off hit_heat
+        ht = _prop_tier(p.get("hit_heat"))
+        e = by_hit_tier.setdefault(ht, {"n": 0, "hit": 0}); e["n"] += 1
+        if got_hits(p, 1): e["hit"] += 1
+        e2 = by_hit2_tier.setdefault(ht, {"n": 0, "hit": 0}); e2["n"] += 1
+        if got_hits(p, 2): e2["hit"] += 1
+        # HRR tiers off hrr_heat — bucket by hrr value (approximate 2+ / 3+ line)
+        hrt = _prop_tier(p.get("hrr_heat"))
+        eh = by_hrr_tier.setdefault(hrt, {"n": 0, "hit2": 0, "hit3": 0, "sum": 0, "sum_ct": 0})
+        eh["n"] += 1
+        v = hrr_val(p)
+        eh["sum"] += v; eh["sum_ct"] += 1
+        if v >= 2: eh["hit2"] += 1
+        if v >= 3: eh["hit3"] += 1
+        # K tiers off k_heat
+        kt = _prop_tier(p.get("k_heat"))
+        ek = by_k_tier.setdefault(kt, {"n": 0, "hit": 0}); ek["n"] += 1
+        if struck_out(p, 1): ek["hit"] += 1
+        ek2 = by_k2_tier.setdefault(kt, {"n": 0, "hit": 0}); ek2["n"] += 1
+        if struck_out(p, 2): ek2["hit"] += 1
+
+    # Top-N by each prop score, same idea as HR top_n
+    def _prop_topN(key, hit_fn, ns=(5, 10, 25)):
+        rk = sorted((p for p in players if p.get(key) is not None),
+                    key=lambda p: p.get(key) or 0, reverse=True)
+        return {str(n): {"n": min(n, len(rk)), "hit": sum(1 for p in rk[:n] if hit_fn(p))}
+                for n in ns}
+
+    by_props = {
+        "hit1": {"by_tier": by_hit_tier, "top_n": _prop_topN("hit_heat", lambda p: got_hits(p, 1))},
+        "hit2": {"by_tier": by_hit2_tier, "top_n": _prop_topN("hit_heat", lambda p: got_hits(p, 2))},
+        "k1":   {"by_tier": by_k_tier, "top_n": _prop_topN("k_heat", lambda p: struck_out(p, 1))},
+        "k2":   {"by_tier": by_k2_tier, "top_n": _prop_topN("k_heat", lambda p: struck_out(p, 2))},
+        "hrr":  {"by_tier": by_hrr_tier, "top_n": _prop_topN("hrr_heat", lambda p: hrr_val(p) >= 2)},
+    }
+
     record = {
         "date": date, "players": len(players),
         "hitters_homered": n_hit,
@@ -224,6 +377,7 @@ def grade_date(date):
         "by_smash": by_smash, "by_opener": by_opener, "by_spot": by_spot, "by_b2b": by_b2b,
         "by_hlabel": by_hlabel,
         "by_parlay": by_parlay,
+        "by_props": by_props,
         "badges_on_hr": badge_hits, "top_n": topN,
         "ranks": ranks,
         "hr_log": sorted(hr_log, key=lambda x: (x["heat"] or 0), reverse=True),
