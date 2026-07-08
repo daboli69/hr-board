@@ -312,6 +312,7 @@ def build(date_str: str | None = None) -> dict:
         pr = pprof.get("recent", {})
         ps = pprof.get("season", {})
         opp_pitcher_obj = {
+            "id": pid,
             "name": meta.get("name", ""),
             "throws": throws,
             "hr_score": phr.get("score"),
@@ -803,6 +804,7 @@ def build(date_str: str | None = None) -> dict:
         },
         "arms": sorted([
             {
+                "id": pid,
                 "name": slate["pitchers"].get(pid, {}).get("name", str(pid)),
                 "throws": hands.get(pid, {}).get("throws", ""),
                 "team": next((g["home"] if g["home_pitcher_id"] == pid else g["away"]
@@ -928,6 +930,10 @@ def main():
             pid = op.get("id")
             if not pid:
                 continue
+            try:
+                pid = int(pid)
+            except (TypeError, ValueError):
+                continue
             k_pct = ((hp.get("windows") or {}).get("L14d") or {}).get("k_pct")
             if k_pct is not None:
                 opp_batters.setdefault(pid, []).append(k_pct)
@@ -953,14 +959,6 @@ def main():
             k_sc, k_br = props.pitcher_k_heat(pprof, opp_lineup_k, opener=meta["opener"])
             if k_sc is None:
                 continue
-            # projected K/9 approximation from the signals — for card display only
-            k9_est = None
-            if k_br.get("signals", {}).get("k_pct") is not None:
-                k_pct_val = (pprof.get("recent") or {}).get("k_pct_allowed") or \
-                            (pprof.get("season") or {}).get("k_pct_allowed")
-                if k_pct_val:
-                    # ~38 batters per 9 IP league avg; K/9 ≈ K% * 38/9
-                    k9_est = round(k_pct_val * 38.0 / 9.0 / 100.0 * 9.0, 1)
             pitcher_props.append({
                 **meta,
                 "k_heat": k_sc,
@@ -968,7 +966,6 @@ def main():
                 "recent_weight": k_br.get("pitcher_recent_weight"),
                 "opp_lineup_k_pct": opp_lineup_k,
                 "opp_lineup_n": len(opp_ks),
-                "k9_est": k9_est,
                 "k_pct": (pprof.get("recent") or {}).get("k_pct_allowed") or
                          (pprof.get("season") or {}).get("k_pct_allowed"),
                 "swstr_pct": (pprof.get("recent") or {}).get("swstr_pct_allowed") or
@@ -976,7 +973,8 @@ def main():
             })
         pitcher_props.sort(key=lambda x: -(x["k_heat"] or 0))
         board["pitcher_props"] = pitcher_props
-        print(f"[build] pitcher K props: {len(pitcher_props)} arms ranked")
+        print(f"[build] pitcher K props: {len(pitcher_props)} arms ranked "
+              f"(out of {len(seen_pitcher)} distinct pitchers seen)")
     except Exception as e:
         board["pitcher_props"] = []
         _hnote("pitcher K props", e); print(f"[build] pitcher K props skipped: {e}")
