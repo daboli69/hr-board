@@ -448,6 +448,25 @@
   .arms-head .sub{font-size:11px;color:var(--muted)}
   .arms-body{display:none;border-top:1px solid var(--line)}
   .arms.open .arms-body{display:block}
+  .arms-sort-row{display:flex;align-items:center;gap:6px;padding:8px 12px 4px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .arms-sort-lbl{font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em;font-family:Archivo;font-weight:700}
+  .arms-sort-btn{background:var(--panel-2);color:var(--muted);border:1px solid var(--line);border-radius:6px;
+    font-family:Archivo;font-weight:700;font-size:10.5px;padding:4px 10px;cursor:pointer;letter-spacing:.02em}
+  .arms-sort-btn.on{background:var(--seam);color:#fff;border-color:var(--seam)}
+  .arm-row-wrap{border-bottom:1px solid var(--line)}
+  .arm-row-wrap:last-child{border-bottom:none}
+  .arm-batters{display:none;background:var(--panel-2);padding:8px 12px 12px}
+  .arm-row-wrap.open .arm-batters{display:block}
+  .arm-batters-h{font-family:Archivo;font-weight:700;font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--seam);margin:2px 0 8px}
+  .arm-batter{display:grid;grid-template-columns:36px 1fr;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--line)}
+  .arm-batter:last-of-type{border-bottom:none}
+  .ab-heat{font-family:Archivo;font-weight:800;font-size:13px;text-align:center;padding:4px 0;border-radius:6px;line-height:1}
+  .ab-body{font-size:12px;color:var(--ink)}
+  .ab-body b{font-weight:700}
+  .ab-spot{color:var(--muted);font-size:10px;font-weight:400;margin-left:4px}
+  .ab-badges{margin-top:2px}
+  .arm-batters-foot{margin-top:8px;padding-top:6px;border-top:1px solid var(--line);font-size:11px}
+  .arm-batters-foot a{color:var(--seam);text-decoration:none}
   .arm-row{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;
     padding:9px 13px;border-bottom:1px solid var(--line);font-size:12px}
   .arm-row:last-child{border-bottom:none}
@@ -882,7 +901,7 @@ const EXTRA = [
   {k:"fb_pct",     label:"FB%",      fmt:v=>fmt(v,1)},
   {k:"pull_pct",   label:"Pull(all)",fmt:v=>fmt(v,1)},
 ];
-let BOARD=null, HISTORY=null, view="board", sortKey="heat", q="", hideThin=false, minHeat=0, spFloor=0, gameSel=new Set(), batFilter="", traitSel=new Set(), labSel=new Set(), teamSel=new Set(), drySel=new Set(), mixView=false, listFilter=false, muSort="hist";
+let BOARD=null, HISTORY=null, view="board", sortKey="heat", q="", hideThin=false, minHeat=0, spFloor=0, gameSel=new Set(), batFilter="", traitSel=new Set(), labSel=new Set(), teamSel=new Set(), drySel=new Set(), mixView=false, listFilter=false, muSort="hist", armsSortMode="vuln";
 // effective heat: vs-pitch-mix variant when the toggle is on, else standard
 function H(p){return (mixView && p.heat_mix!=null) ? p.heat_mix : p.heat;}
 
@@ -1289,17 +1308,22 @@ function render(){
       <div class="tp-body">${body}</div>
     </div>`;
   }
-  // Arms today: starters ranked by HR vulnerability
+  // Arms today: starters ranked by HR vulnerability. Toggle sorts by "most hittable"
+  // (hr_score descending). Each arm expands inline to show batters facing him
+  // sorted by heat — a compact "target this arm → your best HR bets" view.
   if(BOARD.arms&&BOARD.arms.length){
     let arows="";
-    BOARD.arms.forEach(a=>{
-      if(a.hr_score==null) return;
+    const armsSorted = BOARD.arms.slice().filter(a=>a.hr_score!=null);
+    if(armsSortMode==="hittable"){
+      armsSorted.sort((a,b)=>(b.hr_score||0)-(a.hr_score||0));
+    } else {
+      armsSorted.sort((a,b)=>(b.hr_score||0)-(a.hr_score||0)); // default already vulnerability-descending
+    }
+    armsSorted.forEach(a=>{
       const f=a.form||{label:"",color:"#8A95A3"};
       const d=(a.recent_score!=null&&a.season_score!=null)?(a.recent_score-a.season_score):null;
       const dArrow=d==null?"":(d>=6?` <span style="color:var(--bad)">▲${d}</span>`:d<=-6?` <span style="color:var(--good)">▼${Math.abs(d)}</span>`:"");
       const hh=a.hand_hr?`<span class="arm-hand">${a.hand_hr.side}HB: ${a.hand_hr.hr} HR / ${a.hand_hr.pa} PA 2yr</span>`:"";
-      // FB/LD/GB batted-ball mix (sums to ~100). Whichever profile is highest gets
-      // bolded — FB = target (red = attack), GB = avoid (green = pass), LD = neutral.
       let fbgb="";
       if(a.fb_pct!=null&&a.gb_pct!=null){
         const fb=a.fb_pct, ld=(a.ld_pct!=null?a.ld_pct:Math.max(0,100-a.fb_pct-a.gb_pct)), gb=a.gb_pct;
@@ -1307,21 +1331,52 @@ function render(){
         const cls=(v,base)=>`<span class="${base}${v===mx?" hi":""}">${base==="fbv"?"FB":base==="ldv"?"LD":"GB"} ${v.toFixed(0)}%</span>`;
         fbgb=` · ${cls(fb,"fbv")} ${cls(ld,"ldv")} ${cls(gb,"gbv")}`;
       }
-      arows+=`<div class="arm-row arm-tap" onclick="armFilter('${(a.opp||"").replace(/'/g,"")}')" title="Tap to show the bats facing him">
-        <div class="arm-sc" style="background:${chipColor(a.hr_score)}">${a.hr_score}</div>
-        <div class="arm-nm"><b>${a.name}</b> ${throwBadge(a.throws)}${a.opener?' <span class="opener-tag">OPENER</span>':''} <span style="color:var(--muted)">${a.team}→${a.opp} · ${timeStr(a.time)}</span>
-          <div class="arm-sub">rec <b>${a.recent_score??"–"}</b> · szn <b>${a.season_score??"–"}</b>${dArrow}${fbgb}${hh?" · "+hh:""}</div>
-          ${badgeChips(a,4)}</div>
-        <div class="arm-tag" style="color:${f.color};border:1px solid ${f.color}">${f.label}</div>
+      // Batters facing this arm (identified by opp_pitcher.id), sorted by heat.
+      // Fallback to team match if id-linking has any misses.
+      const armId=a.id;
+      const facing=(BOARD.players||[]).filter(p=>{
+        const op=p.opp_pitcher||{};
+        if(armId&&op.id) return op.id===armId;
+        return p.opp_team===a.team;
+      }).filter(p=>p.lineup_status!=="out").sort((x,y)=>(y.heat||0)-(x.heat||0));
+      const battersHTML=facing.slice(0,10).map((p,i)=>{
+        const chip=chipColor(p.heat);
+        const badges=(p.badges||[]).slice(0,3).map(b=>`<span class="bdg bk-${b.k}" style="font-size:8px;padding:0 4px">${(b.label||b.k).toUpperCase()}</span>`).join(" ");
+        return `<div class="arm-batter">
+          <div class="ab-heat" style="background:${chip}">${p.heat}</div>
+          <div class="ab-body"><b>${p.name}</b> ${p.lineup_spot?`<span class="ab-spot">#${p.lineup_spot}</span>`:""}
+            ${badges?`<div class="ab-badges">${badges}</div>`:""}</div>
+        </div>`;
+      }).join("");
+      const armSlug=`arm_${armId||a.name.replace(/\W/g,"")}`;
+      arows+=`<div class="arm-row-wrap" id="${armSlug}">
+        <div class="arm-row arm-tap" onclick="toggleArmExpand('${armSlug}')" title="Tap to see the bats facing him">
+          <div class="arm-sc" style="background:${chipColor(a.hr_score)}">${a.hr_score}</div>
+          <div class="arm-nm"><b>${a.name}</b> ${throwBadge(a.throws)}${a.opener?' <span class="opener-tag">OPENER</span>':''} <span style="color:var(--muted)">${a.team}→${a.opp} · ${timeStr(a.time)}</span>
+            <div class="arm-sub">rec <b>${a.recent_score??"–"}</b> · szn <b>${a.season_score??"–"}</b>${dArrow}${fbgb}${hh?" · "+hh:""}</div>
+            ${badgeChips(a,4)}</div>
+          <div class="arm-tag" style="color:${f.color};border:1px solid ${f.color}">${f.label}</div>
+        </div>
+        <div class="arm-batters">
+          <div class="arm-batters-h">${facing.length} bats facing ${a.name.split(" ").pop()} — ranked by HR heat</div>
+          ${battersHTML||'<div class="arm-batter" style="color:var(--muted)">No lineup posted yet.</div>'}
+          <div class="arm-batters-foot"><a href="#" onclick="armFilter('${(a.opp||"").replace(/'/g,"")}');return false">Show only these bats on the board →</a></div>
+        </div>
       </div>`;
     });
     const shellable=BOARD.arms.filter(a=>a.form&&(a.form.label==="SHELLABLE"||a.form.label==="SLIPPING"||a.form.label==="STEADY-BAD")).length;
     html+=`<div class="arms" id="armsPanel">
       <div class="arms-head" onclick="document.getElementById('armsPanel').classList.toggle('open')">
         <h3>Arms Today</h3>
-        <span class="sub">${shellable} targetable · tap to ${'expand'}</span>
+        <span class="sub">${shellable} targetable · tap to expand</span>
       </div>
-      <div class="arms-body">${arows}<div class="arm-note">rec · szn = HR-vulnerability by window (▲ red = cracking, ▼ green = sharpening). Batted-ball mix: <b style="color:var(--bad)">FB%</b> = target (balls in the air), <b style="color:var(--muted)">LD%</b> = neutral, <b style="color:var(--good)">GB%</b> = avoid (suppresses HRs). Whichever is highest is bolded. Tap any arm to filter the board to the bats facing him.</div></div>
+      <div class="arms-body">
+        <div class="arms-sort-row">
+          <span class="arms-sort-lbl">Sort:</span>
+          <button class="arms-sort-btn ${armsSortMode==="vuln"?"on":""}" onclick="setArmsSort('vuln')">By vulnerability</button>
+          <button class="arms-sort-btn ${armsSortMode==="hittable"?"on":""}" onclick="setArmsSort('hittable')">Most hittable</button>
+        </div>
+        ${arows}<div class="arm-note">rec · szn = HR-vulnerability by window (▲ red = cracking, ▼ green = sharpening). Batted-ball mix: <b style="color:var(--bad)">FB%</b> = target, <b style="color:var(--muted)">LD%</b> = neutral, <b style="color:var(--good)">GB%</b> = avoid. Tap any arm to expand the bats facing him, ranked by heat.</div></div>
     </div>`;
   }
   {
@@ -1667,6 +1722,17 @@ function renderStacks(){
 
 function toggle(el){ el.closest(".row").classList.toggle("open"); }
 // tap an arm (Arms Today or a Stack header) -> board filters to the bats facing him
+function toggleArmExpand(id){
+  const el=document.getElementById(id);
+  if(!el) return;
+  el.classList.toggle("open");
+}
+function setArmsSort(mode){
+  armsSortMode=mode;
+  render();
+  // re-open the arms panel after the re-render (render() rebuilds the DOM)
+  setTimeout(()=>{const el=document.getElementById("armsPanel"); if(el) el.classList.add("open");}, 10);
+}
 function armFilter(team){
   if(!team) return;
   q=team;

@@ -852,6 +852,69 @@ def build(date_str: str | None = None) -> dict:
     except Exception as _e:
         print(f"[build] hand2yr cache write failed (non-fatal): {_e}")
 
+    # ---- Pitcher K props (Ks tab in Other Props) ----
+    # MUST live inside build() so pitch_profiles is in scope. Each starter gets a
+    # k_heat computed from their 14-day K stuff blended toward season, weighted
+    # against opposing lineup K vulnerability. Openers get a hard downgrade.
+    pitcher_props = []
+    try:
+        opp_batters = {}   # pitcher_id -> list of hitter k_pct values (opposing lineup)
+        seen_pitcher = {}  # pitcher_id -> game/team metadata for the pitcher himself
+        for hp in board["players"]:
+            op = hp.get("opp_pitcher") or {}
+            pid = op.get("id")
+            if not pid:
+                continue
+            try:
+                pid = int(pid)
+            except (TypeError, ValueError):
+                continue
+            k_pct = ((hp.get("windows") or {}).get("L14d") or {}).get("k_pct")
+            if k_pct is not None:
+                opp_batters.setdefault(pid, []).append(k_pct)
+            if pid not in seen_pitcher:
+                seen_pitcher[pid] = {
+                    "id": pid,
+                    "name": op.get("name") or "",
+                    "throws": op.get("throws"),
+                    "game_pk": hp.get("game_pk"),
+                    "opp_team": hp.get("team"),
+                    "team": hp.get("opp_team"),
+                    "time": hp.get("time"),
+                    "park": hp.get("park"),
+                    "opener": bool(op.get("opener")),
+                    "form": op.get("form"),
+                    "hr_score": op.get("hr_score"),
+                    "recent_score": op.get("recent_score"),
+                    "season_score": op.get("season_score"),
+                }
+        for pid, meta in seen_pitcher.items():
+            pprof = pitch_profiles.get(pid) or {}
+            opp_ks = opp_batters.get(pid) or []
+            opp_lineup_k = round(sum(opp_ks) / len(opp_ks), 1) if opp_ks else None
+            k_sc, k_br = props.pitcher_k_heat(pprof, opp_lineup_k, opener=meta["opener"])
+            if k_sc is None:
+                continue
+            pitcher_props.append({
+                **meta,
+                "k_heat": k_sc,
+                "k_signals": k_br.get("signals"),
+                "recent_weight": k_br.get("pitcher_recent_weight"),
+                "opp_lineup_k_pct": opp_lineup_k,
+                "opp_lineup_n": len(opp_ks),
+                "k_pct": (pprof.get("recent") or {}).get("k_pct_allowed") or
+                         (pprof.get("season") or {}).get("k_pct_allowed"),
+                "swstr_pct": (pprof.get("recent") or {}).get("swstr_pct_allowed") or
+                             (pprof.get("season") or {}).get("swstr_pct_allowed"),
+            })
+        pitcher_props.sort(key=lambda x: -(x["k_heat"] or 0))
+        board["pitcher_props"] = pitcher_props
+        print(f"[build] pitcher K props: {len(pitcher_props)} arms ranked "
+              f"(out of {len(seen_pitcher)} distinct pitchers seen)")
+    except Exception as e:
+        board["pitcher_props"] = []
+        _hnote("pitcher K props", e); print(f"[build] pitcher K props skipped: {e}")
+
     return board
 
 
@@ -914,70 +977,6 @@ def main():
             board.setdefault("briefing", []).insert(0, "SMASH today: " + " · ".join(_nm) + ".")
     except Exception as e:
         _hnote("smash calc", e); print(f"[build] smash calc skipped: {e}")
-
-    # ---- Pitcher K props (Ks tab in Other Props) ----
-    # Per starter: their 14-day-blended K stuff, weighted against their opponent's
-    # projected lineup K vulnerability. Ranks pitchers for O/U K prop bets.
-    pitcher_props = []
-    try:
-        # Group hitters by game+side so we can compute opposing lineup K rate.
-        # Each hitter has opp_pitcher.id (the arm facing him), so to score a
-        # pitcher we take his ID and average k_pct across the batters facing him.
-        opp_batters = {}   # pitcher_id -> list of hitter k_pct values
-        seen_pitcher = {}  # pitcher_id -> (game_pk, meta) for the pitcher himself
-        for hp in board["players"]:
-            op = hp.get("opp_pitcher") or {}
-            pid = op.get("id")
-            if not pid:
-                continue
-            try:
-                pid = int(pid)
-            except (TypeError, ValueError):
-                continue
-            k_pct = ((hp.get("windows") or {}).get("L14d") or {}).get("k_pct")
-            if k_pct is not None:
-                opp_batters.setdefault(pid, []).append(k_pct)
-            if pid not in seen_pitcher:
-                seen_pitcher[pid] = {
-                    "id": pid,
-                    "name": op.get("name") or "",
-                    "throws": op.get("throws"),
-                    "game_pk": hp.get("game_pk"),
-                    "opp_team": hp.get("team"),        # opposing hitters' team
-                    "team": hp.get("opp_team"),        # the pitcher's own team
-                    "time": hp.get("time"),
-                    "park": hp.get("park"),
-                    "opener": bool(op.get("opener")),
-                    "form": op.get("form"),
-                    "recent_score": op.get("recent_score"),
-                    "season_score": op.get("season_score"),
-                }
-        for pid, meta in seen_pitcher.items():
-            pprof = pitch_profiles.get(pid) or {}
-            opp_ks = opp_batters.get(pid) or []
-            opp_lineup_k = round(sum(opp_ks) / len(opp_ks), 1) if opp_ks else None
-            k_sc, k_br = props.pitcher_k_heat(pprof, opp_lineup_k, opener=meta["opener"])
-            if k_sc is None:
-                continue
-            pitcher_props.append({
-                **meta,
-                "k_heat": k_sc,
-                "k_signals": k_br.get("signals"),
-                "recent_weight": k_br.get("pitcher_recent_weight"),
-                "opp_lineup_k_pct": opp_lineup_k,
-                "opp_lineup_n": len(opp_ks),
-                "k_pct": (pprof.get("recent") or {}).get("k_pct_allowed") or
-                         (pprof.get("season") or {}).get("k_pct_allowed"),
-                "swstr_pct": (pprof.get("recent") or {}).get("swstr_pct_allowed") or
-                             (pprof.get("season") or {}).get("swstr_pct_allowed"),
-            })
-        pitcher_props.sort(key=lambda x: -(x["k_heat"] or 0))
-        board["pitcher_props"] = pitcher_props
-        print(f"[build] pitcher K props: {len(pitcher_props)} arms ranked "
-              f"(out of {len(seen_pitcher)} distinct pitchers seen)")
-    except Exception as e:
-        board["pitcher_props"] = []
-        _hnote("pitcher K props", e); print(f"[build] pitcher K props skipped: {e}")
 
     # ---- Auto-tracked parlays: pick server-side so the grader can score them ----
     # Uses simplified rules that mirror the app's UI logic (heat as the ranking
@@ -1089,7 +1088,7 @@ def main():
         snap = {
             "date": board["slate_date"],
             "parlay_picks": parlay_picks,
-            "pitcher_props": pitcher_props,
+            "pitcher_props": board.get("pitcher_props", []),
             "players": [{
                 "id": p["id"], "name": p["name"], "team": p["team"],
                 "heat": p["heat"], "tier": p.get("tier"), "cleared": p.get("cleared"),
