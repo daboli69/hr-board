@@ -1123,6 +1123,20 @@ def main():
     except Exception as e:
         print(f"[build] snapshot write failed (non-fatal): {e}")
 
+    # ---- Re-write board.json with all post-build modifications ----
+    # The initial write happens right after build() returns, but SMASH briefing,
+    # pitcher_props, and parlay_picks are all computed in main() AFTER that write.
+    # Without this second serialize, none of that surfaces on the live UI (they
+    # only make it into the snapshot). This second write is what makes the Pitcher
+    # Ks tab actually get its data.
+    try:
+        with open(OUT_PATH, "w") as f:
+            json.dump(board, f, indent=2, default=str)
+        print(f"[build] re-wrote {OUT_PATH} with pitcher_props ({len(board.get('pitcher_props',[]))} arms), "
+              f"parlay_picks ({len(board.get('parlay_picks',[]))} strategies)")
+    except Exception as e:
+        print(f"[build] board re-write failed (non-fatal): {e}")
+
     print(f"[build] wrote {OUT_PATH}: {len(board['players'])} hitters, "
           f"{len(board['games'])} games")
 
