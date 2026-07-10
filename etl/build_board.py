@@ -506,6 +506,7 @@ def build(date_str: str | None = None) -> dict:
             # Props scores — parallel track for the Other Props tab, NEVER touch heat.
             # hrr_heat needs lineup_spot + HR heat; computed as a post-attach step.
             "hit_heat": props.hit_heat(recent, pprof)[0],
+            "k_heat_bat": props.k_heat_hitter(recent, pprof)[0],
             "hrr_heat": props.hrr_heat(recent, pprof,
                 lineup_spot=spot_of_batter.get(bid), hr_heat=score)[0],
             "metrics": metrics,
@@ -1184,6 +1185,7 @@ def main():
                 # Props-scoring fields (parallel to heat, never fed back in)
                 "hit_heat": p.get("hit_heat"),
                 "hrr_heat": p.get("hrr_heat"),
+                "k_heat_bat": p.get("k_heat_bat"),
             } for p in board["players"]],
         }
         with open(os.path.join(snap_dir, f"{board['slate_date']}.json"), "w") as f:

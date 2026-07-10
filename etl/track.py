@@ -45,6 +45,7 @@ def _load_day(date):
                 "badges": [bd["k"] for bd in (p.get("badges") or [])],
                 "hit_heat": p.get("hit_heat"),
                 "hrr_heat": p.get("hrr_heat"),
+                "k_heat_bat": p.get("k_heat_bat"),
             } for p in b.get("players", [])], b.get("parlay_picks", []), b.get("pitcher_props", [])
     return None, [], []
 
@@ -400,11 +401,27 @@ def grade_date(date):
             }
         return out
 
+    # Batter K UNDER: tiers by k_heat_bat but INVERTED intent — LOW score is the
+    # bet (contact hitter vs low-K arm → UNDER 0.5 Ks). "hit" = did NOT strike out.
+    by_bku_tier = {}
+    def _bku_tier(v):
+        if v is None: return "n/a"
+        return "<30" if v < 30 else "30-44" if v < 45 else "45-59" if v < 60 else "60+"
+    for p in players:
+        kb = p.get("k_heat_bat")
+        if kb is None:
+            continue
+        tier = _bku_tier(kb)
+        e = by_bku_tier.setdefault(tier, {"n": 0, "hit": 0})
+        e["n"] += 1
+        if not struck_out(p, 1): e["hit"] += 1
+
     by_props = {
         "hit1": {"by_tier": by_hit_tier, "top_n": _prop_topN("hit_heat", lambda p: got_hits(p, 1))},
         "hit2": {"by_tier": by_hit2_tier, "top_n": _prop_topN("hit_heat", lambda p: got_hits(p, 2))},
         "hrr":  {"by_tier": by_hrr_tier, "top_n": _prop_topN("hrr_heat", lambda p: hrr_val(p) >= 2)},
         "pk":   {"by_tier": by_pk_tier, "top_n": _pk_topN()},
+        "bku":  {"by_tier": by_bku_tier},
     }
 
     record = {

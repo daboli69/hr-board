@@ -2457,6 +2457,37 @@ function btSection(main){
           <div class="val" style="font-size:11px">${r.toFixed(1)}%</div></div>`;});
     }
     if(bt.notes) btHTML+=`<div class="pl-note">${bt.notes.join(" · ")}</div>`;
+    // ---- Props backtest (present when the extended backtest workflow has run) ----
+    const P=bt.props;
+    if(P){
+      const prow=(lab,v,base)=>{ if(!v||!v.n) return "";
+        const r=100*(v.hit||0)/v.n, lift=r-base;
+        return `<div class="trk-row" style="grid-template-columns:84px 1fr 52px"><div class="lab" style="font-size:11px">${lab}</div>
+          <div style="font-size:12px;color:var(--muted)"><b style="color:var(--ink)">${r.toFixed(1)}%</b> · ${v.hit||0}/${v.n}</div>
+          <div class="val" style="color:${lift>=0?'var(--good)':'var(--bad)'};font-weight:700">${lift>=0?"+":""}${lift.toFixed(1)}</div></div>`; };
+      if(P.hit1&&P.hit1.base_pct!=null){
+        btHTML+=`<div style="font-size:11px;color:var(--muted);margin:12px 0 3px"><b style="color:var(--ink)">Props backtest — 1+ hit</b> · base ${P.hit1.base_pct}%</div>`;
+        ["70+","55-69","40-54","<40"].forEach(t=>btHTML+=prow("hit "+t,(P.hit1.by_tier||{})[t],P.hit1.base_pct));
+      }
+      if(P.hit2&&P.hit2.base_pct!=null){
+        btHTML+=`<div style="font-size:11px;color:var(--muted);margin:8px 0 3px"><b style="color:var(--ink)">2+ hits</b> · base ${P.hit2.base_pct}%</div>`;
+        ["70+","55-69","40-54","<40"].forEach(t=>btHTML+=prow("hit "+t,(P.hit2.by_tier||{})[t],P.hit2.base_pct));
+      }
+      if(P.hrr&&P.hrr.base_pct!=null){
+        btHTML+=`<div style="font-size:11px;color:var(--muted);margin:8px 0 3px"><b style="color:var(--ink)">HRR ≥ 2</b> · base ${P.hrr.base_pct}%</div>`;
+        ["70+","55-69","40-54","<40"].forEach(t=>btHTML+=prow("hrr "+t,(P.hrr.by_tier||{})[t],P.hrr.base_pct));
+      }
+      if(P.pk&&P.pk.n){
+        btHTML+=`<div style="font-size:11px;color:var(--muted);margin:8px 0 3px"><b style="color:var(--ink)">Pitcher Ks</b> · ${P.pk.n} starts · avg ${P.pk.avg_ks} Ks · O5.5 base ${P.pk.o5_pct}%</div>`;
+        ["70+","55-69","40-54","<40"].forEach(t=>{
+          const v=(P.pk.by_tier||{})[t]; if(!v||!v.n) return;
+          const avgK=v.total_ks/v.n, o5=100*(v.o5||0)/v.n;
+          btHTML+=`<div class="trk-row" style="grid-template-columns:84px 1fr 52px"><div class="lab" style="font-size:11px">k ${t}</div>
+            <div style="font-size:12px;color:var(--muted)">avg <b style="color:var(--ink)">${avgK.toFixed(1)}</b> Ks · O5.5 <b style="color:var(--ink)">${o5.toFixed(0)}%</b> · n=${v.n}</div>
+            <div class="val" style="color:${o5>=(P.pk.o5_pct||0)?'var(--good)':'var(--bad)'};font-weight:700">${(o5-(P.pk.o5_pct||0))>=0?"+":""}${(o5-(P.pk.o5_pct||0)).toFixed(1)}</div></div>`;
+        });
+      }
+    }
     const trkEl=main.querySelector(".trk");
     if(trkEl) trkEl.insertAdjacentHTML("beforeend", btHTML);
     else main.insertAdjacentHTML("beforeend", `<div class="trk">${btHTML}</div>`);
@@ -2628,6 +2659,7 @@ function renderProps(){
       <button data-p="hit" class="${propsView==='hit'?'on':''}">Hits</button>
       <button data-p="hrr" class="${propsView==='hrr'?'on':''}">HRR</button>
       <button data-p="k" class="${propsView==='k'?'on':''}">Pitcher Ks</button>
+      <button data-p="bku" class="${propsView==='bku'?'on':''}">K Under</button>
     </div>`;
 
   let inner="";
@@ -2667,6 +2699,41 @@ function renderProps(){
           : "No arms scored yet — needs probable starters + arm profiles. Should populate on the next build."
       }</div>`}
       <div class="prop-note" style="margin-top:12px"><b>Reading K scores:</b> HIGH k_heat = bet OVER on his K total (typical lines are 5.5 or 6.5). LOW k_heat = bet UNDER. Opener flag means the LISTED pitcher won't throw enough innings for a normal K prop line — usually a play-through-with-caution.</div>`;
+  } else if(propsView==="bku"){
+    // Batter K UNDER: hitter-level, sorted ASCENDING — the LOWEST k_heat_bat is
+    // the best "under 0.5 Ks" candidate (contact hitter vs low-K arm).
+    const players=BOARD.players.filter(p=>p.lineup_status!=="out"&&p.k_heat_bat!=null);
+    players.sort((a,b)=>(a.k_heat_bat||0)-(b.k_heat_bat||0));
+    const rows=players.map((p,i)=>{
+      const sc=p.k_heat_bat;
+      // inverted color scale: LOW score = strong (green-ish), high = fade
+      const bg = sc<30?"rgba(120,178,145,.16)": sc<45?"rgba(120,134,150,.14)": sc<60?"rgba(215,120,60,.12)":"rgba(200,71,43,.14)";
+      const tag = sc<30?"STRONG UNDER": sc<45?"LEAN UNDER": sc<60?"NEUTRAL":"FADE";
+      const armForm=(p.opp_pitcher&&p.opp_pitcher.form)?p.opp_pitcher.form.label:"";
+      const w=(p.windows||{}).L14d||{};
+      const kline=[w.k_pct!=null?`K% ${w.k_pct.toFixed(1)}`:"",
+                   p.opp_pitcher&&p.opp_pitcher.recent&&p.opp_pitcher.recent.swstr_pct_allowed!=null?`arm SwStr ${p.opp_pitcher.recent.swstr_pct_allowed.toFixed(1)}%`:""]
+                  .filter(Boolean).join(" · ");
+      return `<div class="prop-row" style="background:${bg}">
+        <div class="prop-rk">${i+1}</div>
+        <div class="prop-sc">${sc.toFixed(0)}</div>
+        <div class="prop-body">
+          <div class="prop-nm"><b>${p.name}</b> <span class="prop-meta">${p.team}→${p.opp_team} · ${timeStr(p.time)}${p.lineup_spot?` · #${p.lineup_spot}`:""}</span></div>
+          <div class="prop-sub">${kline}${armForm?` · vs ${armForm} arm`:""}</div>
+          <div class="prop-tags"><span class="prop-tier">${tag}</span></div>
+        </div>
+      </div>`;
+    }).join("");
+    inner=`
+      <h2 class="prop-h">Batter K Under</h2>
+      <div class="prop-lead">Sorted LOW → HIGH: the lowest K-prone scores are the best "UNDER 0.5 strikeouts" bets — contact hitters facing low-whiff arms. Same 2-week blend on both sides.</div>
+      ${subTabs}
+      <div class="prop-note">${players.length} hitters ranked ascending. Score under 30 = strong UNDER candidate. High scores are the fade side — those are the K-prone hitters you'd avoid on unders.</div>
+      ${rows||`<div class="empty">${
+        BOARD.players.some(p=>p.k_heat_bat!==undefined)
+          ? "No hitters scored yet — should populate on the next build."
+          : "Waiting for the next build — this view needs the updated <code>etl/build_board.py</code> deployed and the workflow re-run."
+      }</div>`}`;
   } else {
     // Hits + HRR: hitter-level view
     const players=BOARD.players.filter(p=>p.lineup_status!=="out");
@@ -2914,7 +2981,7 @@ function parlaySection(days, baseRate){
 // For each: tier conversion table + top-N + implied base rate. Flags thin samples.
 function propsSection(days){
   // aggregate
-  const agg={hit1:{tiers:{},topN:{}}, hit2:{tiers:{},topN:{}}, hrr:{tiers:{},topN:{}}, pk:{tiers:{},topN:{}}};
+  const agg={hit1:{tiers:{},topN:{}}, hit2:{tiers:{},topN:{}}, hrr:{tiers:{},topN:{}}, pk:{tiers:{},topN:{}}, bku:{tiers:{},topN:{}}};
   days.forEach(d=>{
     const bp=d.by_props||{};
     Object.keys(agg).forEach(k=>{
@@ -2946,6 +3013,9 @@ function propsSection(days){
            lead:"How often hitters at each hrr_heat tier reached 2+ hits+runs+RBIs combined. Runs/RBIs are approximated by the grader."},
     pk:   {title:"Pitcher Ks", isPitcher:true,
            lead:"How often starters at each k_heat tier hit each K prop line. This tracks the pitcher's actual K total (all lines checked)."},
+    bku:  {title:"Batter K Under (0 strikeouts)", hitKey:"hit", denom:"n", displayCol:"No Ks",
+           lead:"UNDER 0.5 Ks conversion by K-prone tier. INVERTED read: the <30 tier is the bet — those should convert well above base; the 60+ tier is the fade.",
+           tierOrder:["<30","30-44","45-59","60+"]},
   };
 
   const tierOrder=["70+","55-69","40-54","<40"];
@@ -3012,16 +3082,17 @@ function propsSection(days){
       </div>`;
 
     } else {
-      // hitter props: {n, hit} (hit1/hit2) or {n, hit2, hit3, sum, sum_ct} (hrr)
-      const hk = meta.hitKey; // "hit" for hit1/hit2, "hit2" for hrr
+      // hitter props: {n, hit} (hit1/hit2/bku) or {n, hit2, hit3, sum, sum_ct} (hrr)
+      const hk = meta.hitKey; // "hit" for hit1/hit2/bku, "hit2" for hrr
+      const tOrder = meta.tierOrder || tierOrder;
       let total_n=0, total_hit=0;
-      tierOrder.forEach(t=>{const v=tiers[t]; if(!v) return;
+      tOrder.forEach(t=>{const v=tiers[t]; if(!v) return;
         total_n+=v.n||0; total_hit+=v[hk]||0;});
       if(total_n===0) return;
       const base=100*total_hit/total_n;
 
       let rows="";
-      tierOrder.forEach(t=>{
+      tOrder.forEach(t=>{
         const v=tiers[t]; if(!v||!v.n) return;
         const r=100*(v[hk]||0)/v.n, lift=r-base;
         const thin=v.n<30;
@@ -3198,10 +3269,15 @@ async function loadHistory(){
 async function load(){
   try{
     const res=await fetch("./board.json?t="+Date.now(),{cache:"no-store"});
+    if(!res.ok) throw new Error("HTTP "+res.status);
     BOARD=await res.json();
   }catch(err){
+    // If we already have a board in memory (auto-refresh failed), keep showing it
+    // rather than nuking the view — just leave the stale dot to tell the story.
+    if(BOARD) return;
     document.getElementById("main").innerHTML=
-      `<div class="empty">The board isn't available right now.<br>It refreshes automatically through the day — check back in a few minutes.</div>`;
+      `<div class="empty">The board isn't available right now.<br>It refreshes automatically through the day.<br><br>
+       <button class="chip" style="padding:8px 18px;font-size:12px" onclick="load()">Try again</button></div>`;
     return;
   }
   setFreshness();
