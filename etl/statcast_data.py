@@ -213,20 +213,35 @@ def _pitch_usage(rows: pd.DataFrame) -> dict:
 
 def pitcher_hand_hr_2yr(pid: int, end_date: str) -> dict | None:
     """
-    Actual HRs (and PA) a pitcher has allowed to RHB vs LHB over the trailing ~2 years,
-    plus the this-season subset. Uses a per-pitcher Statcast pull (cached upstream so
-    this isn't run every hourly build). Returns None on any failure (degrades cleanly).
+    Actual HRs (and PA) a pitcher has allowed to RHB vs LHB, two windows:
+      two_yr  — current season + previous season (calendar convention, matching
+                PropFinder-style reference tools; NOT trailing-730-days)
+      this_yr — current season only
+
+    REGULAR SEASON ONLY: statcast_pitcher returns spring training ('S'),
+    exhibition ('E'), and postseason ('F','D','L','W') rows too. Those inflate
+    HR/PA counts vs any sportsbook reference, so we filter to game_type == 'R'.
+
+    Uses a per-pitcher Statcast pull (cached upstream so this isn't run every
+    hourly build). Returns None on any failure (degrades cleanly).
     """
-    from datetime import datetime, timedelta
+    from datetime import datetime
     try:
         from pybaseball import statcast_pitcher
         end = datetime.strptime(end_date, "%Y-%m-%d")
-        start2 = (end - timedelta(days=730)).strftime("%Y-%m-%d")
+        # two-season window: Jan 1 of PREVIOUS year → today (regular-season filter
+        # below trims spring noise; Jan 1 start guarantees we catch opening day)
+        start2 = f"{end.year - 1}-01-01"
         df = statcast_pitcher(start2, end_date, int(pid))
     except Exception:
         return None
     if df is None or df.empty or "stand" not in df.columns or "events" not in df.columns:
         return None
+    # regular season only — this is the fix that aligns totals with reference tools
+    if "game_type" in df.columns:
+        df = df[df["game_type"] == "R"]
+        if df.empty:
+            return None
     pa_rows = df[df["events"].isin(PA_EVENTS)]
     if pa_rows.empty:
         return None

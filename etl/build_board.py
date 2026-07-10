@@ -216,6 +216,10 @@ def build(date_str: str | None = None) -> dict:
         pitcher_hr[pid] = compute.pitcher_hr_score(prof_p.get("recent", {}), prof_p.get("season", {}))
 
     # 2-year HR-by-hand per starter (cached in a repo file so we don't re-pull hourly)
+    # _HAND2YR_V invalidates old cache entries when the computation changes.
+    # v2 = regular-season-only filter + two-calendar-season window (was trailing 730d
+    # with spring training + postseason contamination).
+    _HAND2YR_V = 2
     _HAND2YR_PATH = os.path.join(os.path.dirname(OUT_PATH) or ".", "hand2yr.json")
     try:
         with open(_HAND2YR_PATH) as _f:
@@ -227,7 +231,7 @@ def build(date_str: str | None = None) -> dict:
         key = str(pid)
         ent = hand2yr_cache.get(key)
         fresh = False
-        if ent and ent.get("asof"):
+        if ent and ent.get("asof") and ent.get("v") == _HAND2YR_V:
             try:
                 fresh = 0 <= (datetime.strptime(date_str, "%Y-%m-%d") -
                               datetime.strptime(ent["asof"], "%Y-%m-%d")).days <= 10
@@ -238,10 +242,12 @@ def build(date_str: str | None = None) -> dict:
         else:
             data = statcast_data.pitcher_hand_hr_2yr(pid, date_str)
             if data is not None:
-                hand2yr_cache[key] = {"asof": date_str, "data": data}
+                hand2yr_cache[key] = {"asof": date_str, "v": _HAND2YR_V, "data": data}
                 hand2yr[pid] = data
-            elif ent:                       # pull failed but we have an older value — keep it
+            elif ent and ent.get("v") == _HAND2YR_V:
+                # pull failed but we have an older same-version value — keep it
                 hand2yr[pid] = ent.get("data")
+            # old-version data on a failed pull: drop rather than serve contaminated numbers
 
     # opposing pitcher lookup per batter
     def opp_pitcher(pk, side):

@@ -1392,8 +1392,8 @@ function render(){
       const f=a.form||{label:"",color:"#8A95A3"};
       const d=(a.recent_score!=null&&a.season_score!=null)?(a.recent_score-a.season_score):null;
       const dArrow=d==null?"":(d>=6?` <span style="color:var(--bad)">▲${d}</span>`:d<=-6?` <span style="color:var(--good)">▼${Math.abs(d)}</span>`:"");
-      const hh=a.hand_hr?`<span class="arm-hand" title="Trailing 24 months">${a.hand_hr.side}HB 2y: ${a.hand_hr.hr}/${a.hand_hr.pa}</span>`:"";
-      const hhY=a.hand_hr_ytd?` <span class="arm-hand arm-hand-ytd" title="Season to date only">${a.hand_hr_ytd.side}HB YTD: ${a.hand_hr_ytd.hr}/${a.hand_hr_ytd.pa}</span>`:"";
+      const hh=a.hand_hr?`<span class="arm-hand" title="This season + last season, regular season only">${a.hand_hr.side}HB 2szn: ${a.hand_hr.hr}/${a.hand_hr.pa}</span>`:"";
+      const hhY=a.hand_hr_ytd?` <span class="arm-hand arm-hand-ytd" title="This season only, regular season">${a.hand_hr_ytd.side}HB YTD: ${a.hand_hr_ytd.hr}/${a.hand_hr_ytd.pa}</span>`:"";
       let fbgb="";
       if(a.fb_pct!=null&&a.gb_pct!=null){
         const fb=a.fb_pct, ld=(a.ld_pct!=null?a.ld_pct:Math.max(0,100-a.fb_pct-a.gb_pct)), gb=a.gb_pct;
@@ -1421,14 +1421,14 @@ function render(){
       const armSlug=`arm_${armId||a.name.replace(/\W/g,"")}`;
       const hf=a.hand_hr_full;
       const handTable=hf?`<div class="hand-table">
-        <div class="ht-title">HRs allowed by hand · this is where PropFinder-style numbers live</div>
+        <div class="ht-title">HRs allowed by hand · regular season only · 2szn = this + last season</div>
         <table class="ht-tbl"><thead><tr><th></th><th>vs RHB</th><th>vs LHB</th></tr></thead>
           <tbody>
             <tr><th>YTD</th>
               <td>${(hf.this_yr?.R?.hr??0)} HR / ${(hf.this_yr?.R?.pa??0)} PA</td>
               <td>${(hf.this_yr?.L?.hr??0)} HR / ${(hf.this_yr?.L?.pa??0)} PA</td>
             </tr>
-            <tr><th>2yr</th>
+            <tr><th>2szn</th>
               <td>${(hf.two_yr?.R?.hr??0)} HR / ${(hf.two_yr?.R?.pa??0)} PA</td>
               <td>${(hf.two_yr?.L?.hr??0)} HR / ${(hf.two_yr?.L?.pa??0)} PA</td>
             </tr>
