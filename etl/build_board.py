@@ -834,6 +834,16 @@ def build(date_str: str | None = None) -> dict:
                      for h, s in (ty or {}).items() if s and s.get("pa", 0) >= 100),
                     key=lambda x: x["hr"] / max(1, x["pa"]), default=None)))(
                         (hand2yr.get(pid) or {}).get("two_yr")),
+                # same heaviest-side but for this season only — so users can compare
+                # against reference tools (PropFinder etc) that default to season-only
+                "hand_hr_ytd": (lambda ty: (max(
+                    ({"side": h, "hr": s["hr"], "pa": s["pa"]}
+                     for h, s in (ty or {}).items() if s and s.get("pa", 0) >= 40),
+                    key=lambda x: x["hr"] / max(1, x["pa"]), default=None)))(
+                        (hand2yr.get(pid) or {}).get("this_yr")),
+                # full raw splits (both R and L, both windows) so the expanded arm view
+                # can show a proper table without more data fetches
+                "hand_hr_full": hand2yr.get(pid),
                 "badges": compute.pitcher_badges(
                     recent=pitch_profiles.get(pid, {}).get("recent", {}),
                     score=phr.get("score"), recent_score=phr.get("recent_score"),
@@ -895,6 +905,26 @@ def build(date_str: str | None = None) -> dict:
             k_sc, k_br = props.pitcher_k_heat(pprof, opp_lineup_k, opener=meta["opener"])
             if k_sc is None:
                 continue
+            # Estimated K total for the pitcher today. Two ingredients:
+            #  1. Effective K% — blend of pitcher's own K% and the opposing lineup's K%
+            #     (both matter; a ~28% K arm vs a 22% K lineup lands around 25%).
+            #  2. Expected batters faced: ~24 for a healthy starter, ~4 for a listed
+            #     opener. When start_len data is available, we lean on that; otherwise
+            #     use median start_len from _pitcher_metrics.
+            est_ks = None
+            pitcher_k_pct = ((pprof.get("recent") or {}).get("k_pct_allowed") or
+                             (pprof.get("season") or {}).get("k_pct_allowed"))
+            if pitcher_k_pct is not None:
+                if opp_lineup_k is not None:
+                    eff_k = 0.65 * pitcher_k_pct + 0.35 * opp_lineup_k
+                else:
+                    eff_k = pitcher_k_pct
+                bf = 4 if meta["opener"] else 24
+                # if we know his typical start length, refine BF (~4.3 BF per IP)
+                sl = start_lens.get(pid, {}).get("med_len") if start_lens else None
+                if sl and not meta["opener"]:
+                    bf = max(6, min(30, sl * 4.3))
+                est_ks = round(eff_k / 100.0 * bf, 1)
             pitcher_props.append({
                 **meta,
                 "k_heat": k_sc,
@@ -902,10 +932,11 @@ def build(date_str: str | None = None) -> dict:
                 "recent_weight": k_br.get("pitcher_recent_weight"),
                 "opp_lineup_k_pct": opp_lineup_k,
                 "opp_lineup_n": len(opp_ks),
-                "k_pct": (pprof.get("recent") or {}).get("k_pct_allowed") or
-                         (pprof.get("season") or {}).get("k_pct_allowed"),
+                "k_pct": pitcher_k_pct,
                 "swstr_pct": (pprof.get("recent") or {}).get("swstr_pct_allowed") or
                              (pprof.get("season") or {}).get("swstr_pct_allowed"),
+                "est_ks": est_ks,
+                "est_line_over": (est_ks - 0.5) if est_ks is not None else None,
             })
         pitcher_props.sort(key=lambda x: -(x["k_heat"] or 0))
         board["pitcher_props"] = pitcher_props
@@ -914,6 +945,41 @@ def build(date_str: str | None = None) -> dict:
     except Exception as e:
         board["pitcher_props"] = []
         _hnote("pitcher K props", e); print(f"[build] pitcher K props skipped: {e}")
+
+    # ---- Heat history: 10-day heat trajectory per player (sparkline data) ----
+    # Walks the most recent snapshots and attaches heat_history:[...] per player.
+    # Cheap because snapshots are already on disk and we only need the (id, heat)
+    # tuples. Displayed as an inline sparkline on the expanded card.
+    try:
+        snap_dir = os.path.join(os.path.dirname(OUT_PATH) or ".", "snapshots")
+        import glob
+        recent_snaps = sorted(glob.glob(os.path.join(snap_dir, "20*.json")))[-14:]
+        heat_trail = {}   # {id: [(date, heat), ...]}
+        for spath in recent_snaps:
+            try:
+                with open(spath) as sf:
+                    sd = json.load(sf)
+                sdate = sd.get("date")
+                for pl in sd.get("players", []):
+                    pid_pl = pl.get("id")
+                    heat_val = pl.get("heat")
+                    if pid_pl is None or heat_val is None:
+                        continue
+                    heat_trail.setdefault(int(pid_pl), []).append((sdate, heat_val))
+            except Exception:
+                continue
+        attached = 0
+        for p in board["players"]:
+            trail = heat_trail.get(p["id"])
+            if trail:
+                # keep only most recent 10, chronological
+                trail = sorted(trail, key=lambda x: x[0])[-10:]
+                p["heat_history"] = [round(h, 1) for _, h in trail]
+                attached += 1
+        print(f"[build] heat_history attached to {attached} of {len(board['players'])} hitters "
+              f"(from {len(recent_snaps)} snapshots)")
+    except Exception as e:
+        _hnote("heat_history", e); print(f"[build] heat_history skipped: {e}")
 
     return board
 

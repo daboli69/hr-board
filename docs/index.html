@@ -467,6 +467,33 @@
   .ab-badges{margin-top:2px}
   .arm-batters-foot{margin-top:8px;padding-top:6px;border-top:1px solid var(--line);font-size:11px}
   .arm-batters-foot a{color:var(--seam);text-decoration:none}
+  .est-line{display:inline-block;font-family:"IBM Plex Mono";font-weight:800;font-size:11.5px;color:var(--seam);background:rgba(200,71,43,.10);border:1px solid rgba(200,71,43,.30);padding:2px 8px;border-radius:5px;margin:4px 0}
+  .hand-table{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin-bottom:10px}
+  .ht-title{font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;font-family:Archivo;font-weight:700}
+  .ht-tbl{width:100%;border-collapse:collapse;font-size:11px}
+  .ht-tbl th{text-align:left;padding:3px 6px;color:var(--muted);font-family:Archivo;font-weight:700;font-size:10px;letter-spacing:.04em}
+  .ht-tbl td{padding:3px 6px;color:var(--ink);font-family:"IBM Plex Mono";font-size:11px}
+  .ht-tbl tbody tr{border-top:1px solid var(--line)}
+  .arm-hand-ytd{color:var(--good)}
+  .listclear{color:var(--muted);border-color:var(--line);font-size:10.5px;padding:0 8px}
+  .listclear:active{background:var(--panel-2)}
+  .listclear.hidden{display:none}
+  /* Props performance section in Tracker tab */
+  .prop-trk-block{margin:14px 0 8px;padding:12px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px}
+  .prop-trk-h{font-family:Archivo;font-weight:800;font-size:13px;color:var(--ink);margin-bottom:2px}
+  .prop-trk-lead{font-size:10.5px;color:var(--muted);line-height:1.5;margin-bottom:6px}
+  .prop-trk-baserate{font-size:11px;color:var(--muted);padding:4px 6px;background:var(--panel);border-radius:6px;margin-bottom:6px}
+  .prop-trk-subh{font-family:Archivo;font-weight:700;font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);margin:10px 0 4px;padding-top:6px;border-top:1px solid var(--line)}
+  .prop-trk-row{display:grid;grid-template-columns:56px 64px 1fr;gap:8px;align-items:center;padding:5px 2px;border-bottom:1px solid var(--line);font-size:11.5px}
+  .prop-trk-row:last-child{border-bottom:none}
+  .ptr-tier{font-family:'IBM Plex Mono';font-size:11px;font-weight:700;color:var(--ink)}
+  .ptr-n{font-size:10px;color:var(--muted);font-family:'IBM Plex Mono'}
+  .ptr-cells{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+  .ptr-cells.single{grid-template-columns:1fr}
+  .ptr-lbl{color:var(--faint);font-size:9.5px;margin-right:3px}
+  .ptr-lift{font-size:10px;font-weight:700;margin-left:3px}
+  .ptr-lift.good{color:var(--good)}
+  .ptr-lift.bad{color:var(--bad)}
   .arm-row{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;
     padding:9px 13px;border-bottom:1px solid var(--line);font-size:12px}
   .arm-row:last-child{border-bottom:none}
@@ -699,6 +726,7 @@
     <button id="mixBtn" class="chip" aria-pressed="false" title="Re-rank by EV/barrel vs this pitcher's mix">vs Pitch Mix</button>
     <button id="thinBtn" class="chip" aria-pressed="false" title="Hide hitters with thin recent samples">Hide small</button>
     <button id="listBtn" class="chip" aria-pressed="false" title="Show only players on your list">★ My List</button>
+    <button id="listClearBtn" class="chip listclear" onclick="listClear()" title="Empty your list — asked automatically each new slate">Clear</button>
     <span id="shown" class="shown-count"></span>
   </div>
 
@@ -1130,6 +1158,46 @@ const HLAB={elite:["ELITE","hl-elite","cleared all 14 elite fly-ball thresholds"
   fb:["FB BATTER","hl-fb","cleared all 10 fly-ball thresholds"],
   ld:["LD BATTER","hl-ld","cleared all 10 line-drive thresholds"]};
 function hlabPill(p){const h=HLAB[p.hit_label];return h?`<span class="hlab ${h[1]}">${h[0]}</span> `:"";}
+function heatSpark(p){
+  const h=p.heat_history;
+  if(!h||h.length<3) return "";
+  const W=260, H=42, pad=6;
+  const vmin=Math.min(0,...h), vmax=Math.max(100,...h);
+  const rng=vmax-vmin || 1;
+  const step=(W-pad*2)/(h.length-1);
+  const pts=h.map((v,i)=>{
+    const x=pad+i*step;
+    const y=H-pad-((v-vmin)/rng)*(H-pad*2);
+    return [x,y,v];
+  });
+  const path=pts.map((p,i)=>(i?"L":"M")+p[0].toFixed(1)+" "+p[1].toFixed(1)).join(" ");
+  const dots=pts.map((p,i)=>{
+    const last=i===pts.length-1;
+    const c=p[2]>=70?"#c8472b":p[2]>=55?"#d78040":p[2]>=40?"#8a95a3":"#5a6675";
+    return `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${last?3.2:1.8}" fill="${c}"/>`;
+  }).join("");
+  // reference line at 55 (tier 2 threshold) and 70 (tier 1)
+  const ref=(v)=>{const y=H-pad-((v-vmin)/rng)*(H-pad*2);
+    return `<line x1="${pad}" x2="${W-pad}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--line)" stroke-dasharray="2 3" stroke-width="0.5"/>`;
+  };
+  const delta = h[h.length-1]-h[0];
+  const dir = delta>=3?`▲${delta.toFixed(0)}`:delta<=-3?`▼${Math.abs(delta).toFixed(0)}`:`·${delta>=0?"+":""}${delta.toFixed(0)}`;
+  const dirCol = delta>=3?"var(--good)":delta<=-3?"var(--bad)":"var(--muted)";
+  return `<h4 style="margin-top:16px">Heat trajectory · last ${h.length} days <span style="color:${dirCol};font-weight:600;font-size:11px;margin-left:8px">${dir}</span></h4>
+    <div class="spray-wrap" style="padding:6px 8px">
+      <svg viewBox="0 0 ${W} ${H}" class="sparkviz" style="width:100%;height:auto;display:block">
+        ${ref(55)}${ref(70)}
+        <path d="${path}" fill="none" stroke="var(--seam)" stroke-width="1.4"/>
+        ${dots}
+      </svg>
+      <div style="display:flex;justify-content:space-between;font-size:9.5px;color:var(--faint);padding:2px 2px 0">
+        <span>${h[0].toFixed(0)}</span>
+        <span>peak ${Math.max(...h).toFixed(0)} · low ${Math.min(...h).toFixed(0)}</span>
+        <span>${h[h.length-1].toFixed(0)}</span>
+      </div>
+    </div>`;
+}
+
 function sprayChart(p){
   const fence=(BOARD.fences||{})[p.park];
   if(!fence||!p.drives||!p.drives.length) return "";
@@ -1184,6 +1252,7 @@ function render(){
   const main=document.getElementById("main");
   if(!BOARD){return;}
   const _lb=document.getElementById("listBtn"); if(_lb) _lb.textContent="★ My List"+(listCount()?` (${listCount()})`:"");
+  const _lc=document.getElementById("listClearBtn"); if(_lc) _lc.classList.toggle("hidden", !listCount());
   let players=BOARD.players.slice();
   const isThin=p=>((p.score_breakdown&&p.score_breakdown.flags)||[]).some(f=>f.indexOf("small sample")===0);
   if(hideThin) players=players.filter(p=>!isThin(p));
@@ -1323,7 +1392,8 @@ function render(){
       const f=a.form||{label:"",color:"#8A95A3"};
       const d=(a.recent_score!=null&&a.season_score!=null)?(a.recent_score-a.season_score):null;
       const dArrow=d==null?"":(d>=6?` <span style="color:var(--bad)">▲${d}</span>`:d<=-6?` <span style="color:var(--good)">▼${Math.abs(d)}</span>`:"");
-      const hh=a.hand_hr?`<span class="arm-hand">${a.hand_hr.side}HB: ${a.hand_hr.hr} HR / ${a.hand_hr.pa} PA 2yr</span>`:"";
+      const hh=a.hand_hr?`<span class="arm-hand" title="Trailing 24 months">${a.hand_hr.side}HB 2y: ${a.hand_hr.hr}/${a.hand_hr.pa}</span>`:"";
+      const hhY=a.hand_hr_ytd?` <span class="arm-hand arm-hand-ytd" title="Season to date only">${a.hand_hr_ytd.side}HB YTD: ${a.hand_hr_ytd.hr}/${a.hand_hr_ytd.pa}</span>`:"";
       let fbgb="";
       if(a.fb_pct!=null&&a.gb_pct!=null){
         const fb=a.fb_pct, ld=(a.ld_pct!=null?a.ld_pct:Math.max(0,100-a.fb_pct-a.gb_pct)), gb=a.gb_pct;
@@ -1349,15 +1419,31 @@ function render(){
         </div>`;
       }).join("");
       const armSlug=`arm_${armId||a.name.replace(/\W/g,"")}`;
+      const hf=a.hand_hr_full;
+      const handTable=hf?`<div class="hand-table">
+        <div class="ht-title">HRs allowed by hand · this is where PropFinder-style numbers live</div>
+        <table class="ht-tbl"><thead><tr><th></th><th>vs RHB</th><th>vs LHB</th></tr></thead>
+          <tbody>
+            <tr><th>YTD</th>
+              <td>${(hf.this_yr?.R?.hr??0)} HR / ${(hf.this_yr?.R?.pa??0)} PA</td>
+              <td>${(hf.this_yr?.L?.hr??0)} HR / ${(hf.this_yr?.L?.pa??0)} PA</td>
+            </tr>
+            <tr><th>2yr</th>
+              <td>${(hf.two_yr?.R?.hr??0)} HR / ${(hf.two_yr?.R?.pa??0)} PA</td>
+              <td>${(hf.two_yr?.L?.hr??0)} HR / ${(hf.two_yr?.L?.pa??0)} PA</td>
+            </tr>
+          </tbody></table>
+      </div>`:"";
       arows+=`<div class="arm-row-wrap" id="${armSlug}">
         <div class="arm-row arm-tap" onclick="toggleArmExpand('${armSlug}')" title="Tap to see the bats facing him">
           <div class="arm-sc" style="background:${chipColor(a.hr_score)}">${a.hr_score}</div>
           <div class="arm-nm"><b>${a.name}</b> ${throwBadge(a.throws)}${a.opener?' <span class="opener-tag">OPENER</span>':''} <span style="color:var(--muted)">${a.team}→${a.opp} · ${timeStr(a.time)}</span>
-            <div class="arm-sub">rec <b>${a.recent_score??"–"}</b> · szn <b>${a.season_score??"–"}</b>${dArrow}${fbgb}${hh?" · "+hh:""}</div>
+            <div class="arm-sub">rec <b>${a.recent_score??"–"}</b> · szn <b>${a.season_score??"–"}</b>${dArrow}${fbgb}${hh?" · "+hh+hhY:""}</div>
             ${badgeChips(a,4)}</div>
           <div class="arm-tag" style="color:${f.color};border:1px solid ${f.color}">${f.label}</div>
         </div>
         <div class="arm-batters">
+          ${handTable}
           <div class="arm-batters-h">${facing.length} bats facing ${a.name.split(" ").pop()} — ranked by HR heat</div>
           ${battersHTML||'<div class="arm-batter" style="color:var(--muted)">No lineup posted yet.</div>'}
           <div class="arm-batters-foot"><a href="#" onclick="armFilter('${(a.opp||"").replace(/'/g,"")}');return false">Show only these bats on the board →</a></div>
@@ -1549,6 +1635,7 @@ function render(){
         <button class="listbtn${listHas(p.id)?" on":""}" data-pid="${p.id}" data-nm="${encodeURIComponent(p.name)}" onclick="toggleListBtn(this,event)">${listHas(p.id)?"★ On your list — tap to remove":"☆ Add to my list"}</button>
         ${sm?`<div class="clearnote"><b>Everything's pointing here.</b> ${sm.reasons.length?sm.reasons.slice(0,5).join(" · ")+". ":""}The matchup's already priced into this number — trust it, don't talk yourself out of it over one cold reading.</div>`:""}
         ${(function(){const h=HLAB[p.hit_label];return h?`<div class="hlab-note"><span class="hlab ${h[1]}">${h[0]}</span> ${h[2]} over the trailing 2 weeks — same window as the model. One label max, FB outranks LD, none if any threshold missed.</div>`:"";})()}
+        ${heatSpark(p)}
         ${sprayChart(p)}
         ${bullBear(p)}
         ${(function(){try{const ms=hitterScore(p,_R,_BR);return `<div class="odds-line">Model odds <b>${(ms.prob*100).toFixed(0)}%</b> · <b>${americanFair(ms.prob)}</b><span>this model only — heat · trend · pitch mix · park+weather · contact luck · your tag history. Fair value, independent of any book; compare it to the posted line to find where they disagree.</span></div>`;}catch(e){return "";}})()}
@@ -1752,9 +1839,50 @@ const BET_TYPES=["Longest HR jackpot","Grand slam parlay","Round robin","Single 
 const BKLABEL={arm:"WEAK ARM",plat:"PLATOON",mix:"PITCH EDGE",pow:"POWER",lock:"HOT",hot:"WARMING",due:"DUE",cool:"MAY COOL",hrsp:"HR vs SP",hrbp:"HR vs PEN",pen:"WEAK PEN",tough:"TOUGH"};
 function loadBets(){try{return JSON.parse(localStorage.getItem("gy_bets")||"[]");}catch(e){return[];}}
 function saveBets(b){try{localStorage.setItem("gy_bets",JSON.stringify(b));}catch(e){}}
-// --- My List: players you're keen on, kept by MLBAM id so it persists across days ---
-function listGet(){try{return JSON.parse(localStorage.getItem("gy_list")||"[]");}catch(e){return[];}}
-function listSet(a){try{localStorage.setItem("gy_list",JSON.stringify(a));}catch(e){}}
+// --- My List: players you're keen on. Auto-clears when the slate date changes
+// so yesterday's picks don't bleed into today. Structure: {date, items:[{id,name}]}
+// If read format is legacy (bare array), migrate + tag with today's slate.
+function _listRaw(){try{return JSON.parse(localStorage.getItem("gy_list")||"[]");}catch(e){return[];}}
+function _currentSlate(){return (BOARD&&BOARD.slate_date)||null;}
+function listGet(){
+  const raw=_listRaw();
+  // legacy: bare array — treat as today's list
+  if(Array.isArray(raw)) return raw;
+  // new shape: {date, items} — return items only if date matches current slate
+  if(raw && typeof raw==="object"){
+    const cur=_currentSlate();
+    if(raw.date && cur && raw.date!==cur){
+      // stale from a previous slate — auto-clear
+      try{ localStorage.removeItem("gy_list"); }catch(e){}
+      console.log(`[my list] auto-cleared: was for ${raw.date}, current slate is ${cur}`);
+      return [];
+    }
+    return Array.isArray(raw.items)?raw.items:[];
+  }
+  return [];
+}
+function listSet(a){
+  const cur=_currentSlate();
+  const payload={date:cur, items:a};
+  try{localStorage.setItem("gy_list",JSON.stringify(payload));}catch(e){}
+}
+function listClear(){
+  try{localStorage.removeItem("gy_list");}catch(e){}
+  const lb=document.getElementById("listBtn"); if(lb){lb.textContent="★ My List";}
+  const lc=document.getElementById("listClearBtn"); if(lc) lc.classList.add("hidden");
+  // also drop the "on your list" star + button state everywhere in DOM
+  [...document.querySelectorAll(".liststar")].forEach(e=>e.hidden=true);
+  [...document.querySelectorAll("[data-pid]")].forEach(btn=>{
+    if(btn.classList.contains("on")){
+      btn.classList.remove("on");
+      btn.textContent="☆ Add to my list";
+    }
+  });
+  if(listFilter){ listFilter=false;
+    const lb2=document.getElementById("listBtn"); if(lb2) lb2.setAttribute("aria-pressed","false");
+    savePrefs(); render();
+  }
+}
 function listHas(id){return listGet().some(x=>x.id===id);}
 function listCount(){return listGet().length;}
 function listToggle(id,name){const a=listGet();const i=a.findIndex(x=>x.id===id);if(i>=0)a.splice(i,1);else a.push({id,name});listSet(a);return i<0;}
@@ -1766,6 +1894,7 @@ function toggleListBtn(btn,ev){
   btn.textContent=added?"★ On your list — tap to remove":"☆ Add to my list";
   const row=btn.closest(".row"); if(row){const st=row.querySelector(".liststar"); if(st) st.hidden=!added;}
   const lb=document.getElementById("listBtn"); if(lb){lb.textContent=`★ My List${listCount()?` (${listCount()})`:""}`;}
+  const lc=document.getElementById("listClearBtn"); if(lc) lc.classList.toggle("hidden", !listCount());
   if(listFilter) render();
 }
 let betDraft={type:BET_TYPES[0],stake:"",odds:"",legs:[]};
@@ -2512,11 +2641,16 @@ function renderProps(){
       const oppK=a.opp_lineup_k_pct!=null?` · opp lineup K% ${a.opp_lineup_k_pct.toFixed(1)}`:"";
       const kp=a.k_pct!=null?` · his K% ${a.k_pct.toFixed(1)}`:"";
       const ss=a.swstr_pct!=null?` · SwStr ${a.swstr_pct.toFixed(1)}%`:"";
+      // Estimated line — nearest 0.5 that the model expects him to clear.
+      // Displayed prominently so users can eyeball against the book's posted line.
+      const estK = a.est_ks;
+      const estLine = estK!=null ? `<span class="est-line">est. ${estK.toFixed(1)} Ks · line target O${(Math.floor(estK)+0.5).toFixed(1)}</span>` : "";
       return `<div class="prop-row" style="background:${bg}">
         <div class="prop-rk">${i+1}</div>
         <div class="prop-sc">${sc.toFixed(0)}</div>
         <div class="prop-body">
           <div class="prop-nm"><b>${a.name||"—"}</b> ${opener}<span class="prop-meta">${a.team||"?"} vs ${a.opp_team||"?"} · ${timeStr(a.time)}${a.throws?` · ${a.throws}HP`:""}</span></div>
+          ${estLine}
           <div class="prop-sub">${(kp+ss+oppK).replace(/^ · /,"")}</div>
           <div class="prop-tags"><span class="prop-tier">${tag}</span>${a.form?.label?` <span class="mstone" style="color:var(--muted);background:var(--panel);border-color:var(--line)">${a.form.label}</span>`:""}</div>
         </div>
@@ -2724,6 +2858,7 @@ function renderTracker(){
     <div style="font-size:11px;color:var(--muted);margin-bottom:4px">how often hitters carrying each badge homered, across every ranked hitter. Right column = lift vs the ${baseRate.toFixed(1)}% base rate. ${tot?`HR hitters carried <b style="color:var(--ink)">${avgBadgesHr.toFixed(1)}</b> badges on average.`:""}</div>
     ${badgeRows||'<div class="ln" style="color:var(--muted)">— needs a few graded days —</div>'}
     ${parlaySection(days,baseRate)}
+    ${propsSection(days)}
     <h3>Daily log</h3>
     ${dayRows}
   </div>`;
@@ -2771,6 +2906,160 @@ function parlaySection(days, baseRate){
   return `<h3>Parlay performance</h3>
     <div style="font-size:11px;color:var(--muted);margin-bottom:4px">how the auto-generated parlays actually converted. Leg rate is the honest number — if it's not beating the base rate, the parlay strategy isn't earning.</div>
     ${rows}`;
+}
+
+// ------- Props performance section (auto-tracked) -------
+// Aggregates by_props across HISTORY.days. Displays four prop types:
+// hit1 (1+ hit), hit2 (2+ hits), hrr (hits+runs+RBIs ≥ 2), pk (pitcher Ks over 5.5/6.5/7.5).
+// For each: tier conversion table + top-N + implied base rate. Flags thin samples.
+function propsSection(days){
+  // aggregate
+  const agg={hit1:{tiers:{},topN:{}}, hit2:{tiers:{},topN:{}}, hrr:{tiers:{},topN:{}}, pk:{tiers:{},topN:{}}};
+  days.forEach(d=>{
+    const bp=d.by_props||{};
+    Object.keys(agg).forEach(k=>{
+      const src=bp[k]; if(!src) return;
+      // by_tier
+      Object.entries(src.by_tier||{}).forEach(([tier,v])=>{
+        const t=agg[k].tiers[tier]||(agg[k].tiers[tier]={});
+        Object.entries(v).forEach(([mk,mv])=>{ t[mk]=(t[mk]||0)+(mv||0); });
+      });
+      // top_n
+      Object.entries(src.top_n||{}).forEach(([n,v])=>{
+        const t=agg[k].topN[n]||(agg[k].topN[n]={});
+        Object.entries(v).forEach(([mk,mv])=>{ t[mk]=(t[mk]||0)+(mv||0); });
+      });
+    });
+  });
+
+  // Any actual data?
+  const hasData = Object.values(agg).some(x=>Object.keys(x.tiers).length>0);
+  if(!hasData) return "";
+
+  // pick prop-specific "hit key" + label
+  const propMeta={
+    hit1: {title:"1+ hit", hitKey:"hit", denom:"n", displayCol:"Got 1+ hit",
+           lead:"How often hitters at each hit_heat tier got at least one hit. Base rate is embedded (total hits ÷ total hitter-days)."},
+    hit2: {title:"2+ hits", hitKey:"hit", denom:"n", displayCol:"Got 2+ hits",
+           lead:"Multi-hit conversion by hit_heat tier. Base rate is much lower than 1+ hit — most hitters go 0-1 for 4 on a given day."},
+    hrr:  {title:"HRR ≥ 2 (hits+runs+RBIs)", hitKey:"hit2", denom:"n", displayCol:"HRR ≥ 2",
+           lead:"How often hitters at each hrr_heat tier reached 2+ hits+runs+RBIs combined. Runs/RBIs are approximated by the grader."},
+    pk:   {title:"Pitcher Ks", isPitcher:true,
+           lead:"How often starters at each k_heat tier hit each K prop line. This tracks the pitcher's actual K total (all lines checked)."},
+  };
+
+  const tierOrder=["70+","55-69","40-54","<40"];
+
+  // Build tables
+  let out=`<h3>Props performance</h3>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">how the props scores are actually converting. These are independent from HR heat — each prop has its own model and sample. Base rate is derived from your own aggregate (not fixed to a league average). Wait for n≥100 per tier before trusting a lift number.</div>`;
+
+  Object.entries(propMeta).forEach(([k,meta])=>{
+    const a=agg[k];
+    const tiers=a.tiers;
+    if(!Object.keys(tiers).length) return;
+
+    if(meta.isPitcher){
+      // pitcher K tiers: {n, total_ks, o5, o6, o7}
+      let total_n=0, total_ks=0, total_o5=0, total_o6=0, total_o7=0;
+      tierOrder.forEach(t=>{const v=tiers[t]; if(!v) return;
+        total_n+=v.n||0; total_ks+=v.total_ks||0; total_o5+=v.o5||0; total_o6+=v.o6||0; total_o7+=v.o7||0;});
+      if(total_n===0) return;
+      const baseO5=100*total_o5/total_n, baseO6=100*total_o6/total_n, baseO7=100*total_o7/total_n;
+      const baseKs=total_ks/total_n;
+
+      let rows="";
+      tierOrder.forEach(t=>{
+        const v=tiers[t]; if(!v||!v.n) return;
+        const avgK=v.total_ks/v.n;
+        const o5r=100*v.o5/v.n, o6r=100*v.o6/v.n, o7r=100*v.o7/v.n;
+        const thin=v.n<20;
+        rows+=`<div class="prop-trk-row"${thin?' style="opacity:.55"':''}>
+          <div class="ptr-tier">${t}</div>
+          <div class="ptr-n">n=${v.n}${thin?' <span style="color:var(--faint);font-size:9px">thin</span>':''}</div>
+          <div class="ptr-cells">
+            <div><span class="ptr-lbl">avg Ks</span> <b>${avgK.toFixed(1)}</b> <span class="ptr-lift ${avgK>=baseKs?'good':'bad'}">${avgK>=baseKs?"+":""}${(avgK-baseKs).toFixed(2)}</span></div>
+            <div><span class="ptr-lbl">O5.5</span> <b>${o5r.toFixed(0)}%</b> <span class="ptr-lift ${o5r>=baseO5?'good':'bad'}">${o5r>=baseO5?"+":""}${(o5r-baseO5).toFixed(1)}</span></div>
+            <div><span class="ptr-lbl">O6.5</span> <b>${o6r.toFixed(0)}%</b> <span class="ptr-lift ${o6r>=baseO6?'good':'bad'}">${o6r>=baseO6?"+":""}${(o6r-baseO6).toFixed(1)}</span></div>
+            <div><span class="ptr-lbl">O7.5</span> <b>${o7r.toFixed(0)}%</b> <span class="ptr-lift ${o7r>=baseO7?'good':'bad'}">${o7r>=baseO7?"+":""}${(o7r-baseO7).toFixed(1)}</span></div>
+          </div>
+        </div>`;
+      });
+
+      // top-N
+      let tnRows="";
+      Object.entries(a.topN).sort((x,y)=>+x[0]-(+y[0])).forEach(([n,v])=>{
+        if(!v.n) return;
+        const avgK=v.total_ks/v.n;
+        const o5r=100*v.o5/v.n, o6r=100*v.o6/v.n;
+        tnRows+=`<div class="prop-trk-row">
+          <div class="ptr-tier">Top ${n}</div>
+          <div class="ptr-n">${v.n} arms</div>
+          <div class="ptr-cells">
+            <div><span class="ptr-lbl">avg Ks</span> <b>${avgK.toFixed(1)}</b></div>
+            <div><span class="ptr-lbl">O5.5</span> <b>${o5r.toFixed(0)}%</b></div>
+            <div><span class="ptr-lbl">O6.5</span> <b>${o6r.toFixed(0)}%</b></div>
+          </div>
+        </div>`;
+      });
+
+      out+=`<div class="prop-trk-block">
+        <div class="prop-trk-h">${meta.title}</div>
+        <div class="prop-trk-lead">${meta.lead}</div>
+        <div class="prop-trk-baserate">Overall: ${total_n} starter-days · avg <b>${baseKs.toFixed(2)} Ks</b> · O5.5 hit <b>${baseO5.toFixed(1)}%</b> · O6.5 hit <b>${baseO6.toFixed(1)}%</b> · O7.5 hit <b>${baseO7.toFixed(1)}%</b></div>
+        ${rows}
+        ${tnRows?`<div class="prop-trk-subh">Top N by k_heat</div>${tnRows}`:""}
+      </div>`;
+
+    } else {
+      // hitter props: {n, hit} (hit1/hit2) or {n, hit2, hit3, sum, sum_ct} (hrr)
+      const hk = meta.hitKey; // "hit" for hit1/hit2, "hit2" for hrr
+      let total_n=0, total_hit=0;
+      tierOrder.forEach(t=>{const v=tiers[t]; if(!v) return;
+        total_n+=v.n||0; total_hit+=v[hk]||0;});
+      if(total_n===0) return;
+      const base=100*total_hit/total_n;
+
+      let rows="";
+      tierOrder.forEach(t=>{
+        const v=tiers[t]; if(!v||!v.n) return;
+        const r=100*(v[hk]||0)/v.n, lift=r-base;
+        const thin=v.n<30;
+        rows+=`<div class="prop-trk-row"${thin?' style="opacity:.55"':''}>
+          <div class="ptr-tier">${t}</div>
+          <div class="ptr-n">n=${v.n}${thin?' <span style="color:var(--faint);font-size:9px">thin</span>':''}</div>
+          <div class="ptr-cells single">
+            <div><span class="ptr-lbl">${meta.displayCol}</span> <b>${r.toFixed(1)}%</b> <span class="ptr-lift ${lift>=0?'good':'bad'}">${lift>=0?"+":""}${lift.toFixed(1)}</span></div>
+          </div>
+        </div>`;
+      });
+
+      // top-N
+      let tnRows="";
+      Object.entries(a.topN).sort((x,y)=>+x[0]-(+y[0])).forEach(([n,v])=>{
+        if(!v.n) return;
+        const r=100*(v.hit||0)/v.n;
+        const lift=r-base;
+        tnRows+=`<div class="prop-trk-row">
+          <div class="ptr-tier">Top ${n}</div>
+          <div class="ptr-n">${v.n} picks</div>
+          <div class="ptr-cells single">
+            <div><b>${r.toFixed(1)}%</b> <span class="ptr-lift ${lift>=0?'good':'bad'}">${lift>=0?"+":""}${lift.toFixed(1)}</span></div>
+          </div>
+        </div>`;
+      });
+
+      out+=`<div class="prop-trk-block">
+        <div class="prop-trk-h">${meta.title}</div>
+        <div class="prop-trk-lead">${meta.lead}</div>
+        <div class="prop-trk-baserate">Overall base rate: ${total_hit}/${total_n} = <b>${base.toFixed(1)}%</b></div>
+        ${rows}
+        ${tnRows?`<div class="prop-trk-subh">Top N by score</div>${tnRows}`:""}
+      </div>`;
+    }
+  });
+
+  return out;
 }
 
 document.getElementById("sortSel").addEventListener("change",e=>{
