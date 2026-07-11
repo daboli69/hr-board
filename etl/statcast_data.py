@@ -52,6 +52,7 @@ def pull_season(start: str, end: str) -> pd.DataFrame:
         "attack_angle", "bat_speed", "release_speed", "pitch_type",
         "inning", "inning_topbot", "at_bat_number", "pitch_number",
         "home_team", "away_team",
+        "post_home_score", "post_away_score",
         "estimated_woba_using_speedangle", "estimated_ba_using_speedangle",
         "woba_value", "woba_denom",
     ]
@@ -63,7 +64,8 @@ _NUMERIC_COLS = ("launch_speed", "launch_angle", "launch_speed_angle", "hit_dist
                  "hc_x", "hc_y", "bat_speed", "release_speed", "attack_angle",
                  "inning", "at_bat_number", "pitch_number", "batter", "pitcher", "game_pk",
                  "woba_value", "estimated_woba_using_speedangle",
-                 "estimated_ba_using_speedangle", "release_spin_rate")
+                 "estimated_ba_using_speedangle", "release_spin_rate",
+                 "post_home_score", "post_away_score")
 
 
 def normalize_frame(df: pd.DataFrame) -> pd.DataFrame:
@@ -422,6 +424,13 @@ def _pitcher_metrics(rows: pd.DataFrame) -> dict:
         if len(xba_ser) >= 12:
             xba_allowed = round(float(xba_ser.mean()), 3)
 
+    # xwOBA on contact allowed — the core run-prevention input for the run model
+    xwobacon_allowed = None
+    if n_bb and "estimated_woba_using_speedangle" in bb:
+        xw = bb["estimated_woba_using_speedangle"].dropna()
+        if len(xw) >= 12:
+            xwobacon_allowed = round(float(xw.mean()), 3)
+
     return {
         "barrel_pct_allowed": pct((bb["launch_speed_angle"] == 6).sum(), n_bb) if "launch_speed_angle" in bb else None,
         "hardhit_pct_allowed": pct((bb["launch_speed"] >= 95).sum(), n_bb),
@@ -437,6 +446,7 @@ def _pitcher_metrics(rows: pd.DataFrame) -> dict:
         "bb_pct_allowed": pct(walks_allowed, pa),
         "ba_allowed": round(hits_allowed / ab_allowed, 3) if ab_allowed > 0 else None,
         "xba_allowed": xba_allowed,
+        "xwobacon_allowed": xwobacon_allowed,
         "ld_pct_allowed": pct(((bb["launch_angle"] >= 10) & (bb["launch_angle"] < 25)).sum(), n_bb) if n_bb else None,
         "fb_velo": fb_velo,
         "bbe": int(n_bb),

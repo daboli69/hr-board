@@ -988,6 +988,88 @@ def build(date_str: str | None = None) -> dict:
     except Exception as e:
         _hnote("heat_history", e); print(f"[build] heat_history skipped: {e}")
 
+    # ---- Game projections: expected runs, moneyline, total, F5 ----
+    # Uses the run-expectancy engine (etl/runs.py). Completely separate from the HR
+    # heat model and from props. INFORMATIONAL until backtested — the moneyline is
+    # the sharpest market in baseball and this model has no defense, no true park
+    # run factor, and no bullpen-availability data.
+    game_projections = []
+    try:
+        from etl import runs as RUNS
+        # group hitters by game + side
+        by_game = {}
+        for p in board["players"]:
+            if p.get("lineup_status") == "out":
+                continue
+            gpk = p.get("game_pk")
+            if not gpk:
+                continue
+            g = by_game.setdefault(gpk, {"home": [], "away": [], "meta": None})
+            gm = next((x for x in games if x["game_pk"] == gpk), None)
+            if gm and g["meta"] is None:
+                g["meta"] = gm
+            side = "home" if p.get("team") == (gm or {}).get("home") else "away"
+            g[side].append(p)
+
+        for gpk, g in by_game.items():
+            gm = g["meta"]
+            if not gm:
+                continue
+            hp_id, ap_id = gm.get("home_pitcher_id"), gm.get("away_pitcher_id")
+            if not hp_id or not ap_id:
+                continue
+            # lineups in batting order (fall back to heat order if spots missing)
+            def _order(lst):
+                sp = [x for x in lst if x.get("lineup_spot")]
+                if len(sp) >= 8:
+                    return sorted(sp, key=lambda x: x["lineup_spot"])[:9]
+                return sorted(lst, key=lambda x: -(x.get("heat") or 0))[:9]
+            home_l = [(x.get("windows") or {}).get("L14d") or {} for x in _order(g["home"])]
+            away_l = [(x.get("windows") or {}).get("L14d") or {} for x in _order(g["away"])]
+            if len(home_l) < 6 or len(away_l) < 6:
+                continue
+            home_sp = pitch_profiles.get(hp_id) or {}
+            away_sp = pitch_profiles.get(ap_id) or {}
+            home_pen = _bullpen_for(gm.get("home")) or {}
+            away_pen = _bullpen_for(gm.get("away")) or {}
+            # expected batters faced per starter (~4.3 BF per inning)
+            def _bf(pid):
+                sl = (start_lens.get(pid) or {}).get("med_len")
+                return max(6.0, min(30.0, sl * 4.3)) if sl else 24.0
+            # park run multiplier — derived from the HR park boost, damped, since a
+            # HR factor is NOT a run factor (a homer park isn't proportionally a
+            # run park). Honest approximation, flagged as such.
+            pf = None
+            for x in g["home"] + g["away"]:
+                ph = x.get("park_hr") or {}
+                if ph.get("boost") is not None:
+                    pf = ph["boost"]; break
+            park_mult = 1.0 + (pf / 100.0) * 0.45 if pf is not None else 1.0
+            park_mult = max(0.85, min(1.25, park_mult))
+
+            proj = RUNS.project_game(
+                home_l, away_l, home_sp, away_sp, home_pen, away_pen,
+                home_bf=_bf(hp_id), away_bf=_bf(ap_id), park_mult=park_mult)
+            if not proj:
+                continue
+            game_projections.append({
+                "game_pk": gpk,
+                "home": gm.get("home"), "away": gm.get("away"),
+                "park": gm.get("park"), "time": gm.get("time"),
+                "home_sp": (slate["pitchers"].get(hp_id) or {}).get("name", ""),
+                "away_sp": (slate["pitchers"].get(ap_id) or {}).get("name", ""),
+                "home_sp_id": hp_id, "away_sp_id": ap_id,
+                "lineups_confirmed": all(x.get("lineup_spot") for x in g["home"][:9])
+                                     and all(x.get("lineup_spot") for x in g["away"][:9]),
+                **proj,
+            })
+        game_projections.sort(key=lambda x: -(x.get("total") or 0))
+        board["game_projections"] = game_projections
+        print(f"[build] game projections: {len(game_projections)} games modeled")
+    except Exception as e:
+        board["game_projections"] = []
+        _hnote("game projections", e); print(f"[build] game projections skipped: {e}")
+
     return board
 
 

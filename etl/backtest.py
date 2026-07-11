@@ -350,9 +350,128 @@ def main():
     if not poison_check(df, mid[len(mid) // 2]):
         sys.exit(2)
     rec = replay(df, start=start, end=end)
+    # run model (moneyline / total / F5) — separate section in the same artifact
+    try:
+        rec["runs"] = replay_runs(df, start=start, end=end)
+        r = rec["runs"]
+        if r.get("games"):
+            verdict = "BEATS baseline" if r["beats_baseline"] else "does NOT beat baseline"
+            print(f"[backtest:runs] {r['games']} games · brier {r['brier']} vs baseline "
+                  f"{r['brier_baseline']} — {verdict} · total MAE {r['total_mae']} runs")
+    except Exception as e:
+        rec["runs"] = {"error": f"{type(e).__name__}: {e}"}
+        print(f"[backtest:runs] skipped: {e}")
     out = os.path.join(os.path.dirname(__file__), "..", "docs", "backtest.json")
     json.dump(rec, open(out, "w"))
     print(f"[backtest] wrote {out}: {rec.get('days')} days, base {rec.get('base_pct')}%")
+
+
+# ---------------------------------------------------------------------------
+# Run-model backtest: does the game projection actually predict game outcomes?
+#
+# Reported metrics are chosen deliberately:
+#   * CALIBRATION, not accuracy. "When the model says 60%, does the home team win
+#     60% of the time?" A model can be 55% accurate and still useless if its
+#     probabilities are miscalibrated — you cannot bet a number you can't trust.
+#   * Brier score: mean squared error of the probability. Lower is better.
+#     Always-predict-54% (the home-field base rate) scores ~0.248. If the model
+#     cannot beat that, it has learned nothing.
+#   * Total MAE: mean absolute error on the run total. Books are typically within
+#     ~2.6 runs. Beating that is the (hard) bar for betting totals.
+# ---------------------------------------------------------------------------
+def replay_runs(df: pd.DataFrame, start: str | None = None, end: str | None = None) -> dict:
+    from etl import runs as RUNS
+    df = df.copy()
+    df["_gd"] = df["game_date"].astype(str).str[:10]
+    all_dates = sorted(df["_gd"].unique())
+    if len(all_dates) <= WARMUP_DAYS:
+        return {"error": "not enough days"}
+    dates = [d for d in all_dates[WARMUP_DAYS:]
+             if (not start or d >= start) and (not end or d <= end)]
+
+    n = 0
+    brier = 0.0
+    correct = 0
+    tot_abs_err = 0.0
+    calib = {}                      # decile -> {n, home_wins}
+    home_wins_actual = 0
+    for D in dates:
+        day = df[df["_gd"] == D]
+        past = df[df["_gd"] < D]
+        if past.empty:
+            continue
+        for gpk, g in day.groupby("game_pk"):
+            # actual result from the final post-score of the game
+            try:
+                hs = float(g["post_home_score"].dropna().max())
+                as_ = float(g["post_away_score"].dropna().max())
+            except Exception:
+                continue
+            if hs != hs or as_ != as_ or hs == as_:
+                continue                       # skip ties/unknowns
+            home_won = hs > as_
+            # lineups actually used, in order of first appearance
+            half_bat = {}
+            for half, side in (("Top", "away"), ("Bot", "home")):
+                rows = g[g["inning_topbot"] == half]
+                ids = list(dict.fromkeys(int(b) for b in rows["batter"].dropna()))[:9]
+                half_bat[side] = ids
+            if len(half_bat["home"]) < 6 or len(half_bat["away"]) < 6:
+                continue
+            # starters
+            sp = {}
+            for half, side in (("Top", "home"), ("Bot", "away")):
+                r = g[(g["inning_topbot"] == half) & (g["inning"] == 1)]
+                if r.empty:
+                    continue
+                sp[side] = int(r.sort_values(["at_bat_number", "pitch_number"]).iloc[0]["pitcher"])
+            if "home" not in sp or "away" not in sp:
+                continue
+            allb = half_bat["home"] + half_bat["away"]
+            bprof = statcast_data.batter_profiles(past, allb, asof=D)
+            pprof = statcast_data.pitcher_profiles(past, [sp["home"], sp["away"]], asof=D)
+            hl = [(bprof.get(b) or {}).get("recent") or {} for b in half_bat["home"]]
+            al = [(bprof.get(b) or {}).get("recent") or {} for b in half_bat["away"]]
+            proj = RUNS.project_game(hl, al, pprof.get(sp["home"]) or {},
+                                     pprof.get(sp["away"]) or {},
+                                     {}, {}, park_mult=1.0)
+            if not proj:
+                continue
+            p = proj["home_wp"]
+            n += 1
+            home_wins_actual += 1 if home_won else 0
+            brier += (p - (1.0 if home_won else 0.0)) ** 2
+            correct += 1 if ((p >= 0.5) == home_won) else 0
+            tot_abs_err += abs(proj["total"] - (hs + as_))
+            b = int(min(max(p, 0.0), 0.999) * 10) * 10
+            c = calib.setdefault(str(b), {"n": 0, "home_wins": 0})
+            c["n"] += 1; c["home_wins"] += 1 if home_won else 0
+        if n and n % 50 == 0:
+            print(f"[backtest:runs] {n} games scored through {D}")
+
+    if not n:
+        return {"error": "no gradeable games (post-score columns missing from the frame?)"}
+    base_rate = home_wins_actual / n
+    # baseline: always predict the actual home-field rate
+    brier_base = sum((base_rate - (1 if i < home_wins_actual else 0)) ** 2
+                     for i in range(n)) / n
+    return {
+        "games": n,
+        "home_win_rate": round(100 * base_rate, 2),
+        "accuracy": round(100 * correct / n, 2),
+        "brier": round(brier / n, 4),
+        "brier_baseline": round(brier_base, 4),
+        "beats_baseline": bool(brier / n < brier_base),
+        "total_mae": round(tot_abs_err / n, 2),
+        "calib": {k: calib[k] for k in sorted(calib, key=int)},
+        "notes": [
+            "CALIBRATION is the number that matters, not accuracy — you cannot bet a probability you can't trust",
+            "Brier lower is better; if it does not beat brier_baseline the model has learned nothing",
+            "books hit total MAE around 2.6 runs — that is the bar for betting totals",
+            "run model has NO defense, NO true park run factor, NO bullpen availability",
+            "bullpen omitted entirely in this replay (starter + league-average pen)",
+        ],
+    }
 
 
 if __name__ == "__main__":
