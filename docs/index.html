@@ -467,6 +467,23 @@
   .ab-badges{margin-top:2px}
   .arm-batters-foot{margin-top:8px;padding-top:6px;border-top:1px solid var(--line);font-size:11px}
   .arm-batters-foot a{color:var(--seam);text-decoration:none}
+  /* Game Lines (run model) */
+  .ml-row{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:0 4px 7px}
+  .ml-head{display:flex;justify-content:space-between;align-items:baseline;font-size:14px;color:var(--ink)}
+  .ml-head b{font-family:Archivo;font-weight:800}
+  .ml-time{font-size:11px;color:var(--muted);font-weight:400}
+  .ml-sp{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.4}
+  .ml-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0 7px}
+  .ml-cell{background:var(--panel);border-radius:7px;padding:5px 7px}
+  .ml-lbl{display:block;font-size:9px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em;margin-bottom:1px}
+  .ml-cell b{font-family:"IBM Plex Mono";font-size:13px;font-weight:700;color:var(--ink)}
+  .ml-ml{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .ml-fav{font-family:Archivo;font-weight:800;font-size:12.5px;color:var(--ink)}
+  .ml-odds{font-family:"IBM Plex Mono";font-size:11.5px;color:var(--seam);font-weight:700}
+  .ml-conf{font-family:"IBM Plex Mono";font-size:8.5px;font-weight:700;letter-spacing:.05em;padding:1.5px 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted)}
+  .ml-conf.strong{color:var(--seam);background:rgba(200,71,43,.10);border-color:rgba(200,71,43,.3)}
+  .ml-conf.lean{color:var(--hot);border-color:rgba(224,145,58,.3)}
+  .ml-proj{font-family:"IBM Plex Mono";font-size:8.5px;font-weight:700;color:var(--faint);border:1px solid var(--line);padding:1.5px 5px;border-radius:4px}
   /* Live HR tracker */
   .livedot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--faint);margin-right:7px;vertical-align:1px}
   .livedot.on{background:#c8472b;animation:lvpulse 1.6s ease-in-out infinite}
@@ -577,6 +594,16 @@
   .tier.SOLID{background:#3E7CB1;color:#fff}
   .tier.LEAN{background:var(--panel-2);color:var(--muted);border:1px solid var(--line)}
   .tier.THIN{background:transparent;color:var(--faint);border:1px solid var(--line)}
+  /* confirmation tier block on expanded card */
+  .tierbox{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin:2px 0 9px}
+  .tierbox-h{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .tierbox-h .tier{margin-left:0;font-size:9px;padding:2px 6px}
+  .tierbox-cnt{font-family:"IBM Plex Mono";font-size:10.5px;color:var(--muted);font-weight:700}
+  .tsigs{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
+  .tsig{font-family:"IBM Plex Mono";font-size:9px;font-weight:700;letter-spacing:.02em;padding:2px 6px;border-radius:4px;
+    background:transparent;color:var(--faint);border:1px solid var(--line);white-space:nowrap}
+  .tsig.on{color:var(--hot);background:rgba(224,145,58,.10);border-color:rgba(224,145,58,.35)}
+  .tierbox-note{font-size:10.5px;color:var(--muted);line-height:1.5}
   .tp{background:var(--panel);border:1px solid var(--seam);border-radius:14px;margin:9px 0 4px;overflow:hidden}
   .tp-head{display:flex;align-items:center;justify-content:space-between;padding:11px 13px;cursor:pointer}
   .tp-head h3{margin:0;font-family:Archivo;font-weight:900;font-size:14px;letter-spacing:.02em;text-transform:uppercase}
@@ -846,6 +873,20 @@
       <p>The <b>four cells</b> (Pull / EV / Brl / IAA) show those signals at a glance — orange means it cleared the "good" mark, blue means below. <b>Tap any column header</b> (HEAT, PULL, EV, BRL, IAA) to re-sort the whole slate by that stat — that's how you find a low-Heat guy who's elite in one area.</p>
       <p><b>Tap any row</b> to open full detail: recent/season/career for every signal, the trend windows, the opposing arm, bullpen, pitch matchup, and luck.</p>
 
+      <h3>Confirmation tier — LOADED / STRONG / SOLID / LEAN / THIN</h3>
+      <p>The pill next to a hitter's name isn't about sample size — it counts <b>how many of the six signals cleared their "good" anchor</b>. <b>LOADED</b> = 5–6 cleared, <b>STRONG</b> = 4, <b>SOLID</b> = 3, <b>LEAN</b> = 2, <b>THIN</b> = 0–1.</p>
+      <p>Heat tells you <i>how hot</i>; the tier tells you <i>how many independent things agree</i>. A 68 Heat that's LOADED is a hitter where nearly everything is firing. A 68 Heat that's LEAN is one or two signals carrying the whole score — same number, more fragile. Use it as a breadth check before you commit.</p>
+
+      <h3>SMASH bar</h3>
+      <p>When a hitter clears a high bar on multiple fronts at once — strong heat, several confirming reasons, a genuinely vulnerable spot — he gets flagged <b>SMASH</b> and appears in the morning briefing. It's deliberately rare (top few per slate). Treat it as "the model is unusually confident," not a guarantee. Still accumulating sample; check the Tracker before sizing anything off it.</p>
+
+      <h3>Robbed Board & Milestone Watch</h3>
+      <p><b>Robbed</b> flags hitters who hit a ball in the last 3 days that would have left most parks — a 400+ ft drive that died at the wall or got caught. It's a "the process was right, the result wasn't" signal. The <b>ROBBED ×N</b> badge shows how many times. Tap the card for the spray chart.</p>
+      <p><b>Milestone Watch</b> surfaces hitters sitting near a round-number career HR mark (100, 150, 200…) or within a few HRs of passing a franchise leader. Not a model signal — a context signal. Some bettors like the narrative spot; the model doesn't care either way.</p>
+
+      <h3>My List</h3>
+      <p>Star any hitter to add him to <b>My List</b>, then tap the <b>★ My List</b> chip to filter the board to only those hitters. The list <b>auto-clears when the slate date changes</b> — yesterday's picks never bleed into today. A <b>Clear</b> button appears next to the chip whenever the list has anything in it, if you want to wipe it early.</p>
+
       <h3>Badges</h3>
       <p><b>R / L / S</b> (orange/blue/purple) = a hitter bats right, left, or switch; pitchers show <b>RHP / LHP</b> in the same colors. The trait badges flag why a hitter is interesting — matchup first: <b>WEAK ARM</b> (facing a shellable starter), <b>PLATOON</b> (strong HR history vs this arm's hand), <b>PITCH EDGE</b> (barrels the pitch this arm throws most), <b>POWER</b> (top-end exit velo, 112+ mph).</p>
       <p>Then one <b>form</b> read per hitter — a simple spectrum so you never see a contradiction: <b>DUE</b> (hitting it hard but unlucky — results lag his contact), <b>WARMING</b> (contact quality trending up), <b>HOT</b> (elite contact and results match — genuinely hot, earned), <b>MAY COOL</b> (results have run well above his contact and may regress). <b>▲ / ▼</b> = power-form trend with % change. <b>proj</b> = lineup not posted, using last game's order. <b>#1–#9</b> = batting-order spot.</p>
@@ -864,12 +905,30 @@
       <h3>The pitcher</h3>
       <p><b>Arms Today</b> ranks starters by how shellable they are. Form labels: <b>SHELLABLE</b> (bad & getting worse — prime), <b>STEADY-BAD</b> (consistently hittable — still a target), <b>SLIPPING</b> (was fine, now cracking), <b>BAD-IMPROVING / BOUNCING-BACK</b> (downgrade — numbers improving), <b>DEALING</b> (avoid). <b>Arm badges</b> spell out the specific vulnerability behind the label: <b>HR PRONE</b> (gives up bombs), <b>BARRELED</b> (barreled ≥10%), <b>LOUD</b> (hard contact/high EV allowed), <b>PULL-AIR</b> (pulled fly balls allowed), <b>WEAK vs R/L</b> (which hand's taken him deep over 2yr — target those hitters), <b>VELO ↓</b> (velo trending down), <b>SLIPPING</b> (recent worse than season), <b>TOUGH</b> (low vulnerability — avoid). <b>Platoon</b> shows whether the arm gets hit harder by RHB or LHB, and the score vs your hitter's hand. <b>Opposing bullpen</b> shows the pen's HR-vulnerability and its split vs your hitter's hand.</p>
 
+      <p><b>Tap any arm</b> to expand it — you'll see every batter facing him tonight, ranked by Heat, plus a link to filter the board to just those bats. The <b>Sort</b> toggle at the top of the panel switches between "By vulnerability" and "Most hittable." The expanded view also shows a <b>HRs allowed by hand</b> table with two windows: <b>YTD</b> (this season only) and <b>2szn</b> (this season + last, regular season only). Reference tools like PropFinder default to season-only, so if a number ever looks off, check which window you're reading — they're both there on purpose.</p>
+
       <h3>Pitch matchup & luck (context only)</h3>
       <p><b>vs Pitch Mix toggle</b> (top controls): re-ranks the board by each hitter's EV/launch-angle/whiff <i>weighted to the opposing starter's pitch mix</i> over the last 2 weeks — a guy who crushes fastballs rises against a fastball-heavy arm. Toggle off to return to standard Heat instantly. Barrel% stays overall. Each card shows the mix-adjusted EV and how Heat shifts.</p>
       <p><b>Pitch matchup</b> = the hitter's barrel% by pitch family (Fastball/Breaking/Offspeed) crossed with the arm's usage. <b>Contact luck</b> = expected (xwOBAcon) vs actual; a positive gap means he's hitting it well but unlucky (<b>DUE</b>). Overperforming only flags <b>MAY COOL</b> when results run far above his contact; if the underlying contact is itself elite he reads <b>HOT</b> — earned, not lucky. <b>Starter HRs by hand</b> = actual HRs the starter allowed to RHB vs LHB, over a 2-year sample and this year. None of these affect Heat unless the mix toggle is on.</p>
 
+      <h3>Live HR Tracker</h3>
+      <p>A panel on the board that polls MLB's live feed every 90 seconds while games are on. Every home run that lands shows up with <b>the hitter's full board identity from this morning</b> — his Heat chip, confirmation tier, the exact badges he carried, his board rank, all three prop scores, plus distance and RBI count. A <b>★</b> means he was on your list. Hitters who homer but weren't on the board show as "off board."</p>
+      <p>The point isn't the scores — it's the cross-reference. Over a night you can see whether the model's picks are the ones cashing, in real time, rather than waiting for the grader next morning. The dot pulses red while games are live; polling pauses when you close the tab and stops entirely once every game is Final.</p>
+
+      <h3>Other Props tab</h3>
+      <p>Four prop models that run <b>completely separate from the HR heat model</b> — different signals, different scores, their own tracker and backtest. HR heat is never touched by any of them.</p>
+      <p><b>Hits</b> — ranks hitters for 1+ / 2+ hits using xBA, hard-hit%, line-drive%, plate discipline (BB% minus K%), contact%, and the opposing arm's hittability. <b>HRR</b> — hits + runs + RBIs, which is hit skill plus a lineup-spot multiplier (top of the order gets more PAs and more RBI chances) plus an HR-upside boost, since one swing can produce all three. <b>Pitcher Ks</b> — ranks starters for their K-total prop using their own K% and SwStr% blended over 2 weeks, weighted against the opposing lineup's K vulnerability. Each card shows an <b>estimated K total and target line</b> ("est. 7.8 Ks · line target O7.5") so you can compare directly against the book before opening the odds screen. Openers get an automatic downgrade — they can't throw enough innings to clear a normal line.</p>
+      <p><b>K Under</b> — sorted <i>low to high</i> on purpose. The lowest K-prone scores are the best "UNDER 0.5 strikeouts" bets: contact hitters facing low-whiff arms. Tags run <b>STRONG UNDER</b> (under 30) → <b>LEAN UNDER</b> → <b>NEUTRAL</b> → <b>FADE</b> (60+, the K-prone guys you'd avoid).</p>
+      <p>All four use the same 2-week trailing window as the HR model, with the same thin-sample discount on both the batter and pitcher side.</p>
+
       <h3>Tracker</h3>
-      <p>Grades the model against reality each morning. <b>Model vs baselines</b> is the one that matters: does Heat's top 10 homer more than just sorting by ISO or barrel%? If yes, the model is genuinely finding HR hitters better than the simple stats. The rest shows HR rate by Heat tier, by arm form, top-N success, which signals correlate to HRs, and a daily log. It needs a few graded days to mean anything.</p>
+      <p>Grades every model against reality each morning. <b>Model vs baselines</b> is the one that matters: does Heat's top 10 homer more than just sorting by ISO or barrel%? If yes, the model is genuinely finding HR hitters better than the simple stats. The rest shows HR rate by Heat tier, by arm form, top-N success, which signals correlate to HRs, and a daily log.</p>
+      <p><b>Parlay performance</b> shows how the auto-generated parlays actually converted — the leg hit rate is the honest number; if it isn't beating the base rate, that strategy isn't earning. <b>Props performance</b> does the same for hits, 2+ hits, HRR, pitcher Ks, and K Under, each with its own base rate derived from your own data (never a hard-coded league average).</p>
+      <p><b>Season backtest</b> replays the whole season with a strict no-leakage contract — every score for a given day is computed only from data before that day, and a poison check corrupts future rows to prove the scores don't move. It covers HR heat plus all the props models, so you can see whether a model has a real edge before you've spent a month collecting live data.</p>
+      <p>Rows marked <b>thin</b> and dimmed mean the sample is too small to trust yet (under 30 for hitters, 20 for pitchers). The number is real math, but it could easily be noise. Wait for it to fill in.</p>
+
+      <h3>How to Bet</h3>
+      <p>The <b>HOW TO BET</b> button in the header opens a guide that <b>rewrites itself from your own tracker data</b>. It sorts every signal into buckets — <b>use</b> (big enough sample, real lift), <b>tiebreak</b> (real sample, thin edge), <b>watch</b> (interesting but not enough data yet), <b>fade</b> (actually negative), <b>ignore</b> (too thin to say). As your sample grows the guide changes. It is not static advice; it's whatever your data currently supports.</p>
 
       <h3>Bets</h3>
       <p>Your private bet log — stored only on this device, nothing leaves your phone. Log each bet, pick the player(s) from today's board (their badges and Heat are captured automatically), then after games mark each as <b>HR ✓</b> or <b>no HR</b> and set the result. Over time it shows your record, net, and ROI — plus the payoff feature: <b>HR rate by badge</b>, so you learn which badges actually convert for you (does HOT homer more than MAY COOL?) and which are noise.</p>
@@ -878,7 +937,8 @@
       <p>The dot by the title shows build health: <b>green</b> = fresh, <b>amber</b> = a few hours old, <b>red</b> = likely stale or showing an older slate. The board builds at 6:30am, 10am, 12pm, 3pm, 5pm and 7pm ET; if one is missed or you're viewing yesterday's slate, a banner warns you before you bet.</p>
 
       <h3>How it updates</h3>
-      <p>The board rebuilds through the day (6:30am, 10am, 12pm, 3pm, 5pm, 7pm ET) as lineups post; the grader runs each morning after games are final. Park factor is shown for context but isn't baked into Heat — the data and matchup drive the ranking. All of it is tunable, and none of it is betting advice.</p>
+      <p>The board rebuilds through the day (6:30am, 10am, 12pm, 3pm, 5pm, 7pm ET) as lineups post; the grader runs each morning after games are final. Expanded cards show a <b>heat trajectory sparkline</b> — the hitter's last 10 days of Heat, with dashed lines at the 55 and 70 tier marks — so you can see the <i>shape</i> of a trend, not just an up/down arrow. Park factor is shown for context but isn't baked into Heat — the data and matchup drive the ranking.</p>
+      <p>Every model here is honest about what it doesn't know. Thin samples get flagged, new models get labeled as unvalidated until the tracker and backtest say otherwise, and none of it is betting advice.</p>
     </div>
   </div>
 </div>
@@ -1069,6 +1129,39 @@ function luckBlock(p){
   return `<h4 style="margin-top:16px">Contact luck — expected vs actual (on contact)</h4>${r}${s}`;
 }
 function throwBadge(t){ return (t==="R"||t==="L") ? `<span class="thr t-${t}">${t}HP</span>` : ""; }
+// Confirmation tier: how many of the six power signals cleared their "good" anchor.
+// Breadth check on the heat score — heat says how hot, this says how many things agree.
+const TIER_META={
+  LOADED:{n:"5–6",say:"nearly everything is firing"},
+  STRONG:{n:"4",say:"broad agreement across the profile"},
+  SOLID:{n:"3",say:"half the profile is confirming"},
+  LEAN:{n:"2",say:"only a couple of signals carrying the score"},
+  THIN:{n:"0–1",say:"the score is resting on very little"},
+};
+const SIG_LABEL={pull_air_pct:"Pull-air%",barrel_pct:"Barrel%",iso:"ISO",avg_ev:"Exit velo",
+  ideal_aa_pct:"Ideal attack angle",slg:"SLG",hardhit_pct:"Hard-hit%",launch_angle:"Launch angle"};
+
+function tierBlock(p){
+  const t=p.tier;
+  if(!t) return "";
+  const bd=p.score_breakdown||{};
+  const sig=bd.signals||{};
+  // Legacy boards serialize numpy bools as the STRINGS "True"/"False" — and "False"
+  // is truthy in JS. Coerce explicitly so a missed signal never reads as cleared.
+  const isOn=v=>v===true||v==="True"||v==="true"||v===1;
+  const keys=Object.keys(sig);
+  const cleared=keys.filter(k=>isOn(sig[k]));
+  const missed=keys.filter(k=>!isOn(sig[k]));
+  const meta=TIER_META[t]||{n:"?",say:""};
+  const chips=k=>`<span class="tsig ${isOn(sig[k])?"on":""}">${SIG_LABEL[k]||k}</span>`;
+  return `<div class="tierbox">
+    <div class="tierbox-h"><span class="tier ${t}">${t}</span>
+      <span class="tierbox-cnt">${cleared.length} of ${keys.length} signals cleared</span></div>
+    ${keys.length?`<div class="tsigs">${cleared.map(chips).join("")}${missed.map(chips).join("")}</div>`:""}
+    <div class="tierbox-note">${meta.say ? meta.say.charAt(0).toUpperCase()+meta.say.slice(1)+"." : ""} Heat tells you how hot; the tier tells you how many independent signals agree. Same heat with a lower tier = more fragile.</div>
+  </div>`;
+}
+
 function badgeChips(p,max){
   const bs=(p.badges||[]);
   if(!bs.length) return "";
@@ -1668,6 +1761,7 @@ function render(){
         ${bullBear(p)}
         ${(function(){try{const ms=hitterScore(p,_R,_BR);return `<div class="odds-line">Model odds <b>${(ms.prob*100).toFixed(0)}%</b> · <b>${americanFair(ms.prob)}</b><span>this model only — heat · trend · pitch mix · park+weather · contact luck · your tag history. Fair value, independent of any book; compare it to the posted line to find where they disagree.</span></div>`;}catch(e){return "";}})()}
         ${p.angle?`<div class="angle">${p.angle}</div>`:""}
+        ${tierBlock(p)}
         ${badgeChips(p)}
         <div class="matchup" style="margin-bottom:10px">${p.team} vs ${p.opp_team} · ${timeStr(p.time)} · ${p.park||""} · park ${fmt(p.park_hr_factor,2)}× · ${armBadge}</div>
         ${(p.max_ev&&p.max_ev.season!=null)?`<div class="arm" style="margin:-4px 0 8px"><b>${p.name.split(' ').slice(-1)[0]}'s max EV:</b> <b style="color:var(--hot)">${p.max_ev.season}</b> mph season${p.max_ev.recent!=null?` · ${p.max_ev.recent} last 2wk`:""}</div>`:""}
@@ -2516,6 +2610,33 @@ function btSection(main){
         });
       }
     }
+    // ---- Run model (moneyline / totals) backtest — the verdict on Game Lines ----
+    const RB=bt.runs;
+    if(RB&&RB.games){
+      const beats=RB.beats_baseline;
+      btHTML+=`<div style="font-size:11px;color:var(--muted);margin:14px 0 3px"><b style="color:var(--ink)">Run model — moneyline &amp; totals</b> · ${RB.games} games</div>
+        <div class="trk-row" style="grid-template-columns:92px 1fr 58px"><div class="lab" style="font-size:11px">Brier</div>
+          <div style="font-size:12px;color:var(--muted)"><b style="color:var(--ink)">${RB.brier}</b> vs baseline ${RB.brier_baseline} <span style="font-size:10px">(lower = better)</span></div>
+          <div class="val" style="color:${beats?'var(--good)':'var(--bad)'};font-weight:700;font-size:10px">${beats?"BEATS":"NO EDGE"}</div></div>
+        <div class="trk-row" style="grid-template-columns:92px 1fr 58px"><div class="lab" style="font-size:11px">Total MAE</div>
+          <div style="font-size:12px;color:var(--muted)"><b style="color:var(--ink)">${RB.total_mae}</b> runs off · books ≈ 2.6</div>
+          <div class="val" style="color:${RB.total_mae<=2.6?'var(--good)':'var(--bad)'};font-weight:700;font-size:10px">${RB.total_mae<=2.6?"SHARP":"SOFT"}</div></div>
+        <div class="trk-row" style="grid-template-columns:92px 1fr 58px"><div class="lab" style="font-size:11px">Accuracy</div>
+          <div style="font-size:12px;color:var(--muted)"><b style="color:var(--ink)">${RB.accuracy}%</b> · home wins ${RB.home_win_rate}% regardless</div>
+          <div class="val" style="font-size:10px;color:var(--faint)">—</div></div>`;
+      const ck=Object.keys(RB.calib||{}).sort((a,b)=>(+a)-(+b));
+      if(ck.length){
+        btHTML+=`<div style="font-size:10.5px;color:var(--muted);margin:8px 0 3px">Calibration — when it says X%, does the home team actually win X%? <b style="color:var(--ink)">This decides whether Game Lines is bettable at all.</b></div>`;
+        ck.forEach(k=>{
+          const v=RB.calib[k]; if(!v||!v.n) return;
+          const act=100*v.home_wins/v.n, said=(+k)+5, gap=act-said, thin=v.n<20;
+          btHTML+=`<div class="trk-row" style="grid-template-columns:92px 1fr 58px${thin?';opacity:.5':''}"><div class="lab" style="font-size:11px">says ${k}–${(+k)+10}%</div>
+            <div style="font-size:12px;color:var(--muted)">actual <b style="color:var(--ink)">${act.toFixed(0)}%</b> · n=${v.n}${thin?' <span style="font-size:9px">thin</span>':''}</div>
+            <div class="val" style="color:${Math.abs(gap)<=6?'var(--good)':'var(--bad)'};font-weight:700">${gap>=0?"+":""}${gap.toFixed(0)}</div></div>`;
+        });
+      }
+      if(RB.notes) btHTML+=`<div class="pl-note">${RB.notes.join(" · ")}</div>`;
+    }
     const trkEl=main.querySelector(".trk");
     if(trkEl) trkEl.insertAdjacentHTML("beforeend", btHTML);
     else main.insertAdjacentHTML("beforeend", `<div class="trk">${btHTML}</div>`);
@@ -2688,6 +2809,7 @@ function renderProps(){
       <button data-p="hrr" class="${propsView==='hrr'?'on':''}">HRR</button>
       <button data-p="k" class="${propsView==='k'?'on':''}">Pitcher Ks</button>
       <button data-p="bku" class="${propsView==='bku'?'on':''}">K Under</button>
+      <button data-p="ml" class="${propsView==='ml'?'on':''}">Game Lines</button>
     </div>`;
 
   let inner="";
@@ -2727,6 +2849,46 @@ function renderProps(){
           : "No arms scored yet — needs probable starters + arm profiles. Should populate on the next build."
       }</div>`}
       <div class="prop-note" style="margin-top:12px"><b>Reading K scores:</b> HIGH k_heat = bet OVER on his K total (typical lines are 5.5 or 6.5). LOW k_heat = bet UNDER. Opener flag means the LISTED pitcher won't throw enough innings for a normal K prop line — usually a play-through-with-caution.</div>`;
+  } else if(propsView==="ml"){
+    // Game Lines: run-expectancy engine output — moneyline, total, F5.
+    const gp=(BOARD.game_projections||[]).slice();
+    const rows=gp.map(g=>{
+      const hw=g.home_wp!=null?g.home_wp*100:null;
+      if(hw==null) return "";
+      const favHome = hw>=50;
+      const favTeam = favHome?g.home:g.away;
+      const favPct = favHome?hw:100-hw;
+      const favOdds = favHome?g.home_fair:g.away_fair;
+      const conf = favPct>=65?"strong":favPct>=57?"lean":"coinflip";
+      const bg = conf==="strong"?"rgba(200,71,43,.14)":conf==="lean"?"rgba(215,120,60,.09)":"var(--panel-2)";
+      const unconf = !g.lineups_confirmed?`<span class="ml-proj">PROJ LINEUP</span>`:"";
+      return `<div class="ml-row" style="background:${bg}">
+        <div class="ml-head"><b>${g.away} @ ${g.home}</b><span class="ml-time">${timeStr(g.time)}</span></div>
+        <div class="ml-sp">${g.away_sp||"?"} vs ${g.home_sp||"?"}${g.park?` · ${g.park}`:""}</div>
+        <div class="ml-grid">
+          <div class="ml-cell"><span class="ml-lbl">Proj score</span><b>${g.away_runs} – ${g.home_runs}</b></div>
+          <div class="ml-cell"><span class="ml-lbl">Total</span><b>${g.total}</b></div>
+          <div class="ml-cell"><span class="ml-lbl">F5 total</span><b>${g.f5_total??"–"}</b></div>
+        </div>
+        <div class="ml-ml">
+          <span class="ml-fav">${favTeam} ${favPct.toFixed(0)}%</span>
+          <span class="ml-odds">fair ${favOdds}</span>
+          <span class="ml-conf ${conf}">${conf.toUpperCase()}</span>
+          ${unconf}
+        </div>
+      </div>`;
+    }).join("");
+    inner=`
+      <h2 class="prop-h">Game Lines</h2>
+      <div class="prop-lead">Expected runs per side — each lineup's xwOBA against the opposing starter and bullpen, converted to runs by linear weights, then to a win probability by convolving two negative-binomial run distributions.</div>
+      ${subTabs}
+      <div class="prop-note" style="border-color:rgba(200,71,43,.45)"><b>Read this before betting any of it.</b> The moneyline is the <b>sharpest market in baseball</b> — the opposite of HR props. This model has <b>no defense metrics</b>, no true park run factor, no bullpen-availability data, no umpire. Those are exactly what the market prices well. Expect the ML to be informational; the <b>total and F5</b> are the softer, more usable outputs. None of it is validated until the backtest runs.</div>
+      ${rows||`<div class="empty">${
+        BOARD.game_projections===undefined
+          ? "Waiting for the next build — needs the updated <code>etl/build_board.py</code> and the new <code>etl/runs.py</code> deployed."
+          : "No games modeled yet — needs probable starters and lineups."
+      }</div>`}
+      ${gp.length?`<div class="prop-note" style="margin-top:12px"><b>Using it honestly:</b> compare fair odds to the book's posted line. If the book is <i>longer</i> than fair, that's a disagreement — but a disagreement usually means <b>your model is missing what the market knows</b> (an injury, a pen that threw three innings last night). Treat big gaps as a prompt to investigate, not a green light.</div>`:""}`;
   } else if(propsView==="bku"){
     // Batter K UNDER: hitter-level, sorted ASCENDING — the LOWEST k_heat_bat is
     // the best "under 0.5 Ks" candidate (contact hitter vs low-K arm).
@@ -3359,7 +3521,7 @@ function renderLivePanel(){
       h.rbi>1?`<span class="lv-tag">${h.rbi}-run</span>`:"",
     ].filter(Boolean).join(" ");
     // full board context: tier pill + this morning's badges + prop scores
-    const tierPill=p&&p.tier?`<span class="lv-tier">${p.tier}</span>`:"";
+    const tierPill=p&&p.tier?`<span class="tier ${p.tier}">${p.tier}</span>`:"";
     const badges=p?badgeChips(p,5):"";
     const scores=p?[
       p.hit_heat!=null?`hit ${Math.round(p.hit_heat)}`:"",
