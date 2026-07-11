@@ -467,6 +467,24 @@
   .ab-badges{margin-top:2px}
   .arm-batters-foot{margin-top:8px;padding-top:6px;border-top:1px solid var(--line);font-size:11px}
   .arm-batters-foot a{color:var(--seam);text-decoration:none}
+  /* Live HR tracker */
+  .livedot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--faint);margin-right:7px;vertical-align:1px}
+  .livedot.on{background:#c8472b;animation:lvpulse 1.6s ease-in-out infinite}
+  @keyframes lvpulse{0%,100%{opacity:1}50%{opacity:.35}}
+  .lv-row{display:grid;grid-template-columns:44px 1fr;gap:10px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line)}
+  .lv-row:last-of-type{border-bottom:none}
+  .lv-heat{font-family:Archivo;font-weight:800;font-size:13px;text-align:center;padding:5px 0;border-radius:7px;line-height:1;color:var(--ink)}
+  .lv-heat.lv-off{background:var(--panel-2);color:var(--faint);font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:7px 2px}
+  .lv-body{font-size:12.5px;color:var(--ink)}
+  .lv-meta{color:var(--muted);font-size:10.5px;font-weight:400}
+  .lv-tags{margin-top:3px}
+  .lv-tag{display:inline-block;font-family:"IBM Plex Mono";font-weight:700;font-size:8.5px;letter-spacing:.04em;padding:1px 5px;border-radius:4px;background:var(--panel-2);color:var(--muted);border:1px solid var(--line);margin-right:3px}
+  .lv-tag.lv-hit{color:var(--seam);background:rgba(200,71,43,.08);border-color:rgba(200,71,43,.25)}
+  .lv-tier{display:inline-block;font-family:"IBM Plex Mono";font-weight:700;font-size:8px;letter-spacing:.05em;padding:1px 5px;border-radius:4px;margin:0 4px 0 2px;vertical-align:1px;color:var(--seam);background:rgba(200,71,43,.08);border:1px solid rgba(200,71,43,.25)}
+  .lv-scores{font-family:"IBM Plex Mono";font-size:9.5px;color:var(--muted);margin-top:3px}
+  .lv-row .badges{margin-top:3px}
+  .lv-row .badges .bdg{font-size:8px;padding:0 4px}
+  @media (prefers-reduced-motion:reduce){.livedot.on{animation:none}}
   .est-line{display:inline-block;font-family:"IBM Plex Mono";font-weight:800;font-size:11.5px;color:var(--seam);background:rgba(200,71,43,.10);border:1px solid rgba(200,71,43,.30);padding:2px 8px;border-radius:5px;margin:4px 0}
   .hand-table{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin-bottom:10px}
   .ht-title{font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;font-family:Archivo;font-weight:700}
@@ -1380,6 +1398,16 @@ function render(){
   // Arms today: starters ranked by HR vulnerability. Toggle sorts by "most hittable"
   // (hr_score descending). Each arm expands inline to show batters facing him
   // sorted by heat — a compact "target this arm → your best HR bets" view.
+  // Live HR tracker: client-side poll of MLB StatsAPI scoring plays, cross-referenced
+  // against the board. Panel skeleton renders here; pollLive() fills #liveBody.
+  html+=`<div class="arms" id="livePanel">
+    <div class="arms-head" onclick="document.getElementById('livePanel').classList.toggle('open')">
+      <h3><span id="liveDot" class="livedot"></span>Live HR Tracker</h3>
+      <span class="sub" id="liveCount">—</span>
+    </div>
+    <div class="arms-body"><div id="liveBody"><div class="ln" style="color:var(--muted);padding:10px 12px">Waiting for first poll…</div></div></div>
+  </div>`;
+
   if(BOARD.arms&&BOARD.arms.length){
     let arows="";
     const armsSorted = BOARD.arms.slice().filter(a=>a.hr_score!=null);
@@ -3258,6 +3286,110 @@ document.getElementById("tabbar").addEventListener("click",async e=>{
 });
 
 let BACKTEST=null;
+
+// ---- Live HR tracker ----
+// One StatsAPI request per cycle pulls scoring plays for every game on the slate;
+// filter to home runs, cross-reference against BOARD by batter id. Polling is
+// visibility-aware (pauses when the tab is hidden) and stops entirely once every
+// game is Final. If StatsAPI is unreachable (CORS/network), the panel degrades to
+// a "live feed unavailable" note — the rest of the app is unaffected.
+const LIVE={hrs:[],statuses:[],lastPoll:null,failed:false,timer:null};
+
+async function pollLive(){
+  if(!BOARD||!BOARD.slate_date) return;
+  try{
+    const u=`https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${BOARD.slate_date}&hydrate=scoringplays`;
+    const r=await fetch(u);
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const j=await r.json();
+    const games=((j.dates||[])[0]||{}).games||[];
+    const hrs=[]; const statuses=[];
+    games.forEach(g=>{
+      statuses.push(g.status?.abstractGameState||"");
+      (g.scoringPlays||[]).forEach(pl=>{
+        if((pl.result?.event||"")!=="Home Run") return;
+        const bat=pl.matchup?.batter||{};
+        const desc=pl.result?.description||"";
+        const dist=(desc.match(/\((\d{3})\s*ft\)/)||[])[1];
+        hrs.push({
+          id:bat.id, name:bat.fullName||"?",
+          inning:pl.about?.inning, half:pl.about?.halfInning,
+          gamePk:g.gamePk, dist:dist?+dist:null,
+          rbi:pl.result?.rbi||1, desc,
+        });
+      });
+    });
+    LIVE.hrs=hrs; LIVE.statuses=statuses; LIVE.lastPoll=Date.now(); LIVE.failed=false;
+  }catch(e){
+    LIVE.failed=true;
+  }
+  renderLivePanel();
+  // stop polling once every game is Final (or none scheduled)
+  if(LIVE.statuses.length&&LIVE.statuses.every(s=>s==="Final")){
+    if(LIVE.timer){clearInterval(LIVE.timer);LIVE.timer=null;}
+  }
+}
+
+function renderLivePanel(){
+  const body=document.getElementById("liveBody");
+  const cnt=document.getElementById("liveCount");
+  const dot=document.getElementById("liveDot");
+  if(!body) return;
+  const anyLive=LIVE.statuses.some(s=>s==="Live");
+  if(dot) dot.className="livedot"+(anyLive?" on":"");
+  if(LIVE.failed&&!LIVE.hrs.length){
+    if(cnt) cnt.textContent="feed unavailable";
+    body.innerHTML=`<div class="ln" style="color:var(--muted);padding:10px 12px">Live feed unavailable right now — MLB's API may be blocking this network. The board itself is unaffected.</div>`;
+    return;
+  }
+  // board cross-reference
+  const byId={}; (BOARD?.players||[]).forEach(p=>byId[p.id]=p);
+  const list=listGet(); const onList=new Set(list.map(x=>x.id));
+  // rank position on today's board by heat
+  const ranked=(BOARD?.players||[]).slice().sort((a,b)=>(b.heat||0)-(a.heat||0));
+  const rankOf={}; ranked.forEach((p,i)=>rankOf[p.id]=i+1);
+  const rows=LIVE.hrs.slice().reverse().map(h=>{
+    const p=byId[h.id];
+    const heatChip=p?`<span class="lv-heat" style="background:${chipColor(p.heat)}">${p.heat}</span>`:`<span class="lv-heat lv-off">off board</span>`;
+    const rk=p&&rankOf[h.id]?`#${rankOf[h.id]}`:"";
+    const star=onList.has(h.id)?` <span style="color:#e8c15a">★</span>`:"";
+    const tags=[
+      p&&rankOf[h.id]<=25?`<span class="lv-tag lv-hit">TOP 25</span>`:"",
+      h.dist?`<span class="lv-tag">${h.dist} ft</span>`:"",
+      h.rbi>1?`<span class="lv-tag">${h.rbi}-run</span>`:"",
+    ].filter(Boolean).join(" ");
+    // full board context: tier pill + this morning's badges + prop scores
+    const tierPill=p&&p.tier?`<span class="lv-tier">${p.tier}</span>`:"";
+    const badges=p?badgeChips(p,5):"";
+    const scores=p?[
+      p.hit_heat!=null?`hit ${Math.round(p.hit_heat)}`:"",
+      p.hrr_heat!=null?`HRR ${Math.round(p.hrr_heat)}`:"",
+      p.k_heat_bat!=null?`K ${Math.round(p.k_heat_bat)}`:"",
+    ].filter(Boolean).join(" · "):"";
+    return `<div class="lv-row">
+      ${heatChip}
+      <div class="lv-body"><b>${h.name}</b>${star} ${tierPill}<span class="lv-meta">${p?`${p.team} · board ${rk}`:""} · ${h.half==="top"?"T":"B"}${h.inning}</span>
+        ${badges}
+        ${scores?`<div class="lv-scores">${scores}</div>`:""}
+        ${tags?`<div class="lv-tags">${tags}</div>`:""}</div>
+    </div>`;
+  }).join("");
+  const boardHits=LIVE.hrs.filter(h=>byId[h.id]&&rankOf[h.id]<=25).length;
+  const listHits=LIVE.hrs.filter(h=>onList.has(h.id)).length;
+  if(cnt) cnt.textContent=LIVE.hrs.length
+    ?`${LIVE.hrs.length} HR${LIVE.hrs.length===1?"":"s"}${boardHits?` · ${boardHits} top-25`:""}${listHits?` · ${listHits}★`:""}`
+    :(anyLive?"games live · none yet":"no games live");
+  body.innerHTML=(rows||`<div class="ln" style="color:var(--muted);padding:10px 12px">No home runs yet today. This panel updates every 90 seconds while games are live.</div>`)
+    +`<div class="arm-note">Cross-referenced against today's board: heat chip = the hitter's score this morning, #N = his board rank, ★ = he was on your list. TOP 25 tag = the model had him in the validated pool. Polls MLB's live feed every 90s while this tab is open.</div>`;
+}
+
+function startLivePolling(){
+  if(LIVE.timer) clearInterval(LIVE.timer);
+  pollLive();
+  LIVE.timer=setInterval(()=>{ if(!document.hidden) pollLive(); }, 90000);
+}
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&BOARD&&!LIVE.timer&&!(LIVE.statuses.length&&LIVE.statuses.every(s=>s==="Final"))) startLivePolling(); });
+
 async function loadHistory(){
   try{ const r=await fetch("backtest.json?t="+Date.now()); if(r.ok) BACKTEST=await r.json(); }catch(e){}
   try{
@@ -3311,6 +3443,7 @@ async function load(){
   if((view==="tracker"||view==="parlays") && !HISTORY){ await loadHistory(); }
   renderView();
   setHH();
+  startLivePolling();
 }
 load();
 setInterval(load, 5*60*1000);   // refresh if a new board.json was published
