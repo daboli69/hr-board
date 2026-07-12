@@ -93,6 +93,15 @@ def _hr_map(sc):
 
 HIT_EVENTS = {"single", "double", "triple", "home_run"}
 K_EVENTS = {"strikeout", "strikeout_double_play"}
+
+
+def _truthy(v):
+    """Coerce a possibly-stringified boolean. json.dump(default=str) turns numpy
+    bools into "True"/"False" strings, and the string "False" is truthy in Python —
+    so any bare truth-test on snapshot data silently counts misses as hits."""
+    if isinstance(v, str):
+        return v.strip().lower() == "true"
+    return bool(v)
 # Runs/RBI attribution is not in the raw Statcast frame, so we approximate:
 #   * Runs: whenever a hitter is credited with reaching base AND a later event in
 #     the same half-inning is any hit/HR (they score). Approximation only —
@@ -262,7 +271,11 @@ def grade_date(date):
         ff["n"] += 1; ff["hr"] += 1 if hit else 0
         sig = p.get("signals", {})
         for k in SIGNALS:
-            b = "cleared" if sig.get(k) else "not"
+            # CRITICAL: numpy bools serialize to the STRINGS "True"/"False" via
+            # json.dump(default=str), and "False" is TRUTHY in Python. A bare
+            # `if sig.get(k)` therefore buckets every missed signal as "cleared"
+            # and destroys the lift numbers. Coerce explicitly.
+            b = "cleared" if _truthy(sig.get(k)) else "not"
             by_signal[k][b]["n"] += 1
             by_signal[k][b]["hr"] += 1 if hit else 0
         badges = p.get("badges") or []
@@ -492,4 +505,47 @@ def grade():
 
 
 if __name__ == "__main__":
-    grade()
+    import sys
+    if "--regrade" in sys.argv:
+        # Re-grade every day that still has a snapshot on disk, discarding the old
+        # record. Needed after a grading-logic fix: the snapshots hold the raw
+        # inputs, so corrected logic recovers the true numbers.
+        import glob
+        snaps = sorted(glob.glob(os.path.join(SNAP_DIR, "20*.json")))
+        dates = [os.path.basename(s)[:-5] for s in snaps]
+        print(f"[track] REGRADE: {len(dates)} snapshot(s) on disk: {dates[0] if dates else '-'} … {dates[-1] if dates else '-'}")
+        try:
+            with open(HISTORY_PATH) as f:
+                old = json.load(f).get("days", [])
+        except Exception:
+            old = []
+        old_by_date = {d["date"]: d for d in old}
+        rebuilt, failed, kept = [], [], []
+        for date in dates:
+            try:
+                rec = grade_date(date)
+            except Exception as e:
+                print(f"[track] regrade {date} failed ({type(e).__name__}: {e})")
+                rec = None
+            if rec:
+                rebuilt.append(rec)
+            elif date in old_by_date:
+                kept.append(date)             # results not retrievable; keep old record
+                rebuilt.append(old_by_date[date])
+            else:
+                failed.append(date)
+        # keep any historical days whose snapshots have since been pruned
+        have = {d["date"] for d in rebuilt}
+        for d in old:
+            if d["date"] not in have:
+                rebuilt.append(d)
+        rebuilt.sort(key=lambda d: d["date"])
+        with open(HISTORY_PATH, "w") as f:
+            json.dump({"updated": max(have) if have else None, "days": rebuilt},
+                      f, indent=2, default=str)
+        print(f"[track] REGRADE done: {len(rebuilt)} day(s) in history "
+              f"({len(have)} re-graded from snapshots, {len(kept)} kept as-is, "
+              f"{len(failed)} unavailable).")
+        print("[track] by_signal buckets are now computed with corrected boolean coercion.")
+    else:
+        grade()
