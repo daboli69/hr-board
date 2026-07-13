@@ -356,21 +356,45 @@ def _agg_metrics(rows: pd.DataFrame) -> dict:
     return out
 
 
+def game_day_cutoff(df: pd.DataFrame, asof: str, n_days: int = 14) -> "pd.Timestamp":
+    """Resolve "the last N GAME-days" to a real cutoff date.
+
+    Why this exists: the window used to be `asof - timedelta(days=14)` — 14 CALENDAR
+    days. That was identical to 14 game-days only because MLB plays nearly every day.
+    The All-Star break puts a ~4-day hole in the schedule, so a 14-calendar-day window
+    silently holds ~10 game-days: every hitter's batted-ball count drops ~30%, the
+    confidence discount pulls him toward the median, and every heat score compresses
+    for two weeks. Same failure (smaller) around any multi-day league-wide gap.
+
+    Counting actual dates on which games were played fixes it. Falls back to the
+    calendar cutoff if the frame is too short to supply N game-days.
+    """
+    from datetime import timedelta
+    asof_ts = pd.to_datetime(asof)
+    if df is None or df.empty or "game_date" not in df.columns:
+        return asof_ts - timedelta(days=n_days)
+    dates = pd.to_datetime(pd.Series(df["game_date"].unique()), errors="coerce").dropna()
+    dates = sorted(d for d in dates if d <= asof_ts)
+    if len(dates) < n_days:
+        return asof_ts - timedelta(days=n_days)      # not enough history; behave as before
+    return dates[-n_days]
+
+
 def batter_profiles(df: pd.DataFrame, batter_ids: list[int], asof: str,
                     recent_days: int = 14) -> dict:
     """
     For each batter: the headline RECENT line is the trailing `recent_days`
-    calendar days (your "last 2 weeks of play"). Also keep L5/L15/L30 game
-    windows + season for context in the expanded view.
+    GAME-days (dates on which MLB actually played) — not calendar days. See
+    game_day_cutoff() for why that distinction is load-bearing across the
+    All-Star break. Also keep L5/L15/L30 game windows + season for context.
     """
-    from datetime import timedelta
     out = {}
     sub = df[df["batter"].isin(batter_ids)].copy()
     sub["_gd"] = pd.to_datetime(sub["game_date"], errors="coerce")
-    cutoff = pd.to_datetime(asof) - timedelta(days=recent_days)
+    cutoff = game_day_cutoff(df, asof, recent_days)
     for bid, g in sub.groupby("batter"):
         season = _agg_metrics(g)
-        recent = _agg_metrics(g[g["_gd"] >= cutoff])   # trailing 2 weeks
+        recent = _agg_metrics(g[g["_gd"] >= cutoff])   # trailing 2 weeks of PLAY
         game_days = sorted(g["game_date"].unique(), reverse=True)
         windows = {"L14d": recent}
         for n in (5, 15, 30):
@@ -462,7 +486,7 @@ def pitcher_profiles(df: pd.DataFrame, pitcher_ids: list[int], asof: str,
     ids = [p for p in pitcher_ids if p]
     sub = df[df["pitcher"].isin(ids)].copy()
     sub["_gd"] = pd.to_datetime(sub["game_date"], errors="coerce")
-    cutoff = pd.to_datetime(asof) - timedelta(days=recent_days)
+    cutoff = game_day_cutoff(df, asof, recent_days)   # GAME-days, not calendar (break-proof)
     for pid, g in sub.groupby("pitcher"):
         season = _pitcher_metrics(g)
         recent = _pitcher_metrics(g[g["_gd"] >= cutoff])
@@ -484,7 +508,8 @@ def pitcher_profiles(df: pd.DataFrame, pitcher_ids: list[int], asof: str,
     return out
 
 
-def bullpen_profiles(df: pd.DataFrame, asof: str, recent_days: int = 14) -> dict:
+def bullpen_profiles(df: pd.DataFrame, asof: str, recent_days: int = 14,
+                     roles: dict | None = None) -> dict:
     """
     Per team: HR-vulnerability of the BULLPEN (all non-starter pitchers), season +
     trailing 2 weeks, with RHB/LHB platoon splits. Starters are identified as the
@@ -496,7 +521,7 @@ def bullpen_profiles(df: pd.DataFrame, asof: str, recent_days: int = 14) -> dict
         return {}
     work = df.copy()
     work["_gd"] = pd.to_datetime(work["game_date"], errors="coerce")
-    cutoff = pd.to_datetime(asof) - timedelta(days=recent_days)
+    cutoff = game_day_cutoff(df, asof, recent_days)   # GAME-days, not calendar (break-proof)
 
     # starter per (game_pk, half) = first pitcher of inning 1 that half
     inn1 = work[work["inning"] == 1].sort_values(["game_pk", "inning_topbot", "at_bat_number", "pitch_number"])
@@ -507,6 +532,14 @@ def bullpen_profiles(df: pd.DataFrame, asof: str, recent_days: int = 14) -> dict
     work["pitch_team"] = np.where(work["inning_topbot"].eq("Top"), work["home_team"], work["away_team"])
     work = work.merge(starter_df, on=["game_pk", "inning_topbot"], how="left")
     pen = work[work["pitcher"] != work["_starter"]]
+    # Exclude TRUE starters. A bulk starter following an opener throws "relief" innings by
+    # the per-game rule, and folding his quality into the pen score flatters teams that
+    # open — the hitter will not face him in the 7th-9th.
+    if roles is None:
+        roles = pitcher_roles(df)
+    if roles:
+        pen = pen[~pen["pitcher"].map(
+            lambda p: (roles.get(int(p)) or {}).get("role") == "SP" if p == p else False)]
 
     out = {}
     for team, g in pen.groupby("pitch_team"):
@@ -572,12 +605,87 @@ def career_table(start_season: int, end_season: int) -> dict:
     return out
 
 
-def bvp_table(df: pd.DataFrame) -> dict:
+def _tag_appearance_role(df: pd.DataFrame) -> pd.DataFrame:
+    """Add `_is_relief` to every row: was this pitch thrown in a RELIEF appearance?
+
+    The starter of each game/half is whoever threw the first pitch of the 1st inning.
+    Every other pitcher in that game/half is relieving *in that game*. This is a
+    per-APPEARANCE fact, not a per-pitcher fact — which is exactly the distinction
+    the old code lost.
+    """
+    work = df.copy()
+    inn1 = work[work["inning"] == 1].sort_values(
+        ["game_pk", "inning_topbot", "at_bat_number", "pitch_number"])
+    starters = (inn1.groupby(["game_pk", "inning_topbot"], as_index=False).first()
+                [["game_pk", "inning_topbot", "pitcher"]]
+                .rename(columns={"pitcher": "_starter"}))
+    work = work.merge(starters, on=["game_pk", "inning_topbot"], how="left")
+    work["_is_relief"] = work["pitcher"] != work["_starter"]
+    return work
+
+
+def pitcher_roles(df: pd.DataFrame) -> dict:
+    """{pid: {"starts": n, "relief": n, "role": "SP"|"RP"|"SWING"}}
+
+    Why this exists: role must be decided from a pitcher's SEASON of appearances, not
+    from a single game. The old logic ("not this game's starter -> reliever") put real
+    starters into the bullpen pool two ways:
+      * a starter making one spot relief appearance
+      * OPENERS — when a team opens, the bulk starter enters in the 2nd inning and is
+        classified as a reliever for that game
+
+    Once a starter was in the pen ID list, his HRs allowed AS A STARTER got counted as
+    "HR vs bullpen." This function is what stops that.
+    """
+    need = {"pitcher", "game_pk", "inning", "inning_topbot", "at_bat_number", "pitch_number"}
+    if df is None or df.empty or not need.issubset(df.columns):
+        return {}
+    w = _tag_appearance_role(df)
+    # one row per (pitcher, game) — role is constant within an appearance
+    app = (w.groupby(["pitcher", "game_pk"], as_index=False)["_is_relief"]
+           .first())
+    out = {}
+    for pid, g in app.groupby("pitcher"):
+        if pid != pid:
+            continue
+        relief = int(g["_is_relief"].sum())
+        total = int(len(g))
+        starts = total - relief
+        share = relief / total if total else 0.0
+        # A guy with 18 starts and 1 relief outing is a STARTER. A swingman who mostly
+        # comes out of the pen is a reliever. Threshold is deliberately strict on the
+        # starter side — false "reliever" labels are what caused the bug.
+        if starts >= 3 and share < 0.75:
+            role = "SP"
+        elif share >= 0.75:
+            role = "RP"
+        else:
+            role = "SWING"
+        out[int(pid)] = {"starts": starts, "relief": relief,
+                         "apps": total, "relief_share": round(share, 3), "role": role}
+    return out
+
+
+def bvp_table(df: pd.DataFrame, relief_only: bool = False) -> dict:
     """Season batter-vs-pitcher from the slate frame -> {(batter,pitcher): [pa, hr]}.
-    PAs are rows where `events` is set (the last pitch of a plate appearance)."""
+    PAs are rows where `events` is set (the last pitch of a plate appearance).
+
+    relief_only=True restricts to PAs that happened while the pitcher was RELIEVING.
+    That's what the "HR vs PEN" badge actually means — a homer off the bullpen, not a
+    homer off a guy who happens to appear in the pen list. Without this filter, a HR
+    hit off a starter in his start counts as a bullpen HR the moment that starter shows
+    up in the pen pool for any reason.
+    """
     if df is None or df.empty or "events" not in df.columns:
         return {}
-    pa = df[df["events"].notna()]
+    src = df
+    if relief_only:
+        need = {"game_pk", "inning", "inning_topbot", "at_bat_number", "pitch_number"}
+        if not need.issubset(df.columns):
+            return {}
+        src = _tag_appearance_role(df)
+        src = src[src["_is_relief"]]
+    pa = src[src["events"].notna()]
     if pa.empty:
         return {}
     grp = pa.groupby(["batter", "pitcher"])["events"]
@@ -591,27 +699,243 @@ def bvp_table(df: pd.DataFrame) -> dict:
     return out
 
 
-def bullpen_arms(df: pd.DataFrame, asof: str, recent_days: int = 21, min_pitches: int = 8) -> dict:
+def bullpen_arms(df: pd.DataFrame, asof: str, recent_days: int = 21, min_pitches: int = 8,
+                 roles: dict | None = None) -> dict:
     """Active relievers per team in the trailing window -> {team_abbr: [pitcher_id, ...]}.
-    Same starter-exclusion logic as bullpen_profiles."""
-    from datetime import timedelta
+
+    Filters to TRUE relievers using season-long role (pitcher_roles), not per-game role.
+    A starter who made one spot relief appearance — or a bulk starter who followed an
+    opener — is NOT a bullpen arm, and must not be, because this ID list is crossed with
+    a batter-vs-pitcher table downstream to produce the "HR vs PEN" badge.
+    """
     if df is None or df.empty or "inning" not in df.columns:
         return {}
+    if roles is None:
+        roles = pitcher_roles(df)
     work = df.copy()
     work["_gd"] = pd.to_datetime(work["game_date"], errors="coerce")
-    cutoff = pd.to_datetime(asof) - timedelta(days=recent_days)
-    inn1 = work[work["inning"] == 1].sort_values(["game_pk", "inning_topbot", "at_bat_number", "pitch_number"])
-    starter_df = (inn1.groupby(["game_pk", "inning_topbot"], as_index=False).first()
-                  [["game_pk", "inning_topbot", "pitcher"]].rename(columns={"pitcher": "_starter"}))
-    work["pitch_team"] = np.where(work["inning_topbot"].eq("Top"), work["home_team"], work["away_team"])
-    work = work.merge(starter_df, on=["game_pk", "inning_topbot"], how="left")
-    pen = work[(work["pitcher"] != work["_starter"]) & (work["_gd"] >= cutoff)]
+    cutoff = game_day_cutoff(df, asof, recent_days)   # GAME-days, not calendar (break-proof)
+    work = _tag_appearance_role(work)
+    work["pitch_team"] = np.where(work["inning_topbot"].eq("Top"),
+                                  work["home_team"], work["away_team"])
+    pen = work[work["_is_relief"] & (work["_gd"] >= cutoff)]
     out = {}
     for team, g in pen.groupby("pitch_team"):
         if not isinstance(team, str):
             continue
         counts = g.groupby("pitcher").size()
-        out[team] = [int(pid) for pid, n in counts.items() if n >= min_pitches]
+        arms = []
+        for pid, n in counts.items():
+            if n < min_pitches:
+                continue
+            r = (roles.get(int(pid)) or {}).get("role")
+            if r == "SP":                       # real starter — not a bullpen arm
+                continue
+            arms.append(int(pid))
+        out[team] = arms
+    return out
+
+
+def bullpen_availability(df: pd.DataFrame, asof: str, roles: dict | None = None) -> dict:
+    """Per team: which relievers are likely UNAVAILABLE tonight, and how gassed the
+    pen is overall.
+
+    The problem this solves: bullpen_profiles() averages every reliever on the roster.
+    But you don't face the roster — you face whoever isn't burnt. A pen that threw four
+    innings last night has its closer and setup men down, so the arms you actually see
+    are middle relief and mop-up guys, who are meaningfully more HR-prone. The model
+    was showing the same pen number either way.
+
+    Availability rules (standard MLB usage patterns, not fitted):
+      * threw on BOTH of the last two days      -> out
+      * threw 35+ pitches yesterday             -> out
+      * threw 3 of the last 4 days              -> out
+      * threw 25+ pitches on each of last 2 days-> out
+
+    Returns {team: {"unavailable": [ids], "available": [ids], "pen_pitches_l1": n,
+                    "pen_pitches_l2": n, "fatigue": 0-100, "label": str}}
+    Degrades to empty on any failure — callers must treat it as optional.
+    """
+    need = {"game_date", "pitcher", "inning", "inning_topbot",
+            "home_team", "away_team", "at_bat_number", "pitch_number"}
+    if df is None or df.empty or not need.issubset(df.columns):
+        return {}
+    work = df.copy()
+    work["_gd"] = pd.to_datetime(work["game_date"], errors="coerce")
+    asof_ts = pd.to_datetime(asof)
+    # only the last 4 days of play matter for availability
+    played = sorted({d for d in work["_gd"].dropna().unique() if d < asof_ts})
+    if not played:
+        return {}
+    last4 = played[-4:]
+    day_rank = {d: i for i, d in enumerate(reversed(last4))}   # 0 = most recent
+
+    inn1 = work[work["inning"] == 1].sort_values(
+        ["game_pk", "inning_topbot", "at_bat_number", "pitch_number"])
+    starters = (inn1.groupby(["game_pk", "inning_topbot"], as_index=False).first()
+                [["game_pk", "inning_topbot", "pitcher"]].rename(columns={"pitcher": "_starter"}))
+    work["pitch_team"] = np.where(work["inning_topbot"].eq("Top"),
+                                  work["home_team"], work["away_team"])
+    work = work.merge(starters, on=["game_pk", "inning_topbot"], how="left")
+    pen = work[(work["pitcher"] != work["_starter"]) & (work["_gd"].isin(last4))]
+    if pen.empty:
+        return {}
+    # true relievers only — a starter's spot relief outing is bullpen USAGE but he is
+    # not a bullpen ARM, and counting him distorts both the roster count and fatigue
+    if roles is None:
+        roles = pitcher_roles(df)
+    if roles:
+        pen = pen[~pen["pitcher"].map(
+            lambda p: (roles.get(int(p)) or {}).get("role") == "SP"
+            if p == p else False)]
+        if pen.empty:
+            return {}
+
+    out = {}
+    for team, g in pen.groupby("pitch_team"):
+        if not isinstance(team, str):
+            continue
+        # pitches thrown per reliever per day
+        per = g.groupby(["pitcher", "_gd"]).size().reset_index(name="pitches")
+        per["rank"] = per["_gd"].map(day_rank)
+        unavailable, available = [], []
+        for pid, pg in per.groupby("pitcher"):
+            ranks = set(pg["rank"].tolist())
+            by_rank = dict(zip(pg["rank"], pg["pitches"]))
+            y = by_rank.get(0, 0)              # yesterday
+            d2 = by_rank.get(1, 0)             # two days ago
+            back2back = 0 in ranks and 1 in ranks
+            three_of_four = len(ranks & {0, 1, 2, 3}) >= 3
+            out_flag = (
+                back2back
+                or y >= 35
+                or three_of_four
+                or (y >= 25 and d2 >= 25)
+            )
+            (unavailable if out_flag else available).append(int(pid))
+        l1 = int(per[per["rank"] == 0]["pitches"].sum())
+        l2 = int(per[per["rank"].isin([0, 1])]["pitches"].sum())
+        total_arms = len(unavailable) + len(available)
+        # fatigue: share of the pen that's down, weighted by recent workload
+        share_out = (len(unavailable) / total_arms) if total_arms else 0.0
+        load = min(1.0, l2 / 120.0)            # 120 pen pitches over 2 days = heavy
+        fatigue = round(100 * (0.65 * share_out + 0.35 * load), 1)
+        label = ("GASSED" if fatigue >= 55 else
+                 "WORN" if fatigue >= 35 else
+                 "RESTED" if fatigue <= 15 else "NORMAL")
+        out[team] = {
+            "unavailable": unavailable,
+            "available": available,
+            "n_out": len(unavailable),
+            "n_arms": total_arms,
+            "pen_pitches_l1": l1,
+            "pen_pitches_l2": l2,
+            "fatigue": fatigue,
+            "label": label,
+        }
+    return out
+
+
+def bullpen_profiles_available(df: pd.DataFrame, asof: str, avail: dict,
+                               recent_days: int = 14, roles: dict | None = None) -> dict:
+    """Same as bullpen_profiles(), but each team's pen is rebuilt from ONLY the arms
+    likely available tonight (per bullpen_availability). This is the number that
+    actually describes what a hitter will face in the 7th-9th — the full-roster
+    average silently includes a closer who is unavailable.
+
+    Returns {} on failure; the caller keeps the full-pen number as the fallback."""
+    if not avail or df is None or df.empty:
+        return {}
+    try:
+        work = df.copy()
+        work["_gd"] = pd.to_datetime(work["game_date"], errors="coerce")
+        cutoff = game_day_cutoff(df, asof, recent_days)
+        inn1 = work[work["inning"] == 1].sort_values(
+            ["game_pk", "inning_topbot", "at_bat_number", "pitch_number"])
+        starters = (inn1.groupby(["game_pk", "inning_topbot"], as_index=False).first()
+                    [["game_pk", "inning_topbot", "pitcher"]].rename(columns={"pitcher": "_starter"}))
+        work["pitch_team"] = np.where(work["inning_topbot"].eq("Top"),
+                                      work["home_team"], work["away_team"])
+        work = work.merge(starters, on=["game_pk", "inning_topbot"], how="left")
+        pen = work[work["pitcher"] != work["_starter"]]
+        if roles is None:
+            roles = pitcher_roles(df)
+        if roles:
+            pen = pen[~pen["pitcher"].map(
+                lambda p: (roles.get(int(p)) or {}).get("role") == "SP" if p == p else False)]
+        out = {}
+        for team, info in avail.items():
+            ok = set(info.get("available") or [])
+            if len(ok) < 3:                     # too few arms to be meaningful
+                continue
+            g = pen[(pen["pitch_team"] == team) & (pen["pitcher"].isin(ok))]
+            if g.empty:
+                continue
+            g_recent = g[g["_gd"] >= cutoff]
+            entry = {"season": _pitcher_metrics(g), "recent": _pitcher_metrics(g_recent)}
+            for hand in ("R", "L"):
+                entry[f"vs_{hand}"] = {
+                    "season": _pitcher_metrics(g[g["stand"] == hand]),
+                    "recent": _pitcher_metrics(g_recent[g_recent["stand"] == hand]),
+                }
+            entry["n_arms"] = len(ok)
+            out[team] = entry
+        return out
+    except Exception:
+        return {}
+
+
+def team_changes(df: pd.DataFrame, asof: str, lookback_days: int = 45) -> dict:
+    """Detect players who changed teams (trade / waiver / callup to a new org).
+
+    Why it matters: a traded hitter's trailing profile is PARK-CONTAMINATED. A guy
+    who spent three months in Coors and got dealt to Miami carries inflated power
+    numbers into a park that suppresses them. The model reads his hot 14-day line and
+    has no idea half of it happened at altitude. Same in reverse for pitchers.
+
+    Detection: the batting team on each of a player's PAs. If the most recent team
+    differs from the team he played for earlier in the window, he moved.
+
+    Returns {player_id: {"from": "COL", "to": "MIA", "games_with_new": n,
+                         "first_game_new": "2026-08-02"}}
+    """
+    need = {"batter", "game_date", "inning_topbot", "home_team", "away_team"}
+    if df is None or df.empty or not need.issubset(df.columns):
+        return {}
+    from datetime import timedelta
+    work = df.copy()
+    work["_gd"] = pd.to_datetime(work["game_date"], errors="coerce")
+    cut = pd.to_datetime(asof) - timedelta(days=lookback_days)
+    work = work[(work["_gd"] >= cut) & work["batter"].notna()]
+    if work.empty:
+        return {}
+    work["bteam"] = np.where(work["inning_topbot"].eq("Top"),
+                             work["away_team"], work["home_team"])
+    out = {}
+    for bid, g in work.groupby("batter"):
+        by_day = (g.groupby("_gd")["bteam"]
+                  .agg(lambda s: s.value_counts().index[0])
+                  .sort_index())
+        teams = list(by_day.values)
+        if len(set(teams)) < 2:
+            continue
+        newest = teams[-1]
+        # walk back to the first day he appeared for the new team, contiguously
+        i = len(teams) - 1
+        while i >= 0 and teams[i] == newest:
+            i -= 1
+        if i < 0:
+            continue                                   # never played for anyone else
+        old = teams[i]
+        if old == newest:
+            continue
+        first_new = by_day.index[i + 1]
+        out[int(bid)] = {
+            "from": str(old),
+            "to": str(newest),
+            "games_with_new": int(len(teams) - 1 - i),
+            "first_game_new": str(first_new.date()),
+        }
     return out
 
 

@@ -467,6 +467,61 @@
   .ab-badges{margin-top:2px}
   .arm-batters-foot{margin-top:8px;padding-top:6px;border-top:1px solid var(--line);font-size:11px}
   .arm-batters-foot a{color:var(--seam);text-decoration:none}
+  .pctl{font-family:"IBM Plex Mono";font-size:8px;font-weight:700;padding:0 3px;border-radius:3px;
+    vertical-align:1px;margin-left:2px;letter-spacing:0}
+  .pctl.elite{color:#E4572E;background:rgba(228,87,46,.13)}
+  .pctl.good{color:#E0913A;background:rgba(224,145,58,.12)}
+  .pctl.mid{color:var(--muted);background:var(--panel-2)}
+  .pctl.low{color:var(--faint);background:transparent}
+  .qs{background:linear-gradient(180deg,rgba(200,71,43,.09),rgba(200,71,43,.03));
+    border:1px solid rgba(200,71,43,.35);border-radius:12px;padding:14px 16px;margin:0 0 20px}
+  .qs h3{margin-top:0!important;border:none!important;padding:0!important;color:var(--seam)!important}
+  .qs ol{margin:8px 0 0;padding-left:20px}
+  .qs li{font-size:13px;line-height:1.7;color:var(--ink);margin-bottom:7px}
+  .qs li b{color:var(--seam)}
+  /* ---- Edge Finder ---- */
+  .edge-lead{font-size:12px;color:var(--muted);line-height:1.6;background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;padding:11px 13px;margin:0 4px 12px}
+  .edge-lead b{color:var(--ink)}
+  .edge-sum{background:var(--panel-2);border:1px solid var(--line);border-left:3px solid var(--muted);
+    border-radius:8px;padding:10px 12px;margin:0 4px 14px;font-size:13px;color:var(--ink)}
+  .edge-sum.good{border-left-color:var(--good);background:rgba(120,178,145,.07)}
+  .edge-sum b{font-family:"IBM Plex Mono";font-weight:800}
+  .edge-sum span{display:block;font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5}
+  .edge-h{font-family:Archivo;font-weight:700;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--faint);margin:16px 4px 7px}
+  .edge-row{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin:0 4px 7px;
+    content-visibility:auto;contain-intrinsic-size:auto 128px}
+  .edge-row.is-pos{border-color:rgba(120,178,145,.5);background:rgba(120,178,145,.05)}
+  .edge-row.is-neg{opacity:.62}
+  .edge-hd{display:grid;grid-template-columns:38px 1fr auto;gap:9px;align-items:center}
+  .edge-heat{font-family:Archivo;font-weight:800;font-size:13px;text-align:center;padding:6px 0;border-radius:7px;color:var(--ink);line-height:1}
+  .edge-nm b{font-family:Archivo;font-weight:700;font-size:13.5px;color:var(--ink)}
+  .edge-nm .badges{margin-top:2px}
+  .edge-meta{font-size:10px;color:var(--muted);margin-top:1px}
+  .edge-ev{font-family:"IBM Plex Mono";font-weight:800;font-size:12.5px;white-space:nowrap}
+  .edge-ev.pos{color:var(--good)} .edge-ev.neg{color:var(--bad)}
+  .edge-need{font-size:11.5px;color:var(--muted);margin-top:8px;font-family:"IBM Plex Mono"}
+  .edge-need b{color:var(--ink);font-weight:700}
+  .en-lbl{color:var(--faint);font-size:10px;text-transform:uppercase;letter-spacing:.04em}
+  .en-sep{color:var(--line);margin:0 5px}
+  .en-be{color:var(--seam)!important}
+  .edge-cmp{font-size:11px;color:var(--muted);margin-top:4px;font-family:"IBM Plex Mono"}
+  .edge-cmp b{color:var(--ink)}
+  .edge-cmp b.pos{color:var(--good)} .edge-cmp b.neg{color:var(--bad)}
+  .edge-in{display:flex;align-items:center;gap:8px;margin-top:8px}
+  .ei-lbl{font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em}
+  .ei-input{width:82px;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;
+    color:var(--ink);font-family:"IBM Plex Mono";font-weight:700;font-size:13px;padding:6px 8px;text-align:center}
+  .ei-input:focus{outline:none;border-color:var(--seam)}
+  .ei-input::placeholder{color:var(--faint);font-weight:400}
+  .ei-x{background:none;border:none;color:var(--faint);font-size:10px;text-decoration:underline;padding:4px}
+  /* bullpen availability + traded flags */
+  .penlive{display:flex;align-items:flex-start;gap:7px;margin-top:6px;padding:6px 8px;background:var(--panel-2);border:1px solid var(--line);border-radius:7px}
+  .pl-tag{flex:none;font-family:"IBM Plex Mono";font-size:8.5px;font-weight:800;letter-spacing:.05em;padding:2px 6px;border-radius:4px;border:1px solid;background:transparent}
+  .pl-txt{font-size:10.5px;color:var(--muted);line-height:1.5}
+  .tradedbox{display:flex;align-items:flex-start;gap:7px;margin:2px 0 9px;padding:8px 10px;background:rgba(224,145,58,.07);border:1px solid rgba(224,145,58,.3);border-radius:8px}
+  .tr-tag{flex:none;font-family:"IBM Plex Mono";font-size:8.5px;font-weight:800;letter-spacing:.05em;padding:2px 6px;border-radius:4px;color:var(--hot);border:1px solid rgba(224,145,58,.45);background:rgba(224,145,58,.1)}
   /* Game Lines (run model) */
   .ml-row{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:0 4px 7px}
   .ml-head{display:flex;justify-content:space-between;align-items:baseline;font-size:14px;color:var(--ink)}
@@ -868,6 +923,19 @@
       <p class="faq-lead">A daily board that ranks hitters on how likely they are to go yard, using free Statcast + MLB data. Everything updates itself through the day — no input needed. It's a research tool, not betting advice.</p>
       <div class="legend faq-legend"><span class="lg-scale"><span>cool</span><div class="grad"></div><span>elite</span></span><span class="lg-note">Heat color scale · metric chips turn orange when they clear the "good" mark.</span></div>
 
+      <div class="qs">
+        <h3>Start here — you don't need to know baseball</h3>
+        <ol>
+          <li>Open the <b>Board</b>. It's every hitter playing today, ranked. The big number is <b>Heat</b> — how hard and how well this guy has been hitting the ball for the last two weeks. Higher is better.</li>
+          <li>Go to the <b>Bets</b> tab → <b>Find Edge</b>. This is the one that matters.</li>
+          <li>Each hitter shows a line like <b>"bet only if +550 or longer."</b> Open your sportsbook, find that hitter's home run price, and compare.</li>
+          <li>If the book's number is <b>bigger</b> than the one shown (+600 beats +550), type it in. The app tells you if it's a good bet.</li>
+          <li>If the book's number is <b>smaller</b> (+400 is worse than +550), <b>skip it</b> — even if he's the hottest hitter on the board.</li>
+        </ol>
+        <p style="margin-top:10px;font-size:12px;color:var(--muted)"><b style="color:var(--ink)">That last point is the whole thing.</b> A great hitter at a bad price loses money. A mediocre hitter at a great price makes money. The app exists to tell you which is which — the Heat number finds the hitters, the price decides the bet.</p>
+        <p style="margin-top:8px;font-size:12px;color:var(--muted)">Most days, <b style="color:var(--ink)">the honest answer is "no bet."</b> Books price home runs pretty well. Passing is a decision, not a failure.</p>
+      </div>
+
       <h3>The board</h3>
       <p><b>Heat (0–100)</b> ranks each hitter on six power signals over the last 2 weeks — Pull-air%, Barrel%, ISO, Exit Velo, Ideal Attack Angle%, SLG — then nudges for the opposing pitcher's vulnerability. Higher = better HR spot. The chip runs blue (cold) → orange (elite).</p>
       <p>The <b>four cells</b> (Pull / EV / Brl / IAA) show those signals at a glance — orange means it cleared the "good" mark, blue means below. <b>Tap any column header</b> (HEAT, PULL, EV, BRL, IAA) to re-sort the whole slate by that stat — that's how you find a low-Heat guy who's elite in one area.</p>
@@ -930,7 +998,13 @@
       <h3>How to Bet</h3>
       <p>The <b>HOW TO BET</b> button in the header opens a guide that <b>rewrites itself from your own tracker data</b>. It sorts every signal into buckets — <b>use</b> (big enough sample, real lift), <b>tiebreak</b> (real sample, thin edge), <b>watch</b> (interesting but not enough data yet), <b>fade</b> (actually negative), <b>ignore</b> (too thin to say). As your sample grows the guide changes. It is not static advice; it's whatever your data currently supports.</p>
 
-      <h3>Bets</h3>
+      <h3>Bets — Find Edge</h3>
+      <p>The tab that turns the model into a decision. Every hitter shows the model's probability and the <b>worst price you can take and still break even</b>. Type in what your book is posting and it computes the expected value instantly, then sorts everything by it.</p>
+      <p><b>Why this exists:</b> beating the base rate is not the same as making money. A hitter the model likes at 17% needs <b>+488 or longer</b> to break even. Books post home run props at +300 to +450. So a 17% hitter at +400 is a <b>losing bet</b> — you'd be paying 20 cents for something worth 17. Meanwhile a 12.5% hitter at +800 is <i>profitable</i>, because the book is paying you for 11% when the true odds are 12.5%.</p>
+      <p>That inversion is the entire game, and it's why the hottest hitter on the board is frequently the worst bet on the board. Prices you enter clear automatically each new slate.</p>
+      <p><b>The caveat that matters:</b> a positive EV number is only as trustworthy as the model's calibration. Until the Tracker shows that a stated 17% actually converts near 17%, these are <i>candidates</i>, not green lights.</p>
+
+      <h3>Bets — My Bets</h3>
       <p>Your private bet log — stored only on this device, nothing leaves your phone. Log each bet, pick the player(s) from today's board (their badges and Heat are captured automatically), then after games mark each as <b>HR ✓</b> or <b>no HR</b> and set the result. Over time it shows your record, net, and ROI — plus the payoff feature: <b>HR rate by badge</b>, so you learn which badges actually convert for you (does HOT homer more than MAY COOL?) and which are noise.</p>
 
       <h3>Freshness</h3>
@@ -1140,6 +1214,65 @@ const TIER_META={
 };
 const SIG_LABEL={pull_air_pct:"Pull-air%",barrel_pct:"Barrel%",iso:"ISO",avg_ev:"Exit velo",
   ideal_aa_pct:"Ideal attack angle",slg:"SLG",hardhit_pct:"Hard-hit%",launch_angle:"Launch angle"};
+
+// Bullpen availability: the pen he'll ACTUALLY face tonight, after removing arms
+// burnt by recent usage. The full-roster score includes a closer who can't pitch.
+function penLive(p){
+  const pl=p.opp_pen_live;
+  if(!pl||pl.fatigue==null) return "";
+  const lab=pl.label||"NORMAL";
+  const col = lab==="GASSED"?"var(--seam)": lab==="WORN"?"var(--hot)": lab==="RESTED"?"var(--good)":"var(--muted)";
+  const d=pl.delta;
+  const dTxt = d==null?"" : d>0
+    ? ` — available arms grade <b style="color:var(--bad)">+${d}</b> more HR-prone than the full pen`
+    : d<0 ? ` — available arms grade <b style="color:var(--good)">${d}</b> (tougher than the full-pen number)`
+    : "";
+  return `<div class="penlive">
+    <span class="pl-tag" style="color:${col};border-color:${col}">${lab}</span>
+    <span class="pl-txt">${pl.n_out||0} of ${pl.n_arms||0} arms likely unavailable · ${pl.pen_pitches_l2||0} pen pitches last 2 days${
+      pl.score!=null?` · <b style="color:var(--ink)">live pen ${pl.score}/100</b>`:""}${dTxt}</span>
+  </div>`;
+}
+
+// Traded player: trailing profile is park-contaminated until the new sample builds
+function tradedNote(p){
+  const t=p.traded;
+  if(!t) return "";
+  const thin = (t.games_with_new||0) < 10;
+  return `<div class="tradedbox">
+    <span class="tr-tag">TRADED</span>
+    <span class="pl-txt"><b>${t.from} → ${t.to}</b> · ${t.games_with_new} game${t.games_with_new===1?"":"s"} with ${t.to}${
+      thin?` — <b style="color:var(--bad)">his 14-day line is mostly ${t.from} data</b>, recorded in a different park. Treat the power numbers with suspicion until the new sample builds.`
+          :` — new-team sample is filling in; profile is getting cleaner.`}</span>
+  </div>`;
+}
+
+// Percentile of a stat among today's starters — a decent stand-in for "MLB regulars".
+// Gives raw numbers meaning: "barrel 14.2%" means nothing to most people; "14.2% (88th)"
+// tells you instantly that it's elite. Cached per stat key per board.
+let _PCTL=null;
+function pctlOf(key, val){
+  if(val==null||!BOARD||!BOARD.players) return null;
+  if(!_PCTL) _PCTL={};
+  if(!_PCTL[key]){
+    const vals=BOARD.players
+      .map(p=>(p.metrics&&p.metrics[key]&&p.metrics[key].recent))
+      .filter(v=>v!=null&&isFinite(v))
+      .sort((a,b)=>a-b);
+    _PCTL[key]=vals.length>=30?vals:null;
+  }
+  const arr=_PCTL[key];
+  if(!arr) return null;
+  let lo=0, hi=arr.length;
+  while(lo<hi){ const m=(lo+hi)>>1; if(arr[m]<val) lo=m+1; else hi=m; }
+  return Math.round(100*lo/arr.length);
+}
+function pctlChip(key, val){
+  const q=pctlOf(key,val);
+  if(q==null) return "";
+  const cls = q>=85?"elite" : q>=65?"good" : q>=35?"mid" : "low";
+  return `<span class="pctl ${cls}">${q}${q%10===1&&q%100!==11?"st":q%10===2&&q%100!==12?"nd":q%10===3&&q%100!==13?"rd":"th"}</span>`;
+}
 
 function tierBlock(p){
   const t=p.tier;
@@ -1666,7 +1799,7 @@ function render(){
     CORE.forEach(m=>{
       const cell=p.metrics[m.k]||{};
       strip+=`<div class="mcell">
-        <div class="k">${m.label}</div>
+        <div class="k">${m.label} ${pctlChip(m.k, cell.recent)}</div>
         <div class="r" style="background:${threshTint(cell.recent,m)}">${m.fmt(cell.recent)}</div>
         <div class="sc">${m.fmt(cell.season)} · ${m.fmt(cell.career)}</div>
       </div>`;
@@ -1725,6 +1858,7 @@ function render(){
           <h4 style="margin-top:16px">Opposing bullpen — HR vulnerability
             <span style="color:${p.opp_bullpen.form?p.opp_bullpen.form.color:'var(--muted)'}">${p.opp_bullpen.score}/100${p.opp_bullpen.form?` · ${p.opp_bullpen.form.label}`:''}</span></h4>
           <div style="font-size:11px;color:var(--muted)">${p.opp_bullpen.arms||'?'} relievers${p.opp_bullpen.vs_hand!=null?` · <b style="color:var(--seam)">vs ${op.vs_hand||p.bats}HB (this hitter): ${p.opp_bullpen.vs_hand}</b>`:''}${p.opp_bullpen.platoon&&p.opp_bullpen.platoon.worse?` · pen mashed by ${p.opp_bullpen.platoon.worse==='R'?'RHB':'LHB'} (R ${p.opp_bullpen.platoon.R??'–'} / L ${p.opp_bullpen.platoon.L??'–'})`:''}</div>
+          ${penLive(p)}
           ${p.opp_bullpen.flags&&p.opp_bullpen.flags.length?`<div class="arm" style="margin-top:6px">pen flags: ${p.opp_bullpen.flags.join(' · ')}</div>`:''}`:''}
     ` : `<div class="arm"><b>Opposing arm:</b> ${op.name||'—'}</div>`;
 
@@ -1761,6 +1895,7 @@ function render(){
         ${bullBear(p)}
         ${(function(){try{const ms=hitterScore(p,_R,_BR);return `<div class="odds-line">Model odds <b>${(ms.prob*100).toFixed(0)}%</b> · <b>${americanFair(ms.prob)}</b><span>this model only — heat · trend · pitch mix · park+weather · contact luck · your tag history. Fair value, independent of any book; compare it to the posted line to find where they disagree.</span></div>`;}catch(e){return "";}})()}
         ${p.angle?`<div class="angle">${p.angle}</div>`:""}
+        ${tradedNote(p)}
         ${tierBlock(p)}
         ${badgeChips(p)}
         <div class="matchup" style="margin-bottom:10px">${p.team} vs ${p.opp_team} · ${timeStr(p.time)} · ${p.park||""} · park ${fmt(p.park_hr_factor,2)}× · ${armBadge}</div>
@@ -1835,7 +1970,7 @@ function renderView(){
   const safe=fn=>{ try{ fn(); }catch(e){ console.error("render",e);
     const m=document.getElementById("main");
     if(m) m.innerHTML=`<div class="empty">This tab hit a snag rendering today's data — the rest of the app is fine.<br>Tap another tab or check back after the next board update.</div>`; } };
-  if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="matchup") safe(renderMatchup); else if(view==="stacks") safe(renderStacks); else if(view==="bets") safe(renderBets); else if(view==="weather") safe(renderWeather); else safe(render);
+  if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="matchup") safe(renderMatchup); else if(view==="stacks") safe(renderStacks); else if(view==="bets") safe(renderBetsTab); else if(view==="weather") safe(renderWeather); else safe(render);
 }
 
 // Weather dashboard: today's slate, one card per game — conditions, roof call,
@@ -2052,10 +2187,116 @@ function importData(inp){
   };
   r.readAsText(f);
 }
+let betsView = "edge";   // "edge" = find +EV plays · "log" = your bet history
+
+function renderBetsTab(){
+  if(betsView==="edge") renderEdge(); else renderBets();
+}
+
+function setBetsView(v){ betsView=v; renderBetsTab(); }
+
+function renderEdge(){
+  const main=document.getElementById("main");
+  const prices=oddsGet();
+  const subTabs=`<div class="prop-subtabs" style="margin-bottom:12px">
+    <button class="${betsView==='edge'?'on':''}" onclick="setBetsView('edge')">Find Edge</button>
+    <button class="${betsView==='log'?'on':''}" onclick="setBetsView('log')">My Bets</button>
+  </div>`;
+
+  if(!BOARD||!BOARD.players||!BOARD.players.length){
+    main.innerHTML=`<div class="betswrap">${subTabs}<div class="empty">No slate today.</div></div>`;
+    return;
+  }
+  // Candidate pool: anyone with real HR upside. Deliberately generous — the POINT is
+  // that a mid-heat hitter at a long price can be a better bet than a top-heat hitter
+  // at a short one. Price decides, not heat.
+  // hitterScore needs tracker-derived rates; render() computes these locally so we
+  // must derive them here too rather than reaching for its scope.
+  const R=trackerRates(), BR=betRates();
+  const cands=BOARD.players
+    .filter(p=>p.lineup_status!=="out" && p.heat!=null && p.heat>=40)
+    .map(p=>{
+      let ms=null; try{ ms=hitterScore(p,R,BR); }catch(e){}
+      const prob = ms?ms.prob:null;
+      const price = prices[p.id];
+      const ev = (prob!=null && price!=null && price!=="") ? evPerDollar(prob, price) : null;
+      const imp = (price!=null && price!=="") ? impliedProb(price) : null;
+      return {p, prob, price, ev, imp, edge: (prob!=null&&imp!=null)?(prob-imp):null};
+    })
+    .filter(x=>x.prob!=null);
+
+  // priced plays sort by EV (the actual decision metric); unpriced sort by model prob
+  const priced=cands.filter(x=>x.ev!=null).sort((a,b)=>b.ev-a.ev);
+  const unpriced=cands.filter(x=>x.ev==null).sort((a,b)=>b.prob-a.prob).slice(0,40);
+
+  const plus=priced.filter(x=>x.ev>0);
+  const summary = priced.length
+    ? `<div class="edge-sum ${plus.length?'good':''}">
+         <b>${plus.length}</b> of <b>${priced.length}</b> priced play${priced.length===1?"":"s"} show positive expected value
+         ${plus.length?`<span>Best: ${plus[0].p.name} at ${fmtAm(plus[0].price)} — model says ${(plus[0].prob*100).toFixed(0)}%, the book implies ${(plus[0].imp*100).toFixed(0)}%</span>`
+                      :`<span>Every price you entered is short of fair value. That is the normal result — most HR props are priced at or below fair. Not betting is a decision.</span>`}
+       </div>`
+    : "";
+
+  const row=(x, ranked)=>{
+    const p=x.p;
+    const be=breakevenAmerican(x.prob);
+    const hasPrice = x.price!=null && x.price!=="";
+    const good = x.ev!=null && x.ev>0;
+    const evTxt = x.ev!=null
+      ? `<span class="edge-ev ${good?'pos':'neg'}">${good?"+":""}${(x.ev*100).toFixed(1)}% EV</span>`
+      : "";
+    const impTxt = x.imp!=null
+      ? `<div class="edge-cmp">model <b>${(x.prob*100).toFixed(0)}%</b> vs book <b>${(x.imp*100).toFixed(0)}%</b> · edge <b class="${good?'pos':'neg'}">${x.edge>=0?"+":""}${(x.edge*100).toFixed(1)}pp</b></div>`
+      : "";
+    return `<div class="edge-row ${good?'is-pos':hasPrice?'is-neg':''}">
+      <div class="edge-hd">
+        <span class="edge-heat" style="background:${chipColor(p.heat)}">${p.heat}</span>
+        <div class="edge-nm"><b>${p.name}</b>${badgeChips(p,3)}
+          <div class="edge-meta">${p.team} vs ${p.opp_team} · ${timeStr(p.time)}${p.tier?` · ${p.tier}`:""}</div>
+        </div>
+        ${evTxt}
+      </div>
+      <div class="edge-need">
+        <span class="en-lbl">model</span> <b>${(x.prob*100).toFixed(0)}%</b>
+        <span class="en-sep">·</span>
+        <span class="en-lbl">bet only if</span> <b class="en-be">${be} or longer</b>
+      </div>
+      ${impTxt}
+      <div class="edge-in">
+        <span class="ei-lbl">book price</span>
+        <input type="text" inputmode="text" placeholder="+450" value="${hasPrice?String(x.price).replace(/"/g,''):""}"
+               onchange="oddsPut(${p.id}, this.value.trim())"
+               onblur="oddsPut(${p.id}, this.value.trim())" class="ei-input"/>
+        ${hasPrice?`<button class="ei-x" onclick="oddsPut(${p.id},'')">clear</button>`:""}
+      </div>
+    </div>`;
+  };
+
+  main.innerHTML=`<div class="betswrap">
+    ${subTabs}
+    <div class="edge-lead"><b>A hot hitter is not a bet. A hot hitter at a long enough price is.</b>
+      Enter what your book is posting and this tells you whether the number beats fair value.
+      Every hitter shows the <b>worst price you can take and still break even</b> — anything shorter loses money over time, no matter how hot he is.</div>
+    ${summary}
+    ${priced.length?`<div class="edge-h">Priced — sorted by expected value</div>${priced.map(x=>row(x,true)).join("")}`:""}
+    <div class="edge-h">${priced.length?"Not yet priced":"Top candidates"} — enter a price to check it</div>
+    ${unpriced.map(x=>row(x,false)).join("")}
+    ${Object.keys(prices).length?`<div class="bk-row" style="margin-top:14px"><button class="chip" onclick="oddsClear()">Clear all prices</button><span class="bk-note">prices clear automatically each new slate</span></div>`:""}
+    <div class="prop-note" style="margin-top:14px"><b>The honest caveat.</b> A positive EV number here is only as good as the model's calibration. Until the Tracker shows that a stated 17% actually converts at 17%, treat these as <i>candidates</i>, not green lights. Check the calibration table before you size anything up.</div>
+  </div>`;
+}
+
+function fmtAm(v){ const n=parseFloat(v); if(!isFinite(n)) return String(v); return n>0?`+${n}`:`${n}`; }
+
 function renderBets(){
   const main=document.getElementById("main");
   const bets=loadBets().sort((a,b)=>(b.date||"").localeCompare(a.date||"")||(b.id-a.id));
   main.innerHTML=`<div class="betswrap">
+    <div class="prop-subtabs" style="margin-bottom:12px">
+      <button class="${betsView==='edge'?'on':''}" onclick="setBetsView('edge')">Find Edge</button>
+      <button class="${betsView==='log'?'on':''}" onclick="setBetsView('log')">My Bets</button>
+    </div>
     <div class="bk-row">
       <button class="chip" onclick="exportData()">⬇ Backup bets</button>
       <button class="chip" onclick="document.getElementById('impFile').click()">⬆ Restore</button>
@@ -2273,6 +2514,53 @@ function americanFair(prob){
   const dec=1/prob;
   return dec>=2 ? "+"+Math.round((dec-1)*100) : "-"+Math.round(100/(dec-1));
 }
+
+// ---------- Edge Finder: turn a model probability into a bet decision ----------
+// The model says a hitter is 17% to go deep. That is NOT a bet — it is a bet only if
+// the book prices him longer than fair value. Fair for 17% is +488; books post HR props
+// at +300 to +450, which means most "hot" hitters are LOSING bets at the posted number.
+// This surface does that comparison for you instead of making you do it 270 times.
+function americanToDecimal(a){
+  const n=parseFloat(a);
+  if(!isFinite(n)||n===0) return null;
+  return n>0 ? 1 + n/100 : 1 + 100/Math.abs(n);
+}
+function impliedProb(a){
+  const d=americanToDecimal(a);
+  return d ? 1/d : null;
+}
+// EV per $1 staked at these odds given the model's probability
+function evPerDollar(modelProb, american){
+  const d=americanToDecimal(american);
+  if(!d) return null;
+  return modelProb*(d-1) - (1-modelProb);
+}
+// The minimum American price at which this play stops losing money.
+function breakevenAmerican(prob){
+  if(prob<=0||prob>=1) return "—";
+  const dec=1/prob;
+  return dec>=2 ? "+"+Math.ceil((dec-1)*100) : "-"+Math.floor(100/(dec-1));
+}
+
+// entered book prices, keyed to the slate so they clear with the day
+function oddsGet(){
+  try{
+    const raw=JSON.parse(localStorage.getItem("gy_odds")||"null");
+    if(!raw||raw.date!==(BOARD&&BOARD.slate_date)) return {};
+    return raw.prices||{};
+  }catch(e){ return {}; }
+}
+function oddsSet(prices){
+  try{ localStorage.setItem("gy_odds", JSON.stringify({date:(BOARD&&BOARD.slate_date)||null, prices})); }catch(e){}
+}
+function oddsPut(id, val){
+  const p=oddsGet();
+  if(val===""||val==null) delete p[id]; else p[id]=val;
+  oddsSet(p);
+  renderEdge();
+}
+function oddsClear(){ try{localStorage.removeItem("gy_odds");}catch(e){} renderEdge(); }
+
 
 // Variety-first selection: one hitter per game, a cap on how many "chalk" (top-of-board)
 // legs are allowed, and optional odds bands so a parlay spreads across safe/medium/longshot

@@ -131,17 +131,54 @@ def build(date_str: str | None = None) -> dict:
     profiles = statcast_data.batter_profiles(df, batter_ids, date_str)
     bb_samples = statcast_data.batted_ball_sample(df, batter_ids)
     pitch_profiles = statcast_data.pitcher_profiles(df, pitcher_ids, date_str)
-    bullpens = statcast_data.bullpen_profiles(df, date_str)
+
+    # Pitcher ROLE (season-long), computed once and threaded through every bullpen call.
+    # This is what keeps real starters out of the bullpen — a starter's spot relief
+    # appearance, or a bulk starter following an opener, used to land him in the pen pool
+    # and his HRs-allowed-as-a-starter got tagged "HR vs PEN."
+    try:
+        p_roles = statcast_data.pitcher_roles(df)
+    except Exception as e:
+        p_roles = {}
+        _hnote("pitcher roles", e); print(f"[build] pitcher roles skipped: {e}")
+
+    bullpens = statcast_data.bullpen_profiles(df, date_str, roles=p_roles)
+    # Bullpen AVAILABILITY: who's burnt from recent usage. The full-roster pen number
+    # silently includes a closer who threw the last two nights and can't go tonight.
+    try:
+        pen_avail = statcast_data.bullpen_availability(df, date_str, roles=p_roles)
+        pens_avail = statcast_data.bullpen_profiles_available(df, date_str, pen_avail, roles=p_roles)
+        _gassed = [t for t, v in pen_avail.items() if v.get("label") == "GASSED"]
+        print(f"[build] bullpen availability: {len(pen_avail)} pens analyzed"
+              f"{f' — GASSED: {', '.join(sorted(_gassed))}' if _gassed else ''}")
+    except Exception as e:
+        pen_avail, pens_avail = {}, {}
+        _hnote("bullpen availability", e); print(f"[build] bullpen availability skipped: {e}")
+    # Traded players: trailing profile is park-contaminated until the new sample builds
+    try:
+        traded = statcast_data.team_changes(df, date_str)
+        if traded:
+            print(f"[build] team changes detected: {len(traded)} player(s)")
+    except Exception as e:
+        traded = {}
+        _hnote("team changes", e); print(f"[build] team changes skipped: {e}")
     career = statcast_data.career_table(2015, now.year)
 
     # season batter-vs-pitcher (for the Matchup tab): has this hitter homered off today's
     # starter, or off any active arm in the opponent's pen? Computed from the slate frame.
     bvp = {}
+    bvp_pen = {}
     pen_arms = {}
     pen_names = {}
     try:
+        # Two BvP tables, deliberately different:
+        #   bvp     — ALL PAs. Correct for "HR vs SP": you homered off that guy, period.
+        #   bvp_pen — RELIEF PAs only. Correct for "HR vs PEN": the bullpen is a ROLE,
+        #             not a person. A homer off a starter in his start is not a bullpen
+        #             homer, even if that starter later appears in the pen pool.
         bvp = statcast_data.bvp_table(df)
-        pen_arms = statcast_data.bullpen_arms(df, date_str)
+        bvp_pen = statcast_data.bvp_table(df, relief_only=True)
+        pen_arms = statcast_data.bullpen_arms(df, date_str, roles=p_roles)
         all_arms = sorted({pid for arms in pen_arms.values() for pid in arms})
         if all_arms:
             try:
@@ -149,7 +186,12 @@ def build(date_str: str | None = None) -> dict:
                              statsapi.get_handedness(all_arms).items()}
             except Exception as e:
                 _hnote("bullpen name lookup", e); print(f"[build] bullpen name lookup skipped: {e}")
-        print(f"[build] BvP: {len(bvp)} matchups, {sum(len(a) for a in pen_arms.values())} active arms")
+        _sp_ct = sum(1 for r in p_roles.values() if r["role"] == "SP")
+        _rp_ct = sum(1 for r in p_roles.values() if r["role"] == "RP")
+        _sw_ct = sum(1 for r in p_roles.values() if r["role"] == "SWING")
+        print(f"[build] pitcher roles: {_sp_ct} SP / {_rp_ct} RP / {_sw_ct} SWING")
+        print(f"[build] BvP: {len(bvp)} matchups ({len(bvp_pen)} relief-only), "
+              f"{sum(len(a) for a in pen_arms.values())} active arms")
     except Exception as e:
         _hnote("BvP", e); print(f"[build] BvP skipped: {e}")
 
@@ -394,6 +436,33 @@ def build(date_str: str | None = None) -> dict:
         opp_abbr = g["home"] if side == "away" else g["away"]
         opp_bullpen = compute.bullpen_vuln(_bullpen_for(opp_abbr), eff_hand) if g else None
 
+        # The pen he'll ACTUALLY face: same score recomputed from available arms only.
+        # If the closer and setup man threw the last two nights, they're not in tonight's
+        # game, and the arms that remain are more HR-prone. Full-pen score kept as
+        # opp_bullpen; this is the honest one.
+        pen_live = None
+        try:
+            av = pen_avail.get(opp_abbr) or pen_avail.get(_TEAM_ALIAS.get(opp_abbr)) or {}
+            prof_av = pens_avail.get(opp_abbr) or pens_avail.get(_TEAM_ALIAS.get(opp_abbr))
+            if av:
+                pen_live = {
+                    "fatigue": av.get("fatigue"),
+                    "label": av.get("label"),
+                    "n_out": av.get("n_out"),
+                    "n_arms": av.get("n_arms"),
+                    "pen_pitches_l2": av.get("pen_pitches_l2"),
+                }
+                if prof_av:
+                    vuln_av = compute.bullpen_vuln(prof_av, eff_hand)
+                    if vuln_av:
+                        pen_live["score"] = vuln_av.get("score")
+                        pen_live["vs_hand"] = vuln_av.get("vs_hand")
+                        base = (opp_bullpen or {}).get("score")
+                        if base is not None and vuln_av.get("score") is not None:
+                            pen_live["delta"] = round(vuln_av["score"] - base, 1)
+        except Exception:
+            pen_live = None
+
         metrics = {}
         # the four headline signals first (in your order), then context metrics
         for key in ("pull_air_pct", "avg_ev", "barrel_pct", "ideal_aa_pct",
@@ -426,7 +495,9 @@ def build(date_str: str | None = None) -> dict:
         sp_bvp = bvp.get((bid, pid)) if pid else None
         bp_list = []
         for apid in pen_arms.get(opp_abbr, []):
-            rec = bvp.get((bid, apid))
+            # relief-only table: a HR this hitter hit off this pitcher WHILE HE WAS
+            # STARTING must not count as a bullpen HR
+            rec = bvp_pen.get((bid, apid))
             if rec and rec[0] > 0:
                 bp_list.append({"name": pen_names.get(apid, ""), "pa": rec[0], "hr": rec[1]})
         bp_list.sort(key=lambda x: (x["hr"], x["pa"]), reverse=True)
@@ -490,6 +561,8 @@ def build(date_str: str | None = None) -> dict:
             },
             "opp_pitcher": opp_pitcher_obj,
             "opp_bullpen": opp_bullpen,
+            "opp_pen_live": pen_live,
+            "traded": traded.get(bid),
             "pitch_splits": prof.get("pitch_splits"),
             "pitch_usage": pprof.get("usage"),
             "pitch_matchup": pmatch,
@@ -790,7 +863,12 @@ def build(date_str: str | None = None) -> dict:
         ],
         "recent_window": {
             "days": 14,
-            "start": (datetime.strptime(date_str, "%Y-%m-%d") - timedelta(days=14)).strftime("%Y-%m-%d"),
+            # v2: the window is now the last 14 GAME-days, not calendar days. Across the
+            # All-Star break a calendar window silently held ~10 game-days and compressed
+            # every heat score. Stamped so the tracker can segment pre/post-change days.
+            "basis": "game_days",
+            "v": 2,
+            "start": str(statcast_data.game_day_cutoff(df, date_str, 14).date()),
             "end": date_str,
         },
         "players": players,
@@ -1030,8 +1108,11 @@ def build(date_str: str | None = None) -> dict:
                 continue
             home_sp = pitch_profiles.get(hp_id) or {}
             away_sp = pitch_profiles.get(ap_id) or {}
-            home_pen = _bullpen_for(gm.get("home")) or {}
-            away_pen = _bullpen_for(gm.get("away")) or {}
+            # prefer the AVAILABLE-arms pen — that's who actually pitches tonight
+            home_pen = (pens_avail.get(gm.get("home"))
+                        or _bullpen_for(gm.get("home")) or {})
+            away_pen = (pens_avail.get(gm.get("away"))
+                        or _bullpen_for(gm.get("away")) or {})
             # expected batters faced per starter (~4.3 BF per inning)
             def _bf(pid):
                 sl = (start_lens.get(pid) or {}).get("med_len")
@@ -1242,6 +1323,7 @@ def main():
         os.makedirs(snap_dir, exist_ok=True)
         snap = {
             "date": board["slate_date"],
+            "window_v": (board.get("recent_window") or {}).get("v", 1),
             "parlay_picks": parlay_picks,
             "pitcher_props": board.get("pitcher_props", []),
             "players": [{
