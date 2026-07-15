@@ -233,8 +233,8 @@ def build(date_str: str | None = None) -> dict:
         p_batted = {}; _hnote("pitcher batted profile", e); print(f"[build] pitcher batted profile skipped: {e}")
 
     try:                                           # PF-style profile labels (trailing 14d)
-        _lab_start = (datetime.strptime(date_str, "%Y-%m-%d") - timedelta(days=14)).strftime("%Y-%m-%d")
-        hit_labels = statcast_data.hitter_labels(df, _lab_start)   # same 2wk window as the model
+        _lab_start = str(statcast_data.game_day_cutoff(df, date_str, 14).date())
+        hit_labels = statcast_data.hitter_labels(df, _lab_start)   # same game-day window as the model
         print(f"[build] labels: {sum(1 for v in hit_labels.values() if v=='elite')} elite, "
               f"{sum(1 for v in hit_labels.values() if v=='fb')} fb, "
               f"{sum(1 for v in hit_labels.values() if v=='ld')} ld")

@@ -516,6 +516,61 @@
   .ei-input:focus{outline:none;border-color:var(--seam)}
   .ei-input::placeholder{color:var(--faint);font-weight:400}
   .ei-x{background:none;border:none;color:var(--faint);font-size:10px;text-decoration:underline;padding:4px}
+  .ei-sign{width:30px;height:32px;flex:none;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;
+    color:var(--seam);font-family:"IBM Plex Mono";font-weight:800;font-size:15px;line-height:1;cursor:pointer}
+  .ei-sign:active{background:var(--panel)}
+  .prop-fair{font-family:"IBM Plex Mono";font-size:11px;color:var(--seam);margin-top:4px}
+  .prop-fair b{color:var(--ink);font-weight:800}
+  .prop-fair .pf-sub{color:var(--faint);font-weight:400;font-size:9.5px}
+  .edge-search{width:calc(100% - 8px);margin:0 4px 10px;background:var(--panel-2);border:1px solid var(--line);
+    border-radius:8px;color:var(--ink);font-size:13px;padding:9px 11px}
+  .edge-search:focus{outline:none;border-color:var(--seam)}
+  .edge-search::placeholder{color:var(--faint)}
+  .edge-nores{color:var(--muted);font-size:12px;padding:8px 6px}
+  /* ---- More sheet (secondary views) ---- */
+  #moreBtn{flex:1;min-width:0;background:none;border:none;color:var(--faint);cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:3px;padding:3px 2px;
+    font:inherit;font-size:9px;font-weight:600;letter-spacing:.02em;transition:color .14s ease;
+    -webkit-tap-highlight-color:transparent}
+  #moreBtn svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  #moreBtn[aria-pressed="true"]{color:var(--seam)}
+  .sheet{position:fixed;inset:0;z-index:70;background:rgba(6,9,12,0);
+    display:flex;align-items:flex-end;justify-content:center;
+    visibility:hidden;opacity:0;transition:opacity .25s ease,background .25s ease,visibility 0s .25s}
+  .sheet.show{visibility:visible;opacity:1;background:rgba(6,9,12,.72);transition:opacity .25s ease,background .25s ease}
+  .sheet-card{width:100%;max-width:520px;background:var(--panel);border:1px solid var(--line);
+    border-bottom:none;border-radius:18px 18px 0 0;padding:10px 12px calc(16px + env(safe-area-inset-bottom));
+    transform:translateY(14px);transition:transform .25s ease}
+  .sheet.show .sheet-card{transform:translateY(0)}
+  .sheet-h{font-family:Archivo;font-weight:700;font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--faint);padding:8px 6px 10px;text-align:center}
+  .more-item{display:flex;align-items:center;gap:13px;width:100%;text-align:left;
+    background:var(--panel-2);border:1px solid var(--line);border-radius:12px;
+    padding:13px 14px;margin-bottom:8px;cursor:pointer;color:var(--ink);font:inherit;
+    -webkit-tap-highlight-color:transparent;transition:border-color .12s ease}
+  .more-item:active{border-color:var(--seam)}
+  .mi-ic{flex:none;width:34px;height:34px;display:flex;align-items:center;justify-content:center;
+    font-size:17px;color:var(--seam);background:var(--panel);border:1px solid var(--line);border-radius:9px}
+  .mi-tx{flex:1;min-width:0}
+  .mi-tx b{display:block;font-family:Archivo;font-weight:700;font-size:14.5px;color:var(--ink)}
+  .mi-tx span{display:block;font-size:11px;color:var(--muted);margin-top:1px}
+  .mi-ar{flex:none;color:var(--faint);font-size:20px;font-weight:300}
+  .sheet-close{width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:11px;
+    color:var(--muted);font:inherit;font-weight:600;font-size:13px;padding:11px;margin-top:4px;cursor:pointer}
+  .sheet-close:active{background:var(--panel)}
+  /* ---- slate summary strip ---- */
+  .slatestrip{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin:10px 0 12px}
+  .ss-row{display:flex;align-items:center;gap:14px}
+  .ss-cell{display:flex;flex-direction:column;align-items:center;line-height:1;min-width:26px}
+  .ss-cell b{font-family:Archivo;font-weight:800;font-size:19px;color:var(--ink)}
+  .ss-cell span{font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);margin-top:3px;white-space:nowrap}
+  .ss-div{width:1px;height:26px;background:var(--line);flex:none}
+  .ss-t1 b{color:var(--seam)} .ss-t2 b{color:var(--hot)} .ss-t3 b{color:var(--muted)}
+  .ss-smash b{color:#E4572E}
+  .ss-wxrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;padding-top:9px;border-top:1px solid var(--line)}
+  .ss-wx{font-family:"IBM Plex Mono";font-size:10px;font-weight:600;color:var(--muted);
+    background:var(--panel-2);border:1px solid var(--line);border-radius:5px;padding:3px 7px}
+  .ss-rain{color:var(--hot)}
   /* bullpen availability + traded flags */
   .penlive{display:flex;align-items:flex-start;gap:7px;margin-top:6px;padding:6px 8px;background:var(--panel-2);border:1px solid var(--line);border-radius:7px}
   .pl-tag{flex:none;font-family:"IBM Plex Mono";font-size:8.5px;font-weight:800;letter-spacing:.05em;padding:2px 6px;border-radius:4px;border:1px solid;background:transparent}
@@ -1035,14 +1090,23 @@
 
 <nav id="tabbar" aria-label="Primary navigation">
   <button data-view="board" aria-pressed="true"><svg viewBox="0 0 20 20"><circle cx="4" cy="5.5" r="1"/><circle cx="4" cy="10" r="1"/><circle cx="4" cy="14.5" r="1"/><line x1="7.5" y1="5.5" x2="16" y2="5.5"/><line x1="7.5" y1="10" x2="16" y2="10"/><line x1="7.5" y1="14.5" x2="16" y2="14.5"/></svg><span>Board</span></button>
-  <button data-view="stacks" aria-pressed="false"><svg viewBox="0 0 20 20"><path d="M10 3l7 3.5-7 3.5-7-3.5L10 3z"/><path d="M3 10.5l7 3.5 7-3.5"/></svg><span>Stacks</span></button>
-  <button data-view="matchup" aria-pressed="false"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="6.2"/><line x1="10" y1="1.5" x2="10" y2="4"/><line x1="10" y1="16" x2="10" y2="18.5"/><line x1="1.5" y1="10" x2="4" y2="10"/><line x1="16" y1="10" x2="18.5" y2="10"/><circle cx="10" cy="10" r="1.4"/></svg><span>Matchup</span></button>
-  <button data-view="parlays" aria-pressed="false"><svg viewBox="0 0 20 20"><path d="M8.5 11.5a3 3 0 010-4l1.5-1.5a3 3 0 014 0 3 3 0 010 4l-.8.8"/><path d="M11.5 8.5a3 3 0 010 4L10 14a3 3 0 01-4 0 3 3 0 010-4l.8-.8"/></svg><span>Parlays</span></button>
   <button data-view="props" aria-pressed="false"><svg viewBox="0 0 20 20"><path d="M4 15V8"/><path d="M8 15V5"/><path d="M12 15v-6"/><path d="M16 15v-4"/><line x1="3" y1="15" x2="17" y2="15"/></svg><span>Props</span></button>
   <button data-view="bets" aria-pressed="false"><svg viewBox="0 0 20 20"><path d="M5 3.5h10v13l-2-1.3-2 1.3-2-1.3-2 1.3V3.5z"/><line x1="7.5" y1="7.5" x2="12.5" y2="7.5"/><line x1="7.5" y1="10.5" x2="12.5" y2="10.5"/></svg><span>Bets</span></button>
-  <button data-view="weather" aria-pressed="false"><svg viewBox="0 0 20 20"><path d="M5.5 13.5a3.5 3.5 0 01.4-6.98 4.5 4.5 0 018.7 1.2A3 3 0 0114 13.5H5.5z"/><line x1="7" y1="16" x2="7" y2="17.5"/><line x1="10.5" y1="16" x2="10.5" y2="17.5"/><line x1="14" y1="16" x2="14" y2="17.5"/></svg><span>Weather</span></button>
-  <button data-view="tracker" aria-pressed="false"><svg viewBox="0 0 20 20"><polyline points="3 14 8 9 11 12 17 5"/><polyline points="12.5 5 17 5 17 9.5"/></svg><span>Tracker</span></button>
+  <button data-view="tracker" aria-pressed="false"><svg viewBox="0 0 20 20"><polyline points="3 14 8 9 11 12 17 5"/><polyline points="12.5 5 17 5 17 9.5"/></svg><span>Trends</span></button>
+  <button id="moreBtn" onclick="document.getElementById('moreSheet').classList.add('show')" aria-label="More views"><svg viewBox="0 0 20 20"><circle cx="4" cy="10" r="1.4"/><circle cx="10" cy="10" r="1.4"/><circle cx="16" cy="10" r="1.4"/></svg><span>More</span></button>
 </nav>
+
+<div id="moreSheet" class="sheet" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="sheet-card">
+    <div class="sheet-h">More views</div>
+    <button class="more-item" onclick="goView('parlays')"><div class="mi-ic">⛓</div><div class="mi-tx"><b>Parlays</b><span>Auto-built combos, honestly priced</span></div><div class="mi-ar">›</div></button>
+    <button class="more-item" onclick="goView('stacks')"><div class="mi-ic">◆</div><div class="mi-tx"><b>Stacks</b><span>Best hitters grouped by game</span></div><div class="mi-ar">›</div></button>
+    <button class="more-item" onclick="goView('matchup')"><div class="mi-ic">◎</div><div class="mi-tx"><b>Matchup</b><span>Head-to-head hitter vs pitcher</span></div><div class="mi-ar">›</div></button>
+    <button class="more-item" onclick="goView('weather')"><div class="mi-ic">☁</div><div class="mi-tx"><b>Weather</b><span>Wind, temp, roof calls per game</span></div><div class="mi-ar">›</div></button>
+    <button class="sheet-close" onclick="document.getElementById('moreSheet').classList.remove('show')">Close</button>
+  </div>
+</div>
+
 
 <script>
 // first-visit onboarding (no login; persists locally, fails open)
@@ -1492,6 +1556,42 @@ function bullBear(p){
   return `<div class="bullbear"><div class="bb-col bb-bull"><div class="bb-h">The case</div>${li(bull)}</div>
     <div class="bb-col bb-bear"><div class="bb-h">The concern</div>${li(bear)}</div></div>`;
 }
+// Compact slate-summary strip for the top of the board: game count, heat-tier
+// distribution, and weather flags. Describes the whole slate regardless of active
+// filters, so it's a stable "shape of the day" you read before scrolling.
+function slateStrip(){
+  if(!BOARD||!BOARD.players) return "";
+  const ps=BOARD.players.filter(p=>p.lineup_status!=="out"&&p.heat!=null);
+  const games=(BOARD.games||[]).length || new Set(ps.map(p=>p.game_pk)).size;
+  const t1=ps.filter(p=>p.heat>=70).length;
+  const t2=ps.filter(p=>p.heat>=55&&p.heat<70).length;
+  const t3=ps.filter(p=>p.heat>=40&&p.heat<55).length;
+  // weather flags: count games with HR-relevant conditions (wind out, hot, roof issues)
+  let wind=0, hot=0, rain=0;
+  (BOARD.games||[]).forEach(g=>{
+    if(g.wind_dir==="out"&&(g.wind_mph||0)>=8) wind++;
+    if((g.temp_f||0)>=85) hot++;
+    if((g.precip_prob||0)>=45) rain++;
+  });
+  const wxbits=[];
+  if(wind) wxbits.push(`<span class="ss-wx" title="wind blowing out">↗ ${wind} wind out</span>`);
+  if(hot)  wxbits.push(`<span class="ss-wx" title="hot — ball carries">▲ ${hot} hot</span>`);
+  if(rain) wxbits.push(`<span class="ss-wx ss-rain" title="rain risk">☂ ${rain} rain risk</span>`);
+  const smashN=(typeof slateSmash==="function")?(slateSmash().size||0):0;
+  return `<div class="slatestrip">
+    <div class="ss-row">
+      <div class="ss-cell"><b>${games}</b><span>games</span></div>
+      <div class="ss-cell"><b>${ps.length}</b><span>hitters</span></div>
+      <div class="ss-div"></div>
+      <div class="ss-cell ss-t1"><b>${t1}</b><span>70+</span></div>
+      <div class="ss-cell ss-t2"><b>${t2}</b><span>55–69</span></div>
+      <div class="ss-cell ss-t3"><b>${t3}</b><span>40–54</span></div>
+      ${smashN?`<div class="ss-div"></div><div class="ss-cell ss-smash"><b>${smashN}</b><span>SMASH</span></div>`:""}
+    </div>
+    ${wxbits.length?`<div class="ss-wxrow">${wxbits.join("")}</div>`:""}
+  </div>`;
+}
+
 function render(){
   const main=document.getElementById("main");
   if(!BOARD){return;}
@@ -1558,6 +1658,10 @@ function render(){
   const _R=trackerRates(), _BR=betRates();   // for the model-odds line on each card
 
   let html="";
+  // At-a-glance strip: the shape of the slate before you scroll. Games, how many hitters
+  // sit in each heat tier, and whether any parks have HR-relevant weather. Uses the FULL
+  // board (not the filtered view) so it describes the day, not the current filter.
+  html += slateStrip();
   if(BOARD.briefing&&BOARD.briefing.length&&!q&&!gameSel.size){
     html+=`<div class="brief"><div class="brief-h">Today</div>${BOARD.briefing.slice(0,6).map(l=>`<div class="brief-ln">${l}</div>`).join("")}</div>`;
   }
@@ -2213,8 +2317,12 @@ function renderEdge(){
   // hitterScore needs tracker-derived rates; render() computes these locally so we
   // must derive them here too rather than reaching for its scope.
   const R=trackerRates(), BR=betRates();
+  // Candidate pool. A priced hitter ALWAYS shows — the whole thesis is that a cold
+  // hitter at a long enough price can be the better bet, so hiding sub-40 heat would
+  // contradict the tool. The unpriced suggestion list still leads with higher heat.
+  const priceMap=oddsGet();
   const cands=BOARD.players
-    .filter(p=>p.lineup_status!=="out" && p.heat!=null && p.heat>=40)
+    .filter(p=>p.lineup_status!=="out" && p.heat!=null && (p.heat>=40 || (priceMap[p.id]!=null && priceMap[p.id]!=="")))
     .map(p=>{
       let ms=null; try{ ms=hitterScore(p,R,BR); }catch(e){}
       const prob = ms?ms.prob:null;
@@ -2265,9 +2373,10 @@ function renderEdge(){
       ${impTxt}
       <div class="edge-in">
         <span class="ei-lbl">book price</span>
-        <input type="text" inputmode="text" placeholder="+450" value="${hasPrice?String(x.price).replace(/"/g,''):""}"
-               onchange="oddsPut(${p.id}, this.value.trim())"
-               onblur="oddsPut(${p.id}, this.value.trim())" class="ei-input"/>
+        <button class="ei-sign" onclick="oddsToggleSign(${p.id})" title="flip + / −">${String(x.price||'').trim().startsWith('-')?'−':'+'}</button>
+        <input type="text" inputmode="numeric" pattern="[0-9]*" placeholder="450" value="${hasPrice?String(x.price).replace(/[^0-9]/g,''):""}"
+               onchange="oddsPutNum(${p.id}, this.value.trim())"
+               onblur="oddsPutNum(${p.id}, this.value.trim())" class="ei-input"/>
         ${hasPrice?`<button class="ei-x" onclick="oddsPut(${p.id},'')">clear</button>`:""}
       </div>
     </div>`;
@@ -2281,13 +2390,55 @@ function renderEdge(){
     ${summary}
     ${priced.length?`<div class="edge-h">Priced — sorted by expected value</div>${priced.map(x=>row(x,true)).join("")}`:""}
     <div class="edge-h">${priced.length?"Not yet priced":"Top candidates"} — enter a price to check it</div>
+    <input id="edgeSearch" class="edge-search" placeholder="Search any hitter to price (even a cold one)…" autocomplete="off" oninput="edgeSearchInput(this.value)"/>
+    <div id="edgeSearchResults"></div>
     ${unpriced.map(x=>row(x,false)).join("")}
     ${Object.keys(prices).length?`<div class="bk-row" style="margin-top:14px"><button class="chip" onclick="oddsClear()">Clear all prices</button><span class="bk-note">prices clear automatically each new slate</span></div>`:""}
-    <div class="prop-note" style="margin-top:14px"><b>The honest caveat.</b> A positive EV number here is only as good as the model's calibration. Until the Tracker shows that a stated 17% actually converts at 17%, treat these as <i>candidates</i>, not green lights. Check the calibration table before you size anything up.</div>
+    <div class="prop-note" style="margin-top:14px">${(BACKTEST&&BACKTEST.calib)?`<b>These numbers are calibrated.</b> Probabilities come from the backtest's real HR rates across ~${(BACKTEST.pool||0).toLocaleString()} hitter-days, not a guess. Calibration still drifts — glance at the Tracker's calibration table now and then to confirm a stated 17% is still converting near 17%.`:`<b>The honest caveat.</b> No backtest is loaded yet, so these probabilities come from the model formula, <i>not</i> proven HR rates. Treat them as candidates, not green lights — run the backtest (Tracker) to calibrate against reality before sizing anything up.`}</div>
   </div>`;
 }
 
 function fmtAm(v){ const n=parseFloat(v); if(!isFinite(n)) return String(v); return n>0?`+${n}`:`${n}`; }
+
+// Search any hitter on today's slate — including cold ones the default list hides — so
+// you can price a hunch. Renders compact result rows with the same price input.
+function edgeSearchInput(q){
+  const box=document.getElementById("edgeSearchResults");
+  if(!box) return;
+  q=(q||"").trim().toLowerCase();
+  if(q.length<2){ box.innerHTML=""; return; }
+  const R=trackerRates(), BR=betRates();
+  const hits=(BOARD.players||[])
+    .filter(p=>p.lineup_status!=="out" && (p.name||"").toLowerCase().includes(q))
+    .slice(0,8);
+  if(!hits.length){ box.innerHTML=`<div class="edge-nores">No hitter matches "${q}" on today's slate.</div>`; return; }
+  const prices=oddsGet();
+  box.innerHTML=hits.map(p=>{
+    let ms=null; try{ ms=hitterScore(p,R,BR); }catch(e){}
+    const prob=ms?ms.prob:null;
+    if(prob==null) return "";
+    const be=breakevenAmerican(prob);
+    const price=prices[p.id];
+    const hasPrice=price!=null&&price!=="";
+    const ev=hasPrice?evPerDollar(prob,price):null;
+    const good=ev!=null&&ev>0;
+    return `<div class="edge-row ${good?'is-pos':hasPrice?'is-neg':''}">
+      <div class="edge-hd">
+        <span class="edge-heat" style="background:${chipColor(p.heat)}">${p.heat}</span>
+        <div class="edge-nm"><b>${p.name}</b><div class="edge-meta">${p.team} vs ${p.opp_team} · heat ${p.heat}</div></div>
+        ${ev!=null?`<span class="edge-ev ${good?'pos':'neg'}">${good?"+":""}${(ev*100).toFixed(1)}% EV</span>`:""}
+      </div>
+      <div class="edge-need"><span class="en-lbl">model</span> <b>${(prob*100).toFixed(0)}%</b> <span class="en-sep">·</span> <span class="en-lbl">bet only if</span> <b class="en-be">${be} or longer</b></div>
+      <div class="edge-in">
+        <span class="ei-lbl">book price</span>
+        <button class="ei-sign" onclick="oddsToggleSign(${p.id})">${String(price||'').trim().startsWith('-')?'−':'+'}</button>
+        <input type="text" inputmode="numeric" pattern="[0-9]*" placeholder="450" value="${hasPrice?String(price).replace(/[^0-9]/g,''):""}"
+               onchange="oddsPutNum(${p.id}, this.value.trim())" class="ei-input"/>
+        ${hasPrice?`<button class="ei-x" onclick="oddsPut(${p.id},'')">clear</button>`:""}
+      </div>
+    </div>`;
+  }).join("");
+}
 
 function renderBets(){
   const main=document.getElementById("main");
@@ -2489,6 +2640,48 @@ function tagLift(badges, R, BR){
 // Composite "parlay value" — every signal you named, combined:
 //   data quality (Heat) · trending up (rescues a cold-tag guy who's playing hot) · good
 //   pitch mix · most-hit tags (bet+tracker) · tracker tier rate · park · sample confidence.
+// Empirical HR probability from the backtest's calibration table when it exists.
+// The backtest buckets ~19k hitter-days by heat (0-9,10-19,...) and records the ACTUAL
+// HR rate in each. That real curve beats any hand-tuned formula — and, crucially, it's
+// what makes the Edge Finder's EV trustworthy instead of decorative. Falls back to the
+// smooth formula only when no backtest is loaded yet.
+// Probability for a NON-HR prop (1+ hits / 2+ hits) from the props backtest's tier
+// hit-rates. Same idea as calibratedHRprob: the backtest recorded, for each score band,
+// how often that bet actually cashed. That's a real probability you can price against a
+// book, instead of a raw 0-100 score that means nothing to a sportsbook line.
+// Returns null when no props backtest exists (then we show score only, no EV).
+const _PROP_TIERS=[["70+",70,999],["55-69",55,70],["40-54",40,55],["<40",-999,40]];
+function _propTierName(score){
+  for(const [n,lo,hi] of _PROP_TIERS){ if(score>=lo && score<hi) return n; }
+  return "<40";
+}
+function calibratedPropProb(kind, score){
+  if(score==null) return null;
+  const P = BACKTEST && BACKTEST.props && BACKTEST.props[kind];
+  if(!P || !P.by_tier) return null;
+  const e = P.by_tier[_propTierName(score)];
+  if(!e || !e.n || e.n<25) return null;
+  const hitKey = ("hit" in e) ? "hit" : null;
+  if(!hitKey) return null;
+  return e[hitKey]/e.n;
+}
+
+function calibratedHRprob(heat){
+  if(heat==null) return null;
+  const cal = BACKTEST && BACKTEST.calib;
+  if(!cal) return null;
+  // interpolate between the two nearest 10-wide buckets, weighted by sample size
+  const b = Math.max(0, Math.min(90, Math.floor(heat/10)*10));
+  const lo = cal[String(b)], hi = cal[String(Math.min(90,b+10))];
+  const rate = (e)=> (e && e.n>=25) ? e.hr/e.n : null;
+  const rlo = rate(lo), rhi = rate(hi);
+  if(rlo==null && rhi==null) return null;
+  if(rlo==null) return rhi;
+  if(rhi==null) return rlo;
+  const f = (heat - b)/10;                       // 0..1 within the bucket
+  return rlo + f*(rhi-rlo);
+}
+
 function hitterScore(p, R, BR){
   const base = (Math.max(0, Math.min(100, p.heat||0)))/100;                 // data quality
   const tv = trendVal(p.trend);                                            // trend: up rescues, down dampens (never kills)
@@ -2505,8 +2698,23 @@ function hitterScore(p, R, BR){
   const n = (p.sample && (p.sample.season || p.sample.L30)) || 0;          // downweight thin-sample noise
   const conf = 0.6 + 0.4*Math.max(0, Math.min(1, n/60));
   const score = base*trend*mix*tags*tier*park*luck*conf;
-  const prob = Math.max(0.03, Math.min(0.42, 0.05 + score*0.16));          // for fair-odds display only
-  return {score, prob, trend, mix, tags, luck, conf};
+  // Probability: prefer the backtest's empirically-calibrated HR rate for this hitter's
+  // heat, nudged by the same multiplicative factors (trend/mix/luck/tags) that separate
+  // two hitters at the same heat. Fall back to the smooth formula when no backtest exists.
+  // NOTE: `tier` is intentionally NOT reapplied on the calibrated path — it is derived
+  // from heat, and the calibration curve already IS the heat→HR mapping, so multiplying
+  // by it again would double-count heat.
+  const calBase = calibratedHRprob(p.heat);
+  let prob, probSource;
+  if(calBase!=null){
+    const adj = trend*mix*tags*luck*conf;        // everything EXCEPT heat/tier/park-into-heat
+    prob = Math.max(0.02, Math.min(0.45, calBase*adj));
+    probSource = "calibrated";
+  } else {
+    prob = Math.max(0.03, Math.min(0.42, 0.05 + score*0.16));   // fair-odds display only
+    probSource = "model";
+  }
+  return {score, prob, probSource, trend, mix, tags, luck, conf};
 }
 
 function americanFair(prob){
@@ -2557,9 +2765,34 @@ function oddsPut(id, val){
   const p=oddsGet();
   if(val===""||val==null) delete p[id]; else p[id]=val;
   oddsSet(p);
+  // If a search is active, refresh just the results so the box isn't wiped mid-entry.
+  const sb=document.getElementById("edgeSearch");
+  if(sb && sb.value && sb.value.trim().length>=2){ edgeSearchInput(sb.value); }
   renderEdge();
+  // renderEdge rebuilds the DOM; restore the search box + focus if it was in use
+  const q = sb ? sb.value : "";
+  if(q && q.trim().length>=2){
+    const nb=document.getElementById("edgeSearch");
+    if(nb){ nb.value=q; edgeSearchInput(q); }
+  }
 }
 function oddsClear(){ try{localStorage.removeItem("gy_odds");}catch(e){} renderEdge(); }
+// The numeric keypad can't type a sign, so digits come in unsigned and a +/- button
+// carries the sign. HR props are +money ~99% of the time, so bare digits default to +.
+function oddsPutNum(id, digits){
+  const cur = String(oddsGet()[id]||"");
+  const neg = cur.trim().startsWith("-");
+  const d = String(digits).replace(/[^0-9]/g,"");
+  if(d==="") { oddsPut(id, ""); return; }
+  oddsPut(id, (neg?"-":"+")+d);
+}
+function oddsToggleSign(id){
+  const cur = String(oddsGet()[id]||"").trim();
+  if(!cur){ return; }
+  const d = cur.replace(/[^0-9]/g,"");
+  const neg = cur.startsWith("-");
+  oddsPut(id, (neg?"+":"-")+d);
+}
 
 
 // Variety-first selection: one hitter per game, a cap on how many "chalk" (top-of-board)
@@ -3227,12 +3460,19 @@ function renderProps(){
       const tag = sc>=70?"TIER 1": sc>=55?"TIER 2": sc>=40?"TIER 3":"low";
       const armForm=(p.opp_pitcher&&p.opp_pitcher.form)?p.opp_pitcher.form.label:"";
       const heatRef=`HR heat ${p.heat}`;
+      // calibrated fair odds for 1+ hits — backtest gives the real cash rate for this
+      // score band, so it's a price you can compare against a book (hit view only).
+      const pr = propsView==="hit" ? calibratedPropProb("hit1", sc) : null;
+      const fairLine = pr!=null
+        ? `<div class="prop-fair">fair <b>${(pr*100).toFixed(0)}%</b> · <b>${americanFair(pr)}</b> <span class="pf-sub">to get 1+ hit</span></div>`
+        : "";
       return `<div class="prop-row" style="background:${bg}">
         <div class="prop-rk">${i+1}</div>
         <div class="prop-sc">${sc.toFixed(0)}</div>
         <div class="prop-body">
           <div class="prop-nm"><b>${p.name}</b> <span class="prop-meta">${p.team}→${p.opp_team} · ${timeStr(p.time)}${p.lineup_spot?` · #${p.lineup_spot}`:""}</span></div>
           <div class="prop-sub">${heatRef}${armForm?` · vs ${armForm} arm`:""}${propsView==="hrr"?` · spot #${p.lineup_spot||"?"}`:""}</div>
+          ${fairLine}
           <div class="prop-tags"><span class="prop-tier">${tag}</span></div>
         </div>
       </div>`;
@@ -3725,6 +3965,7 @@ document.getElementById("dryF").addEventListener("click",e=>{
 });
 document.getElementById("tabbar").addEventListener("click",async e=>{
   const b=e.target.closest("button"); if(!b)return;
+  if(!b.dataset.view) return;                 // #moreBtn opens the sheet via its own onclick
   view=b.dataset.view;
   [...document.querySelectorAll("#tabbar button")].forEach(x=>x.setAttribute("aria-pressed",x===b));
   document.getElementById("boardControls").style.display = view==="board"?"":"none";
@@ -3734,6 +3975,26 @@ document.getElementById("tabbar").addEventListener("click",async e=>{
   setHH();
   window.scrollTo({top:0,behavior:"instant"});
 });
+
+// Navigate to a view that lives in the "More" sheet (parlays/stacks/matchup/weather).
+// The More button in the tab bar lights up to show you're in a secondary view, since
+// none of the primary tabs own it.
+const MORE_VIEWS=new Set(["parlays","stacks","matchup","weather"]);
+async function goView(v){
+  view=v;
+  document.getElementById("moreSheet").classList.remove("show");
+  const inMore=MORE_VIEWS.has(v);
+  [...document.querySelectorAll("#tabbar button")].forEach(x=>{
+    if(x.id==="moreBtn"){ x.setAttribute("aria-pressed", inMore?"true":"false"); }
+    else x.setAttribute("aria-pressed", x.dataset.view===v ? "true":"false");
+  });
+  document.getElementById("boardControls").style.display = v==="board"?"":"none";
+  savePrefs();
+  if((v==="tracker"||v==="parlays") && !HISTORY){ await loadHistory(); }
+  renderView();
+  setHH();
+  window.scrollTo({top:0,behavior:"instant"});
+}
 
 let BACKTEST=null;
 
@@ -3774,9 +4035,15 @@ async function pollLive(){
     LIVE.failed=true;
   }
   renderLivePanel();
-  // stop polling once every game is Final (or none scheduled)
-  if(LIVE.statuses.length&&LIVE.statuses.every(s=>s==="Final")){
-    if(LIVE.timer){clearInterval(LIVE.timer);LIVE.timer=null;}
+  // Stop polling once nothing is live anymore. "Final" is the common case, but a
+  // Postponed / Suspended / Cancelled game never reaches Final — the old check
+  // (every game === Final) would poll all night if one game got rained out. Treat any
+  // non-live terminal state as done, and stop once no game is still Live/In Progress.
+  const LIVE_STATES = new Set(["Live", "In Progress"]);
+  const anyStillLive = LIVE.statuses.some(s => LIVE_STATES.has(s));
+  const anyStarted = LIVE.statuses.some(s => s === "Final" || LIVE_STATES.has(s));
+  if(LIVE.statuses.length && !anyStillLive && anyStarted){
+    if(LIVE.timer){ clearInterval(LIVE.timer); LIVE.timer=null; }
   }
 }
 
@@ -3841,11 +4108,27 @@ function startLivePolling(){
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&BOARD&&!LIVE.timer&&!(LIVE.statuses.length&&LIVE.statuses.every(s=>s==="Final"))) startLivePolling(); });
 
 async function loadHistory(){
-  try{ const r=await fetch("backtest.json?t="+Date.now()); if(r.ok) BACKTEST=await r.json(); }catch(e){}
+  const [bt, hist] = await Promise.allSettled([
+    fetch("backtest.json?t="+Date.now()).then(r=>r.ok?r.json():null),
+    fetch("./history.json?t="+Date.now(),{cache:"no-store"}).then(r=>r.json()),
+  ]);
+  if(bt.status==="fulfilled" && bt.value) BACKTEST=bt.value;
+  HISTORY = (hist.status==="fulfilled" && hist.value) ? hist.value : {days:[]};
+}
+
+// The Edge Finder calibrates its probabilities from BACKTEST, but loadHistory() only
+// runs when the user opens Tracker/Parlays. Pull just the backtest early and cheaply so
+// the Bets tab is calibrated from the first interaction. Safe to run before or after
+// loadHistory — whichever sets BACKTEST first wins, both set the same object.
+async function loadBacktestEager(){
+  if(BACKTEST) return;
   try{
-    const r=await fetch("./history.json?t="+Date.now(),{cache:"no-store"});
-    HISTORY=await r.json();
-  }catch(err){ HISTORY={days:[]}; }
+    const r=await fetch("backtest.json?t="+Date.now());
+    if(r.ok){ BACKTEST=await r.json();
+      // if the user is already on the Edge Finder, refresh it now that it's calibrated
+      if(view==="bets" && betsView==="edge"){ try{ renderEdge(); }catch(e){} }
+    }
+  }catch(e){}
 }
 
 async function load(){
@@ -3887,13 +4170,18 @@ async function load(){
   if(typeof pf.listFilter==="boolean"){ listFilter=pf.listFilter; const l=document.getElementById("listBtn"); if(l) l.setAttribute("aria-pressed",listFilter); }
   if(pf.view && pf.view!=="board"){
     view=pf.view;
-    [...document.querySelectorAll("#tabbar button")].forEach(x=>x.setAttribute("aria-pressed",x.dataset.view===view));
+    const inMore=MORE_VIEWS.has(view);
+    [...document.querySelectorAll("#tabbar button")].forEach(x=>{
+      if(x.id==="moreBtn") x.setAttribute("aria-pressed", inMore?"true":"false");
+      else x.setAttribute("aria-pressed", x.dataset.view===view ? "true":"false");
+    });
     document.getElementById("boardControls").style.display="none";
   }
   if((view==="tracker"||view==="parlays") && !HISTORY){ await loadHistory(); }
   renderView();
   setHH();
   startLivePolling();
+  loadBacktestEager();   // non-blocking: calibrates the Edge Finder before you open it
 }
 load();
 setInterval(load, 5*60*1000);   // refresh if a new board.json was published

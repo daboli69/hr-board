@@ -140,7 +140,11 @@ def heat_score(recent: dict, pitcher_score: int | None = None) -> tuple[int, dic
         if recent.get(key) is not None and s >= 0.65:   # cleared its "good" anchor
             cleared += 1
     bd["cleared"] = cleared          # 0-6 signals at/above good
-    bd["signals"] = {k: (recent.get(k) is not None and anchor_scale(recent.get(k), *ANCHORS[k]) >= 0.65)
+    # NOTE: bool(...) coercion is load-bearing — these come out of numpy comparisons
+    # as np.bool_, which json.dump(default=str) serializes to the STRINGS "True"/"False".
+    # In JS, "False" is truthy, so a stringified signal map silently reads as all-cleared.
+    bd["signals"] = {k: bool(recent.get(k) is not None
+                             and anchor_scale(recent.get(k), *ANCHORS[k]) >= 0.65)
                      for k in WEIGHTS}
     # confirmation tier (echoes a quad/triple/double read)
     tier = ("LOADED" if cleared >= 5 else "STRONG" if cleared == 4
