@@ -802,6 +802,12 @@
     background:rgba(120,178,145,.14);padding:1px 4px;border-radius:3px;margin-left:6px;letter-spacing:.03em;vertical-align:1px}
   .ei-autoval{border-color:rgba(120,178,145,.4)!important}
   .ei-fb{color:var(--muted)!important;background:rgba(140,150,165,.14)!important}
+  .edge-evwrap{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+  .edge-conf{font-family:"IBM Plex Mono";font-size:8.5px;font-weight:700;padding:1px 5px;border-radius:3px;letter-spacing:.03em;white-space:nowrap}
+  .edge-conf.rel{color:var(--good);background:rgba(120,178,145,.14)}
+  .edge-conf.spec{color:var(--hot);background:rgba(224,145,58,.12)}
+  .edge-row.is-spec{border-color:rgba(224,145,58,.25)}
+  .es-spec{color:var(--hot);font-weight:600}
   .odds-status{font-size:11px;line-height:1.5;padding:8px 11px;border-radius:8px;margin-bottom:10px;
     background:var(--panel-2);border:1px solid var(--line);color:var(--muted)}
   .odds-status.ok{border-color:rgba(120,178,145,.3);color:var(--good)}
@@ -2451,16 +2457,56 @@ function renderEdge(){
     })
     .filter(x=>x.prob!=null);
 
-  // priced plays sort by EV (the actual decision metric); unpriced sort by model prob
-  const priced=cands.filter(x=>x.ev!=null).sort((a,b)=>b.ev-a.ev);
+  // ---- Confidence scoring ----
+  // EV alone is a trap: the fattest EV% clusters on longshots and thin-data hitters, exactly
+  // where the model's calibration is weakest. So we score each priced candidate's RELIABILITY
+  // and use it to rank — a modest edge on a trustworthy hitter beats a huge edge on a flimsy
+  // one. This bakes the discipline into the sort instead of leaving it to the user.
+  const confidenceOf=(x)=>{
+    const p=x.p, bd=p.score_breakdown||{};
+    let score=100; const flags=[];
+    // 1. thin data — the score leans on missing signals (least trustworthy heat)
+    const present=bd.present!=null?bd.present:6;
+    if(present<4){ score-=45; flags.push("thin data"); }
+    else if(present<6){ score-=18; flags.push("some signals missing"); }
+    // 2. heat outside the calibrated band. Backtest is clean ~40-79; tails are wobbly.
+    if(p.heat<40){ score-=30; flags.push("low heat"); }
+    else if(p.heat>=83){ score-=12; flags.push("top-band (small sample)"); }
+    // 3. price reliability — longshots sit where calibration is thinnest AND variance is brutal
+    if(x.imp!=null){
+      if(x.imp<0.07){ score-=40; flags.push("deep longshot"); }        // longer than ~+1300
+      else if(x.imp<0.10){ score-=22; flags.push("longshot"); }        // ~+900 to +1300
+      else if(x.imp<0.14){ score-=8; }                                  // ~+600 to +900, mild
+    }
+    // 4. fallback (FanDuel reference) price — a book you may not even bet
+    const fe=fetchedOddsFor(p.id);
+    if(fe&&fe.fallback){ score-=15; flags.push("FanDuel ref price"); }
+    return {score:Math.max(0,score), flags};
+  };
+
+  cands.forEach(x=>{ if(x.ev!=null){ const c=confidenceOf(x); x.conf=c.score; x.confFlags=c.flags; } });
+
+  // A play is "reliable" if it clears a confidence bar. Reliable +EV plays are the real
+  // signal and sort to the top; speculative +EV plays still show but are flagged and ranked
+  // below, so the fattest-but-flimsiest longshot never leads the list.
+  const RELIABLE=60;
+  const priced=cands.filter(x=>x.ev!=null);
+  // rank: reliable +EV first (by EV), then speculative +EV (by EV), then all -EV (by EV)
+  priced.sort((a,b)=>{
+    const ta=(a.ev>0?(a.conf>=RELIABLE?0:1):2), tb=(b.ev>0?(b.conf>=RELIABLE?0:1):2);
+    if(ta!==tb) return ta-tb;
+    return b.ev-a.ev;
+  });
   const unpriced=cands.filter(x=>x.ev==null).sort((a,b)=>b.prob-a.prob).slice(0,40);
 
   const plus=priced.filter(x=>x.ev>0);
+  const plusReliable=plus.filter(x=>x.conf>=RELIABLE);
   const summary = priced.length
-    ? `<div class="edge-sum ${plus.length?'good':''}">
-         <b>${plus.length}</b> of <b>${priced.length}</b> priced play${priced.length===1?"":"s"} show positive expected value
-         ${plus.length?`<span>Best: ${plus[0].p.name} at ${fmtAm(plus[0].price)} — model says ${(plus[0].prob*100).toFixed(0)}%, the book implies ${(plus[0].imp*100).toFixed(0)}%</span>`
-                      :`<span>Every price you entered is short of fair value. That is the normal result — most HR props are priced at or below fair. Not betting is a decision.</span>`}
+    ? `<div class="edge-sum ${plusReliable.length?'good':''}">
+         <b>${plusReliable.length}</b> reliable +EV play${plusReliable.length===1?"":"s"}${plus.length>plusReliable.length?` <span class="es-spec">(+${plus.length-plusReliable.length} speculative)</span>`:""} of ${priced.length} priced
+         ${plusReliable.length?`<span>Top: ${plusReliable[0].p.name} at ${fmtAm(plusReliable[0].price)} — model ${(plusReliable[0].prob*100).toFixed(0)}%, book implies ${(plusReliable[0].imp*100).toFixed(0)}%. Reliable = trustworthy heat, real signals, a price where the model is calibrated.</span>`
+                            :plus.length?`<span>The only +EV prices you entered are on <b>speculative</b> hitters (thin data or longshots) — the model's edge there is least trustworthy. Treat as darts, not value.</span>`
+                            :`<span>Every price you entered is short of fair value. That's the normal result — most HR props are priced at or below fair. Not betting is a decision.</span>`}
        </div>`
     : "";
 
@@ -2469,19 +2515,27 @@ function renderEdge(){
     const be=breakevenAmerican(x.prob);
     const hasPrice = x.price!=null && x.price!=="";
     const good = x.ev!=null && x.ev>0;
+    const reliable = good && x.conf>=RELIABLE;
+    const speculative = good && x.conf<RELIABLE;
     const evTxt = x.ev!=null
       ? `<span class="edge-ev ${good?'pos':'neg'}">${good?"+":""}${(x.ev*100).toFixed(1)}% EV</span>`
+      : "";
+    // confidence tag on +EV plays: reliable = act on it, speculative = flagged dart
+    const confTxt = reliable
+      ? `<span class="edge-conf rel" title="trustworthy heat, real signals, calibrated price range">reliable</span>`
+      : speculative
+      ? `<span class="edge-conf spec" title="${(x.confFlags||[]).join(', ')||'lower confidence'}">speculative${x.confFlags&&x.confFlags.length?` · ${x.confFlags[0]}`:""}</span>`
       : "";
     const impTxt = x.imp!=null
       ? `<div class="edge-cmp">model <b>${(x.prob*100).toFixed(0)}%</b> vs book <b>${(x.imp*100).toFixed(0)}%</b> · edge <b class="${good?'pos':'neg'}">${x.edge>=0?"+":""}${(x.edge*100).toFixed(1)}pp</b></div>`
       : "";
-    return `<div class="edge-row ${good?'is-pos':hasPrice?'is-neg':''}">
+    return `<div class="edge-row ${reliable?'is-pos':speculative?'is-spec':hasPrice?'is-neg':''}">
       <div class="edge-hd">
         <span class="edge-heat" style="background:${chipColor(p.heat)}">${p.heat}</span>
         <div class="edge-nm"><b>${p.name}</b>${badgeChips(p,3)}
           <div class="edge-meta">${p.team} vs ${p.opp_team} · ${timeStr(p.time)}${p.tier?` · ${p.tier}`:""}</div>
         </div>
-        ${evTxt}
+        <div class="edge-evwrap">${evTxt}${confTxt}</div>
       </div>
       <div class="edge-need">
         <span class="en-lbl">model</span> <b>${(x.prob*100).toFixed(0)}%</b>
