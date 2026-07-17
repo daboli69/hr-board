@@ -764,6 +764,60 @@
     font-size:14px;font-weight:700;cursor:pointer}
   .bl-stats{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
   .bl-stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:6px}
+  /* ---- CLV panel ---- */
+  .bl-clv{margin:10px 0 4px;padding:12px 13px;border-radius:11px;border:1px solid;
+    display:grid;grid-template-columns:auto 1fr;grid-template-areas:"main beat" "note note";gap:6px 12px}
+  .bl-clv.pos{background:rgba(120,178,145,.07);border-color:rgba(120,178,145,.35)}
+  .bl-clv.neg{background:rgba(214,110,90,.06);border-color:rgba(214,110,90,.3)}
+  .bl-clv-main{grid-area:main;display:flex;align-items:baseline;gap:9px}
+  .bl-clv-v{font-family:Archivo;font-weight:800;font-size:26px;line-height:1}
+  .bl-clv-v span{font-size:12px;font-weight:600;margin-left:1px}
+  .bl-clv-v.pos{color:var(--good)} .bl-clv-v.neg{color:var(--bad)}
+  .bl-clv-k{font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em;line-height:1.4}
+  .bl-clv-k span{display:block;text-transform:none;letter-spacing:0;color:var(--muted);font-size:10.5px;margin-top:2px}
+  .bl-clv-beat{grid-area:beat;justify-self:end;align-self:center;font-family:"IBM Plex Mono";font-size:12px;color:var(--muted)}
+  .bl-clv-beat b{color:var(--ink);font-size:16px;font-weight:800}
+  .bl-clv-note{grid-area:note;font-size:10.5px;line-height:1.55;color:var(--muted);border-top:1px solid var(--line);padding-top:7px;margin-top:2px}
+  .bl-clv-empty{margin:10px 0 4px;padding:11px 13px;border-radius:10px;background:var(--panel-2);
+    border:1px dashed var(--line);font-size:11.5px;line-height:1.55;color:var(--muted)}
+  .bl-clv-empty b{color:var(--seam)}
+  .bl-clv-row{margin-top:2px}
+  .bl-clv-lbl{display:block;font-size:11px;color:var(--muted)}
+  .bl-clv-hint{color:var(--faint);font-size:10px}
+  .bl-clv-row input{width:90px;margin-left:8px;background:var(--panel-2);border:1px solid var(--line);
+    border-radius:6px;color:var(--ink);font-family:"IBM Plex Mono";font-size:13px;padding:6px 8px;text-align:center}
+  .bl-clvchip{font-family:"IBM Plex Mono";font-size:9.5px;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap}
+  .bl-clvchip.pos{color:var(--good);background:rgba(120,178,145,.12)}
+  .bl-clvchip.neg{color:var(--bad);background:rgba(214,110,90,.1)}
+  .bl-bet-right{display:flex;align-items:center;gap:8px}
+  .bl-close-edit{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:8px 0;padding:7px 9px;
+    background:var(--panel-2);border-radius:7px}
+  .bl-close-edit label{font-size:10.5px;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .bl-close-edit input{width:74px;background:var(--panel);border:1px solid var(--line);border-radius:5px;
+    color:var(--ink);font-family:"IBM Plex Mono";font-size:12px;padding:5px 7px;text-align:center}
+  .bl-clv-inline{font-family:"IBM Plex Mono";font-size:10px;font-weight:600}
+  .bl-clv-inline.pos{color:var(--good)} .bl-clv-inline.neg{color:var(--bad)}
+  .bl-clv-inline-hint{font-size:9.5px;color:var(--faint)}
+  .bl-auto{font-family:"IBM Plex Mono";font-size:8px;font-weight:700;color:var(--good);
+    background:rgba(120,178,145,.14);padding:1px 4px;border-radius:3px;margin-left:5px;vertical-align:1px;letter-spacing:.03em}
+  .bl-scratch{font-family:"IBM Plex Mono";font-size:8px;font-weight:800;color:var(--hot);
+    background:rgba(224,145,58,.14);border:1px solid rgba(224,145,58,.35);padding:1px 4px;border-radius:3px;margin-left:5px;vertical-align:1px;letter-spacing:.04em}
+  .bl-bleg.is-scratched{opacity:.62}
+  .tierbox-thin{font-size:10.5px;line-height:1.5;color:var(--hot);background:rgba(224,145,58,.08);
+    border:1px solid rgba(224,145,58,.28);border-radius:7px;padding:7px 9px;margin:7px 0 2px}
+  .tierbox-thin b{color:var(--ink)}
+  /* 30-park read */
+  .parks30{margin-top:9px;padding:8px 10px;border-radius:8px;background:var(--panel-2);border:1px solid var(--line)}
+  .parks30.p30-anywhere{border-color:rgba(200,71,43,.4);background:rgba(200,71,43,.06)}
+  .parks30.p30-bandbox{border-color:rgba(90,102,117,.4)}
+  .p30-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .p30-tag{font-family:"IBM Plex Mono";font-size:8px;font-weight:800;letter-spacing:.06em;
+    color:var(--seam);background:rgba(200,71,43,.12);padding:2px 5px;border-radius:3px}
+  .p30-avg{font-size:11px;color:var(--muted)}
+  .p30-avg b{color:var(--ink);font-family:"IBM Plex Mono";font-weight:800}
+  .p30-sub{font-size:10.5px;color:var(--muted);margin-top:5px;line-height:1.5}
+  .p30-sub b{color:var(--ink)}
+  .p30-here{color:var(--seam)!important}
   .bl-stat{text-align:center;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:10px 4px}
   .bl-stat .v{font-family:Archivo;font-weight:800;font-size:18px}
   .bl-stat .v.pos{color:#3fb950}.bl-stat .v.neg{color:#e5534b}
@@ -1061,6 +1115,8 @@
 
       <h3>Bets — My Bets</h3>
       <p>Your private bet log — stored only on this device, nothing leaves your phone. Log each bet, pick the player(s) from today's board (their badges and Heat are captured automatically), then after games mark each as <b>HR ✓</b> or <b>no HR</b> and set the result. Over time it shows your record, net, and ROI — plus the payoff feature: <b>HR rate by badge</b>, so you learn which badges actually convert for you (does HOT homer more than MAY COOL?) and which are noise.</p>
+      <p><b>Auto-grading.</b> While games are live, the app watches the home run feed and fills in your legs for you — when a hitter you bet goes deep, his leg flips to <b>HR ✓</b> with a small <span class="bl-auto">auto</span> tag so you know it came from the feed, not your own tap. You can always override it. Players who get scratched from the lineup are flagged <span class="bl-scratch">SCRATCHED</span> — at most books an HR prop on a scratch is voided and refunded, so that leg probably doesn't count.</p>
+      <p><b>Closing Line Value (CLV) — the number that actually matters.</b> After a line closes, type the closing price into any logged bet. CLV measures whether you got a <i>better</i> price than where the market ended up. If you took +500 and it closed +400, you beat the close — that's <b>positive CLV</b>, and it's the single most reliable sign your edge is real. Here's why it matters more than wins: you can lose a bet you were right to make, and win a bet you were wrong to make — over a small sample, win/loss is mostly luck. But consistently beating the closing line can't be luck. If your CLV is positive across a few dozen bets, the profits will follow even if your early record looks rough. If it's negative, the market is telling you your reads are off, no matter how many you happen to win. Watch this number more than your record.</p>
 
       <h3>Freshness</h3>
       <p>The dot by the title shows build health: <b>green</b> = fresh, <b>amber</b> = a few hours old, <b>red</b> = likely stale or showing an older slate. The board builds at 6:30am, 10am, 12pm, 3pm, 5pm and 7pm ET; if one is missed or you're viewing yesterday's slate, a banner warns you before you bet.</p>
@@ -1351,10 +1407,19 @@ function tierBlock(p){
   const missed=keys.filter(k=>!isOn(sig[k]));
   const meta=TIER_META[t]||{n:"?",say:""};
   const chips=k=>`<span class="tsig ${isOn(sig[k])?"on":""}">${SIG_LABEL[k]||k}</span>`;
+  // present = how many of the 6 signals actually had data. When some are missing, the
+  // score leans on a neutral default for the blanks, so it reads warmer than the real
+  // evidence supports. Surface it so a thin-data score isn't mistaken for a real one.
+  const present = bd.present!=null ? bd.present : keys.length;
+  const thinData = present < 6;
+  const thinWarn = thinData
+    ? `<div class="tierbox-thin">⚠ Only <b>${present} of 6</b> signals have data — the score fills the blanks with a neutral estimate, so treat this heat as <b>softer than it looks</b> until his sample fills in.</div>`
+    : "";
   return `<div class="tierbox">
     <div class="tierbox-h"><span class="tier ${t}">${t}</span>
       <span class="tierbox-cnt">${cleared.length} of ${keys.length} signals cleared</span></div>
     ${keys.length?`<div class="tsigs">${cleared.map(chips).join("")}${missed.map(chips).join("")}</div>`:""}
+    ${thinWarn}
     <div class="tierbox-note">${meta.say ? meta.say.charAt(0).toUpperCase()+meta.say.slice(1)+"." : ""} Heat tells you how hot; the tier tells you how many independent signals agree. Same heat with a lower tier = more fragile.</div>
   </div>`;
 }
@@ -1405,6 +1470,34 @@ function evColor(mx){ if(mx==null) return "var(--panel-2)"; return chipColor(Mat
 // Park+weather lens: rank by the park/weather HR boost vs neutral (the conditions edge,
 // like Ballpark Pal's headline) — exp100 breaks ties so power shows through.
 function pkVal(p){const k=p.park_hr; if(!k||k.boost==null) return -999; return k.boost*1000+(k.exp100||0);}
+
+// "Would clear in X of 30 parks" — the geometry read on a hitter's recent deep contact.
+// The useful signal is the SPREAD: a guy whose barrels clear all 30 parks is out anywhere;
+// a guy whose balls clear only 8-12 needs a bandbox, and tonight's park decides his night.
+function parks30Body(p){
+  const k=p.parks30; if(!k||!k.n_deep) return "";
+  const avg=k.avg_parks;
+  // classify the batted-ball profile by how many parks a clearing ball averages
+  const cls = avg>=26?"anywhere" : avg>=18?"most" : avg>=10?"parkdep" : "bandbox";
+  const label = {anywhere:"out almost anywhere", most:"out in most parks",
+                 parkdep:"park-dependent", bandbox:"needs a friendly park"}[cls];
+  const hereTxt = k.out_here>0
+    ? `<b class="p30-here">${k.out_here}</b> of his ${k.n_deep} deep balls clear <b>tonight's</b> park`
+    : `none of his ${k.n_deep} deep balls clear tonight's park`;
+  return `<div class="parks30 p30-${cls}">
+    <div class="p30-h"><span class="p30-tag">30-PARK</span>
+      <span class="p30-avg">clearing balls average <b>${avg}</b>/30 parks · ${label}</span></div>
+    <div class="p30-sub">${hereTxt}${k.borderline?` · <b>${k.borderline}</b> park-dependent ball${k.borderline===1?"":"s"} (out some parks, not others)`:""}</div>
+  </div>`;
+}
+function parks30HTML(p){ return parks30Body(p); }
+function parks30Standalone(p){
+  const body=parks30Body(p);
+  if(!body) return "";
+  return `<div class="parkbox"><div class="parkbox-h">Ballpark fit</div>${body}
+    <div class="parkbox-note">His recent deep contact flown through all 30 parks' walls (neutral air). Pure geometry — separate from Heat.</div></div>`;
+}
+
 
 // SMASH conviction: fires when the whole model converges on a hitter, not just raw Heat.
 // Heat contributes, but so do trend, historical BvP, lineup-spot power, park+weather, pitch
@@ -1598,7 +1691,14 @@ function render(){
   const _lb=document.getElementById("listBtn"); if(_lb) _lb.textContent="★ My List"+(listCount()?` (${listCount()})`:"");
   const _lc=document.getElementById("listClearBtn"); if(_lc) _lc.classList.toggle("hidden", !listCount());
   let players=BOARD.players.slice();
-  const isThin=p=>((p.score_breakdown&&p.score_breakdown.flags)||[]).some(f=>f.indexOf("small sample")===0);
+  const isThin=p=>{
+    const bd=p.score_breakdown||{};
+    // thin = few PAs (the existing flag) OR the score leans on missing signals. Both are
+    // cases where the heat is less trustworthy than it looks; the filter should catch both.
+    const flagThin=((bd.flags)||[]).some(f=>f.indexOf("small sample")===0);
+    const sigThin=(bd.present!=null && bd.present<4);   // fewer than 4 of 6 signals had data
+    return flagThin || sigThin;
+  };
   if(hideThin) players=players.filter(p=>!isThin(p));
   if(listFilter) players=players.filter(p=>listHas(p.id));
   if(minHeat>0) players=players.filter(p=>H(p)>=minHeat);
@@ -2009,7 +2109,8 @@ function render(){
           <div class="parkbox-sub"><b style="color:var(--ink)">${p.park_hr.exp100}</b> expected HR per 100 batted balls here vs <b style="color:var(--ink)">${p.park_hr.neutral100}</b> in a neutral park · ${p.park_hr.n} batted balls modeled</div>
           <div class="parkbox-cond">${p.park_hr.indoor?"indoor — roof / climate controlled":(p.park_hr.weather?`${p.park_hr.temp_f!=null?p.park_hr.temp_f+"°F":""}${p.park_hr.wind_mph!=null?` · wind ${p.park_hr.wind_mph} mph`:""}`:"park geometry only · live weather unavailable")}${p.park_hr.savant_pf!=null?` · park ${p.park_hr.savant_pf}×`:""}</div>
           <div class="parkbox-note">${p.park_hr.savant_pf!=null?"Anchored to this season's empirical HR park factor (computed from Statcast batted balls); physics adds this hitter's spray + today's weather on top. ":""}His real batted balls flown through this park's walls. Secondary read — separate from Heat.</div>
-        </div>`:""}
+          ${parks30HTML(p)}
+        </div>`:parks30Standalone(p)}
         ${spotBlock(p)}
         <h4>Four signals — recent · season · career</h4>
         <div class="strip" style="border:1px solid var(--line);border-radius:10px">${strip}</div>
@@ -2258,7 +2359,7 @@ function toggleListBtn(btn,ev){
   const lc=document.getElementById("listClearBtn"); if(lc) lc.classList.toggle("hidden", !listCount());
   if(listFilter) render();
 }
-let betDraft={type:BET_TYPES[0],stake:"",odds:"",legs:[]};
+let betDraft={type:BET_TYPES[0],stake:"",odds:"",close:"",legs:[]};
 
 function exportData(){
   try{
@@ -2394,7 +2495,15 @@ function renderEdge(){
     <div id="edgeSearchResults"></div>
     ${unpriced.map(x=>row(x,false)).join("")}
     ${Object.keys(prices).length?`<div class="bk-row" style="margin-top:14px"><button class="chip" onclick="oddsClear()">Clear all prices</button><span class="bk-note">prices clear automatically each new slate</span></div>`:""}
-    <div class="prop-note" style="margin-top:14px">${(BACKTEST&&BACKTEST.calib)?`<b>These numbers are calibrated.</b> Probabilities come from the backtest's real HR rates across ~${(BACKTEST.pool||0).toLocaleString()} hitter-days, not a guess. Calibration still drifts — glance at the Tracker's calibration table now and then to confirm a stated 17% is still converting near 17%.`:`<b>The honest caveat.</b> No backtest is loaded yet, so these probabilities come from the model formula, <i>not</i> proven HR rates. Treat them as candidates, not green lights — run the backtest (Tracker) to calibrate against reality before sizing anything up.`}</div>
+    <div class="prop-note" style="margin-top:14px">${(()=>{
+      const haveCal = BACKTEST && BACKTEST.calib;
+      if(!haveCal) return `<b>The honest caveat.</b> No backtest is loaded yet, so these probabilities come from the model formula, <i>not</i> proven HR rates. Treat them as candidates, not green lights — run the backtest (Tracker) to calibrate against reality before sizing anything up.`;
+      const bv=(BOARD&&BOARD.model_version), cv=(BACKTEST&&BACKTEST.model_version);
+      if(bv!=null && cv!=null && bv!==cv){
+        return `<b style="color:var(--seam)">\u26a0 Calibration is stale.</b> Today's board uses model v${bv} but the loaded backtest was run on v${cv}. The HR-rate curve no longer matches how heat is scored, so these probabilities may be off. Re-run the backtest to recalibrate before trusting the EV here.`;
+      }
+      return `<b>These numbers are calibrated.</b> Probabilities come from the backtest's real HR rates across ~${(BACKTEST.pool||0).toLocaleString()} hitter-days, not a guess. Calibration still drifts — glance at the Tracker's calibration table now and then to confirm a stated 17% is still converting near 17%.`;
+    })()}</div>
   </div>`;
 }
 
@@ -2476,6 +2585,10 @@ function betFormHTML(){
       <label>Stake $<input id="betStake" type="number" inputmode="decimal" value="${betDraft.stake}" oninput="betDraft.stake=this.value"/></label>
       <label>Odds<input id="betOdds" placeholder="+450" value="${betDraft.odds}" oninput="betDraft.odds=this.value"/></label>
     </div>
+    <div class="bl-clv-row">
+      <label class="bl-clv-lbl">Closing odds <span class="bl-clv-hint">(optional — fill in after the line closes)</span>
+        <input id="betClose" placeholder="+400" value="${betDraft.close||""}" oninput="betDraft.close=this.value"/></label>
+    </div>
     <button class="bl-save" onclick="betSave()">Log bet</button>
   </div>`;
 }
@@ -2502,9 +2615,11 @@ function betSave(){
   if(!betDraft.legs.length){alert("Add at least one player to the bet.");return;}
   const bets=loadBets();
   bets.push({id:Date.now(),date:new Date().toLocaleDateString("en-CA",{timeZone:"America/New_York"}),
-    type:betDraft.type,stake:betDraft.stake,odds:betDraft.odds,result:"pending",payout:"",legs:betDraft.legs});
+    slate:(BOARD&&BOARD.slate_date)||null,
+    type:betDraft.type,stake:betDraft.stake,odds:betDraft.odds,close:betDraft.close||"",
+    result:"pending",payout:"",legs:betDraft.legs});
   saveBets(bets);
-  betDraft={type:betDraft.type,stake:"",odds:"",legs:[]};
+  betDraft={type:betDraft.type,stake:"",odds:"",close:"",legs:[]};
   renderBets();
 }
 function betSetResult(id,r){const bets=loadBets();const b=bets.find(x=>x.id===id);if(!b)return;b.result=r;if(r!=="win")b.payout="";saveBets(bets);renderBets();}
@@ -2519,16 +2634,23 @@ function betListHTML(bets){
       const bd=(lg.badges||[]).map(k=>`<span class="bdg bk-${k}">${BKLABEL[k]||k}</span>`).join("");
       const hc=lg.hit==="hit"?"hit":lg.hit==="miss"?"miss":"";
       const hl=lg.hit==="hit"?"HR ✓":lg.hit==="miss"?"no HR":"did he homer?";
-      return `<div class="bl-bleg"><div class="bl-bleg-top">
-          <span class="bl-bnm">${lg.name}${lg.heat!=null?` <span class="bl-bh">H${lg.heat}</span>`:""}</span>
+      const autoTag = (lg.hit==="hit"&&lg.auto)?`<span class="bl-auto" title="auto-graded from the live feed">auto</span>`:"";
+      const scratchTag = lg.scratched?`<span class="bl-scratch" title="not in today's lineup — likely a void/refund at your book">SCRATCHED</span>`:"";
+      return `<div class="bl-bleg ${lg.scratched?'is-scratched':''}"><div class="bl-bleg-top">
+          <span class="bl-bnm">${lg.name}${lg.heat!=null?` <span class="bl-bh">H${lg.heat}</span>`:""}${autoTag}${scratchTag}</span>
           <button class="bl-hit ${hc}" onclick="betCycleHit(${b.id},${i})">${hl}</button></div>
         ${bd?`<div class="badges">${bd}</div>`:""}</div>`;
     }).join("");
     const r=b.result;
+    const clv = (b.odds&&b.close)?clvOf(b.odds,b.close):null;
+    const clvChip = clv!=null
+      ? `<span class="bl-clvchip ${clv>=0?'pos':'neg'}" title="closing line value">${clv>=0?"+":""}${clv.toFixed(1)}pp CLV</span>`
+      : "";
     return `<div class="bl-bet">
-      <div class="bl-bet-head"><div><b>${b.type}</b><div class="bl-bet-sub">${b.date}${b.stake?` · $${b.stake}`:""}${b.odds?` · ${b.odds}`:""}</div></div>
-        <button class="bl-del" onclick="betDelete(${b.id})" aria-label="delete">✕</button></div>
+      <div class="bl-bet-head"><div><b>${b.type}</b><div class="bl-bet-sub">${b.date}${b.stake?` · $${b.stake}`:""}${b.odds?` · ${b.odds}`:""}${b.close?` · closed ${b.close}`:""}</div></div>
+        <div class="bl-bet-right">${clvChip}<button class="bl-del" onclick="betDelete(${b.id})" aria-label="delete">✕</button></div></div>
       <div class="bl-blegs">${legs}</div>
+      <div class="bl-close-edit"><label>closing odds <input type="text" placeholder="+400" value="${b.close||""}" oninput="betSetClose(${b.id},this.value)" onchange="betSetCloseDone(${b.id},this.value)"/></label>${clv!=null?`<span class="bl-clv-inline ${clv>=0?'pos':'neg'}">${clv>=0?"beat close by":"closed shorter by"} ${Math.abs(clv).toFixed(1)}pp</span>`:`<span class="bl-clv-inline-hint">enter where it closed to see CLV</span>`}</div>
       <div class="bl-result"><div class="seg bl-rseg">
           <button class="${r==='pending'?'on':''}" onclick="betSetResult(${b.id},'pending')">Pending</button>
           <button class="${r==='win'?'on win':''}" onclick="betSetResult(${b.id},'win')">Won</button>
@@ -2537,13 +2659,95 @@ function betListHTML(bets){
     </div>`;
   }).join("");
 }
+// ---------- Closing Line Value ----------
+// CLV is the single most honest measure of betting skill: did you get a better price
+// than where the line closed? Beating the close consistently is what separates real
+// edge from variance — you can lose a bet and still have made the right bet, and CLV
+// captures that when win/loss over a small sample can't. We express it as the
+// percentage-point gap between the probability your CLOSE implied and the probability
+// your ENTRY implied. Positive = you beat the close (good). Books' closing lines are
+// the sharpest number available, so beating them is the goal.
+function clvOf(entryOdds, closeOdds){
+  const ep=impliedProb(entryOdds), cp=impliedProb(closeOdds);
+  if(ep==null||cp==null) return null;
+  // you took entry at implied ep; it closed at cp. If cp > ep, the market moved toward
+  // your side (your price was longer than the close) — positive CLV.
+  return (cp - ep) * 100;   // percentage points
+}
+function betSetClose(id,v){const bets=loadBets();const b=bets.find(x=>x.id===id);if(b){b.close=v;saveBets(bets);}}
+function betSetCloseDone(id,v){betSetClose(id,v);renderBets();}
+
+// ---------- Auto-grade from the live HR feed ----------
+// The live tracker already knows who homered today (LIVE.hrs, keyed by batter id). Rather
+// than make the user manually mark every leg, cross-reference pending legs on TODAY's
+// bets against the live homers and fill them in. Only touches legs still "pending" and
+// only for the current slate — never overwrites a manual mark, never touches past days.
+// Result stays user-controlled: we grade the LEGS (did he homer) but leave the final
+// win/loss to the user, since payout/void/parlay logic is theirs to confirm.
+function autoGradeFromLive(){
+  if(!LIVE||!LIVE.hrs||!LIVE.hrs.length) return 0;
+  const slate=(BOARD&&BOARD.slate_date)||null;
+  if(!slate) return 0;
+  const homered=new Set(LIVE.hrs.map(h=>String(h.id)).filter(Boolean));
+  const bets=loadBets();
+  let changed=0;
+  bets.forEach(b=>{
+    if((b.slate||b.date)!==slate && b.slate!==slate) return;   // today's bets only
+    if(b.slate && b.slate!==slate) return;
+    (b.legs||[]).forEach(lg=>{
+      if(lg.hit!=="pending") return;             // never overwrite a manual/existing mark
+      if(lg.id==null) return;                    // free-text legs can't be auto-matched
+      if(homered.has(String(lg.id))){ lg.hit="hit"; lg.auto=true; changed++; }
+    });
+  });
+  if(changed){ saveBets(bets); }
+  return changed;
+}
+
+// Called after each live poll: grade legs, and if the Bets/My Bets view is open, refresh.
+function betsLiveHook(){
+  const n=autoGradeFromLive();
+  const v=flagScratches();
+  if((n>0||v>0) && view==="bets" && betsView==="log"){ try{ renderBets(); }catch(e){} }
+}
+
+// Late-scratch detection: if a hitter you bet is marked "out" on today's board (lineup
+// posted, he's not in it), flag the leg so you know it's a likely VOID/push at the book —
+// most books refund HR props on a scratch. We only FLAG it (never auto-void the whole
+// bet), because void rules differ by book and by bet type, and a parlay may still be live.
+function flagScratches(){
+  if(!BOARD||!BOARD.players) return 0;
+  const slate=BOARD.slate_date;
+  const outIds=new Set(BOARD.players.filter(p=>p.lineup_status==="out").map(p=>String(p.id)));
+  if(!outIds.size) return 0;
+  const bets=loadBets(); let changed=0;
+  bets.forEach(b=>{
+    if(b.slate && b.slate!==slate) return;
+    (b.legs||[]).forEach(lg=>{
+      if(lg.id==null) return;
+      const scratched = outIds.has(String(lg.id));
+      if(scratched && !lg.scratched){ lg.scratched=true; changed++; }
+      else if(!scratched && lg.scratched){ lg.scratched=false; changed++; }   // reinstated
+    });
+  });
+  if(changed) saveBets(bets);
+  return changed;
+}
+
 function betStats(bets){
   let staked=0,net=0,w=0,l=0;const byBadge={},byTier={};
+  let clvSum=0, clvN=0, clvBeat=0;   // closing-line-value tracking
   const TIER=h=>h>=70?"70+":h>=55?"55–69":h>=40?"40–54":"<40";
   bets.forEach(b=>{
     const stake=+b.stake||0;
     if(b.result==="win"){staked+=stake;net+=(+b.payout||0);w++;}
     else if(b.result==="loss"){staked+=stake;net-=stake;l++;}
+    // CLV: any bet with both an entry price and a closing price, regardless of result —
+    // CLV is measured at bet time, not outcome time.
+    if(b.odds && b.close){
+      const c=clvOf(b.odds,b.close);
+      if(c!=null){ clvSum+=c; clvN++; if(c>0) clvBeat++; }
+    }
     (b.legs||[]).forEach(lg=>{
       if(lg.hit!=="hit"&&lg.hit!=="miss")return;
       const hit=lg.hit==="hit"?1:0;
@@ -2551,7 +2755,8 @@ function betStats(bets){
       if(lg.heat!=null){const t=TIER(lg.heat);const o=byTier[t]=byTier[t]||{h:0,n:0};o.h+=hit;o.n++;}
     });
   });
-  return {staked,net,w,l,byBadge,byTier};
+  return {staked,net,w,l,byBadge,byTier,
+          clvAvg: clvN?clvSum/clvN:null, clvN, clvBeatRate: clvN?clvBeat/clvN:null};
 }
 function betStatsHTML(bets){
   if(!bets.length) return "";
@@ -2563,6 +2768,21 @@ function betStatsHTML(bets){
     <div class="bl-stat"><div class="v ${roi!=null&&roi>=0?'pos':'neg'}">${roi!=null?(roi>=0?"+":"")+roi+"%":"–"}</div><div class="k">ROI</div></div>
     <div class="bl-stat"><div class="v">$${st.staked.toFixed(0)}</div><div class="k">staked</div></div>
   </div>`;
+  // CLV panel — the skill metric. Only shows once at least one bet has a closing price.
+  const clvPanel = st.clvN ? (()=>{
+    const avg=st.clvAvg, beat=Math.round(st.clvBeatRate*100);
+    const good=avg>=0;
+    return `<div class="bl-clv ${good?'pos':'neg'}">
+      <div class="bl-clv-main">
+        <div class="bl-clv-v ${good?'pos':'neg'}">${avg>=0?"+":""}${avg.toFixed(1)}<span>pp</span></div>
+        <div class="bl-clv-k">avg closing line value<span>across ${st.clvN} priced bet${st.clvN===1?"":"s"}</span></div>
+      </div>
+      <div class="bl-clv-beat"><b>${beat}%</b> beat the close</div>
+      <div class="bl-clv-note">${good
+        ? "You're getting better prices than where lines close. That's the signal that your edge is real — it shows up here before it shows up in win/loss."
+        : "Your prices are closing shorter than you took them. Over a real sample that means the market disagrees with your reads — worth watching before sizing up."}</div>
+    </div>`;
+  })() : `<div class="bl-clv-empty">Add a <b>closing price</b> to any logged bet to start tracking Closing Line Value — the truest measure of whether you're beating the market. It matters more than win/loss over any short stretch.</div>`;
   const bk=Object.entries(st.byBadge).sort((a,b)=>b[1].n-a[1].n);
   const badgeRows=bk.length?bk.map(([k,o])=>{const pct=Math.round(o.h/o.n*100);
     return `<div class="bl-bar"><span class="bdg bk-${k}">${BKLABEL[k]||k}</span>
@@ -2574,7 +2794,7 @@ function betStatsHTML(bets){
     return `<div class="bl-bar"><span class="bl-tier">${t}</span>
       <div class="bl-bartrack"><div class="bl-barfill" style="width:${pct}%"></div></div>
       <span class="bl-barv">${pct}% · ${o.h}/${o.n}</span></div>`;}).join("");
-  return `<div class="bl-stats">${money}
+  return `<div class="bl-stats">${money}${clvPanel}
     <div class="bl-sub-h">HR rate by badge</div>${badgeRows}
     ${tierRows?`<div class="bl-sub-h">HR rate by Heat tier</div>${tierRows}`:""}</div>`;
 }
@@ -4035,6 +4255,7 @@ async function pollLive(){
     LIVE.failed=true;
   }
   renderLivePanel();
+  betsLiveHook();   // auto-grade any pending legs on today's bets from the live homers
   // Stop polling once nothing is live anymore. "Final" is the common case, but a
   // Postponed / Suspended / Cancelled game never reaches Final — the old check
   // (every game === Final) would poll all night if one game got rained out. Treat any
@@ -4149,12 +4370,18 @@ async function load(){
   if(window._freshTimer) clearInterval(window._freshTimer);
   window._freshTimer=setInterval(setFreshness,60000);   // keep "x ago" + stale state live
   const rw=BOARD.recent_window;
-  const fmtD=s=>{const t=String(s).split("-").map(Number);return new Date(t[0],t[1]-1,t[2]).toLocaleDateString([],{month:"short",day:"numeric"});};
+  const fmtD=s=>{
+    if(!s) return "";
+    const t=String(s).split("-").map(Number);
+    if(t.length!==3||t.some(n=>!isFinite(n))) return "";
+    const d=new Date(t[0],t[1]-1,t[2]);
+    return isNaN(d.getTime())?"":d.toLocaleDateString([],{month:"short",day:"numeric"});
+  };
   document.getElementById("meta").innerHTML=
     `<span><b>${fmtD(BOARD.slate_date)}</b> slate</span>
      <span><b>${BOARD.games.length}</b> games</span>
      <span><b>${BOARD.players.length}</b> hitters</span>
-     ${rw?`<span class="win-tag">Trailing 14 days · ${fmtD(rw.start)} – ${fmtD(rw.end)}</span>`:""}`;
+     ${rw?`<span class="win-tag">Trailing 14 days${(fmtD(rw.start)&&fmtD(rw.end))?` · ${fmtD(rw.start)} – ${fmtD(rw.end)}`:""}</span>`:""}`;
   // build the multi-game selector with per-game starter vulnerability
   populateGames();
   populateTeams();

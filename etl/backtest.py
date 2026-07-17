@@ -284,6 +284,7 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
             print(f"[backtest] {graded_days} days graded through {D}")
     return {
         "days": graded_days, "pool": n_tot, "hr": hr_tot,
+        "model_version": compute.MODEL_VERSION,
         "base_pct": round(100 * hr_tot / n_tot, 2) if n_tot else None,
         "by_tier": by_tier, "top_n": top_n,
         "calib": {k: calib[k] for k in sorted(calib, key=int)},
@@ -301,7 +302,7 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
                      "o7_pct": round(100 * pk_o7 / pk_n, 1) if pk_n else None},
         },
         "notes": ["core model only (heat + arm nudge); park/weather/badge layers not replayed",
-                  "opposing SP = actual first pitcher (probables occasionally differed)",
+                  "opposing SP = actual first pitcher; the live board uses the morning probable, so replayed matchup info is marginally sharper than production — treat calibration as a slight ceiling, not a floor",
                   "props replayed with same leak contract; hrr graded WITHOUT lineup-spot multiplier (no morning lineups in replay)",
                   "hrr runs/rbis approximated identically to the live tracker",
                   f"first {WARMUP_DAYS} days used as feature warm-up, not graded"],

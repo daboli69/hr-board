@@ -189,3 +189,47 @@ def fence_polyline(venue, step=5):
     angs = np.arange(-45.0, 45.0 + 0.1, step)
     wd, _ = PG.wall_at(venue, angs)
     return [[float(a), float(w)] for a, w in zip(angs, np.asarray(wd, float))]
+
+
+# The 30 current MLB parks, de-aliased (Camden/Oriole, Rate/Guaranteed Rate, Daikin/Minute
+# Maid etc. collapse to one). Used for the "would clear in X of 30 parks" read. Neutral
+# conditions (sea-level 70F air, no wind) so it's a pure GEOMETRY comparison — the point is
+# "how homer-friendly are this guy's batted balls, park to park," not tonight's weather.
+PARKS_30 = [
+    "Coors Field", "Fenway Park", "Yankee Stadium", "Wrigley Field", "Dodger Stadium",
+    "Oracle Park", "Petco Park", "Citizens Bank Park", "Great American Ball Park",
+    "Globe Life Field", "Truist Park", "Chase Field", "Oriole Park at Camden Yards",
+    "Rogers Centre", "American Family Field", "Nationals Park", "Citi Field",
+    "loanDepot park", "T-Mobile Park", "Kauffman Stadium", "Comerica Park",
+    "Progressive Field", "Guaranteed Rate Field", "Target Field", "Busch Stadium",
+    "PNC Park", "Angel Stadium", "Minute Maid Park", "Sutter Health Park", "Tropicana Field",
+]
+
+
+def parks_cleared(evs, las, sprays):
+    """For a set of batted balls, how many of the 30 parks would each ball clear?
+
+    Returns {"per_ball": [count_0_to_30, ...], "any": [balls out in >=1 park],
+             "avg_parks": mean parks cleared over balls that clear anywhere}.
+    Neutral conditions — this is a geometry read, not a weather read.
+
+    Cost note: 30 parks x N balls vectorized numpy comparisons. N is small per hitter
+    (deep balls only), so this is milliseconds per hitter, bounded and cheap.
+    """
+    ev = np.asarray(evs, float); la = np.asarray(las, float); sp = np.asarray(sprays, float)
+    if ev.size == 0:
+        return {"per_ball": [], "any": 0, "avg_parks": 0.0}
+    rho_n = T.air_density(70.0, 0.0, None)     # engine's own neutral: sea level, 70F
+    wind_none = np.zeros(3)                     # _clears expects a 3-vector, not a tuple
+    counts = np.zeros(ev.size, dtype=int)
+    for venue in PARKS_30:
+        try:
+            cl = _clears(ev, la, sp, venue, rho_n, wind_none)
+            counts += np.asarray(cl, dtype=bool).astype(int)
+        except Exception:
+            continue
+    per = counts.tolist()
+    any_out = int((counts > 0).sum())
+    clearing = counts[counts > 0]
+    return {"per_ball": per, "any": any_out,
+            "avg_parks": float(round(clearing.mean(), 1)) if clearing.size else 0.0}

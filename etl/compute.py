@@ -22,6 +22,12 @@ if you want.
 """
 from __future__ import annotations
 
+# Bump this whenever the SCORING math changes (anchors, weights, the None default, the
+# piecewise curve). It gets stamped onto every board and every backtest, so the frontend
+# can detect when the deployed board and the loaded calibration were built with different
+# model logic and warn instead of silently mispricing. v2 = None default 0.40 -> 0.25.
+MODEL_VERSION = 2
+
 # (poor, good, elite) anchor points per signal
 ANCHORS = {
     "pull_air_pct": (28.0, 40.0, 55.0),
@@ -51,9 +57,22 @@ LEAGUE_AVG = {
 
 
 def anchor_scale(v, poor, good, elite):
-    """Piecewise: below poor ramps 0->.25, poor->good .25->.65, good->elite .65->1."""
+    """Piecewise: below poor ramps 0->.25, poor->good .25->.65, good->elite .65->1.
+
+    Missing data (v is None) returns 0.25 — the POOR anchor floor. Rationale: an unproven
+    signal should be treated as poor-tier until data says otherwise, never as mild positive
+    evidence. The old default was 0.40 (above poor), which meant a hitter with MISSING
+    barrel data outscored one with genuinely bad barrel data — missing beat known-bad. That
+    inflated thin-sample hitters (just-called-up, returning-from-IL) exactly when their data
+    is least trustworthy. 0.25 makes missing == poor: cautious, and never rewards absence.
+
+    NOTE — CALIBRATION DEPENDENCY: this value is baked into the backtest calibration, since
+    backtest.py replays through this same function. Changing it REQUIRES re-running the
+    backtest so the heat->HR% curve re-derives from the new behavior; otherwise the live
+    model and the Edge Finder's calibration drift apart. See MODEL_VERSION below.
+    """
     if v is None:
-        return 0.40
+        return 0.25
     if v <= poor:
         return max(0.0, 0.25 * v / poor) if poor > 0 else 0.0
     if v <= good:
@@ -131,15 +150,24 @@ def heat_score(recent: dict, pitcher_score: int | None = None) -> tuple[int, dic
     if not recent:
         return 0, {"note": "no recent data"}
 
-    bd, total, cleared = {}, 0.0, 0
+    bd, total, cleared, present = {}, 0.0, 0, 0
     for key, w in WEIGHTS.items():
-        s = anchor_scale(recent.get(key), *ANCHORS[key])
+        raw = recent.get(key)
+        s = anchor_scale(raw, *ANCHORS[key])
         pts = round(s * w, 1)
         bd[key] = pts
         total += pts
-        if recent.get(key) is not None and s >= 0.65:   # cleared its "good" anchor
+        if raw is not None:
+            present += 1                      # signal actually had data
+        if raw is not None and s >= 0.65:     # cleared its "good" anchor
             cleared += 1
     bd["cleared"] = cleared          # 0-6 signals at/above good
+    # How many of the six signals actually had data. This does NOT affect the score (a
+    # missing signal contributes anchor_scale(None)=0.25, the poor-anchor floor, and the
+    # calibration is re-derived with that behavior via the backtest). It's pure
+    # transparency: a hitter scoring 45 on 6 real signals is a very different bet than one
+    # scoring 45 on 2 signals + 4 blanks, and the UI should be able to say so.
+    bd["present"] = present          # 0-6 signals with real data
     # NOTE: bool(...) coercion is load-bearing — these come out of numpy comparisons
     # as np.bool_, which json.dump(default=str) serializes to the STRINGS "True"/"False".
     # In JS, "False" is truthy, so a stringified signal map silently reads as all-cleared.
@@ -217,9 +245,10 @@ def _vuln(metrics: dict) -> float:
         if key == "swstr_inv":
             v = metrics.get("swstr_pct_allowed")
             safe, mid, danger = SWSTR_ANCHORS
-            # inverted: lower v -> higher scale
+            # inverted: lower v -> higher scale. Missing -> 0.25 (poor floor), consistent
+            # with anchor_scale: absence of data is never treated as mild positive evidence.
             if v is None:
-                s = 0.40
+                s = 0.25
             elif v >= safe:
                 s = max(0.0, 0.25 * (2 - v / safe))
             elif v >= mid:

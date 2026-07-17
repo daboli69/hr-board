@@ -683,6 +683,33 @@ def build(date_str: str | None = None) -> dict:
                                                   anchor=anchor, savant_factor=sav)
                 if agg:
                     p["park_hr"] = agg
+                # "Would clear in X of 30 parks" — a geometry read on this hitter's recent
+                # batted balls. Restrict to genuinely deep/liftable balls so it measures HR
+                # potential, not weak grounders. Cheap (ms/hitter) and never touches heat.
+                try:
+                    ev_s = ev_all[i:i+n]; la_s = la_all[i:i+n]; sp_s = sp_all[i:i+n]
+                    deep_m = (ev_s >= 95.0) & (la_s >= 18.0) & (la_s <= 42.0)
+                    ndeep = int(deep_m.sum())
+                    if ndeep >= 3:
+                        pc = park_model.parks_cleared(ev_s[deep_m], la_s[deep_m], sp_s[deep_m])
+                        per = pc["per_ball"]
+                        # a ball is "borderline" if it clears some parks but not most —
+                        # those are the ones where tonight's park actually decides it
+                        borderline = sum(1 for c in per if 1 <= c <= 24)
+                        here = int(np.asarray(
+                            park_model.clears_here(ev_s[deep_m], la_s[deep_m], sp_s[deep_m],
+                                                   venue, *park_model.game_conditions(venue, gtime)),
+                            dtype=bool).sum())
+                        p["parks30"] = {
+                            "n_deep": ndeep,
+                            "out_here": here,               # clear tonight's park
+                            "any": pc["any"],               # clear at least one park
+                            "avg_parks": pc["avg_parks"],   # mean parks a clearing ball clears
+                            "borderline": borderline,       # park-dependent balls
+                            "per_ball": per,
+                        }
+                except Exception:
+                    pass
                 i += n
     except Exception as e:
         _hnote("park model", e); print(f"[build] park model skipped: {e}")
@@ -851,6 +878,7 @@ def build(date_str: str | None = None) -> dict:
     board = {
         "generated_at": now.isoformat(timespec="seconds"),
         "slate_date": date_str,
+        "model_version": compute.MODEL_VERSION,
         "league_avg": compute.LEAGUE_AVG,
         "games": [{
             "game_pk": g["game_pk"], "away": g["away"], "home": g["home"],
