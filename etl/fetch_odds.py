@@ -32,8 +32,29 @@ from pathlib import Path
 API_BASE = "https://parlay-api.com/v1"
 SPORT = "baseball_mlb"
 MARKET = "player_home_runs"
-# The books the user actually bets. Best price across THESE is what we surface.
-BOOKS = ["draftkings", "fanatics"]
+# The books the user actually bets. We match FLEXIBLY (substring, punctuation-insensitive)
+# because different feeds spell these differently: "draftkings" / "draft_kings" / "DraftKings",
+# "fanatics" / "fanaticssportsbook" / "fanatics_sportsbook". Add aliases here if a book the
+# user bets shows up under an unexpected key (the run log prints all keys seen).
+BOOK_ALIASES = {
+    "draftkings": ["draftkings", "draft_kings", "dk"],
+    "fanatics":   ["fanatics", "fanaticssportsbook", "fanatics_sportsbook", "fanatic"],
+}
+BOOKS = list(BOOK_ALIASES.keys())
+
+
+def _canon_book(raw: str) -> str | None:
+    """Map a raw bookmaker string to one of our canonical book keys, or None if it isn't
+    a book the user bets. Punctuation/space/case-insensitive substring match."""
+    if not raw:
+        return None
+    norm = "".join(ch for ch in raw.lower() if ch.isalnum())
+    for canon, aliases in BOOK_ALIASES.items():
+        for a in aliases:
+            an = "".join(ch for ch in a.lower() if ch.isalnum())
+            if an and (an in norm or norm in an):
+                return canon
+    return None
 OUT_PATH = Path(__file__).resolve().parent.parent / "docs" / "odds.json"
 
 
@@ -70,9 +91,11 @@ def _better_over(a: int, b: int) -> int:
 
 
 def fetch_props(api_key: str, retries: int = 2) -> list:
+    # NOTE: we deliberately do NOT send a bookmakers= filter. The API's book keys may not
+    # match ours, and a wrong filter can silently drop everything. Pull all books for the
+    # HR market and filter locally via _canon_book, where we can log what we actually see.
     q = urllib.parse.urlencode({
         "markets": MARKET,
-        "bookmakers": ",".join(BOOKS),
         "apiKey": api_key,
     })
     url = f"{API_BASE}/sports/{SPORT}/props?{q}"
@@ -98,18 +121,44 @@ def fetch_props(api_key: str, retries: int = 2) -> list:
     return []
 
 
+def _is_hr_prop(row: dict) -> bool:
+    """True if this row is the standard 'does he hit a home run tonight' bet.
+
+    This market shows up TWO ways depending on the book:
+      1. market_key 'player_home_runs' with line 0.5  (most books)
+      2. market_key 'player_home_runs_alt' with line 1.0 and a '1 Or More' milestone label
+         (DraftKings & Fanatics only publish it this way on this tier)
+    Both are the SAME outcome — 'over 0.5 HR' == '1 or more HR'. We accept both and reject
+    everything else: the 2+ milestone (line 2.0), null-line 'to hit 2+' rows, and the
+    combined/either-batter markets.
+    """
+    mk = row.get("market_key")
+    line = row.get("line")
+    mkt = (row.get("market") or "").lower()
+    if mk == "player_home_runs" and line == 0.5:
+        return True
+    if mk == "player_home_runs_alt" and line == 1.0 and "1 or more" in mkt:
+        return True
+    return False
+
+
 def build_odds(rows: list) -> dict:
     """Collapse raw prop rows into {normalized_name: {best, books:{...}, ...}}.
     A single malformed row is skipped, never fatal — one bad record can't lose the slate."""
     by_player: dict[str, dict] = {}
+    books_seen: dict[str, int] = {}      # raw bookmaker key -> count, for diagnostics
+    hr_rows = 0
     for row in rows:
         try:
             if not isinstance(row, dict):
                 continue
-            if row.get("market_key") != MARKET:
+            if not _is_hr_prop(row):
                 continue
-            book = (row.get("bookmaker") or "").lower()
-            if book not in BOOKS:
+            hr_rows += 1
+            raw_book = row.get("bookmaker") or ""
+            books_seen[raw_book] = books_seen.get(raw_book, 0) + 1
+            book = _canon_book(raw_book)
+            if book is None:
                 continue
             over = row.get("over_price")
             if over is None:
@@ -122,6 +171,9 @@ def build_odds(rows: list) -> dict:
             if over == 0 or over < -100000 or over > 100000:
                 continue
             name = row.get("player") or ""
+            # some feeds tag the team on the name: "Willy Adames (SF)" -> strip it
+            if "(" in name:
+                name = name.split("(")[0].strip()
             key = _norm_name(name)
             if not key:
                 continue
@@ -129,7 +181,7 @@ def build_odds(rows: list) -> dict:
                 "name": name,
                 "home_team": row.get("home_team"),
                 "away_team": row.get("away_team"),
-                "line": row.get("line"),
+                "line": 0.5,   # normalize: we treat 1-or-more and 0.5 as the same HR bet
                 "books": {},
                 "best": None,
                 "best_book": None,
@@ -144,6 +196,12 @@ def build_odds(rows: list) -> dict:
                     entry["best"], entry["best_book"] = nb, book
         except Exception:
             continue   # one bad row never kills the batch
+    # Diagnostic: if we parsed nothing, show WHY — which book keys the feed actually uses.
+    if not by_player and books_seen:
+        top = sorted(books_seen.items(), key=lambda kv: -kv[1])[:15]
+        print(f"[odds] {hr_rows} HR rows across books: {top}", file=sys.stderr)
+        print(f"[odds] none matched {BOOKS}. If a book you bet is in that list under a "
+              f"different key, add it to BOOK_ALIASES.", file=sys.stderr)
     return by_player
 
 
