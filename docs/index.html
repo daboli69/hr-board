@@ -383,6 +383,16 @@
   .pl-card-h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
   .pl-card-h b{font-family:Archivo;font-weight:800;font-size:14px}
   .pl-comb{font-family:"IBM Plex Mono";font-weight:800;font-size:13px;color:var(--seam)}
+  .pl-bookev{margin:8px 0 2px;padding:8px 10px;border-radius:8px;font-size:11px;line-height:1.5;border:1px solid}
+  .pl-bookev.ok{background:rgba(120,178,145,.07);border-color:rgba(120,178,145,.32)}
+  .pl-bookev.spec{background:rgba(224,145,58,.06);border-color:rgba(224,145,58,.3)}
+  .pl-bookev.neg{background:var(--panel-2);border-color:var(--line)}
+  .pl-bookev b{color:var(--ink);font-family:"IBM Plex Mono"}
+  .pl-bookev-sub{color:var(--muted);font-size:10px;margin-top:3px}
+  .pl-ev{font-family:"IBM Plex Mono";font-size:9.5px;font-weight:800;padding:1px 5px;border-radius:3px;margin-left:4px;white-space:nowrap}
+  .pl-ev.pos{color:var(--good);background:rgba(120,178,145,.14)}
+  .pl-ev.spec{color:var(--hot);background:rgba(224,145,58,.12)}
+  .pl-ev.neg{color:var(--muted);background:rgba(140,150,165,.12)}
   .pl-leg{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--line)}
   .pl-leg-main b{font-size:13px}
   .pl-meta{font-size:10.5px;color:var(--muted);display:block;margin-top:1px}
@@ -3255,6 +3265,53 @@ function renderParlays(){
   if(!BOARD||!BOARD.players){ main.innerHTML=`<div class="empty">Board not loaded.</div>`; return; }
   const R=trackerRates();
   const BR=betRates();
+
+  // ---- Real book EV for a parlay, from fetched DK/Fanatics odds ----
+  // For each leg, use the auto-filled book price (best of your books, or FanDuel fallback).
+  // If EVERY leg has a price, we can compute the true combined book payout and compare it to
+  // the model's fair combined probability — turning "fair odds" into an actual +EV / -EV read.
+  // Any leg missing a price means we can't price the parlay (return null -> UI shows nothing).
+  const parlayBookEV=(picks)=>{
+    if(!picks||picks.length<2) return null;
+    let decProduct=1, modelProb=1, anyFallback=false, minConf=100;
+    for(const p of picks){
+      const e=fetchedOddsFor(p.id);
+      if(!e||e.best==null) return null;               // a leg has no book price -> can't price
+      if(e.fallback) anyFallback=true;
+      decProduct *= americanToDecimal(e.best);        // multiply decimal payouts
+      const mp=(p._prob!=null)?p._prob:0;
+      modelProb *= mp;
+      // reuse the Edge Finder's confidence idea, lightly: penalize thin/longshot legs
+      const bd=p.score_breakdown||{}; const present=bd.present!=null?bd.present:6;
+      let c=100; if(present<4)c-=45; else if(present<6)c-=18;
+      if(p.heat!=null&&p.heat<40)c-=30;
+      const imp=impliedProb((e.best>=0?"+":"")+e.best);
+      if(imp!=null){ if(imp<0.07)c-=40; else if(imp<0.10)c-=22; }
+      minConf=Math.min(minConf,c);
+    }
+    const bookDec=decProduct;                          // combined decimal payout at the book
+    const bookImp=1/bookDec;                            // book's implied combined prob
+    const evPerDollar=modelProb*(bookDec-1)-(1-modelProb);  // EV per $1 staked
+    return {bookDec, bookImp, modelProb, ev:evPerDollar, anyFallback, minConf};
+  };
+  const bookEVLine=(picks)=>{
+    const r=parlayBookEV(picks);
+    if(!r) return "";   // silent when not all legs are priced — no clutter
+    const good=r.ev>0;
+    const reliable=good && r.minConf>=60;
+    const am=(r.bookDec>=2)?("+"+Math.round((r.bookDec-1)*100)):("−"+Math.round(100/(r.bookDec-1)));
+    const tag = !good ? `<span class="pl-ev neg">${(r.ev*100).toFixed(0)}% EV</span>`
+      : reliable ? `<span class="pl-ev pos">+${(r.ev*100).toFixed(0)}% EV · reliable</span>`
+      : `<span class="pl-ev spec">+${(r.ev*100).toFixed(0)}% EV · speculative</span>`;
+    return `<div class="pl-bookev ${good?(reliable?'ok':'spec'):'neg'}">
+      <div>book pays <b>${am}</b> · model fair ${americanFair(r.modelProb)} ${tag}</div>
+      <div class="pl-bookev-sub">${good
+        ? (reliable ? "Book price beats the model's fair value on trustworthy legs — a real +EV combo if the legs hit independently."
+                    : "Positive on paper but at least one leg is thin/longshot — the model's edge there is shaky. Treat as a dart.")
+        : "Book pays less than fair value — the vig plus correlation makes this −EV. Parlays almost always are."}${r.anyFallback?" · includes a FanDuel reference price":""}</div>
+    </div>`;
+  };
+
   const w=R.totalHR/(R.totalHR+150);
   const rankMap={};
   BOARD.players.slice().sort((a,b)=>(b.heat||0)-(a.heat||0)).forEach((p,i)=>{ rankMap[p.id]=i; });
@@ -3285,6 +3342,7 @@ function renderParlays(){
       <div class="pl-card-h"><b>${title}</b>${(picks.length>1&&!noComb)?`<span class="pl-comb">${(picks.reduce((a,p)=>a*p._prob,1)*100).toFixed(1)}% · ${americanFair(picks.reduce((a,p)=>a*p._prob,1))}</span>`:""}</div>
       ${sub?`<div class="pl-sub">${sub}</div>`:""}
       ${picks.map(legFn||leg).join("")}
+      ${(picks.length>1&&!noComb)?bookEVLine(picks):""}
       <div class="pl-foot">${foot||"combined model probability if independent · fair odds, not book odds"}</div>
     </div>`;
   const thinCard=(title,msg)=>`<div class="pl-card pl-card-thin"><div class="pl-card-h"><b>${title}</b></div><div class="pl-foot">${msg}</div></div>`;
@@ -3324,6 +3382,67 @@ function renderParlays(){
       "the model's three strongest plays, one per team — ranked by the full blend (heat · trend · pitch mix · contact luck · your tag + tracker history · park), never heat alone",
       picks,
       p=>leg(p,(p.heat!=null&&p._score!=null)?`<span class="pl-tag lb">blend ${(p._score*100).toFixed(0)} · heat ${p.heat}</span>`:null));
+  };
+
+  // ---- Bet 0 · Best +EV Parlay: actively search combos for real positive book EV ----
+  // Unlike the other cards (which pick by model strength then show EV), this one SEARCHES
+  // for the parlay whose book price actually beats fair value. It only considers legs that
+  // (a) have a fetched book price and (b) clear the confidence bar (trustworthy heat, real
+  // signals, not a deep longshot), then finds the 2- and 3-leg combos with the best +EV,
+  // one leg per game so the legs are as independent as possible.
+  const bestEVCard=()=>{
+    // eligible legs: priced + reliable + decent model prob
+    const elig=ranked.map(p=>{
+      const e=fetchedOddsFor(p.id);
+      if(!e||e.best==null) return null;
+      const bd=p.score_breakdown||{}; const present=bd.present!=null?bd.present:6;
+      let conf=100;
+      if(present<4)conf-=45; else if(present<6)conf-=18;
+      if(p.heat!=null&&p.heat<40)conf-=30; else if(p.heat>=83)conf-=12;
+      const imp=impliedProb((e.best>=0?"+":"")+e.best);
+      if(imp!=null){ if(imp<0.07)conf-=40; else if(imp<0.10)conf-=22; }
+      if(e.fallback)conf-=15;
+      return {p, price:e.best, dec:americanToDecimal(e.best), prob:p._prob||0, conf, fallback:e.fallback, game:p.game_pk};
+    }).filter(x=>x && x.conf>=60 && x.prob>0);
+
+    if(elig.length<2) return thinCard("Best +EV Parlay",
+      "No two trustworthy, priced hitters clear the confidence bar yet. This fills in once book odds post and lineups firm up — and honestly, most slates won't have a +EV parlay. That's not a bug; parlays are usually −EV.");
+
+    // search all 2-leg and 3-leg combos (one leg per game), rank by EV per $1
+    const evOf=(legs)=>{
+      let dec=1,mp=1; for(const l of legs){ dec*=l.dec; mp*=l.prob; }
+      return mp*(dec-1)-(1-mp);
+    };
+    const combos=[];
+    const byBest=elig.slice().sort((a,b)=>b.prob-a.prob).slice(0,14);  // cap search space
+    for(let i=0;i<byBest.length;i++)for(let j=i+1;j<byBest.length;j++){
+      if(byBest[i].game===byBest[j].game) continue;                     // different games
+      combos.push([byBest[i],byBest[j]]);
+      for(let k=j+1;k<byBest.length;k++){
+        if(byBest[k].game===byBest[i].game||byBest[k].game===byBest[j].game) continue;
+        combos.push([byBest[i],byBest[j],byBest[k]]);
+      }
+    }
+    const scored=combos.map(legs=>({legs,ev:evOf(legs),dec:legs.reduce((a,l)=>a*l.dec,1),
+                                    mp:legs.reduce((a,l)=>a*l.prob,1),
+                                    minConf:Math.min(...legs.map(l=>l.conf)),
+                                    fb:legs.some(l=>l.fallback)}))
+                      .filter(c=>c.ev>0)
+                      .sort((a,b)=>b.ev-a.ev);
+    if(!scored.length) return thinCard("Best +EV Parlay",
+      "No positive-EV parlay on this slate — every trustworthy combo pays less than fair value. That's the normal, honest result: skip the parlay tonight. A single straight bet on the best Edge Finder play is almost always the better wager.");
+
+    const best=scored[0];
+    const am=(best.dec>=2)?("+"+Math.round((best.dec-1)*100)):("−"+Math.round(100/(best.dec-1)));
+    const picks=best.legs.map(l=>l.p);
+    return cardShell(
+      `Best +EV Parlay · ${best.legs.length}-leg`,
+      "the highest positive-EV combo found across your priced, trustworthy hitters — one leg per game. This actively searches for value rather than stacking the hottest names; if it's here, the book is genuinely paying more than fair.",
+      picks,
+      p=>{ const l=best.legs.find(x=>x.p.id===p.id);
+           return leg(p, `<span class="pl-tag lb">${fmtAm(l.price)}${l.fallback?" · FD ref":""}</span>`); },
+      `book pays ${am} · model fair ${americanFair(best.mp)} · <b style="color:var(--good)">+${(best.ev*100).toFixed(0)}% EV</b>${best.minConf<60?" · one leg speculative":""}${best.fb?" · includes FanDuel reference price":""} — only bet if you can take these prices at your book`,
+      true /* noComb: we show our own EV footer */);
   };
 
   // ---- Bet 3 · Round robin by 2s: 5 games, odds spread, score mix, capped chalk/B2B ----
@@ -3376,7 +3495,7 @@ function renderParlays(){
 
   let cardsHTML="";
   try{
-    cardsHTML = jackpotCard() + best3Card() + rrCard();
+    cardsHTML = bestEVCard() + jackpotCard() + best3Card() + rrCard();
   }catch(e){ cardsHTML=`<div class="pl-card pl-card-thin"><div class="pl-foot">Couldn't build suggestions for this slate — check back once lineups post.</div></div>`; }
 
   main.innerHTML=`
