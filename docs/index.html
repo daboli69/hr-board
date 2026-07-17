@@ -798,6 +798,9 @@
   .bl-clv-inline{font-family:"IBM Plex Mono";font-size:10px;font-weight:600}
   .bl-clv-inline.pos{color:var(--good)} .bl-clv-inline.neg{color:var(--bad)}
   .bl-clv-inline-hint{font-size:9.5px;color:var(--faint)}
+  .ei-auto{font-family:"IBM Plex Mono";font-size:8px;font-weight:700;color:var(--good);
+    background:rgba(120,178,145,.14);padding:1px 4px;border-radius:3px;margin-left:6px;letter-spacing:.03em;vertical-align:1px}
+  .ei-autoval{border-color:rgba(120,178,145,.4)!important}
   .bl-auto{font-family:"IBM Plex Mono";font-size:8px;font-weight:700;color:var(--good);
     background:rgba(120,178,145,.14);padding:1px 4px;border-radius:3px;margin-left:5px;vertical-align:1px;letter-spacing:.03em}
   .bl-scratch{font-family:"IBM Plex Mono";font-size:8px;font-weight:800;color:var(--hot);
@@ -2482,12 +2485,12 @@ function renderEdge(){
       </div>
       ${impTxt}
       <div class="edge-in">
-        <span class="ei-lbl">book price</span>
+        <span class="ei-lbl">book price${oddsIsAuto(p.id)?(()=>{const e=fetchedOddsFor(p.id);const bk=e&&e.best_book==="fanatics"?"Fanatics":"DK";const both=e&&e.books&&Object.keys(e.books).length===2;return `<span class="ei-auto" title="auto-filled: best of DraftKings & Fanatics">${bk} ${both?"·best":""}</span>`;})():""}</span>
         <button class="ei-sign" onclick="oddsToggleSign(${p.id})" title="flip + / −">${String(x.price||'').trim().startsWith('-')?'−':'+'}</button>
         <input type="text" inputmode="numeric" pattern="[0-9]*" placeholder="450" value="${hasPrice?String(x.price).replace(/[^0-9]/g,''):""}"
                onchange="oddsPutNum(${p.id}, this.value.trim())"
-               onblur="oddsPutNum(${p.id}, this.value.trim())" class="ei-input"/>
-        ${hasPrice?`<button class="ei-x" onclick="oddsPut(${p.id},'')">clear</button>`:""}
+               onblur="oddsPutNum(${p.id}, this.value.trim())" class="ei-input ${oddsIsAuto(p.id)?'ei-autoval':''}"/>
+        ${hasPrice&&!oddsIsAuto(p.id)?`<button class="ei-x" onclick="oddsPut(${p.id},'')">clear</button>`:""}
       </div>
     </div>`;
   };
@@ -2611,7 +2614,12 @@ function betSearch(v){
 }
 function betAddLeg(id){
   const p=(BOARD.players||[]).find(x=>String(x.id)===String(id)); if(!p)return;
-  betDraft.legs.push({name:p.name,team:p.team,heat:p.heat,badges:(p.badges||[]).map(b=>b.k),hit:"pending"});
+  const leg={name:p.name,team:p.team,heat:p.heat,badges:(p.badges||[]).map(b=>b.k),hit:"pending",id:p.id};
+  // if we have a fetched book price for him, pre-fill the bet's entry odds from it
+  const e=fetchedOddsFor(p.id);
+  if(e&&e.best!=null){ leg.fetchedEntry=(e.best>=0?"+":"")+e.best; leg.fetchedBook=e.best_book;
+    if(!betDraft.odds) betDraft.odds=leg.fetchedEntry; }
+  betDraft.legs.push(leg);
   renderBets();
 }
 function betAddFree(){
@@ -2659,7 +2667,7 @@ function betListHTML(bets){
       <div class="bl-bet-head"><div><b>${b.type}</b><div class="bl-bet-sub">${b.date}${b.stake?` · $${b.stake}`:""}${b.odds?` · ${b.odds}`:""}${b.close?` · closed ${b.close}`:""}</div></div>
         <div class="bl-bet-right">${clvChip}<button class="bl-del" onclick="betDelete(${b.id})" aria-label="delete">✕</button></div></div>
       <div class="bl-blegs">${legs}</div>
-      <div class="bl-close-edit"><label>closing odds <input type="text" placeholder="+400" value="${b.close||""}" oninput="betSetClose(${b.id},this.value)" onchange="betSetCloseDone(${b.id},this.value)"/></label>${clv!=null?`<span class="bl-clv-inline ${clv>=0?'pos':'neg'}">${clv>=0?"beat close by":"closed shorter by"} ${Math.abs(clv).toFixed(1)}pp</span>`:`<span class="bl-clv-inline-hint">enter where it closed to see CLV</span>`}</div>
+      <div class="bl-close-edit"><label>closing odds <input type="text" placeholder="+400" value="${b.close||""}" oninput="betSetClose(${b.id},this.value)" onchange="betSetCloseDone(${b.id},this.value)"/></label>${b.closeAuto?`<span class="bl-auto" title="auto-captured from the latest DK/Fanatics price before game time">auto-close</span>`:""}${clv!=null?`<span class="bl-clv-inline ${clv>=0?'pos':'neg'}">${clv>=0?"beat close by":"closed shorter by"} ${Math.abs(clv).toFixed(1)}pp</span>`:`<span class="bl-clv-inline-hint">auto-fills from live odds, or type it</span>`}</div>
       <div class="bl-result"><div class="seg bl-rseg">
           <button class="${r==='pending'?'on':''}" onclick="betSetResult(${b.id},'pending')">Pending</button>
           <button class="${r==='win'?'on win':''}" onclick="betSetResult(${b.id},'win')">Won</button>
@@ -2683,7 +2691,7 @@ function clvOf(entryOdds, closeOdds){
   // your side (your price was longer than the close) — positive CLV.
   return (cp - ep) * 100;   // percentage points
 }
-function betSetClose(id,v){const bets=loadBets();const b=bets.find(x=>x.id===id);if(b){b.close=v;saveBets(bets);}}
+function betSetClose(id,v){const bets=loadBets();const b=bets.find(x=>x.id===id);if(b){b.close=v;b.closeManual=true;b.closeAuto=false;saveBets(bets);}}
 function betSetCloseDone(id,v){betSetClose(id,v);renderBets();}
 
 // ---------- Auto-grade from the live HR feed ----------
@@ -2979,19 +2987,35 @@ function breakevenAmerican(prob){
   return dec>=2 ? "+"+Math.ceil((dec-1)*100) : "-"+Math.floor(100/(dec-1));
 }
 
-// entered book prices, keyed to the slate so they clear with the day
-function oddsGet(){
+// entered book prices, keyed to the slate so they clear with the day. Fetched prices from
+// parlay-api (best of DK/Fanatics) auto-fill as defaults; anything the user types by hand
+// overrides the fetched value for that hitter.
+function oddsManual(){
   try{
     const raw=JSON.parse(localStorage.getItem("gy_odds")||"null");
     if(!raw||raw.date!==(BOARD&&BOARD.slate_date)) return {};
     return raw.prices||{};
   }catch(e){ return {}; }
 }
+function oddsGet(){
+  const manual=oddsManual();
+  if(!ODDS||!ODDS.prices) return manual;
+  // start from fetched best prices (as signed american strings), then let manual override
+  const merged={};
+  for(const p of (BOARD&&BOARD.players||[])){
+    const e=ODDS.prices[normName(p.name)];
+    if(e&&e.best!=null){ merged[p.id]=(e.best>=0?"+":"")+e.best; }
+  }
+  for(const id in manual){ merged[id]=manual[id]; }   // manual wins
+  return merged;
+}
+// is this hitter's shown price auto-filled (fetched, not hand-typed)?
+function oddsIsAuto(id){ return oddsManual()[id]==null && fetchedOddsFor(id)!=null; }
 function oddsSet(prices){
   try{ localStorage.setItem("gy_odds", JSON.stringify({date:(BOARD&&BOARD.slate_date)||null, prices})); }catch(e){}
 }
 function oddsPut(id, val){
-  const p=oddsGet();
+  const p=oddsManual();   // edit the MANUAL layer only; fetched prices stay as live defaults
   if(val===""||val==null) delete p[id]; else p[id]=val;
   oddsSet(p);
   // If a search is active, refresh just the results so the box isn't wiped mid-entry.
@@ -4250,6 +4274,60 @@ async function goView(v){
 }
 
 let BACKTEST=null;
+let ODDS=null;   // fetched HR prop prices from parlay-api (best of DK/Fanatics), keyed by normalized name
+
+// Normalize a name the SAME way etl/fetch_odds.py does, so board ids map to fetched prices.
+function normName(name){
+  if(!name) return "";
+  let n=name.normalize("NFKD").replace(/[\u0300-\u036f]/g,"");  // strip accents
+  n=n.toLowerCase().trim();
+  n=n.replace(/[^a-z ]/g,"");            // letters+spaces only (drops . ' -)
+  n=n.replace(/\s+/g," ").trim();
+  for(const suf of [" jr"," sr"," ii"," iii"," iv"]){ if(n.endsWith(suf)) n=n.slice(0,-suf.length); }
+  return n.trim();
+}
+// Fetched price for a board player (by id), or null. Looks up odds.json by normalized name.
+function fetchedOddsFor(id){
+  if(!ODDS||!ODDS.prices) return null;
+  const p=(BOARD&&BOARD.players||[]).find(x=>x.id===id);
+  if(!p) return null;
+  const e=ODDS.prices[normName(p.name)];
+  if(!e||e.best==null) return null;
+  return e;   // {best, best_book, books:{draftkings,fanatics}, ...}
+}
+async function loadOddsEager(){
+  try{
+    const r=await fetch("odds.json?t="+Date.now());
+    if(r.ok){ ODDS=await r.json();
+      captureClosingFromOdds();   // fill in closing prices on today's bets as the line moves
+      if(view==="bets"){ try{ betsView==="edge"?renderEdge():renderBets(); }catch(e){} }
+    }
+  }catch(e){}
+}
+
+// Automatic CLV: each time fresh odds land, record the current best price as the running
+// "closing" price for today's still-pending bets. Because odds.json refreshes on the board
+// schedule right up to game time, the LAST value captured before first pitch is effectively
+// the closing line — captured with zero manual entry. Only fills bets that don't already
+// have a manually-set closing price, and only for today's slate.
+function captureClosingFromOdds(){
+  if(!ODDS||!ODDS.prices||!BOARD) return 0;
+  const slate=BOARD.slate_date;
+  const bets=loadBets(); let changed=0;
+  bets.forEach(b=>{
+    if(b.slate && b.slate!==slate) return;       // today's bets only
+    if(b.closeManual) return;                     // user typed a close — never overwrite
+    // single-leg bets map cleanly to one player's HR price; use the first leg's player
+    const leg=(b.legs||[])[0]; if(!leg||leg.id==null) return;
+    const p=(BOARD.players||[]).find(x=>x.id===leg.id); if(!p) return;
+    const e=ODDS.prices[normName(p.name)];
+    if(!e||e.best==null) return;
+    const px=(e.best>=0?"+":"")+e.best;
+    if(b.close!==px){ b.close=px; b.closeAuto=true; changed++; }
+  });
+  if(changed) saveBets(bets);
+  return changed;
+}
 
 // ---- Live HR tracker ----
 // One StatsAPI request per cycle pulls scoring plays for every game on the slate;
@@ -4442,6 +4520,7 @@ async function load(){
   setHH();
   startLivePolling();
   loadBacktestEager();   // non-blocking: calibrates the Edge Finder before you open it
+  loadOddsEager();       // non-blocking: auto-fills book prices in Edge Finder + CLV
 }
 load();
 setInterval(load, 5*60*1000);   // refresh if a new board.json was published
