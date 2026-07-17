@@ -47,11 +47,20 @@ jobs:
           RECENT_DAYS: "45"
         run: python tests/canary.py && python -m etl.build_board
 
+      - name: Fetch HR prop odds
+        # 3 credits/call, one call per run. On the 6x/day board schedule that's ~540
+        # credits/month — inside the free 1k tier. Never fails the build: if the key is
+        # missing or the API errors, fetch_odds writes an error-marked odds.json and exits 0.
+        env:
+          PARLAY_API_KEY: ${{ secrets.PARLAY_API_KEY }}
+        run: python -m etl.fetch_odds || true
+
       - name: Commit updated board
         run: |
           git config user.name  "hr-board-bot"
           git config user.email "actions@github.com"
           git add docs/board.json docs/snapshots
+          git add docs/odds.json 2>/dev/null || true
           git add docs/park_factors.json 2>/dev/null || true
           git add docs/bvp_career.json 2>/dev/null || true
           git add docs/wind_sens.json 2>/dev/null || true
