@@ -801,6 +801,10 @@
   .ei-auto{font-family:"IBM Plex Mono";font-size:8px;font-weight:700;color:var(--good);
     background:rgba(120,178,145,.14);padding:1px 4px;border-radius:3px;margin-left:6px;letter-spacing:.03em;vertical-align:1px}
   .ei-autoval{border-color:rgba(120,178,145,.4)!important}
+  .odds-status{font-size:11px;line-height:1.5;padding:8px 11px;border-radius:8px;margin-bottom:10px;
+    background:var(--panel-2);border:1px solid var(--line);color:var(--muted)}
+  .odds-status.ok{border-color:rgba(120,178,145,.3);color:var(--good)}
+  .odds-status.warn{border-color:rgba(224,145,58,.4);background:rgba(224,145,58,.07);color:var(--hot)}
   .bl-auto{font-family:"IBM Plex Mono";font-size:8px;font-weight:700;color:var(--good);
     background:rgba(120,178,145,.14);padding:1px 4px;border-radius:3px;margin-left:5px;vertical-align:1px;letter-spacing:.03em}
   .bl-scratch{font-family:"IBM Plex Mono";font-size:8px;font-weight:800;color:var(--hot);
@@ -2501,6 +2505,17 @@ function renderEdge(){
       Enter what your book is posting and this tells you whether the number beats fair value.
       Every hitter shows the <b>worst price you can take and still break even</b> — anything shorter loses money over time, no matter how hot he is.</div>
     ${summary}
+    ${(()=>{
+      // auto-fill status banner: tells the user prices are being filled from their books,
+      // and warns if the data is stale (last fetch failed) or old.
+      if(!ODDS) return "";
+      if(!oddsMatchSlate()) return `<div class="odds-status warn">⚠ Auto-filled odds are from a different slate — enter prices manually today.</div>`;
+      const age=oddsAgeMin();
+      const n=ODDS.count||0;
+      if(oddsStale()) return `<div class="odds-status warn">⚠ Book odds may be stale — the last refresh didn't go through${age!=null?`, showing prices from ${age} min ago`:""}. Double-check before betting.</div>`;
+      if(n>0) return `<div class="odds-status ok">✓ Prices auto-filled from DraftKings & Fanatics (best of the two)${age!=null&&age<180?` · updated ${age} min ago`:""}. Type over any price to override.</div>`;
+      return `<div class="odds-status">Book odds not posted yet — enter prices manually, or check back closer to game time.</div>`;
+    })()}
     ${priced.length?`<div class="edge-h">Priced — sorted by expected value</div>${priced.map(x=>row(x,true)).join("")}`:""}
     <div class="edge-h">${priced.length?"Not yet priced":"Top candidates"} — enter a price to check it</div>
     <input id="edgeSearch" class="edge-search" placeholder="Search any hitter to price (even a cold one)…" autocomplete="off" oninput="edgeSearchInput(this.value)"/>
@@ -2999,7 +3014,7 @@ function oddsManual(){
 }
 function oddsGet(){
   const manual=oddsManual();
-  if(!ODDS||!ODDS.prices) return manual;
+  if(!ODDS||!ODDS.prices||!oddsMatchSlate()) return manual;
   // start from fetched best prices (as signed american strings), then let manual override
   const merged={};
   for(const p of (BOARD&&BOARD.players||[])){
@@ -4278,31 +4293,53 @@ let ODDS=null;   // fetched HR prop prices from parlay-api (best of DK/Fanatics)
 
 // Normalize a name the SAME way etl/fetch_odds.py does, so board ids map to fetched prices.
 function normName(name){
-  if(!name) return "";
-  let n=name.normalize("NFKD").replace(/[\u0300-\u036f]/g,"");  // strip accents
-  n=n.toLowerCase().trim();
-  n=n.replace(/[^a-z ]/g,"");            // letters+spaces only (drops . ' -)
-  n=n.replace(/\s+/g," ").trim();
-  for(const suf of [" jr"," sr"," ii"," iii"," iv"]){ if(n.endsWith(suf)) n=n.slice(0,-suf.length); }
-  return n.trim();
+  if(!name || typeof name!=="string") return "";
+  try{
+    let n=name.normalize("NFKD").replace(/[\u0300-\u036f]/g,"");  // strip accents
+    n=n.toLowerCase().trim();
+    n=n.replace(/[^a-z ]/g,"");            // letters+spaces only (drops . ' -)
+    n=n.replace(/\s+/g," ").trim();
+    for(const suf of [" jr"," sr"," ii"," iii"," iv"]){ if(n.endsWith(suf)) n=n.slice(0,-suf.length); }
+    return n.trim();
+  }catch(e){ return ""; }
 }
-// Fetched price for a board player (by id), or null. Looks up odds.json by normalized name.
+// True only when the fetched odds are for the SAME slate the board is showing. Guards
+// against yesterday's prices auto-filling today if an odds refresh lagged the board.
+function oddsMatchSlate(){
+  if(!ODDS) return false;
+  // if odds.json didn't capture a slate_date (older format), fall back to trusting it
+  if(!ODDS.slate_date) return true;
+  return !BOARD || !BOARD.slate_date || ODDS.slate_date===BOARD.slate_date;
+}
+// Fetched price for a board player (by id), or null.
 function fetchedOddsFor(id){
-  if(!ODDS||!ODDS.prices) return null;
+  if(!ODDS||!ODDS.prices||!oddsMatchSlate()) return null;
   const p=(BOARD&&BOARD.players||[]).find(x=>x.id===id);
   if(!p) return null;
   const e=ODDS.prices[normName(p.name)];
   if(!e||e.best==null) return null;
-  return e;   // {best, best_book, books:{draftkings,fanatics}, ...}
+  return e;
 }
 async function loadOddsEager(){
   try{
     const r=await fetch("odds.json?t="+Date.now());
-    if(r.ok){ ODDS=await r.json();
-      captureClosingFromOdds();   // fill in closing prices on today's bets as the line moves
-      if(view==="bets"){ try{ betsView==="edge"?renderEdge():renderBets(); }catch(e){} }
-    }
-  }catch(e){}
+    if(!r.ok) return;                          // 404 etc — app works fine without odds
+    let data;
+    try{ data=await r.json(); }catch(e){ return; }   // malformed JSON — ignore, keep manual entry
+    // validate shape before trusting it: must be an object with a prices object
+    if(!data || typeof data!=="object" || typeof data.prices!=="object" || data.prices===null){ return; }
+    ODDS=data;
+    captureClosingFromOdds();
+    if(view==="bets"){ try{ betsView==="edge"?renderEdge():renderBets(); }catch(e){} }
+  }catch(e){}   // any failure leaves ODDS null -> app falls back to manual entry
+}
+// Is the fetched odds data stale (last fetch failed, serving last-good prices)?
+function oddsStale(){ return !!(ODDS && ODDS.stale); }
+// How old is the odds data, in minutes? null if unknown.
+function oddsAgeMin(){
+  if(!ODDS||!ODDS.updated) return null;
+  const t=Date.parse(ODDS.updated); if(isNaN(t)) return null;
+  return Math.floor((Date.now()-t)/60000);
 }
 
 // Automatic CLV: each time fresh odds land, record the current best price as the running
@@ -4311,7 +4348,7 @@ async function loadOddsEager(){
 // the closing line — captured with zero manual entry. Only fills bets that don't already
 // have a manually-set closing price, and only for today's slate.
 function captureClosingFromOdds(){
-  if(!ODDS||!ODDS.prices||!BOARD) return 0;
+  if(!ODDS||!ODDS.prices||!BOARD||!oddsMatchSlate()) return 0;
   const slate=BOARD.slate_date;
   const bets=loadBets(); let changed=0;
   bets.forEach(b=>{
