@@ -32,24 +32,39 @@ from pathlib import Path
 API_BASE = "https://parlay-api.com/v1"
 SPORT = "baseball_mlb"
 MARKET = "player_home_runs"
-# The books the user actually bets. We match FLEXIBLY (substring, punctuation-insensitive)
-# because different feeds spell these differently: "draftkings" / "draft_kings" / "DraftKings",
-# "fanatics" / "fanaticssportsbook" / "fanatics_sportsbook". Add aliases here if a book the
-# user bets shows up under an unexpected key (the run log prints all keys seen).
+# PRIMARY books — the ones the user actually bets. A hitter's headline "best" price comes
+# only from these, and where both price him it's line-shopped to the better number.
 BOOK_ALIASES = {
     "draftkings": ["draftkings", "draft_kings", "dk"],
     "fanatics":   ["fanatics", "fanaticssportsbook", "fanatics_sportsbook", "fanatic"],
 }
 BOOKS = list(BOOK_ALIASES.keys())
 
+# FALLBACK book — FanDuel prices the clean 0.5 HR line and covers far more hitters than
+# DK/Fanatics's milestone-only feed. Used ONLY to fill hitters that NO primary book priced,
+# and always flagged (fallback=True) so the app can show it's a reference price from a book
+# the user may not bet, not a primary line.
+FALLBACK_ALIASES = {
+    "fanduel": ["fanduel", "fan_duel", "fd"],
+}
+FALLBACK_BOOKS = list(FALLBACK_ALIASES.keys())
+
 
 def _canon_book(raw: str) -> str | None:
-    """Map a raw bookmaker string to one of our canonical book keys, or None if it isn't
-    a book the user bets. Punctuation/space/case-insensitive substring match."""
+    """Map a raw bookmaker string to a PRIMARY book key, or None. Case/punctuation-insensitive."""
+    return _match_alias(raw, BOOK_ALIASES)
+
+
+def _canon_fallback(raw: str) -> str | None:
+    """Map a raw bookmaker string to a FALLBACK book key, or None."""
+    return _match_alias(raw, FALLBACK_ALIASES)
+
+
+def _match_alias(raw: str, table: dict) -> str | None:
     if not raw:
         return None
     norm = "".join(ch for ch in raw.lower() if ch.isalnum())
-    for canon, aliases in BOOK_ALIASES.items():
+    for canon, aliases in table.items():
         for a in aliases:
             an = "".join(ch for ch in a.lower() if ch.isalnum())
             if an and (an in norm or norm in an):
@@ -144,9 +159,14 @@ def _is_hr_prop(row: dict) -> bool:
 
 def build_odds(rows: list) -> dict:
     """Collapse raw prop rows into {normalized_name: {best, books:{...}, ...}}.
-    A single malformed row is skipped, never fatal — one bad record can't lose the slate."""
+
+    Two tiers: PRIMARY books (DK, Fanatics) set the headline 'best' price. FanDuel is a
+    FALLBACK — its price is only used as 'best' for a hitter that no primary book priced,
+    and such entries carry fallback=True so the app can flag them as reference prices.
+    A single malformed row is skipped, never fatal."""
     by_player: dict[str, dict] = {}
-    books_seen: dict[str, int] = {}      # raw bookmaker key -> count, for diagnostics
+    fallback: dict[str, dict] = {}       # normalized_name -> {book: price} from FanDuel
+    books_seen: dict[str, int] = {}
     hr_rows = 0
     for row in rows:
         try:
@@ -157,9 +177,7 @@ def build_odds(rows: list) -> dict:
             hr_rows += 1
             raw_book = row.get("bookmaker") or ""
             books_seen[raw_book] = books_seen.get(raw_book, 0) + 1
-            book = _canon_book(raw_book)
-            if book is None:
-                continue
+
             over = row.get("over_price")
             if over is None:
                 continue
@@ -167,41 +185,82 @@ def build_odds(rows: list) -> dict:
                 over = int(over)
             except (TypeError, ValueError):
                 continue
-            # sanity bound: reject absurd prices that would poison EV math
             if over == 0 or over < -100000 or over > 100000:
                 continue
+
             name = row.get("player") or ""
-            # some feeds tag the team on the name: "Willy Adames (SF)" -> strip it
             if "(" in name:
                 name = name.split("(")[0].strip()
             key = _norm_name(name)
             if not key:
                 continue
-            entry = by_player.setdefault(key, {
-                "name": name,
-                "home_team": row.get("home_team"),
-                "away_team": row.get("away_team"),
-                "line": 0.5,   # normalize: we treat 1-or-more and 0.5 as the same HR bet
-                "books": {},
-                "best": None,
-                "best_book": None,
-                "last_update": row.get("last_update"),
-            })
-            entry["books"][book] = over
-            if entry["best"] is None:
-                entry["best"], entry["best_book"] = over, book
-            else:
-                nb = _better_over(entry["best"], over)
-                if nb != entry["best"]:
-                    entry["best"], entry["best_book"] = nb, book
+
+            book = _canon_book(raw_book)
+            if book is not None:
+                entry = by_player.setdefault(key, {
+                    "name": name,
+                    "home_team": row.get("home_team"),
+                    "away_team": row.get("away_team"),
+                    "line": 0.5,
+                    "books": {},
+                    "best": None,
+                    "best_book": None,
+                    "fallback": False,
+                    "last_update": row.get("last_update"),
+                })
+                entry["books"][book] = over
+                if entry["best"] is None:
+                    entry["best"], entry["best_book"] = over, book
+                else:
+                    nb = _better_over(entry["best"], over)
+                    if nb != entry["best"]:
+                        entry["best"], entry["best_book"] = nb, book
+                continue
+
+            fb = _canon_fallback(raw_book)
+            if fb is not None:
+                slot = fallback.setdefault(key, {"name": name,
+                                                 "home_team": row.get("home_team"),
+                                                 "away_team": row.get("away_team"),
+                                                 "books": {},
+                                                 "last_update": row.get("last_update")})
+                # keep the better FanDuel price if it somehow appears twice
+                prev = slot["books"].get(fb)
+                slot["books"][fb] = over if prev is None else _better_over(prev, over)
         except Exception:
-            continue   # one bad row never kills the batch
-    # Diagnostic: if we parsed nothing, show WHY — which book keys the feed actually uses.
+            continue
+
+    # apply FanDuel fallback ONLY to hitters no primary book priced
+    filled = 0
+    for key, slot in fallback.items():
+        if key in by_player:
+            continue   # a primary book already covers him — don't override
+        fb_book = next(iter(slot["books"]), None)
+        if fb_book is None:
+            continue
+        px = slot["books"][fb_book]
+        by_player[key] = {
+            "name": slot["name"],
+            "home_team": slot.get("home_team"),
+            "away_team": slot.get("away_team"),
+            "line": 0.5,
+            "books": {fb_book: px},
+            "best": px,
+            "best_book": fb_book,
+            "fallback": True,           # flag: this is a reference price, not a primary book
+            "last_update": slot.get("last_update"),
+        }
+        filled += 1
+
     if not by_player and books_seen:
         top = sorted(books_seen.items(), key=lambda kv: -kv[1])[:15]
         print(f"[odds] {hr_rows} HR rows across books: {top}", file=sys.stderr)
-        print(f"[odds] none matched {BOOKS}. If a book you bet is in that list under a "
-              f"different key, add it to BOOK_ALIASES.", file=sys.stderr)
+        print(f"[odds] none matched {BOOKS+FALLBACK_BOOKS}. Add unmatched keys to the alias "
+              f"tables.", file=sys.stderr)
+    else:
+        prim = sum(1 for v in by_player.values() if not v.get("fallback"))
+        print(f"[odds] {prim} hitters on primary books, {filled} filled from FanDuel fallback",
+              file=sys.stderr)
     return by_player
 
 

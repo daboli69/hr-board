@@ -801,6 +801,7 @@
   .ei-auto{font-family:"IBM Plex Mono";font-size:8px;font-weight:700;color:var(--good);
     background:rgba(120,178,145,.14);padding:1px 4px;border-radius:3px;margin-left:6px;letter-spacing:.03em;vertical-align:1px}
   .ei-autoval{border-color:rgba(120,178,145,.4)!important}
+  .ei-fb{color:var(--muted)!important;background:rgba(140,150,165,.14)!important}
   .odds-status{font-size:11px;line-height:1.5;padding:8px 11px;border-radius:8px;margin-bottom:10px;
     background:var(--panel-2);border:1px solid var(--line);color:var(--muted)}
   .odds-status.ok{border-color:rgba(120,178,145,.3);color:var(--good)}
@@ -2489,7 +2490,7 @@ function renderEdge(){
       </div>
       ${impTxt}
       <div class="edge-in">
-        <span class="ei-lbl">book price${oddsIsAuto(p.id)?(()=>{const e=fetchedOddsFor(p.id);const bk=e&&e.best_book==="fanatics"?"Fanatics":"DK";const both=e&&e.books&&Object.keys(e.books).length===2;return `<span class="ei-auto" title="auto-filled: best of DraftKings & Fanatics">${bk} ${both?"·best":""}</span>`;})():""}</span>
+        <span class="ei-lbl">book price${oddsIsAuto(p.id)?(()=>{const e=fetchedOddsFor(p.id);if(!e)return"";if(e.fallback){return `<span class="ei-auto ei-fb" title="FanDuel reference price — DK/Fanatics didn't post this hitter">FD ref</span>`;}const bk=e.best_book==="fanatics"?"Fanatics":"DK";const both=e.books&&Object.keys(e.books).length===2;return `<span class="ei-auto" title="auto-filled: best of DraftKings & Fanatics">${bk} ${both?"·best":""}</span>`;})():""}</span>
         <button class="ei-sign" onclick="oddsToggleSign(${p.id})" title="flip + / −">${String(x.price||'').trim().startsWith('-')?'−':'+'}</button>
         <input type="text" inputmode="numeric" pattern="[0-9]*" placeholder="450" value="${hasPrice?String(x.price).replace(/[^0-9]/g,''):""}"
                onchange="oddsPutNum(${p.id}, this.value.trim())"
@@ -2513,7 +2514,7 @@ function renderEdge(){
       const age=oddsAgeMin();
       const n=ODDS.count||0;
       if(oddsStale()) return `<div class="odds-status warn">⚠ Book odds may be stale — the last refresh didn't go through${age!=null?`, showing prices from ${age} min ago`:""}. Double-check before betting.</div>`;
-      if(n>0) return `<div class="odds-status ok">✓ Prices auto-filled from DraftKings & Fanatics (best of the two)${age!=null&&age<180?` · updated ${age} min ago`:""}. Type over any price to override.</div>`;
+      if(n>0) return `<div class="odds-status ok">✓ Prices auto-filled from DraftKings & Fanatics (best of the two), with FanDuel as a labeled backup for hitters they didn't post${age!=null&&age<180?` · updated ${age} min ago`:""}. Type over any price to override.</div>`;
       return `<div class="odds-status">Book odds not posted yet — enter prices manually, or check back closer to game time.</div>`;
     })()}
     ${priced.length?`<div class="edge-h">Priced — sorted by expected value</div>${priced.map(x=>row(x,true)).join("")}`:""}
