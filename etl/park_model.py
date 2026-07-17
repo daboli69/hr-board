@@ -213,21 +213,60 @@ def parks_cleared(evs, las, sprays):
              "avg_parks": mean parks cleared over balls that clear anywhere}.
     Neutral conditions — this is a geometry read, not a weather read.
 
-    Cost note: 30 parks x N balls vectorized numpy comparisons. N is small per hitter
-    (deep balls only), so this is milliseconds per hitter, bounded and cheap.
+    Fast path: because conditions are identical across all 30 parks, each ball's flight is
+    integrated ONCE (via carry_profile), then checked against all 30 parks' walls with cheap
+    geometry. This is ~30x faster than integrating per park. For each park we look up its
+    wall distance + height at each ball's spray angle, then ask whether the ball's carry
+    reaches that distance and clears that height.
     """
     ev = np.asarray(evs, float); la = np.asarray(las, float); sp = np.asarray(sprays, float)
     if ev.size == 0:
         return {"per_ball": [], "any": 0, "avg_parks": 0.0}
-    rho_n = T.air_density(70.0, 0.0, None)     # engine's own neutral: sea level, 70F
-    wind_none = np.zeros(3)                     # _clears expects a 3-vector, not a tuple
-    counts = np.zeros(ev.size, dtype=int)
-    for venue in PARKS_30:
+    rho_n = T.air_density(70.0, 0.0, None)
+    wind_none = np.zeros(3)
+
+    # Per (ball, park): the wall distance at that ball's spray angle. Gather all so we can
+    # build one set of probe distances per ball and integrate a single trajectory.
+    N = ev.size
+    wall_d = np.full((N, len(PARKS_30)), np.nan)   # wall distance per ball per park
+    wall_h = np.full((N, len(PARKS_30)), np.nan)   # wall height   per ball per park
+    for j, venue in enumerate(PARKS_30):
         try:
-            cl = _clears(ev, la, sp, venue, rho_n, wind_none)
-            counts += np.asarray(cl, dtype=bool).astype(int)
+            wd, wh = PG.wall_at(venue, sp)
+            wall_d[:, j] = np.asarray(wd, float)
+            wall_h[:, j] = np.asarray(wh, float)
         except Exception:
             continue
+
+    # Integrate each ball once, probing at every distinct wall distance it faces. To keep it
+    # vectorized we probe at the full set of this hitter's wall distances (sorted unique per
+    # ball is overkill; use the per-ball row of wall distances as probes for that ball).
+    # carry_profile probes a shared grid, so use each ball's own 30 wall distances by running
+    # the profile against the union grid and interpolating. Simpler + robust: probe the union
+    # of all wall distances (<=30 values), get height at each, then per park pick its column.
+    probe_grid = np.unique(wall_d[~np.isnan(wall_d)])
+    if probe_grid.size == 0:
+        return {"per_ball": [0] * N, "any": 0, "avg_parks": 0.0}
+    dist_ft, z_at_probe = T.carry_profile(ev, la, sp, rho_n, wind_none, probe_grid)
+
+    # Vectorized park check. For each park column, find which probe-grid index its per-ball
+    # wall distance corresponds to (searchsorted on the unique sorted grid), gather the
+    # ball's height at that distance, and test clearance — all without a per-park loop body
+    # doing dict lookups.
+    counts = np.zeros(N, dtype=int)
+    row_idx = np.arange(N)
+    for j in range(len(PARKS_30)):
+        wd_col = wall_d[:, j]; wh_col = wall_h[:, j]
+        valid = ~np.isnan(wd_col)
+        if not valid.any():
+            continue
+        # exact match into the unique grid (wall_d values ARE members of probe_grid)
+        cols = np.searchsorted(probe_grid, wd_col)
+        cols = np.clip(cols, 0, probe_grid.size - 1)
+        zwall = z_at_probe[row_idx, cols]
+        clears = valid & (dist_ft >= wd_col) & (np.nan_to_num(zwall, nan=-1.0) >= wh_col)
+        counts += clears.astype(int)
+
     per = counts.tolist()
     any_out = int((counts > 0).sum())
     clearing = counts[counts > 0]
