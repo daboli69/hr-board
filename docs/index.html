@@ -818,6 +818,11 @@
   .p30-sub{font-size:10.5px;color:var(--muted);margin-top:5px;line-height:1.5}
   .p30-sub b{color:var(--ink)}
   .p30-here{color:var(--seam)!important}
+  .btg-primary{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--seam);
+    border-radius:10px;padding:12px 14px;margin:0 0 10px}
+  .btg-primary h3{border:none!important;padding:0!important;color:var(--seam)!important;font-size:15px}
+  .btg-primary p{font-size:12.5px;line-height:1.6;color:var(--muted);margin:7px 0 0}
+  .btg-primary p b{color:var(--ink)}
   .bl-stat{text-align:center;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:10px 4px}
   .bl-stat .v{font-family:Archivo;font-weight:800;font-size:18px}
   .bl-stat .v.pos{color:#3fb950}.bl-stat .v.neg{color:#e5534b}
@@ -1053,6 +1058,7 @@
       <h3>Confirmation tier — LOADED / STRONG / SOLID / LEAN / THIN</h3>
       <p>The pill next to a hitter's name isn't about sample size — it counts <b>how many of the six signals cleared their "good" anchor</b>. <b>LOADED</b> = 5–6 cleared, <b>STRONG</b> = 4, <b>SOLID</b> = 3, <b>LEAN</b> = 2, <b>THIN</b> = 0–1.</p>
       <p>Heat tells you <i>how hot</i>; the tier tells you <i>how many independent things agree</i>. A 68 Heat that's LOADED is a hitter where nearly everything is firing. A 68 Heat that's LEAN is one or two signals carrying the whole score — same number, more fragile. Use it as a breadth check before you commit.</p>
+      <p><b>Thin-data warning.</b> A signal can be <i>missing</i> rather than just low — a just-called-up or returning-from-injury hitter may not have data for every metric yet. When fewer than all six have real numbers, the score fills the blanks with a cautious "poor" baseline, and the card shows a <b>⚠ thin-data warning</b>. Treat that Heat as softer than it looks — it's resting partly on absence of evidence. This is why two hitters at the same Heat can be very different bets.</p>
 
       <h3>SMASH bar</h3>
       <p>When a hitter clears a high bar on multiple fronts at once — strong heat, several confirming reasons, a genuinely vulnerable spot — he gets flagged <b>SMASH</b> and appears in the morning briefing. It's deliberately rare (top few per slate). Treat it as "the model is unusually confident," not a guarantee. Still accumulating sample; check the Tracker before sizing anything off it.</p>
@@ -1074,7 +1080,9 @@
       <h3>Park &amp; weather model</h3>
       <p>A separate, physics-based read — its own lens that <b>never touches the Heat score</b>. It flies each hitter's actual batted balls (exit velocity, launch angle, spray direction) through the real wall distances and heights of today's park, under today's temperature and wind, and counts how many clear the fence versus a neutral park. That gives a <b>per-hitter</b> boost, not a flat park factor: a dead-pull hitter gets more from a short porch on his side, and wind/heat scale with how often he already lives near the wall. Tap any row for the full read — expected HR per 100 batted balls here vs neutral, plus the conditions used. Two honest limits, shared by every public version of this (Ballpark Pal included): batted-ball backspin is estimated from launch conditions, not measured, and closed retractable roofs can't be detected, so treat it as a strong secondary signal — and for the final per-hitter precision, Ballpark Pal is still the authority.</p>
 
-      <p>In <b>⚙ Filters</b>: <b>Games</b> and <b>Teams</b> narrow to specific matchups or clubs, <b>Heat floor</b> (40/55/70+) cuts the long tail, <b>Opposing starter</b> drops strong SP so you only see hitters facing a vulnerable one, <b>Bats</b> shows one handedness, and <b>Traits</b> lets you tap any badge to show only hitters carrying it (tap several to stack them). Every filter combines, so you can stack (say) a vulnerable starter + weak bullpen sort + a trait + a team at once. <b>Hide small samples</b> drops hitters under ~25 PA in the window.</p>
+      <p><b>The 30-park read.</b> On the same expanded card, a <b>30-PARK</b> block takes the hitter's recent deep contact and flies it through all 30 MLB parks' walls under neutral air — pure geometry, no weather. It tells you how homer-friendly his contact is <i>park to park</i>: a guy whose clearing balls average 28 of 30 parks is "out almost anywhere," while one averaging 8-12 "needs a friendly park." It also shows how many of his deep balls clear <b>tonight's</b> park specifically, and how many are <b>park-dependent</b> (out in some parks but not others — the ones where the venue decides his night). Same principle as the boost above, but framed as fit rather than a percentage — useful for spotting a hitter whose power plays up or down badly in tonight's building.</p>
+
+      <p>In <b>⚙ Filters</b>: <b>Games</b> and <b>Teams</b> narrow to specific matchups or clubs, <b>Heat floor</b> (40/55/70+) cuts the long tail, <b>Opposing starter</b> drops strong SP so you only see hitters facing a vulnerable one, <b>Bats</b> shows one handedness, and <b>Traits</b> lets you tap any badge to show only hitters carrying it (tap several to stack them). Every filter combines, so you can stack (say) a vulnerable starter + weak bullpen sort + a trait + a team at once. <b>Hide small samples</b> drops hitters under ~25 PA in the window <i>or</i> whose score leans on missing signal data (fewer than 4 of the 6 signals have numbers).</p>
 
       <h3>Top Plays & Stacks</h3>
       <p><b>Top Plays</b> (panel up top) = the strongest non-thin hitters not facing a sharp arm, each with a one-line "why" — your fast scan. <b>Stacks</b> (view toggle) groups hot hitters by the vulnerable arm they share — built for grand-slam parlays / same-game pairing.</p>
@@ -1102,6 +1110,7 @@
       <p>Grades every model against reality each morning. <b>Model vs baselines</b> is the one that matters: does Heat's top 10 homer more than just sorting by ISO or barrel%? If yes, the model is genuinely finding HR hitters better than the simple stats. The rest shows HR rate by Heat tier, by arm form, top-N success, which signals correlate to HRs, and a daily log.</p>
       <p><b>Parlay performance</b> shows how the auto-generated parlays actually converted — the leg hit rate is the honest number; if it isn't beating the base rate, that strategy isn't earning. <b>Props performance</b> does the same for hits, 2+ hits, HRR, pitcher Ks, and K Under, each with its own base rate derived from your own data (never a hard-coded league average).</p>
       <p><b>Season backtest</b> replays the whole season with a strict no-leakage contract — every score for a given day is computed only from data before that day, and a poison check corrupts future rows to prove the scores don't move. It covers HR heat plus all the props models, so you can see whether a model has a real edge before you've spent a month collecting live data.</p>
+      <p><b>Calibration — why the backtest is the most important number in the app.</b> As it replays, it records the <i>actual</i> HR rate at each Heat band across ~24,000 hitter-days. That real curve — not a formula — is what powers the <b>Edge Finder's</b> probabilities. When you see "these numbers are calibrated" on the Bets tab, this is what it means. A clean result looks like HR rate climbing steadily with Heat (roughly 5% at the bottom to 16%+ up top); the current backtest shows exactly that, which is the proof your Heat model genuinely predicts homers rather than just ranking hitters. <b>Re-run the backtest after any change to the scoring model</b> (the app tags each with a model version and warns on the Bets tab if the loaded calibration is stale) so the Edge Finder keeps pricing off numbers that match how Heat is currently computed.</p>
       <p>Rows marked <b>thin</b> and dimmed mean the sample is too small to trust yet (under 30 for hitters, 20 for pitchers). The number is real math, but it could easily be noise. Wait for it to fill in.</p>
 
       <h3>How to Bet</h3>
@@ -3391,22 +3400,42 @@ function btSection(main){
 async function showBetGuide(){
   const modal=document.getElementById("betGuide");
   const body=document.getElementById("betGuideBody");
-  if(!HISTORY){ try{ await loadHistory(); }catch(e){} }
+  if(!HISTORY){ try{ await loadHistory(); }catch(e){} }  // loadHistory also loads BACKTEST
+  if(!BACKTEST){ try{ await loadBacktestEager(); }catch(e){} }  // in case history had none
   body.innerHTML=computeBetGuideHTML();
   modal.classList.add("show");
 }
 
 function computeBetGuideHTML(){
   const days=(HISTORY&&HISTORY.days)||[];
+  const cal = BACKTEST && BACKTEST.calib;
+  const pool = (BACKTEST && BACKTEST.pool) || 0;
+  // The primary method, shown ALWAYS (independent of tracker size): the Edge Finder,
+  // priced off the backtest calibration. This is the sharpest thing in the app and should
+  // be step one regardless of how many tracker days exist.
+  const primary = `
+    <div class="btg-primary">
+      <h3 style="margin-top:0">The one that matters: Find Edge</h3>
+      <p>${cal
+        ? `Go to <b>Bets → Find Edge</b>. Every hitter's probability there is <b>calibrated</b> — it comes from the backtest's real HR rates across ~${pool.toLocaleString()} hitter-days, not a formula. Type in your book's price and it tells you instantly whether the number beats fair value.`
+        : `Go to <b>Bets → Find Edge</b>. It compares each hitter's model probability to the price you type in. <b>Run the backtest (Trends tab) to calibrate it</b> — until then it uses a formula estimate, not proven HR rates.`}</p>
+      <p style="margin-bottom:0"><b>The whole game in one sentence:</b> a hot hitter is only a bet if the price is long enough. The Edge Finder shows the <b>breakeven price</b> for every hitter — take anything longer, skip anything shorter, even on the board's hottest name. Most nights the honest answer is "no bet," and that's fine.</p>
+    </div>
+    <div class="btg-primary" style="border-left-color:var(--good)">
+      <h3 style="margin-top:0">Then prove it: Closing Line Value</h3>
+      <p style="margin-bottom:0">Log your bets in <b>Bets → My Bets</b> and enter the <b>closing price</b> after the line settles. If you consistently beat the close (positive CLV), your edge is real — that shows up before win/loss does. Watch CLV more than your record. It's the number that tells you whether any of the rest of this is working.</p>
+    </div>`;
+
   if(!days.length){
-    return `<p class="faq-lead">The picking guide adapts to your tracker data as it grows — right now the tracker is empty, so use this basic method:</p>
+    return `${primary}
+      <p class="faq-lead" style="margin-top:16px">The signal guide below rewrites itself from your tracker data as it grows — right now the tracker is empty, so use this basic method underneath the Edge Finder:</p>
       <h3>The starter method</h3>
-      <ol><li><b>Start with Heat top-25.</b> That's your validated pool.</li>
-      <li><b>Verify the matchup</b> (opener flag, park/weather boost) — these are facts, not stats.</li>
+      <ol><li><b>Start with Heat top-25.</b> That's your validated pool${cal?" — and the calibration confirms heat predicts homers, climbing cleanly from ~5% at the bottom to ~16%+ up top":""}.</li>
+      <li><b>Check the tier + signals-present.</b> Same heat with fewer signals cleared (or fewer signals with <i>data</i>) is more fragile — the card flags thin-data hitters.</li>
+      <li><b>Verify the matchup</b> (opener flag, park/weather boost, the 30-park read) — these are facts, not stats.</li>
       <li><b>Break ties with Barrel% margin</b> (season-strongest single signal in the model).</li>
-      <li><b>Check Bull/Bear</b> — if two Bear flags stack (thin sample + tough arm), skip.</li>
-      <li><b>Compare model odds to the book</b> before firing.</li></ol>
-      <p style="font-size:11px;color:var(--muted)">Come back once you have a week of graded data — this whole guide rewrites itself with your numbers.</p>`;
+      <li><b>Price it in Find Edge</b> before firing.</li></ol>
+      <p style="font-size:11px;color:var(--muted)">Come back once you have a week of graded data — the signal buckets below rewrite themselves with your numbers.</p>`;
   }
 
   // aggregate (mirrors renderTracker)
@@ -3483,13 +3512,14 @@ function computeBetGuideHTML(){
   const topTier=tiers["70+"]?rate(tiers["70+"]):null;
   const topTierN=tiers["70+"]?tiers["70+"].n:0;
 
-  return `<p class="faq-lead">A step-by-step picking method built from <b>your ${days.length} graded days</b> (${players} hitter-days, base ${base.toFixed(1)}% HR rate). This rewrites itself as your tracker grows.</p>
+  return `${primary}
+    <p class="faq-lead" style="margin-top:16px">Below the Edge Finder, here's a step-by-step picking method built from <b>your ${days.length} graded days</b> (${players} hitter-days, base ${base.toFixed(1)}% HR rate)${cal?`, cross-checked against the backtest calibration (~${pool.toLocaleString()} hitter-days)`:""}. This rewrites itself as your tracker grows.</p>
 
     <h3>Step 1 — Start with Heat rank</h3>
-    <p>The core model has ${topTierN>0?`your 70+ tier converting at <b>${topTier.toFixed(1)}%</b> vs the ${base.toFixed(1)}% field baseline`:"the 70+ tier as your validated top group"} (n=${topTierN}). This is the only signal with real load-bearing evidence. Sort the board by Heat and work from the top-25 down.</p>
+    <p>The core model has ${topTierN>0?`your 70+ tier converting at <b>${topTier.toFixed(1)}%</b> vs the ${base.toFixed(1)}% field baseline`:"the 70+ tier as your validated top group"} (n=${topTierN})${cal?`. The backtest agrees — HR rate climbs monotonically with heat, from ~5% at the bottom to ~16%+ up top`:""}. Sort the board by Heat and work from the top-25 down.</p>
 
     <h3>Step 2 — Verify matchup facts</h3>
-    <p>Before trusting any name: check the opener flag (bullpen game means starter matters less), the park/weather boost, and whether the opposing arm is DEALING or SHELLABLE. These are conditions, not statistical signals — they always matter regardless of sample size.</p>
+    <p>Before trusting any name: check the opener flag (bullpen game means starter matters less), the park/weather boost, the <b>30-park read</b> (does his contact clear anywhere, or does he need a bandbox?), and whether the opposing arm is DEALING or SHELLABLE. These are conditions, not statistical signals — they always matter regardless of sample size.</p>
 
     <h3>Step 3 — Use these tags as real tiebreakers</h3>
     ${use.length?`<p>Signals in your data with meaningful lift AND enough sample (n≥100):</p><ul>${use.map(li).join("")}</ul>`:`<p style="color:var(--muted)">No signals have crossed the n≥100 + meaningful-lift threshold yet. Keep collecting.</p>`}
@@ -3515,8 +3545,11 @@ function computeBetGuideHTML(){
     <b>arm is DEALING</b> (validated: -0.7 lift), <b>thin sample</b> (data-quality issue),
     then stacking flags like park-against + tough arm. One Bear flag on an otherwise strong Heat pick = ignore. Two or more stacking, especially DEALING + thin = drop him.</p>
 
-    <h3>Step 6 — Compare to the book</h3>
-    <p>The edge lives in the gap between the model's fair odds (on every card) and what the book is offering. If book price implies a lower HR probability than the model → possible +EV. If it implies a higher probability → no edge.</p>
+    <h3>Step 6 — Price it in Find Edge</h3>
+    <p>Don't eyeball the book comparison — the <b>Bets → Find Edge</b> tab does it exactly. ${cal?"Its probabilities are calibrated from the backtest's real HR rates, so the EV number is trustworthy, not a guess.":"Run the backtest (Trends tab) so its probabilities are calibrated; until then it's a formula estimate."} Enter the book price; if EV is positive, it's a bet; if not, pass — even on a top-Heat name. Every hitter shows the breakeven price so you know your cutoff before you look.</p>
+
+    <h3>Step 7 — Track your closing line value</h3>
+    <p>After you bet, log it in <b>My Bets</b> and enter the closing price once the line settles. Positive CLV — getting better prices than where the line closes — is the only reliable proof your edge is real over a small sample. If your CLV is negative, the market disagrees with your reads no matter how many bets happen to win.</p>
 
     <h3>On parlays</h3>
     <p>HR at ~15% × 3 legs ≈ <b>0.3–0.6%</b> combined. Prefer single bets over stacking legs. If parlaying, use the app's Round Robin format — pairs of legs pay out, not all-or-nothing.</p>
