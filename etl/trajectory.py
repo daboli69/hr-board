@@ -142,3 +142,88 @@ def carry_batch(ev_mph, la_deg, spray_deg, rho, wind_vec_ms, wall_dist_ft,
 
     dist_ft = np.where(np.isnan(dist_ft), prev_r * FT, dist_ft)
     return dist_ft, z_at_wall
+
+
+def carry_profile(ev_mph, la_deg, spray_deg, rho, wind_vec_ms,
+                  probe_dists_ft, spin_rpm=None, dt=0.003, max_t=9.0):
+    """Integrate each ball's flight ONCE and record its height as it crosses each of a set
+    of probe radial distances. This is the batch analog of carry_batch, but instead of one
+    wall per ball it samples height at MANY candidate wall distances in a single pass — so a
+    30-park scan under fixed (neutral) conditions costs one integration per ball, not 30.
+
+    Args:
+      probe_dists_ft : 1-D array of candidate wall distances (ft) to record height at.
+    Returns (dist_ft, z_at_probe):
+      dist_ft      : (N,) total carry per ball (ft)
+      z_at_probe   : (N, P) height (ft) at each probe distance; np.nan if the ball never
+                     reached that distance while airborne.
+    """
+    ev = np.asarray(ev_mph, dtype=float)
+    la = np.radians(np.asarray(la_deg, dtype=float))
+    az = np.radians(np.asarray(spray_deg, dtype=float))
+    N = ev.shape[0]
+    probes_m = np.asarray(probe_dists_ft, dtype=float) / FT      # (P,)
+    P = probes_m.shape[0]
+    if spin_rpm is None:
+        spin_rpm = estimate_backspin(la_deg, ev_mph)
+    omega = np.asarray(spin_rpm, dtype=float) * 2 * np.pi / 60.0
+
+    v0 = ev * MPH
+    v = np.stack([v0 * np.cos(la) * np.cos(az),
+                  v0 * np.cos(la) * np.sin(az),
+                  v0 * np.sin(la)], axis=1)
+    p = np.zeros((N, 3)); p[:, 2] = 1.0
+    wind = np.asarray(wind_vec_ms, dtype=float).reshape(1, 3)
+    saxis = np.stack([-np.sin(az), np.cos(az), np.zeros(N)], axis=1)
+    kdrag = 0.5 * rho * A * CD / M
+
+    landed = np.zeros(N, dtype=bool)
+    dist_ft = np.full(N, np.nan)
+    z_at_probe = np.full((N, P), np.nan)
+    reached = np.zeros((N, P), dtype=bool)
+    prev_r = np.zeros(N); prev_z = p[:, 2].copy()
+
+    steps = int(max_t / dt)
+    for _ in range(steps):
+        vair = v - wind
+        sp = np.linalg.norm(vair, axis=1)
+        sp = np.where(sp < 1e-6, 1e-6, sp)
+        vhat = vair / sp[:, None]
+        S = R * omega / sp
+        Cl = np.minimum(0.35, 1.6 * S)
+        a_drag = -kdrag * (sp[:, None] * vair)
+        a_mag = (0.5 * rho * A * Cl / M)[:, None] * (sp ** 2)[:, None] * np.cross(vhat, saxis)
+        a = a_drag + a_mag
+        a[:, 2] -= G
+
+        v = v + a * dt
+        p_new = p + v * dt
+        r_new = np.hypot(p_new[:, 0], p_new[:, 1])
+
+        # for every probe distance, capture height at the step it's crossed (while airborne)
+        airborne = ~landed
+        if airborne.any():
+            # cross[i,j] = ball i crosses probe j this step
+            cross = (~reached) & airborne[:, None] & \
+                    (prev_r[:, None] < probes_m[None, :]) & (r_new[:, None] >= probes_m[None, :])
+            if cross.any():
+                # linear interp of height at each crossed probe
+                denom = np.maximum(r_new - prev_r, 1e-9)[:, None]
+                frac = (probes_m[None, :] - prev_r[:, None]) / denom
+                z_interp = prev_z[:, None] + frac * (p_new[:, 2] - prev_z)[:, None]
+                z_at_probe[cross] = (z_interp * FT)[cross]
+                reached[cross] = True
+
+        land = (~landed) & (p_new[:, 2] <= 0)
+        if land.any():
+            frac = prev_z[land] / np.maximum(prev_z[land] - p_new[land, 2], 1e-9)
+            r_land = prev_r[land] + frac * (r_new[land] - prev_r[land])
+            dist_ft[land] = r_land * FT
+            landed[land] = True
+
+        prev_r = r_new; prev_z = p_new[:, 2].copy(); p = p_new
+        if landed.all():
+            break
+
+    dist_ft = np.where(np.isnan(dist_ft), prev_r * FT, dist_ft)
+    return dist_ft, z_at_probe
