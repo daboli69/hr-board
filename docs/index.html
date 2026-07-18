@@ -393,6 +393,38 @@
   .pl-ev.pos{color:var(--good);background:rgba(120,178,145,.14)}
   .pl-ev.spec{color:var(--hot);background:rgba(224,145,58,.12)}
   .pl-ev.neg{color:var(--muted);background:rgba(140,150,165,.12)}
+  /* parlay generator */
+  .pg-card{border-color:rgba(200,71,43,.3)}
+  .pg-title-sub{font-size:10px;color:var(--faint)}
+  .pg-controls{margin:6px 0 10px}
+  .pg-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;font-size:12px;color:var(--muted)}
+  .pg-row>span{font-weight:600}
+  .pg-seg{display:flex;gap:0;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+  .pg-seg button{background:var(--panel-2);border:none;color:var(--muted);font-size:11px;padding:5px 11px;font-family:inherit;cursor:pointer;border-right:1px solid var(--line)}
+  .pg-seg button:last-child{border-right:none}
+  .pg-seg button.on{background:var(--seam);color:#fff;font-weight:700}
+  .pg-toggles{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+  .pg-tog{display:flex;align-items:center;gap:9px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer;text-align:left;width:100%}
+  .pg-tog .pg-tog-box{width:17px;height:17px;border:1px solid var(--muted);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;flex-shrink:0}
+  .pg-tog.on .pg-tog-box{background:var(--good);border-color:var(--good)}
+  .pg-tog b{font-size:12px;color:var(--ink);display:block}
+  .pg-tog em{font-size:10px;color:var(--faint);font-style:normal}
+  .pg-locked{margin:8px 0;padding:8px 10px;background:var(--panel-2);border-radius:8px;font-size:11px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .pg-locked-empty{color:var(--faint)}
+  .pg-locked-h{color:var(--muted);font-weight:600}
+  .pg-chip{background:rgba(200,71,43,.14);color:var(--seam);border:1px solid rgba(200,71,43,.3);border-radius:5px;padding:3px 7px;font-size:10.5px;font-family:inherit;cursor:pointer}
+  .pg-clear{background:none;border:none;color:var(--faint);font-size:10px;cursor:pointer;text-decoration:underline;font-family:inherit}
+  .pg-result{margin:10px 0 4px;border-top:1px solid var(--line);padding-top:10px}
+  .pg-result-h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+  .pg-result-odds{font-family:"IBM Plex Mono";font-size:11px;color:var(--muted)}
+  .pg-evtag{font-weight:800;padding:1px 5px;border-radius:3px;margin-left:4px}
+  .pg-evtag.pos{color:var(--good);background:rgba(120,178,145,.14)}
+  .pg-evtag.neg{color:var(--muted);background:rgba(140,150,165,.12)}
+  .pg-evtag.none{color:var(--faint);font-weight:600;font-size:9.5px}
+  .pg-foot{font-size:10px;color:var(--muted);margin-top:6px;line-height:1.5}
+  .pg-err{background:rgba(224,145,58,.08);border:1px solid rgba(224,145,58,.3);border-radius:8px;padding:10px;font-size:11.5px;color:var(--hot);line-height:1.5}
+  .pl-lock{background:none;border:none;font-size:13px;cursor:pointer;opacity:.5;padding:0 6px;flex-shrink:0}
+  .pl-lock.on{opacity:1}
   .pl-leg{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--line)}
   .pl-leg-main b{font-size:13px}
   .pl-meta{font-size:10.5px;color:var(--muted);display:block;margin-top:1px}
@@ -3260,6 +3292,72 @@ function comboTrust(){
     .map(([k,v])=>({ks:k.split("\u0001"), n:v.n, hit:v.hit, rate:v.hit/v.n}))
     .sort((a,b)=>b.rate-a.rate||b.n-a.n).slice(0,6);
 }
+// ---------- Customizable Parlay Generator ----------
+// Persisted user settings for the build-your-own parlay tool. The generator respects
+// hard constraints (locked players ALWAYS included; heat/confidence floors; +EV requirement)
+// and then fills remaining slots with the best-matching hitters.
+let PGEN = (function(){
+  try{ const s=JSON.parse(localStorage.getItem("gy_pgen")||"null"); if(s) return s; }catch(e){}
+  return { legs:3, heatFloor:45, needEV:false, reliableOnly:true, onePerGame:true, locked:[] };
+})();
+function pgenSave(){ try{ localStorage.setItem("gy_pgen", JSON.stringify(PGEN)); }catch(e){} }
+function pgenSet(k,v){ PGEN[k]=v; pgenSave(); renderParlays(); }
+function pgenToggleLock(id){
+  id=+id;
+  const i=PGEN.locked.indexOf(id);
+  if(i>=0) PGEN.locked.splice(i,1); else PGEN.locked.push(id);
+  pgenSave(); renderParlays();
+}
+function pgenClear(){ PGEN.locked=[]; pgenSave(); renderParlays(); }
+
+// Build the parlay from current settings. Returns {picks, ev, ...} or {error}.
+function pgenBuild(ranked){
+  const s=PGEN;
+  const conf=(p)=>{
+    const bd=p.score_breakdown||{}; const present=bd.present!=null?bd.present:6;
+    let c=100; if(present<4)c-=45; else if(present<6)c-=18;
+    if(p.heat!=null&&p.heat<40)c-=30; else if(p.heat>=83)c-=12;
+    const e=fetchedOddsFor(p.id);
+    if(e&&e.best!=null){ const imp=impliedProb((e.best>=0?"+":"")+e.best);
+      if(imp!=null){ if(imp<0.07)c-=40; else if(imp<0.10)c-=22; } if(e.fallback)c-=15; }
+    return Math.max(0,c);
+  };
+  const lockedPicks=[];
+  for(const id of s.locked){ const p=ranked.find(x=>x.id===id); if(p) lockedPicks.push(p); }
+  if(lockedPicks.length>s.legs) return {error:`You've locked ${lockedPicks.length} players but set only ${s.legs} legs. Raise the leg count or unlock some.`};
+
+  const lockedIds=new Set(lockedPicks.map(p=>p.id));
+  const lockedGames=new Set(lockedPicks.map(p=>p.game_pk));
+  let pool=ranked.filter(p=>!lockedIds.has(p.id))
+    .filter(p=>(p.heat||0)>=s.heatFloor)
+    .filter(p=>!s.reliableOnly || conf(p)>=60);
+  if(s.onePerGame) pool=pool.filter(p=>!lockedGames.has(p.game_pk));
+
+  const picks=lockedPicks.slice();
+  const usedGames=new Set(lockedGames);
+  for(const p of pool){
+    if(picks.length>=s.legs) break;
+    if(s.onePerGame && usedGames.has(p.game_pk)) continue;
+    picks.push(p); usedGames.add(p.game_pk);
+  }
+  if(picks.length<s.legs){
+    return {error:`Only found ${picks.length} of ${s.legs} hitters matching your filters. Loosen the heat floor${s.reliableOnly?", allow speculative legs,":""}${s.onePerGame?" or turn off one-per-game":""}.`};
+  }
+
+  let ev=null, allPriced=true, dec=1, mp=1;
+  for(const p of picks){
+    const e=fetchedOddsFor(p.id);
+    if(!e||e.best==null){ allPriced=false; break; }
+    dec*=americanToDecimal(e.best); mp*=(p._prob||0);
+  }
+  if(allPriced){ ev=mp*(dec-1)-(1-mp); }
+  if(s.needEV){
+    if(!allPriced) return {error:"You required +EV, but not every leg has a book price yet. Odds fill in closer to game time, or turn off the +EV requirement."};
+    if(ev<=0) return {error:`Best parlay matching your filters is ${(ev*100).toFixed(0)}% EV — not positive. Loosen filters, pick longer-priced hitters, or drop the +EV requirement (most parlays are −EV).`};
+  }
+  return {picks, ev, allPriced, dec, mp};
+}
+
 function renderParlays(){
   const main=document.getElementById("main");
   if(!BOARD||!BOARD.players){ main.innerHTML=`<div class="empty">Board not loaded.</div>`; return; }
@@ -3335,6 +3433,7 @@ function renderParlays(){
     if(extra) tags.unshift(extra);
     return `<div class="pl-leg">
       <div class="pl-leg-main"><b>${p.name}</b> <span class="pl-meta">${p.team}→${p.opp_team} · ${timeStr(p.time)}${p.why?` · ${p.why}`:""}</span>${tags.length?`<div class="pl-tags">${tags.join("")}</div>`:""}</div>
+      <button class="pl-lock ${PGEN.locked.includes(p.id)?'on':''}" onclick="event.stopPropagation();pgenToggleLock(${p.id})" title="lock into Build Your Own">${PGEN.locked.includes(p.id)?"🔒":"✎"}</button>
       <div class="pl-leg-prob">${(p._prob*100).toFixed(0)}%<span>${americanFair(p._prob)}</span></div>
     </div>`;
   };
@@ -3382,6 +3481,66 @@ function renderParlays(){
       "the model's three strongest plays, one per team — ranked by the full blend (heat · trend · pitch mix · contact luck · your tag + tracker history · park), never heat alone",
       picks,
       p=>leg(p,(p.heat!=null&&p._score!=null)?`<span class="pl-tag lb">blend ${(p._score*100).toFixed(0)} · heat ${p.heat}</span>`:null));
+  };
+
+  // ---- Custom Parlay Generator: user-controlled thresholds + locked players ----
+  const genCard=()=>{
+    const s=PGEN;
+    const seg=(k,opts)=>`<div class="pg-seg">${opts.map(o=>`<button class="${s[k]===o.v?'on':''}" onclick="pgenSet('${k}',${JSON.stringify(o.v)})">${o.l}</button>`).join("")}</div>`;
+    const toggle=(k,label,sub)=>`<button class="pg-tog ${s[k]?'on':''}" onclick="pgenSet('${k}',${!s[k]})"><span class="pg-tog-box">${s[k]?"✓":""}</span><span><b>${label}</b>${sub?`<em>${sub}</em>`:""}</span></button>`;
+
+    // locked player chips
+    const lockedChips = s.locked.length
+      ? `<div class="pg-locked"><span class="pg-locked-h">Locked in (${s.locked.length}):</span>${s.locked.map(id=>{
+          const p=ranked.find(x=>x.id===id); const nm=p?p.name:("#"+id);
+          return `<button class="pg-chip" onclick="pgenToggleLock(${id})">${nm} ✕</button>`;
+        }).join("")}<button class="pg-clear" onclick="pgenClear()">clear all</button></div>`
+      : `<div class="pg-locked pg-locked-empty">Tap ✎ on any hitter below to lock them into every generated parlay.</div>`;
+
+    // build the result
+    const res=pgenBuild(ranked);
+    let resultHTML;
+    if(res.error){
+      resultHTML=`<div class="pg-result pg-err">⚠ ${res.error}</div>`;
+    } else {
+      const {picks,ev,allPriced,dec,mp}=res;
+      const am = allPriced ? ((dec>=2)?("+"+Math.round((dec-1)*100)):("−"+Math.round(100/(dec-1)))) : null;
+      const evTag = ev==null ? `<span class="pg-evtag none">enter/await book prices for EV</span>`
+        : ev>0 ? `<span class="pg-evtag pos">+${(ev*100).toFixed(0)}% EV</span>`
+        : `<span class="pg-evtag neg">${(ev*100).toFixed(0)}% EV</span>`;
+      const legsHTML=picks.map(p=>{
+        const e=fetchedOddsFor(p.id);
+        const priceTag = e&&e.best!=null ? `<span class="pl-tag lb">${fmtAm(e.best)}${e.fallback?" · FD ref":""}</span>` : `<span class="pl-tag warn">no price</span>`;
+        const lockTag = s.locked.includes(p.id) ? `<span class="pl-tag tg">🔒 locked</span>` : null;
+        return leg(p, lockTag || priceTag);
+      }).join("");
+      resultHTML=`
+        <div class="pg-result">
+          <div class="pg-result-h"><b>${picks.length}-leg parlay</b>
+            <span class="pg-result-odds">${allPriced?`book ${am} · `:""}model ${americanFair(mp)} ${evTag}</span></div>
+          ${legsHTML}
+          <div class="pg-foot">${allPriced
+            ? (ev>0?"Book pays more than fair value on these legs — a real +EV combo if they hit independently. Only bet if you can take these prices."
+                  :"Book pays less than fair value — −EV, like most parlays. The generator built what you asked for; the price just isn't there.")
+            : "Model fair odds shown. Book prices auto-fill closer to game time, then you'll see real EV."}</div>
+        </div>`;
+    }
+
+    return `<div class="pl-card pg-card">
+      <div class="pl-card-h"><b>⚙ Build Your Own</b><span class="pg-title-sub">set the rules, lock your guys</span></div>
+      <div class="pg-controls">
+        <label class="pg-row"><span>Legs</span>${seg("legs",[{l:"2",v:2},{l:"3",v:3},{l:"4",v:4},{l:"5",v:5}])}</label>
+        <label class="pg-row"><span>Heat floor</span>${seg("heatFloor",[{l:"any",v:0},{l:"40+",v:40},{l:"55+",v:55},{l:"70+",v:70}])}</label>
+        <div class="pg-toggles">
+          ${toggle("reliableOnly","Reliable legs only","skip thin-data & deep longshots")}
+          ${toggle("onePerGame","One hitter per game","keeps legs independent")}
+          ${toggle("needEV","Require positive EV","only build if book beats fair")}
+        </div>
+      </div>
+      ${lockedChips}
+      ${resultHTML}
+      <div class="pl-foot">Your rules, enforced. Locked players are always included; the rest fill from the model's best matches. ${s.needEV?"":"Tip: turn on 'Require +EV' to only build parlays the book actually misprices."}</div>
+    </div>`;
   };
 
   // ---- Bet 0 · Best +EV Parlay: actively search combos for real positive book EV ----
@@ -3495,7 +3654,7 @@ function renderParlays(){
 
   let cardsHTML="";
   try{
-    cardsHTML = bestEVCard() + jackpotCard() + best3Card() + rrCard();
+    cardsHTML = genCard() + bestEVCard() + jackpotCard() + best3Card() + rrCard();
   }catch(e){ cardsHTML=`<div class="pl-card pl-card-thin"><div class="pl-foot">Couldn't build suggestions for this slate — check back once lineups post.</div></div>`; }
 
   main.innerHTML=`
