@@ -419,6 +419,8 @@
   .pg-result{margin:10px 0 4px;border-top:1px solid var(--line);padding-top:10px}
   .pg-result-h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
   .pg-result-odds{font-family:"IBM Plex Mono";font-size:11px;color:var(--muted)}
+  .pg-chance{font-size:11px;color:var(--muted);margin:2px 0 8px;line-height:1.5}
+  .pg-chance b{color:var(--ink);font-family:"IBM Plex Mono"}
   .pg-evtag{font-weight:800;padding:1px 5px;border-radius:3px;margin-left:4px}
   .pg-evtag.pos{color:var(--good);background:rgba(120,178,145,.14)}
   .pg-evtag.neg{color:var(--muted);background:rgba(140,150,165,.12)}
@@ -490,7 +492,8 @@
   .trk-acc-body{padding:0 14px 14px;border-top:1px solid var(--line)}
   .trk-acc-body>h3:first-child{display:none}   /* header already in summary */
   .trk-acc[open]>summary{border-bottom:1px solid transparent}
-  .pl-leg{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--line)}
+  .pl-leg{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
+  .pl-leg-main{flex:1;min-width:0}
   .pl-leg-main b{font-size:13px}
   .pl-meta{font-size:10.5px;color:var(--muted);display:block;margin-top:1px}
   .pl-leg-prob{font-family:"IBM Plex Mono";font-weight:800;font-size:14px;text-align:right;white-space:nowrap}
@@ -501,8 +504,8 @@
   .pl-in{font-family:"IBM Plex Mono";font-size:9.5px;font-weight:700;padding:3px 7px;border-radius:20px;border:1px solid var(--line);letter-spacing:.02em}
   .pl-in.on{color:var(--ink);border-color:var(--seam)}
   .pl-in.off{color:var(--faint)}
-  .pl-tags{display:flex;gap:5px;margin-top:3px}
-  .pl-tag{font-family:"IBM Plex Mono";font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px}
+  .pl-tags{display:flex;gap:5px;margin-top:4px;flex-wrap:wrap}
+  .pl-tag{font-family:"IBM Plex Mono";font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;white-space:nowrap}
   .pl-tag.lb{color:var(--seam);border:1px solid var(--seam)}
   .pl-tag.up{color:var(--hot);border:1px solid var(--hot)}
   .pl-tag.dn{color:var(--cool);border:1px solid var(--cool)}
@@ -3609,11 +3612,15 @@ function pgenBuild(ranked){
     return {error:`Only found ${picks.length} of ${s.legs} hitters matching your filters. Loosen the heat floor${s.reliableOnly?", allow speculative legs,":""}${s.onePerGame?" or turn off one-per-game":""}.`};
   }
 
-  let ev=null, allPriced=true, dec=1, mp=1;
+  // combined model probability — computed for ALL picks regardless of whether they're priced
+  let mp=1;
+  for(const p of picks){ mp*=(p._prob||0); }
+  // EV needs book prices; only computable when every leg is priced
+  let ev=null, allPriced=true, dec=1;
   for(const p of picks){
     const e=fetchedOddsFor(p.id);
     if(!e||e.best==null){ allPriced=false; break; }
-    dec*=americanToDecimal(e.best); mp*=(p._prob||0);
+    dec*=americanToDecimal(e.best);
   }
   if(allPriced){ ev=mp*(dec-1)-(1-mp); }
   if(s.needEV){
@@ -3686,18 +3693,18 @@ function renderParlays(){
 
   const leg=(p,extra)=>{
     const tags=[];
+    // priority order: the extra (card-specific, e.g. price/prob) first, then the 2 most useful
+    if(extra) tags.push(extra);
     if(p._rank<14) tags.push(`<span class="pl-tag lb">#${p._rank+1} board</span>`);
     else if(p._rank>=20) tags.push(`<span class="pl-tag sl">sleeper</span>`);
     if(p.trend && p.trend.dir==="up") tags.push(`<span class="pl-tag up">▲ trending</span>`);
-    if(p._mix>1.03) tags.push(`<span class="pl-tag mx">mix+</span>`);
-    if(p._tags>1.05) tags.push(`<span class="pl-tag tg">tags+</span>`);
-    if(p._luck>1.02) tags.push(`<span class="pl-tag up">due</span>`);
-    else if(p._luck<0.98) tags.push(`<span class="pl-tag warn">running hot</span>`);
     if(p.hr_last_game) tags.push(`<span class="pl-tag warn">B2B</span>`);
-    if(p.opp_pitcher&&p.opp_pitcher.opener) tags.push(`<span class="pl-tag sl">opener gm</span>`);
-    if(extra) tags.unshift(extra);
+    else if(p._tags>1.05) tags.push(`<span class="pl-tag tg">tags+</span>`);
+    else if(p._mix>1.03) tags.push(`<span class="pl-tag mx">mix+</span>`);
+    // cap at 3 tags total so legs never overflow, even before wrapping
+    const shown=tags.slice(0,3);
     return `<div class="pl-leg">
-      <div class="pl-leg-main"><b>${p.name}</b> <span class="pl-meta">${p.team}→${p.opp_team} · ${timeStr(p.time)}${p.why?` · ${p.why}`:""}</span>${tags.length?`<div class="pl-tags">${tags.join("")}</div>`:""}</div>
+      <div class="pl-leg-main"><b>${p.name}</b> <span class="pl-meta">${p.team}→${p.opp_team} · ${timeStr(p.time)}${p.why?` · ${p.why}`:""}</span>${shown.length?`<div class="pl-tags">${shown.join("")}</div>`:""}</div>
       <button class="pl-lock ${PGEN.locked.includes(p.id)?'on':''}" onclick="event.stopPropagation();pgenToggleLock(${p.id})" title="lock into Build Your Own">${PGEN.locked.includes(p.id)?"🔒":"✎"}</button>
       <div class="pl-leg-prob">${(p._prob*100).toFixed(0)}%<span>${americanFair(p._prob)}</span></div>
     </div>`;
@@ -3730,22 +3737,30 @@ function renderParlays(){
       "single entries, not a parlay — ranked by raw distance ceiling (max EV · park/weather · ISO)", true);
   };
 
-  // ---- Bet 2 · Best board · 3-leg: highest composite likelihood, one per team ----
-  // Full blend, never heat alone: trend, pitch mix, contact luck, your tag history
-  // (tracker + bet log), tracker tier conversion, park+weather, sample confidence.
+  // ---- Bet 2 · Best board · 3-leg: highest REALISTIC combined probability, one per team ----
+  // The fix for "why is this three +800 longshots": the model can rate a power hitter highly
+  // on signal strength while his actual HR probability is still low. Parlaying three low-prob
+  // hitters is very unlikely regardless of how "good" they are. So this card ranks by actual
+  // HR probability (which favors the shorter-priced, likelier hitters), not raw model score,
+  // and shows the honest combined chance so you see what you're really betting.
   const best3Card=()=>{
+    // rank by model HR PROBABILITY, not _score — the likeliest hitters, not the flashiest
+    const byProb=ranked.slice().sort((a,b)=>(b._prob||0)-(a._prob||0));
     const used=new Set(); const picks=[];
-    for(const p of ranked){
+    for(const p of byProb){
       if(picks.length>=3) break;
       if(used.has(p.team)) continue;
-      if(p.hr_last_game && picks.some(x=>x.hr_last_game)) continue;   // max 1 B2B
+      if((p._prob||0)<0.10) continue;    // skip true longshots — a parlay of <10% legs is noise
+      if(p.hr_last_game && picks.some(x=>x.hr_last_game)) continue;
       picks.push(p); used.add(p.team);
     }
-    if(picks.length<3) return thinCard("Best Board · 3-leg","Fewer than 3 teams with eligible hitters — comes back on a fuller slate.");
+    if(picks.length<3) return thinCard("Best Board · 3-leg","Fewer than 3 teams with a hitter likely enough to parlay (10%+ model HR chance). On a thin slate, a single straight bet is the better play — parlays need multiple genuinely likely legs.");
+    const comb=picks.reduce((a,p)=>a*(p._prob||0),1);
     return cardShell("Best Board · 3-leg",
-      "the model's three strongest plays, one per team — ranked by the full blend (heat · trend · pitch mix · contact luck · your tag + tracker history · park), never heat alone",
+      "the three LIKELIEST hitters to homer (by model probability), one per team — not the flashiest names, the ones most likely to actually go deep. A parlay only makes sense when each leg is genuinely probable.",
       picks,
-      p=>leg(p,(p.heat!=null&&p._score!=null)?`<span class="pl-tag lb">blend ${(p._score*100).toFixed(0)} · heat ${p.heat}</span>`:null));
+      p=>leg(p,`<span class="pl-tag lb">${((p._prob||0)*100).toFixed(0)}% HR · heat ${p.heat}</span>`),
+      `combined model chance all 3 homer: <b>${(comb*100).toFixed(1)}%</b> — even the best 3-leg HR parlay is a longshot. Bet small or take one leg straight.`);
   };
 
   // ---- Custom Parlay Generator: user-controlled thresholds + locked players ----
@@ -3783,6 +3798,7 @@ function renderParlays(){
         <div class="pg-result">
           <div class="pg-result-h"><b>${picks.length}-leg parlay</b>
             <span class="pg-result-odds">${allPriced?`book ${am} · `:""}model ${americanFair(mp)} ${evTag}</span></div>
+          <div class="pg-chance">combined chance all ${picks.length} homer: <b>${(mp*100).toFixed(mp<0.01?2:1)}%</b> — ${mp>=0.05?"a realistic shot":mp>=0.01?"a longshot; bet small":"a moonshot; consider one leg straight instead"}</div>
           ${legsHTML}
           <div class="pg-foot">${allPriced
             ? (ev>0?"Book pays more than fair value on these legs — a real +EV combo if they hit independently. Only bet if you can take these prices."
