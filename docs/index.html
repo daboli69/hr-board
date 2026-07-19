@@ -285,6 +285,8 @@
   .hl-elite{color:#e05252;background:rgba(239,68,68,.09);border-color:rgba(239,68,68,.38)}
   .hl-fb{color:#4fb96f;background:rgba(34,197,94,.09);border-color:rgba(34,197,94,.36)}
   .hl-ld{color:#cfb63a;background:rgba(245,214,10,.08);border-color:rgba(245,214,10,.32)}
+  .traitf .tier{cursor:pointer;opacity:.5;transition:opacity .12s ease,box-shadow .12s ease;font-size:9.5px;padding:4px 10px}
+  .traitf .tier[aria-pressed="true"]{opacity:1;box-shadow:0 0 0 2px currentColor}
   .traitf .hlab{cursor:pointer;font:inherit;font-family:"IBM Plex Mono";font-size:9.5px;padding:4px 9px}
   .traitf .hlab[aria-pressed="true"]{outline:1.5px solid currentColor;outline-offset:1px}
   .hlab-note{font-size:11px;color:var(--muted);margin:0 0 12px;line-height:1.5}
@@ -425,6 +427,56 @@
   .pg-err{background:rgba(224,145,58,.08);border:1px solid rgba(224,145,58,.3);border-radius:8px;padding:10px;font-size:11.5px;color:var(--hot);line-height:1.5}
   .pl-lock{background:none;border:none;font-size:13px;cursor:pointer;opacity:.5;padding:0 6px;flex-shrink:0}
   .pl-lock.on{opacity:1}
+  /* badge lift on expanded card */
+  .badges-lift{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:4px}
+  .bdg-lift{display:inline-flex;align-items:center;gap:4px}
+  .bdg-lift .bl-pct{font-family:"IBM Plex Mono";font-size:9px;font-weight:800;padding:1px 4px;border-radius:3px;display:inline-flex;align-items:center;gap:3px}
+  .bdg-lift .bl-pct em{font-style:normal;font-weight:500;opacity:.7;font-size:8px}
+  .bdg-lift.lift-up .bl-pct{color:var(--good);background:rgba(120,178,145,.14)}
+  .bdg-lift.lift-dn .bl-pct{color:var(--bad);background:rgba(214,110,90,.12)}
+  .bdg-lift.lift-flat .bl-pct{color:var(--muted);background:rgba(140,150,165,.12)}
+  .bdg-lift-note{font-size:10px;color:var(--muted);line-height:1.5;margin:2px 0 10px}
+  /* CLV dashboard */
+  .clv-empty{text-align:center;padding:24px 16px;background:var(--panel);border:1px solid var(--line);border-radius:14px}
+  .clv-empty h3{color:var(--ink);font-size:16px;margin:0 0 10px}
+  .clv-empty p{font-size:12.5px;line-height:1.6;color:var(--muted);margin:0 0 12px}
+  .clv-empty-why{font-size:11.5px!important;color:var(--faint)!important;border-top:1px solid var(--line);padding-top:12px}
+  .clv-cta{background:var(--seam);color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;margin-top:4px}
+  .clv-hero{display:grid;grid-template-columns:1fr auto;gap:12px;padding:16px;border-radius:14px;border:1px solid;margin-bottom:12px}
+  .clv-hero.pos{background:rgba(120,178,145,.07);border-color:rgba(120,178,145,.35)}
+  .clv-hero.neg{background:rgba(214,110,90,.06);border-color:rgba(214,110,90,.3)}
+  .clv-hero-main{display:flex;align-items:baseline;gap:10px}
+  .clv-hero-v{font-family:Archivo;font-weight:800;font-size:34px;line-height:1}
+  .clv-hero-v span{font-size:14px;font-weight:600;margin-left:2px}
+  .clv-hero-v.pos{color:var(--good)} .clv-hero-v.neg{color:var(--bad)}
+  .clv-hero-k{font-size:11px;color:var(--muted);line-height:1.4;align-self:center}
+  .clv-hero-k span{display:block;color:var(--faint);font-size:10px;margin-top:2px}
+  .clv-hero-beat{text-align:right;align-self:center}
+  .clv-hero-beat b{font-family:Archivo;font-size:22px;color:var(--ink);display:block}
+  .clv-hero-beat span{font-size:9.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.04em}
+  .clv-chart{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px}
+  .clv-chart-h{font-size:11px;color:var(--ink);font-weight:600;margin-bottom:8px}
+  .clv-chart-h span{display:block;font-weight:400;color:var(--faint);font-size:10px;margin-top:1px}
+  .clv-svg{width:100%;height:90px;display:block}
+  .clv-zero{stroke:var(--line);stroke-width:1;stroke-dasharray:3 3}
+  .clv-line{fill:none;stroke-width:2}
+  .clv-line.pos{stroke:var(--good)} .clv-line.neg{stroke:var(--bad)}
+  .clv-chart-x{display:flex;justify-content:space-between;font-size:9px;color:var(--faint);margin-top:4px}
+  .clv-chartnote{font-size:11px;color:var(--muted);padding:10px;text-align:center}
+  .clv-verdict{font-size:12px;line-height:1.6;padding:12px;border-radius:10px;margin-bottom:12px;border:1px solid}
+  .clv-verdict.pos{background:rgba(120,178,145,.07);border-color:rgba(120,178,145,.3);color:var(--muted)}
+  .clv-verdict.neg{background:rgba(214,110,90,.06);border-color:rgba(214,110,90,.3);color:var(--muted)}
+  .clv-verdict.thin{background:var(--panel-2);border-color:var(--line);color:var(--muted)}
+  .clv-breakdown{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px}
+  .clv-bd-h{font-size:12px;font-weight:700;color:var(--ink);margin-bottom:8px}
+  .clv-brow{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:5px 0;border-top:1px solid var(--line);font-size:11.5px}
+  .clv-brow:first-of-type{border-top:none}
+  .clv-blabel{color:var(--muted)}
+  .clv-bval{font-family:"IBM Plex Mono";font-weight:800;text-align:right}
+  .clv-bval.pos{color:var(--good)} .clv-bval.neg{color:var(--bad)}
+  .clv-bn{font-size:10px;color:var(--faint);text-align:right;white-space:nowrap}
+  .clv-bd-note{font-size:10px;color:var(--faint);line-height:1.5;margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
+  .clv-foot{font-size:10px;color:var(--faint);line-height:1.5;margin-top:4px}
   .pl-leg{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--line)}
   .pl-leg-main b{font-size:13px}
   .pl-meta{font-size:10.5px;color:var(--muted);display:block;margin-top:1px}
@@ -1069,6 +1121,15 @@
             <button class="bdg bk-hrbp" data-trait="hrbp" aria-pressed="false">HR vs PEN</button>
           </div>
         </div>
+        <div class="fgrp"><label>Confirmation tier <span class="fhint">tap to show only hitters at that breadth of signal — how many of the 6 signals cleared</span></label>
+          <div id="tierF" class="traitf">
+            <button class="tier LOADED" data-tier="LOADED" aria-pressed="false">LOADED</button>
+            <button class="tier STRONG" data-tier="STRONG" aria-pressed="false">STRONG</button>
+            <button class="tier SOLID" data-tier="SOLID" aria-pressed="false">SOLID</button>
+            <button class="tier LEAN" data-tier="LEAN" aria-pressed="false">LEAN</button>
+            <button class="tier THIN" data-tier="THIN" aria-pressed="false">THIN</button>
+          </div>
+        </div>
         <div class="fgrp"><label>HR drought</label>
           <div class="seg" id="dryF">
             <button data-dry="l5">0 HR · L5</button>
@@ -1266,7 +1327,7 @@ const EXTRA = [
   {k:"fb_pct",     label:"FB%",      fmt:v=>fmt(v,1)},
   {k:"pull_pct",   label:"Pull(all)",fmt:v=>fmt(v,1)},
 ];
-let BOARD=null, HISTORY=null, view="board", sortKey="heat", q="", hideThin=false, minHeat=0, spFloor=0, gameSel=new Set(), batFilter="", traitSel=new Set(), labSel=new Set(), teamSel=new Set(), drySel=new Set(), mixView=false, listFilter=false, muSort="hist", armsSortMode="vuln";
+let BOARD=null, HISTORY=null, view="board", sortKey="heat", q="", hideThin=false, minHeat=0, spFloor=0, gameSel=new Set(), batFilter="", traitSel=new Set(), labSel=new Set(), teamSel=new Set(), drySel=new Set(), tierSel=new Set(), mixView=false, listFilter=false, muSort="hist", armsSortMode="vuln";
 // effective heat: vs-pitch-mix variant when the toggle is on, else standard
 function H(p){return (mixView && p.heat_mix!=null) ? p.heat_mix : p.heat;}
 
@@ -1496,6 +1557,30 @@ function badgeChips(p,max){
   const LBL={"COOLING":"MAY COOL","REGRESSION":"MAY COOL","HEATING":"WARMING","LOCKED IN":"HOT","MIX EDGE":"PITCH EDGE"};
   const lbl=t=>LBL[t]||t;   // legacy data shows new labels until next build
   return `<div class="badges">${show.map(b=>`<span class="bdg bk-${b.k}">${lbl(b.t)}</span>`).join("")}</div>`;
+}
+// Expanded-card version: each badge annotated with its backtest/tracker HR lift + sample,
+// so you see which badges actually convert. Falls back to the plain chip when there isn't
+// enough graded data to make a claim yet.
+function badgeChipsLift(p){
+  const bs=(p.badges||[]);
+  if(!bs.length) return "";
+  const LBL={"COOLING":"MAY COOL","REGRESSION":"MAY COOL","HEATING":"WARMING","LOCKED IN":"HOT","MIX EDGE":"PITCH EDGE"};
+  const lbl=t=>LBL[t]||t;
+  const map=badgeLiftMap();
+  const anyLift=bs.some(b=>map[b.k]&&map[b.k].lift!=null&&map[b.k].n>=15);
+  const chips=bs.map(b=>{
+    const m=map[b.k];
+    if(m&&m.lift!=null&&m.n>=15){
+      const pct=Math.round((m.lift-1)*100);
+      const cls=m.lift>=1.15?"lift-up":m.lift<=0.85?"lift-dn":"lift-flat";
+      return `<span class="bdg-lift ${cls}"><span class="bdg bk-${b.k}">${lbl(b.t)}</span><span class="bl-pct">${pct>=0?"+":""}${pct}%<em>n=${m.n}</em></span></span>`;
+    }
+    return `<span class="bdg-lift"><span class="bdg bk-${b.k}">${lbl(b.t)}</span></span>`;
+  }).join("");
+  const note=anyLift
+    ? `<div class="bdg-lift-note">% = this badge's real HR rate vs the board average, from ${(HISTORY&&HISTORY.days?HISTORY.days.length:0)} graded days. Green badges convert; grey are noise or thin. Lean toward the green.</div>`
+    : `<div class="bdg-lift-note">Badge conversion rates fill in here as graded days accumulate — you'll see which of these actually predict homers for you.</div>`;
+  return `<div class="badges badges-lift">${chips}</div>${note}`;
 }
 function trendBadge(t){
   if(!t||t.dir==="flat") return "";
@@ -1778,6 +1863,12 @@ function render(){
     players=players.filter(p=>{
       const ks=new Set((p.badges||[]).map(b=>b.k));
       return [...traitSel].every(k=>ks.has(k));   // must carry every selected trait
+    });
+  }
+  if(tierSel.size){
+    players=players.filter(p=>{
+      const t=(p.score_breakdown&&p.score_breakdown.tier)||p.tier;
+      return t && tierSel.has(t);   // OR: tier is one-per-hitter
     });
   }
   if(drySel.size){
@@ -2166,7 +2257,7 @@ function render(){
         ${p.angle?`<div class="angle">${p.angle}</div>`:""}
         ${tradedNote(p)}
         ${tierBlock(p)}
-        ${badgeChips(p)}
+        ${badgeChipsLift(p)}
         <div class="matchup" style="margin-bottom:10px">${p.team} vs ${p.opp_team} · ${timeStr(p.time)} · ${p.park||""} · park ${fmt(p.park_hr_factor,2)}× · ${armBadge}</div>
         ${(p.max_ev&&p.max_ev.season!=null)?`<div class="arm" style="margin:-4px 0 8px"><b>${p.name.split(' ').slice(-1)[0]}'s max EV:</b> <b style="color:var(--hot)">${p.max_ev.season}</b> mph season${p.max_ev.recent!=null?` · ${p.max_ev.recent} last 2wk`:""}</div>`:""}
         ${p.park_hr?`<div class="parkbox">
@@ -2460,7 +2551,9 @@ function importData(inp){
 let betsView = "edge";   // "edge" = find +EV plays · "log" = your bet history
 
 function renderBetsTab(){
-  if(betsView==="edge") renderEdge(); else renderBets();
+  if(betsView==="edge") renderEdge();
+  else if(betsView==="clv") renderCLV();
+  else renderBets();
 }
 
 function setBetsView(v){ betsView=v; renderBetsTab(); }
@@ -2471,6 +2564,7 @@ function renderEdge(){
   const subTabs=`<div class="prop-subtabs" style="margin-bottom:12px">
     <button class="${betsView==='edge'?'on':''}" onclick="setBetsView('edge')">Find Edge</button>
     <button class="${betsView==='log'?'on':''}" onclick="setBetsView('log')">My Bets</button>
+    <button class="${betsView==='clv'?'on':''}" onclick="setBetsView('clv')">CLV</button>
   </div>`;
 
   if(!BOARD||!BOARD.players||!BOARD.players.length){
@@ -2680,6 +2774,7 @@ function renderBets(){
     <div class="prop-subtabs" style="margin-bottom:12px">
       <button class="${betsView==='edge'?'on':''}" onclick="setBetsView('edge')">Find Edge</button>
       <button class="${betsView==='log'?'on':''}" onclick="setBetsView('log')">My Bets</button>
+      <button class="${betsView==='clv'?'on':''}" onclick="setBetsView('clv')">CLV</button>
     </div>
     <div class="bk-row">
       <button class="chip" onclick="exportData()">⬇ Backup bets</button>
@@ -2694,6 +2789,132 @@ function renderBets(){
   </div>`;
   const s=document.getElementById("betSearch"); if(s) s.oninput=()=>betSearch(s.value);
 }
+
+// ---------- CLV Dashboard ----------
+// The proof-of-performance view. CLV (closing line value) is whether you got a better
+// price than where the line closed — the truest measure of betting skill, more reliable
+// than win/loss over a small sample. This dashboard makes the trend visible: cumulative
+// CLV over time, beat-the-close rate, and CLV broken down by price range and bet type,
+// so you can SEE your edge prove or disprove itself as the season goes.
+function renderCLV(){
+  const main=document.getElementById("main");
+  const subTabs=`<div class="prop-subtabs" style="margin-bottom:12px">
+    <button class="${betsView==='edge'?'on':''}" onclick="setBetsView('edge')">Find Edge</button>
+    <button class="${betsView==='log'?'on':''}" onclick="setBetsView('log')">My Bets</button>
+    <button class="${betsView==='clv'?'on':''}" onclick="setBetsView('clv')">CLV</button>
+  </div>`;
+
+  // gather all bet legs that have BOTH an entry and closing price (CLV is per-leg where a
+  // price exists; single-leg bets are the clean case, but multi-leg still count at bet level)
+  const bets=(loadBets()||[]).filter(b=>b.odds&&b.close);
+  // sort chronologically so cumulative CLV reads left-to-right in time
+  bets.sort((a,b)=>(a.id||0)-(b.id||0));
+
+  const rows=bets.map(b=>{
+    const clv=clvOf(b.odds,b.close);
+    return clv==null?null:{date:b.date, clv, entry:b.odds, close:b.close,
+                            imp:impliedProb(b.odds), type:b.type, auto:b.closeAuto,
+                            result:b.result};
+  }).filter(Boolean);
+
+  if(rows.length<1){
+    main.innerHTML=`<div class="betswrap">${subTabs}
+      <div class="clv-empty">
+        <h3>Your CLV, once you've logged some closing lines</h3>
+        <p>Closing Line Value is the single most reliable sign you're a winning bettor — it shows up before win/loss does, because it can't be luck. Log a few bets in <b>My Bets</b> and let the closing price auto-capture (or type it in). This dashboard then tracks whether you're consistently beating the market.</p>
+        <p class="clv-empty-why">Why it matters more than your record: you can lose a bet you were right to make, and win one you were wrong to make. Over a small sample, wins are mostly variance. But beating the closing line, repeatedly, is skill. If your average CLV here is positive across a few dozen bets, the profit follows — even if the early record looks rough.</p>
+        <button class="clv-cta" onclick="setBetsView('log')">Go to My Bets →</button>
+      </div>
+    </div>`;
+    return;
+  }
+
+  // aggregate stats
+  const n=rows.length;
+  const avg=rows.reduce((a,r)=>a+r.clv,0)/n;
+  const beat=rows.filter(r=>r.clv>0).length;
+  const beatPct=Math.round(100*beat/n);
+  // cumulative average CLV over time (the trend line)
+  let run=0; const cumAvg=rows.map((r,i)=>{ run+=r.clv; return run/(i+1); });
+
+  // by price range
+  const buckets=[{l:"short (≤+250)",lo:-1,hi:0.286,rows:[]},
+                 {l:"mid (+250 to +500)",lo:0.167,hi:0.286,rows:[]},
+                 {l:"long (+500 to +900)",lo:0.10,hi:0.167,rows:[]},
+                 {l:"longshot (>+900)",lo:0,hi:0.10,rows:[]}];
+  rows.forEach(r=>{ const ip=r.imp; if(ip==null)return;
+    if(ip>0.286) buckets[0].rows.push(r);
+    else if(ip>0.167) buckets[1].rows.push(r);
+    else if(ip>0.10) buckets[2].rows.push(r);
+    else buckets[3].rows.push(r); });
+
+  // by bet type
+  const byType={};
+  rows.forEach(r=>{ const t=r.type||"bet"; (byType[t]=byType[t]||[]).push(r.clv); });
+
+  const good=avg>=0;
+  // headline
+  const headline=`<div class="clv-hero ${good?'pos':'neg'}">
+    <div class="clv-hero-main">
+      <div class="clv-hero-v ${good?'pos':'neg'}">${avg>=0?"+":""}${avg.toFixed(1)}<span>pp</span></div>
+      <div class="clv-hero-k">average closing line value<span>across ${n} bet${n===1?"":"s"} with a closing price</span></div>
+    </div>
+    <div class="clv-hero-beat"><b>${beatPct}%</b><span>beat the close</span></div>
+  </div>`;
+
+  // trend chart (cumulative avg CLV) — simple inline SVG sparkline, big enough to read
+  const chart=(()=>{
+    if(cumAvg.length<2) return `<div class="clv-chartnote">Log a few more bets to see your CLV trend line.</div>`;
+    const W=320,H=90,pad=6;
+    const lo=Math.min(0,...cumAvg), hi=Math.max(0,...cumAvg);
+    const rng=(hi-lo)||1;
+    const x=i=>pad+i*(W-2*pad)/(cumAvg.length-1);
+    const y=v=>H-pad-((v-lo)/rng)*(H-2*pad);
+    const path=cumAvg.map((v,i)=>`${i?"L":"M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join("");
+    const zeroY=y(0);
+    const last=cumAvg[cumAvg.length-1];
+    return `<div class="clv-chart">
+      <div class="clv-chart-h">Cumulative average CLV <span>should trend up and stay above zero</span></div>
+      <svg viewBox="0 0 ${W} ${H}" class="clv-svg" preserveAspectRatio="none">
+        <line x1="${pad}" y1="${zeroY.toFixed(1)}" x2="${W-pad}" y2="${zeroY.toFixed(1)}" class="clv-zero"/>
+        <path d="${path}" class="clv-line ${last>=0?'pos':'neg'}"/>
+      </svg>
+      <div class="clv-chart-x"><span>first bet</span><span>now</span></div>
+    </div>`;
+  })();
+
+  // price-range table
+  const rangeRows=buckets.filter(bk=>bk.rows.length).map(bk=>{
+    const bn=bk.rows.length; const ba=bk.rows.reduce((a,r)=>a+r.clv,0)/bn;
+    const bb=Math.round(100*bk.rows.filter(r=>r.clv>0).length/bn);
+    return `<div class="clv-brow"><span class="clv-blabel">${bk.l}</span>
+      <span class="clv-bval ${ba>=0?'pos':'neg'}">${ba>=0?"+":""}${ba.toFixed(1)}pp</span>
+      <span class="clv-bn">${bb}% beat · n=${bn}</span></div>`;
+  }).join("");
+  const typeRows=Object.entries(byType).filter(([t,a])=>a.length>=2).map(([t,a])=>{
+    const ta=a.reduce((x,c)=>x+c,0)/a.length;
+    return `<div class="clv-brow"><span class="clv-blabel">${t}</span>
+      <span class="clv-bval ${ta>=0?'pos':'neg'}">${ta>=0?"+":""}${ta.toFixed(1)}pp</span>
+      <span class="clv-bn">n=${a.length}</span></div>`;
+  }).join("");
+
+  // verdict
+  const verdict = n<10
+    ? `<div class="clv-verdict thin">Only ${n} bet${n===1?"":"s"} so far — too early to read the trend. Keep logging; CLV needs a few dozen bets before it means much. Don't change anything based on this yet.</div>`
+    : good
+    ? `<div class="clv-verdict pos">Across ${n} bets you're beating the close by ${avg.toFixed(1)}pp on average. That's the signal your edge is real — it shows up here before it shows up in your record. Trust the model's reliable +EV plays and keep going.</div>`
+    : `<div class="clv-verdict neg">Across ${n} bets your prices are closing ${Math.abs(avg).toFixed(1)}pp shorter than you took them. The market is disagreeing with your reads. Before sizing up, tighten to only the most reliable Edge Finder plays and see if CLV turns positive.</div>`;
+
+  main.innerHTML=`<div class="betswrap">${subTabs}
+    ${headline}
+    ${chart}
+    ${verdict}
+    ${rangeRows?`<div class="clv-breakdown"><div class="clv-bd-h">CLV by price range</div>${rangeRows}<div class="clv-bd-note">Where's your edge? If you beat the close on mid-priced hitters but not longshots, that tells you which bets to keep making.</div></div>`:""}
+    ${typeRows?`<div class="clv-breakdown"><div class="clv-bd-h">CLV by bet type</div>${typeRows}</div>`:""}
+    <div class="clv-foot">CLV = the probability your closing price implied minus the probability your entry price implied. Positive means you got a longer price than the market's final number. It's measured at bet time, independent of whether the bet won.</div>
+  </div>`;
+}
+
 function betFormHTML(){
   const legs=betDraft.legs.map((lg,i)=>`<span class="bl-leg">${lg.name}${lg.heat!=null?` <b>${lg.heat}</b>`:""} <button onclick="betRemoveLeg(${i})" aria-label="remove">✕</button></span>`).join("");
   return `<div class="bl-form">
@@ -3254,6 +3475,37 @@ function renderMatchup(){
 
 // Trust table — which tags actually convert to HRs in YOUR data (tracker + bet log), so you
 // know what to lean on when pairing. Never invents; only shows tags with real graded samples.
+// Badge lift, aggregated across ALL graded tracker days, with sample size. Returns
+// {badgeKey: {n, hr, rate, lift}} where lift = the badge's HR rate / the board base rate.
+// This is the statistically-weighted "does this badge actually convert" read, surfaced
+// directly on the badges where you read them instead of only in the trust table.
+let _badgeLiftCache=null, _badgeLiftDays=-1;
+function badgeLiftMap(){
+  const nDays=(HISTORY&&HISTORY.days)?HISTORY.days.length:0;
+  if(_badgeLiftCache && _badgeLiftDays===nDays) return _badgeLiftCache;
+  const raw={}; let baseN=0, baseHR=0;
+  if(HISTORY&&HISTORY.days) HISTORY.days.forEach(d=>{
+    baseN+=(d.players||0); baseHR+=(d.total_hr||d.hitters_homered||0);
+    Object.entries(d.by_badge||{}).forEach(([k,v])=>{ const a=raw[k]||(raw[k]={n:0,hr:0}); a.n+=v.n; a.hr+=v.hr; });
+  });
+  const base=baseN?baseHR/baseN:0.11;
+  const out={};
+  for(const k in raw){
+    const v=raw[k]; const rate=v.n?v.hr/v.n:null;
+    out[k]={n:v.n, hr:v.hr, rate, lift:(rate!=null&&base>0)?rate/base:null};
+  }
+  _badgeLiftCache=out; _badgeLiftDays=nDays;
+  return out;
+}
+// Short lift label for a badge, or "" if too little data. e.g. "+32%" (n=140) worth of signal.
+function badgeLiftLabel(k){
+  const m=badgeLiftMap()[k];
+  if(!m||m.lift==null||m.n<15) return "";       // need a real sample before claiming lift
+  const pct=Math.round((m.lift-1)*100);
+  const sign=pct>=0?"+":"";
+  return `${sign}${pct}%`;
+}
+
 function trustTable(R, BR){
   const raw={};
   if(HISTORY&&HISTORY.days) HISTORY.days.forEach(d=>Object.entries(d.by_badge||{}).forEach(([k,v])=>{
@@ -4533,17 +4785,17 @@ document.getElementById("teamList").addEventListener("click",e=>{
   populateTeams(); updateFiltCount(); render();
 });
 function updateFiltCount(){
-  const n=gameSel.size+teamSel.size+traitSel.size+labSel.size+drySel.size+(batFilter?1:0)+(minHeat>0?1:0)+(spFloor>0?1:0)+(hideThin?1:0)+(mixView?1:0);
+  const n=gameSel.size+teamSel.size+traitSel.size+labSel.size+drySel.size+tierSel.size+(batFilter?1:0)+(minHeat>0?1:0)+(spFloor>0?1:0)+(hideThin?1:0)+(mixView?1:0);
   const el=document.getElementById("filtCount");
   if(!el)return;
   if(n>0){el.textContent=n;el.hidden=false;}else{el.hidden=true;}
 }
 function clearFilters(){
-  gameSel.clear(); teamSel.clear(); batFilter=""; traitSel.clear(); labSel.clear(); drySel.clear(); minHeat=0; spFloor=0; hideThin=false; mixView=false;
+  gameSel.clear(); teamSel.clear(); batFilter=""; traitSel.clear(); labSel.clear(); drySel.clear(); tierSel.clear(); minHeat=0; spFloor=0; hideThin=false; mixView=false;
   document.querySelectorAll('#floor button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.min==="0"));
   document.querySelectorAll('#spF button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.sp==="0"));
   document.querySelectorAll('#bats button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.bat===""));
-  document.querySelectorAll('#traitF button,#hlabF button,#dryF button').forEach(x=>x.setAttribute('aria-pressed','false'));
+  document.querySelectorAll('#traitF button,#hlabF button,#dryF button,#tierF button').forEach(x=>x.setAttribute('aria-pressed','false'));
   document.getElementById('mixBtn').setAttribute('aria-pressed','false');
   document.getElementById('thinBtn').setAttribute('aria-pressed','false');
   populateGames(); populateTeams(); updateFiltCount(); render();
@@ -4581,6 +4833,13 @@ document.getElementById("hlabF").addEventListener("click",e=>{
   updateFiltCount(); render();
 });
 
+document.getElementById("tierF").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b)return;
+  const k=b.dataset.tier;
+  if(tierSel.has(k)) tierSel.delete(k); else tierSel.add(k);
+  b.setAttribute("aria-pressed", tierSel.has(k));
+  updateFiltCount(); render();
+});
 document.getElementById("dryF").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b)return;
   const k=b.dataset.dry;
