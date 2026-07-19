@@ -3953,6 +3953,25 @@ function btSection(main){
           <div class="val" style="font-size:11px">${r.toFixed(1)}%</div></div>`;});
     }
     if(bt.notes) btHTML+=`<div class="pl-note">${bt.notes.join(" · ")}</div>`;
+    // ---- Badge lift ranking (season backtest) — which badges actually predict homers ----
+    const BL=bt.by_badge;
+    if(BL && Object.keys(BL).length){
+      const BLBL={pow:"POWER",due:"DUE",lock:"HOT",hot:"WARMING",cool:"MAY COOL"};
+      const entries=Object.entries(BL).filter(([k,v])=>v.n>=30)
+        .sort((a,b)=>(b[1].lift||0)-(a[1].lift||0));
+      if(entries.length){
+        btHTML+=`<div style="font-size:11px;color:var(--muted);margin:12px 0 3px"><b style="color:var(--ink)">Badge lift — best HR badges</b> · season-long, base ${bb}%</div>`;
+        entries.forEach(([k,v])=>{
+          const liftPct=v.lift!=null?Math.round((v.lift-1)*100):null;
+          const col=v.lift>=1.15?'var(--good)':v.lift<=0.85?'var(--bad)':'var(--muted)';
+          btHTML+=`<div class="trk-row" style="grid-template-columns:84px 1fr 62px">
+            <div class="lab"><span class="bdg bk-${k}" style="font-size:9px">${BLBL[k]||k}</span></div>
+            <div style="font-size:12px;color:var(--muted)"><b style="color:var(--ink)">${v.rate_pct}%</b> · ${v.hr}/${v.n}</div>
+            <div class="val" style="color:${col};font-weight:700">${v.lift!=null?(v.lift.toFixed(2)+"×"):"–"}</div></div>`;
+        });
+        btHTML+=`<div class="pl-note">Lift = this badge's HR rate ÷ the ${bb}% base. Above 1× means the badge picks hitters who homer more than average. Hitter-only badges (opponent-context ones need lineup data the replay doesn't have).</div>`;
+      }
+    }
     // ---- Props backtest (present when the extended backtest workflow has run) ----
     const P=bt.props;
     if(P){
