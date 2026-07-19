@@ -34,6 +34,25 @@ HIT_EVENTS = {"single", "double", "triple", "home_run"}
 K_EVENTS = {"strikeout", "strikeout_double_play"}
 
 
+def _badge_lift(by_badge: dict, base_rate: float) -> dict:
+    """Turn raw per-badge {n, hr} tallies into HR rate + lift vs the pool base rate,
+    sorted best-first. lift = badge HR rate / base HR rate. >1 means the badge picks
+    hitters who homer more than average; <1 means it doesn't. Season-long sample gives
+    this real statistical weight, unlike the thin day-by-day tracker version."""
+    out = {}
+    for k, v in by_badge.items():
+        n, hr = v["n"], v["hr"]
+        rate = hr / n if n else 0.0
+        out[k] = {
+            "n": n, "hr": hr,
+            "rate_pct": round(100 * rate, 2),
+            "lift": round(rate / base_rate, 3) if base_rate > 0 else None,
+        }
+    # sort best-first by lift (then by sample size), so the output reads as a ranking
+    return dict(sorted(out.items(),
+                       key=lambda kv: (-(kv[1]["lift"] or 0), -kv[1]["n"])))
+
+
 def _tier(h):
     for name, lo, hi in TIERS:
         if lo <= h < hi:
@@ -179,6 +198,21 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str) -> dict:
             hr_h, _ = props.hrr_heat(recent, pp, lineup_spot=None, hr_heat=heat)
         except Exception:
             hr_h = None
+        # Hitter-only badges, computed from the same profile the live board uses. We only
+        # derive the badges that depend on HITTER data available in the replay frame
+        # (POWER, DUE, MAY COOL, HOT, WARMING) — the opponent-context badges (WEAK ARM,
+        # PLATOON, PITCH EDGE, WEAK PEN) need lineup/pen data not reconstructed here, so
+        # they're intentionally left out rather than approximated.
+        try:
+            badge_list = compute.player_badges(
+                luck_gap=recent.get("luck_gap"),
+                trend=prof.get("trend"),
+                max_ev=recent.get("max_ev"),
+                xwobacon=recent.get("xwobacon"),
+            )
+            badge_keys = [b["k"] for b in badge_list]
+        except Exception:
+            badge_keys = []
         out[bid] = {
             "heat": float(heat), "hr": bid in hr_today,
             "hit_heat": float(hh) if hh is not None else None,
@@ -186,6 +220,7 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str) -> dict:
             "hits": int(bat_out["hits"].get(bid, 0)),
             "ks": int(bat_out["ks"].get(bid, 0)),
             "hrr": int(hrr_val.get(bid, 0)),
+            "badges": badge_keys,
         }
     return out, pitcher_scores
 
@@ -198,6 +233,7 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
         return {"error": f"need more than {WARMUP_DAYS} days of data"}
     dates = [d for d in all_dates[WARMUP_DAYS:] if (not start or d >= start) and (not end or d <= end)]
     by_tier = {name: {"n": 0, "hr": 0} for name, _, _ in TIERS}
+    by_badge = {}   # badge_key -> {n, hr}: HR rate for hitters carrying each badge
     top_n = {"5": {"n": 0, "hr": 0}, "10": {"n": 0, "hr": 0}, "25": {"n": 0, "hr": 0}}
     calib = {}
     n_tot = hr_tot = 0
@@ -238,6 +274,10 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
             b = int(min(max(r["heat"], 0), 99) // 10) * 10
             c = calib.setdefault(str(b), {"n": 0, "hr": 0})
             c["n"] += 1; c["hr"] += 1 if hit else 0
+            # badge tally: each badge this hitter carries gets a plate appearance + HR credit
+            for bk in r.get("badges", []):
+                bb = by_badge.setdefault(bk, {"n": 0, "hr": 0})
+                bb["n"] += 1; bb["hr"] += 1 if hit else 0
         # --- props: hit1/hit2 tiers by hit_heat ---
         hh_ranked = sorted((kv for kv in heats.items() if kv[1]["hit_heat"] is not None),
                            key=lambda kv: -kv[1]["hit_heat"])
@@ -287,6 +327,7 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
         "model_version": compute.MODEL_VERSION,
         "base_pct": round(100 * hr_tot / n_tot, 2) if n_tot else None,
         "by_tier": by_tier, "top_n": top_n,
+        "by_badge": _badge_lift(by_badge, hr_tot / n_tot if n_tot else 0),
         "calib": {k: calib[k] for k in sorted(calib, key=int)},
         "props": {
             "hit1": {"by_tier": P["hit1"], "top_n": p_top["hit1"],
@@ -301,7 +342,10 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
                      "o6_pct": round(100 * pk_o6 / pk_n, 1) if pk_n else None,
                      "o7_pct": round(100 * pk_o7 / pk_n, 1) if pk_n else None},
         },
-        "notes": ["core model only (heat + arm nudge); park/weather/badge layers not replayed",
+        "notes": ["core heat model (heat + arm nudge); park/weather layers not replayed",
+                  "by_badge lift covers HITTER-only badges (POWER/DUE/HOT/WARMING/MAY COOL); "
+                  "opponent-context badges (WEAK ARM/PLATOON/PITCH EDGE/WEAK PEN) need lineup/pen "
+                  "data not in the replay frame and are omitted",
                   "opposing SP = actual first pitcher; the live board uses the morning probable, so replayed matchup info is marginally sharper than production — treat calibration as a slight ceiling, not a floor",
                   "props replayed with same leak contract; hrr graded WITHOUT lineup-spot multiplier (no morning lineups in replay)",
                   "hrr runs/rbis approximated identically to the live tracker",
