@@ -32,6 +32,16 @@ from pathlib import Path
 API_BASE = "https://parlay-api.com/v1"
 SPORT = "baseball_mlb"
 MARKET = "player_home_runs"
+
+# Additional prop markets fetched alongside HR — all in ONE API call (comma-separated markets
+# = still 3 credits, no extra cost). Each maps to a props sub-view in the app. These are
+# two-sided over/under markets with real lines, unlike HR (which is a milestone yes/no).
+PROP_MARKETS = {
+    "hits":  "player_hits",              # 1+ hits, line 0.5
+    "hrr":   "player_hits_runs_rbis",    # hits+runs+rbis, line 1.5 typically
+    "pk":    "player_strikeouts",        # pitcher strikeouts O/U, real lines (4.5, 5.5...)
+}
+ALL_MARKETS = [MARKET] + list(PROP_MARKETS.values())
 # PRIMARY books — the ones the user actually bets. A hitter's headline "best" price comes
 # only from these, and where both price him it's line-shopped to the better number.
 BOOK_ALIASES = {
@@ -110,7 +120,7 @@ def fetch_props(api_key: str, retries: int = 2) -> list:
     # match ours, and a wrong filter can silently drop everything. Pull all books for the
     # HR market and filter locally via _canon_book, where we can log what we actually see.
     q = urllib.parse.urlencode({
-        "markets": MARKET,
+        "markets": ",".join(ALL_MARKETS),   # HR + hits + hrr + pitcher Ks, one call = 3 credits
         "apiKey": api_key,
     })
     url = f"{API_BASE}/sports/{SPORT}/props?{q}"
@@ -155,6 +165,95 @@ def _is_hr_prop(row: dict) -> bool:
     if mk == "player_home_runs_alt" and line == 1.0 and "1 or more" in mkt:
         return True
     return False
+
+
+def build_prop_odds(rows: list) -> dict:
+    """Build two-sided prop odds for hits / hrr / pitcher-K markets.
+
+    Unlike HR (a yes/no milestone), these are over/under markets with a real line. For each
+    (prop, player) we keep the book's line and BOTH over and under prices, best-priced across
+    primary books (DK/Fanatics), with FanDuel as a labeled fallback. Structure:
+      {prop_key: {normalized_name: {name, line, over, under, over_book, under_book,
+                                     fallback, books:{book:{line,over,under}}}}}
+    The frontend compares its model estimate to `line` and prices whichever side is +EV.
+    """
+    # market_key -> our prop key
+    key_map = {v: k for k, v in PROP_MARKETS.items()}
+    out = {k: {} for k in PROP_MARKETS}
+    fb = {k: {} for k in PROP_MARKETS}   # FanDuel fallback per prop
+
+    for row in rows:
+        try:
+            if not isinstance(row, dict):
+                continue
+            mk = row.get("market_key")
+            prop = key_map.get(mk)
+            if prop is None:
+                continue
+            line = row.get("line")
+            if line is None:
+                continue
+            over = row.get("over_price")
+            under = row.get("under_price")
+            # need at least one priced side
+            if over is None and under is None:
+                continue
+            try:
+                over = int(over) if over is not None else None
+                under = int(under) if under is not None else None
+            except (TypeError, ValueError):
+                continue
+            # absurd-price guard
+            for px in (over, under):
+                if px is not None and (px == 0 or px < -100000 or px > 100000):
+                    over = over if over != px else None
+                    under = under if under != px else None
+            name = row.get("player") or ""
+            if "(" in name:
+                name = name.split("(")[0].strip()
+            key = _norm_name(name)
+            if not key:
+                continue
+
+            raw_book = row.get("bookmaker") or ""
+            book = _canon_book(raw_book)
+            target = out if book is not None else None
+            if target is None:
+                fbk = _canon_fallback(raw_book)
+                if fbk is None:
+                    continue
+                book = fbk
+                target = fb
+
+            slot = target[prop].setdefault(key, {
+                "name": name, "line": line,
+                "over": None, "under": None, "over_book": None, "under_book": None,
+                "books": {},
+                "home_team": row.get("home_team"), "away_team": row.get("away_team"),
+                "last_update": row.get("last_update"),
+            })
+            # only compare prices at the SAME line (mixing lines would be apples/oranges)
+            if slot["line"] != line and slot["over"] is not None:
+                # a different line already recorded; prefer the more common (keep first seen)
+                continue
+            slot["line"] = line
+            slot["books"][book] = {"line": line, "over": over, "under": under}
+            # best over = longest (bettor-friendliest); best under = longest too
+            if over is not None and (slot["over"] is None or _better_over(slot["over"], over) == over):
+                slot["over"], slot["over_book"] = over, book
+            if under is not None and (slot["under"] is None or _better_over(slot["under"], under) == under):
+                slot["under"], slot["under_book"] = under, book
+        except Exception:
+            continue
+
+    # apply FanDuel fallback for players no primary book priced
+    for prop in PROP_MARKETS:
+        for key, slot in fb[prop].items():
+            if key in out[prop]:
+                continue
+            slot["fallback"] = True
+            out[prop][key] = slot
+    return out
 
 
 def build_odds(rows: list) -> dict:
@@ -344,6 +443,13 @@ def main() -> int:
             slate = row["game_date"]
             break
 
+    # build the two-sided prop markets (hits/hrr/pitcher-K) from the same fetched rows
+    try:
+        prop_odds = build_prop_odds(rows)
+    except Exception as e:
+        print(f"[odds] prop build failed (non-fatal): {e}", file=sys.stderr)
+        prop_odds = {k: {} for k in PROP_MARKETS}
+
     payload = {
         "updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "slate_date": slate,
@@ -351,8 +457,11 @@ def main() -> int:
         "books": BOOKS,
         "count": len(prices),
         "prices": prices,
+        "props": prop_odds,
     }
     _write(payload)
+    for pk, pv in prop_odds.items():
+        print(f"[odds] prop '{pk}': {len(pv)} players priced", file=sys.stderr)
     both = sum(1 for v in prices.values() if len(v["books"]) == 2)
     print(f"[odds] wrote {len(prices)} hitters with HR prices ({both} priced by both books)")
     return 0
