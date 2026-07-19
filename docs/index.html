@@ -477,6 +477,19 @@
   .clv-bn{font-size:10px;color:var(--faint);text-align:right;white-space:nowrap}
   .clv-bd-note{font-size:10px;color:var(--faint);line-height:1.5;margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
   .clv-foot{font-size:10px;color:var(--faint);line-height:1.5;margin-top:4px}
+  /* collapsible tracker sections */
+  .trk-acc{border:1px solid var(--line);border-radius:10px;margin-bottom:10px;overflow:hidden;background:var(--panel)}
+  .trk-acc>summary{list-style:none;cursor:pointer;padding:12px 14px;display:flex;align-items:flex-start;gap:10px;user-select:none}
+  .trk-acc>summary::-webkit-details-marker{display:none}
+  .trk-acc>summary:hover{background:var(--panel-2)}
+  .trk-acc-caret{flex-shrink:0;font-size:12px;color:var(--muted);transition:transform .15s ease;margin-top:2px}
+  .trk-acc[open]>summary .trk-acc-caret{transform:rotate(90deg)}
+  .trk-acc-ht{flex:1;min-width:0}
+  .trk-acc-ttl{font-family:Archivo;font-weight:700;font-size:13px;color:var(--ink);letter-spacing:.01em}
+  .trk-acc-desc{font-size:10.5px;color:var(--muted);line-height:1.5;margin-top:3px}
+  .trk-acc-body{padding:0 14px 14px;border-top:1px solid var(--line)}
+  .trk-acc-body>h3:first-child{display:none}   /* header already in summary */
+  .trk-acc[open]>summary{border-bottom:1px solid transparent}
   .pl-leg{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--line)}
   .pl-leg-main b{font-size:13px}
   .pl-meta{font-size:10.5px;color:var(--muted);display:block;margin-top:1px}
@@ -4030,9 +4043,13 @@ function btSection(main){
       }
       if(RB.notes) btHTML+=`<div class="pl-note">${RB.notes.join(" · ")}</div>`;
     }
+    const btAcc=`<details class="trk-acc"><summary><span class="trk-acc-caret">▸</span><span class="trk-acc-ht">
+      <span class="trk-acc-ttl">Season backtest</span>
+      <span class="trk-acc-desc">The heat model replayed across the whole season (leak-checked), with calibration, badge lift, props, and game-line results.</span></span></summary>
+      <div class="trk-acc-body">${btHTML}</div></details>`;
     const trkEl=main.querySelector(".trk");
-    if(trkEl) trkEl.insertAdjacentHTML("beforeend", btHTML);
-    else main.insertAdjacentHTML("beforeend", `<div class="trk">${btHTML}</div>`);
+    if(trkEl) trkEl.insertAdjacentHTML("beforeend", btAcc);
+    else main.insertAdjacentHTML("beforeend", `<div class="trk">${btAcc}</div>`);
   }
 }
 // ------- Tracker-adaptive "How to Bet" guide -------
@@ -4511,37 +4528,37 @@ function renderTracker(){
       ${top?`<div class="ln">${top}</div>`:""}</div>`;
   }).join("");
 
+  // collapsible section wrapper. Title + description show even when collapsed, so you can
+  // see what each section holds before expanding. `open` controls default-open state.
+  const acc=(title,desc,body,open)=>`<details class="trk-acc"${open?" open":""}>
+    <summary><span class="trk-acc-caret">▸</span><span class="trk-acc-ht">
+      <span class="trk-acc-ttl">${title}</span>
+      <span class="trk-acc-desc">${desc}</span></span></summary>
+    <div class="trk-acc-body">${body}</div>
+  </details>`;
+
   main.innerHTML=`<div class="trk">
     <div class="trk-sum"><b>${days.length}</b> days graded · <b>${homered}</b> of ${players} ranked hitters homered ·
       <b>${tot}</b> HR total · <b>${sp}</b> off starters / <b>${bp}</b> off the pen
       ${tot?`(${(100*sp/tot).toFixed(0)}% SP)`:""}</div>
-    <h3>⚖︎ Model vs baselines — top 10 HR rate</h3>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">the real test: does Heat beat just sorting by ISO or barrel%? it has to clear these to have edge.</div>
-    ${cmpRows||'<div class="ln" style="color:var(--muted)">— needs a few graded days —</div>'}
-    ${verdict}
-    <h3>HR rate by Heat tier</h3>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">does a higher Heat actually produce more HRs?</div>
-    ${tierRows||'<div class="ln" style="color:var(--muted)">—</div>'}
-    <h3>Conviction &amp; context signals</h3>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">SMASH, trend, park boost, B2B and opener conversion vs the field — this is the section that will say whether the weights should change. Right column = lift.</div>
-    ${convRows||'<div class="ln" style="color:var(--muted)">— fills in as new graded days arrive —</div>'}
-    ${spotStrip?`<div style="font-size:11px;color:var(--muted);margin:8px 0 2px">HR rate by lineup spot</div>${spotStrip}`:""}
-    <h3>HR rate by opposing-arm form</h3>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">do shellable / steady-bad arms get taken deep more?</div>
-    ${formRows||'<div class="ln" style="color:var(--muted)">—</div>'}
-    <h3>Top-N hit rate</h3>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">how often do the top 5 / 10 / 25 by Heat homer?</div>
-    ${topRows||'<div class="ln" style="color:var(--muted)">—</div>'}
-    <h3>Signal → HR correlation</h3>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">HR rate when a signal cleared "good" vs below — bigger lift = more predictive</div>
-    ${sigRows||'<div class="ln" style="color:var(--muted)">—</div>'}
-    <h3>HR rate by badge</h3>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">how often hitters carrying each badge homered, across every ranked hitter. Right column = lift vs the ${baseRate.toFixed(1)}% base rate. ${tot?`HR hitters carried <b style="color:var(--ink)">${avgBadgesHr.toFixed(1)}</b> badges on average.`:""}</div>
-    ${badgeRows||'<div class="ln" style="color:var(--muted)">— needs a few graded days —</div>'}
-    ${parlaySection(days,baseRate)}
-    ${propsSection(days)}
-    <h3>Daily log</h3>
-    ${dayRows}
+    ${acc("⚖︎ Model vs baselines","The real test: does Heat beat just sorting by ISO or barrel%? It has to clear these to have edge.",
+      (cmpRows||'<div class="ln" style="color:var(--muted)">— needs a few graded days —</div>')+verdict, true)}
+    ${acc("HR rate by Heat tier","Does a higher Heat actually produce more HRs?",
+      tierRows||'<div class="ln" style="color:var(--muted)">—</div>', true)}
+    ${acc("Conviction &amp; context signals","SMASH, trend, park boost, B2B and opener conversion vs the field — the section that says whether the weights should change. Right column = lift.",
+      (convRows||'<div class="ln" style="color:var(--muted)">— fills in as new graded days arrive —</div>')+(spotStrip?`<div style="font-size:11px;color:var(--muted);margin:8px 0 2px">HR rate by lineup spot</div>${spotStrip}`:""))}
+    ${acc("HR rate by opposing-arm form","Do shellable / steady-bad arms get taken deep more?",
+      formRows||'<div class="ln" style="color:var(--muted)">—</div>')}
+    ${acc("Top-N hit rate","How often do the top 5 / 10 / 25 by Heat homer?",
+      topRows||'<div class="ln" style="color:var(--muted)">—</div>')}
+    ${acc("Signal → HR correlation","HR rate when a signal cleared \"good\" vs below — bigger lift = more predictive.",
+      sigRows||'<div class="ln" style="color:var(--muted)">—</div>')}
+    ${acc("HR rate by badge",`How often hitters carrying each badge homered, across every ranked hitter. Right column = lift vs the ${baseRate.toFixed(1)}% base rate. ${tot?`HR hitters carried ${avgBadgesHr.toFixed(1)} badges on average.`:""}`,
+      badgeRows||'<div class="ln" style="color:var(--muted)">— needs a few graded days —</div>')}
+    ${(()=>{ const s=parlaySection(days,baseRate); return s?acc("Best parlays &amp; combos","Tag pairings and combos that have actually converted in your graded data and bets.",s):""; })()}
+    ${(()=>{ const s=propsSection(days); return s?acc("Props tracking","How the hit, HRR, and pitcher-K prop models have graded out.",s):""; })()}
+    ${acc("Daily log","Every graded slate, most recent first.",
+      dayRows)}
   </div>`;
   btSection(main);
 }
