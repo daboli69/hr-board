@@ -1033,6 +1033,69 @@ def build(date_str: str | None = None) -> dict:
         except Exception as e:
             _hnote("pitcher edges", e); print(f"[build] pitcher edges skipped: {e}")
 
+    # ---- BULLPEN RANKINGS: one ranked list of every pen on the slate, worst (most
+    # HR-vulnerable + most gassed) to best, each with the reasons why. Combines HR-vulnerability
+    # (bullpen_vuln) with availability/fatigue (bullpen_availability). ----
+    bullpen_rankings = []
+    try:
+        slate_teams = set()
+        for g in games:
+            slate_teams.add(g["away"]); slate_teams.add(g["home"])
+        for team in slate_teams:
+            pen = _bullpen_for(team)
+            if not pen:
+                continue
+            vuln = compute.bullpen_vuln(pen)
+            avail = (pen_avail or {}).get(team, {})
+            hr_score = (vuln or {}).get("score")          # higher = more HR-prone
+            fatigue = avail.get("fatigue")                # 0-100, higher = more gassed
+            n_avail = len(avail.get("available", [])) if avail else None
+            n_out = len(avail.get("unavailable", [])) if avail else None
+            label = avail.get("label")
+            # combined "exploitability" of this pen tonight: HR-vulnerability + fatigue penalty.
+            # Both push the same way (a hittable, tired pen is the one you attack).
+            parts = []
+            rank_val = 0.0
+            if hr_score is not None:
+                rank_val += hr_score
+                parts.append(hr_score)
+            if fatigue is not None:
+                rank_val += fatigue * 0.4                  # fatigue matters but weight below raw vuln
+                parts.append(fatigue * 0.4)
+            if not parts:
+                continue
+            # human-readable reasons
+            reasons = []
+            if label == "GASSED":
+                reasons.append(f"pen gassed — {n_out or '?'} arms down, {avail.get('pen_pitches_l1','?')} pitches yesterday")
+            elif label == "WORN":
+                reasons.append(f"worn — {n_out or 0} key arms unavailable")
+            if hr_score is not None and hr_score >= 60:
+                reasons.append("HR-prone even at full strength")
+            elif hr_score is not None and hr_score <= 40:
+                reasons.append("suppresses HR when rested")
+            for fl in (vuln or {}).get("flags", [])[:2]:
+                reasons.append(fl)
+            if n_avail is not None and n_avail <= 4:
+                reasons.append(f"only {n_avail} fresh arms")
+            form = (vuln or {}).get("form") or {}
+            bullpen_rankings.append({
+                "team": team,
+                "rank_val": round(rank_val, 1),
+                "hr_score": hr_score,
+                "fatigue": fatigue,
+                "label": label,
+                "n_available": n_avail,
+                "n_unavailable": n_out,
+                "form": form.get("label") if isinstance(form, dict) else form,
+                "reasons": reasons or ["about average tonight"],
+            })
+        # sort worst (highest rank_val = most exploitable) first
+        bullpen_rankings.sort(key=lambda x: -x["rank_val"])
+        print(f"[build] bullpen rankings: {len(bullpen_rankings)} pens ranked")
+    except Exception as e:
+        _hnote("bullpen rankings", e); print(f"[build] bullpen rankings skipped: {e}")
+
     board = {
         "generated_at": now.isoformat(timespec="seconds"),
         "slate_date": date_str,
@@ -1059,6 +1122,7 @@ def build(date_str: str | None = None) -> dict:
         },
         "players": players,
         "pitcher_edges": pitcher_edges,     # Edges tab: per-arm zone heatmap + ranked batters
+        "bullpen_rankings": bullpen_rankings,   # slate-wide pen ranking, worst to best
         "top_plays": top_plays,
         "stacks": stacks,
         "wx": wx_list,
