@@ -1007,6 +1007,8 @@ def build(date_str: str | None = None) -> dict:
                             "zone_score": vz.get("score"), "hot_zone": vz.get("hot_zone"),
                             "hot_xw": vz.get("hot_xw"),
                             "matchup_score": pm.get("score"),
+                            # per-zone xwOBA (compact: {zone: xwobacon}) for the heatmap overlay
+                            "zone_dmg": {z: v.get("xwobacon") for z, v in (bz or {}).items()} if bz else None,
                         })
                     # rank opponents by zone score (who punishes where he lives)
                     opp_batters.sort(key=lambda b: (b["zone_score"] is not None, b["zone_score"] or 0), reverse=True)
