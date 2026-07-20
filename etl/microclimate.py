@@ -91,10 +91,16 @@ def game_pks_for_date(date: str) -> list:
     return [p for p in out if p]
 
 
+_WX_CACHE = {}
 def _hourly_temp_map(lat: float, lon: float, date: str) -> dict:
-    """{utc_hour_int: temp_f} for the ballpark on that date. One weather call per game."""
+    """{utc_hour_int: temp_f} for the ballpark on that date. Cached per (lat,lon,date) so
+    multiple games at the same park on the same day cost one weather call, not several."""
+    ck = (round(lat, 3), round(lon, 3), date)
+    if ck in _WX_CACHE:
+        return _WX_CACHE[ck]
     data = _get_json(WX_URL.format(lat=lat, lon=lon, d=date))
     if not data or "hourly" not in data:
+        _WX_CACHE[ck] = {}
         return {}
     h = data["hourly"]
     times = h.get("time", [])
@@ -110,6 +116,7 @@ def _hourly_temp_map(lat: float, lon: float, date: str) -> dict:
             }
         except Exception:
             continue
+    _WX_CACHE[ck] = out
     return out
 
 
@@ -236,39 +243,68 @@ def build_profiles(all_balls: list, min_n: int = 25) -> dict:
     return out
 
 
-def run(start_date: str, end_date: str = None, existing: dict = None) -> dict:
-    """Build (or extend) microclimate profiles over a date range. Idempotent per game via
-    a processed-games set so re-runs only add new completed games."""
+def run(start_date: str, end_date: str = None, existing: dict = None,
+        time_budget_s: int = 1800, checkpoint_every: int = 40) -> dict:
+    """Build (or extend) microclimate profiles over a date range.
+
+    Robust to timeouts: writes a checkpoint to disk every `checkpoint_every` games AND stops
+    cleanly once `time_budget_s` seconds have elapsed, saving what it has. Idempotent via the
+    processed-games set, so the next run resumes exactly where this one stopped. This is what
+    makes a big backfill safe under a CI time limit — it chips away across multiple runs
+    instead of needing to finish in one shot.
+    """
     end_date = end_date or start_date
     existing = existing or {}
     processed = set(existing.get("_processed_games", []))
     all_balls = existing.get("_balls", [])
+    started = time.time()
+
+    def _snapshot():
+        return {
+            "updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "profiles": build_profiles(all_balls),
+            "_balls": all_balls,
+            "_processed_games": sorted(processed),
+        }
 
     d0 = _dt.date.fromisoformat(start_date)
     d1 = _dt.date.fromisoformat(end_date)
     day = d0
     new_games = 0
-    while day <= d1:
+    stopped_early = False
+    while day <= d1 and not stopped_early:
         ds = day.isoformat()
         for pk in game_pks_for_date(ds):
             if pk in processed:
                 continue
+            # stop before the CI limit kills us mid-write; save what we have and exit clean
+            if time.time() - started > time_budget_s:
+                print(f"[micro] time budget reached ({time_budget_s}s) — checkpointing and stopping. "
+                      f"Re-run to resume from here.")
+                stopped_early = True
+                break
             balls = process_game(pk, ds)
             all_balls.extend(balls)
             processed.add(pk)
             new_games += 1
-            time.sleep(0.3)   # be polite to the free endpoints
+            # periodic checkpoint so an unexpected kill still preserves progress
+            if new_games % checkpoint_every == 0:
+                _write(_snapshot())
+                print(f"[micro] checkpoint: {new_games} games this run, {len(processed)} total, "
+                      f"{len(all_balls)} balls")
+            time.sleep(0.12)  # be polite to the free endpoints
         day += _dt.timedelta(days=1)
 
     profiles = build_profiles(all_balls)
-    print(f"[micro] processed {new_games} new games, {len(all_balls)} batted balls, "
-          f"{len(profiles)} hitter profiles")
+    print(f"[micro] processed {new_games} new games this run, {len(processed)} total, "
+          f"{len(all_balls)} batted balls, {len(profiles)} hitter profiles"
+          f"{' (STOPPED EARLY — re-run to continue)' if stopped_early else ' (range complete)'}")
     return {
         "updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "profiles": profiles,
-        # keep raw balls + processed set so future runs extend rather than rebuild
         "_balls": all_balls,
         "_processed_games": sorted(processed),
+        "_complete": not stopped_early,
     }
 
 
