@@ -23,6 +23,14 @@ try:
     from etl import features                 # parallel feature-extraction edges (never touch heat)
 except Exception:
     features = None
+# microclimate temp-sensitivity profiles (built by the separate microclimate.py ETL)
+_MICRO = {}
+try:
+    _mp = os.path.join(os.path.dirname(__file__), "..", "docs", "microclimate.json")
+    with open(_mp) as _f:
+        _MICRO = (json.load(_f) or {}).get("profiles", {})
+except Exception:
+    _MICRO = {}
 
 try:                       # cache Savant pulls to disk so repeat runs are fast
     from pybaseball import cache as pyb_cache
@@ -243,6 +251,20 @@ def build(date_str: str | None = None) -> dict:
             print(f"[build] pitcher arsenals: {len(arsenal_by_pid)} built")
         except Exception as e:
             _hnote("pitcher arsenals", e); print(f"[build] pitcher arsenals skipped: {e}")
+    # Today's forecast temp per game, for the microclimate flag (built early so the row loop
+    # can use it). Reuses the same weather source as the Weather dashboard.
+    _game_temp = {}
+    if _MICRO:
+        try:
+            from etl import weather as _W, park_geometry as _PG
+            for g in games:
+                _lat, _lon, _ = _PG.park_coords(g["park"])
+                _wx = _W.get_weather(_lat, _lon, g["time"], venue=g["park"])
+                _t = (_wx or {}).get("temp_f")
+                if _t is not None:
+                    _game_temp[g["game_pk"]] = round(_t)
+        except Exception as e:
+            _hnote("microclimate temps", e); print(f"[build] microclimate temps skipped: {e}")
 
     try:                                           # B2B: homered in his most recent game
         b2b_set = statcast_data.hr_last_game(df)
@@ -413,6 +435,24 @@ def build(date_str: str | None = None) -> dict:
                         lc = features.late_hr_context(exp_ip, fidx)
                         if lc:
                             feat["late_hr"] = lc
+                # 2. MICROCLIMATE: this hitter's temp-sensitivity vs today's forecast temp.
+                # The horse-genetics edge — flags when tonight's conditions favor/hurt a
+                # temperature-fragile hitter, using real per-pitch-timestamp history.
+                mp = _MICRO.get(str(bid))
+                if mp and mp.get("temp_sensitivity_ev") is not None:
+                    today_temp = _game_temp.get(g["game_pk"]) if g else None
+                    sens = mp["temp_sensitivity_ev"]        # +ve = loses EV when cool
+                    micro = {"sensitivity_ev": sens, "median_temp": mp.get("median_temp"),
+                             "warm": mp.get("warm"), "cool": mp.get("cool"),
+                             "n": mp.get("n_total"), "today_temp": today_temp}
+                    if today_temp is not None and abs(sens) >= 2.0:
+                        cold = today_temp < mp.get("median_temp", 70)
+                        # fragile hitter (sens>0) in the cold = downgrade; in the warmth = boost
+                        if sens >= 2.0:
+                            micro["flag"] = "COLD FADE" if cold else "WARM BOOST"
+                        elif sens <= -2.0:   # rare: hits better cold
+                            micro["flag"] = "COLD BOOST" if cold else "WARM FADE"
+                    feat["microclimate"] = micro
             except Exception:
                 pass   # feature failure never breaks a row
         ps = pprof.get("season", {})
@@ -933,6 +973,63 @@ def build(date_str: str | None = None) -> dict:
     except Exception as e:
         _hnote("weather summaries", e); print(f"[build] weather summaries skipped: {e}")
 
+    # ---- PITCHER EDGES: per-arm arsenal + zone heatmap + ranked opposing batters who
+    # punish his zones. Powers the Edges tab (pitcher-first drill-down). Parallel track. ----
+    pitcher_edges = []
+    if features is not None:
+        try:
+            # index built players by (game_pk, batter side) so we can find each arm's opponents
+            for g in games:
+                for pid, p_side, opp_side in ((g["home_pitcher_id"], "home", "away"),
+                                              (g["away_pitcher_id"], "away", "home")):
+                    if not pid:
+                        continue
+                    ars = arsenal_by_pid.get(pid)
+                    arows = statcast_data.pitcher_arsenal_rows(df, pid, date_str)
+                    zgrid = features.pitcher_zone_grid(arows)
+                    meta = slate["pitchers"].get(pid, {})
+                    # opposing batters: those in this game on the other side
+                    opp_batters = []
+                    for pl in players:
+                        if pl.get("game_pk") != g["game_pk"] or pl.get("side") != opp_side:
+                            continue
+                        bz = None
+                        try:
+                            brows = statcast_data.batter_pitch_rows(df, pl["id"], date_str)
+                            bz = features.batter_zone_damage(brows)
+                        except Exception:
+                            bz = None
+                        vz = features.batter_vs_pitcher_zones(bz, zgrid) if bz else {}
+                        pm = (pl.get("features") or {}).get("pitch_matchup") or {}
+                        opp_batters.append({
+                            "id": pl["id"], "name": pl["name"], "spot": pl.get("lineup_spot"),
+                            "bats": pl.get("bats"), "heat": pl.get("heat"),
+                            "zone_score": vz.get("score"), "hot_zone": vz.get("hot_zone"),
+                            "hot_xw": vz.get("hot_xw"),
+                            "matchup_score": pm.get("score"),
+                        })
+                    # rank opponents by zone score (who punishes where he lives)
+                    opp_batters.sort(key=lambda b: (b["zone_score"] is not None, b["zone_score"] or 0), reverse=True)
+                    fat = fatigue_by_pid.get(pid) if p_roles.get(pid, {}).get("role") != "SP" else None
+                    # exploitability: how much the top opponents punish his zones + his own fatigue
+                    top_scores = [b["zone_score"] for b in opp_batters[:5] if b["zone_score"] is not None]
+                    exploit = round(sum(top_scores) / len(top_scores), 3) if top_scores else None
+                    pitcher_edges.append({
+                        "id": pid, "name": meta.get("name") or f"#{pid}",
+                        "team": g["home"] if p_side == "home" else g["away"],
+                        "opp_team": g["away"] if p_side == "home" else g["home"],
+                        "game_pk": g["game_pk"], "time": g["time"], "park": g["park"],
+                        "throws": (hands.get(pid, {}) or {}).get("throws", ""),
+                        "arsenal": ars, "zone_grid": zgrid,
+                        "fatigue": fat, "exploit_score": exploit,
+                        "batters": opp_batters,
+                    })
+            # rank arms by exploitability (most exploitable first)
+            pitcher_edges.sort(key=lambda e: (e["exploit_score"] is not None, e["exploit_score"] or 0), reverse=True)
+            print(f"[build] pitcher edges: {len(pitcher_edges)} arms")
+        except Exception as e:
+            _hnote("pitcher edges", e); print(f"[build] pitcher edges skipped: {e}")
+
     board = {
         "generated_at": now.isoformat(timespec="seconds"),
         "slate_date": date_str,
@@ -958,6 +1055,7 @@ def build(date_str: str | None = None) -> dict:
             "end": date_str,
         },
         "players": players,
+        "pitcher_edges": pitcher_edges,     # Edges tab: per-arm zone heatmap + ranked batters
         "top_plays": top_plays,
         "stacks": stacks,
         "wx": wx_list,

@@ -105,6 +105,83 @@ def hitter_pitch_profile(rows) -> dict:
     return out
 
 
+def pitcher_zone_grid(rows) -> dict:
+    """3x3 zone grid of where a pitcher lives, using the Statcast `zone` field (1-9 in the
+    strike zone, 11-14 chase). Returns {zone: usage_pct} over zones 1-9 plus a 'chase' bucket.
+    Feeds the heatmap on the Edges tab. Zones map to a 3x3 grid:
+        1 2 3   (up:    left/mid/right from catcher view)
+        4 5 6   (mid)
+        7 8 9   (down)
+    """
+    if pd is None or rows is None or rows.empty or "zone" not in rows.columns:
+        return {}
+    z = pd.to_numeric(rows["zone"], errors="coerce").dropna()
+    if not len(z):
+        return {}
+    total = len(z)
+    grid = {}
+    for zone in range(1, 10):
+        grid[str(zone)] = round(float((z == zone).sum()) / total, 3)
+    grid["chase"] = round(float(z.isin([11, 12, 13, 14]).sum()) / total, 3)
+    return grid
+
+
+def batter_zone_damage(rows) -> dict:
+    """A hitter's xwOBAcon by strike-zone cell (1-9). Which zones does he punish?
+    Returns {zone: {xwobacon, n}}. Joined against a pitcher's zone_grid to find the batters
+    who most exploit exactly where that pitcher lives.
+    """
+    if pd is None or rows is None or rows.empty or "zone" not in rows.columns:
+        return {}
+    if "launch_speed" not in rows.columns:
+        return {}
+    bb = rows[rows["launch_speed"].notna()].copy()
+    if bb.empty:
+        return {}
+    bb["_z"] = pd.to_numeric(bb["zone"], errors="coerce")
+    out = {}
+    for zone in range(1, 10):
+        sub = bb[bb["_z"] == zone]
+        if len(sub) < 3:
+            continue
+        xw = pd.to_numeric(sub.get("estimated_woba_using_speedangle"), errors="coerce").dropna()
+        if len(xw):
+            out[str(zone)] = {"xwobacon": round(float(xw.mean()), 3), "n": int(len(sub))}
+    return out
+
+
+def batter_vs_pitcher_zones(batter_zone: dict, pitcher_grid: dict) -> dict:
+    """The join: how much does THIS batter punish the zones THIS pitcher lives in?
+    Usage-weighted sum of (batter zone xwOBAcon) over the pitcher's zone distribution.
+    Returns {score, hot_zone, hot_xw, pitcher_zone_usage}. This is the spatial version of
+    the pitch-matchup edge — the number that ranks batters on the pitcher's drill-down.
+    """
+    if not batter_zone or not pitcher_grid:
+        return {}
+    num, wsum = 0.0, 0.0
+    best_zone, best_val = None, -1
+    for zone in [str(z) for z in range(1, 10)]:
+        usage = pitcher_grid.get(zone, 0)
+        bz = batter_zone.get(zone)
+        if usage <= 0 or not bz or bz.get("xwobacon") is None:
+            continue
+        num += usage * bz["xwobacon"]
+        wsum += usage
+        # find the batter's best-punished zone that the pitcher actually throws to
+        if bz["xwobacon"] * usage > best_val:
+            best_val = bz["xwobacon"] * usage
+            best_zone = zone
+    if wsum <= 0:
+        return {}
+    weighted = num / wsum
+    return {
+        "score": round(weighted, 3),                 # weighted xwOBAcon in his zones
+        "hot_zone": int(best_zone) if best_zone else None,
+        "hot_xw": batter_zone.get(best_zone, {}).get("xwobacon") if best_zone else None,
+        "pitcher_hot_usage": pitcher_grid.get(best_zone) if best_zone else None,
+    }
+
+
 def pitcher_arsenal(rows) -> dict:
     """The pitch mix a PITCHER actually throws: {fam: usage_pct}, plus vertical tendency
     (does he live up or down). This is what the hitter will see — the other half of the join.

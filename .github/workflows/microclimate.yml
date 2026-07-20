@@ -1,0 +1,55 @@
+name: Microclimate profiles
+
+# Builds per-hitter temperature-sensitivity profiles by joining GUMBO per-pitch timestamps
+# to hourly weather at the ballpark. Runs daily to extend from the last processed game
+# through yesterday — idempotent, so it only adds newly-completed games each run.
+#
+# BACKFILL mode (manual): set a start date to (re)process a longer range, e.g. season start.
+on:
+  workflow_dispatch:
+    inputs:
+      start_date:
+        description: "Backfill from this date (YYYY-MM-DD). Blank = extend from last run."
+        type: string
+        default: ""
+  schedule:
+    # 9am ET (UTC-4) — yesterday's games are final and archived by then.
+    - cron: "0 13 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hr-microclimate
+  cancel-in-progress: false
+
+jobs:
+  microclimate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Build microclimate profiles
+        env:
+          MICRO_START: ${{ inputs.start_date }}
+        run: python -m etl.microclimate
+
+      - name: Commit profiles
+        run: |
+          git config user.name  "hr-board-bot"
+          git config user.email "actions@github.com"
+          git add docs/microclimate.json
+          if git diff --staged --quiet; then
+            echo "No microclimate change"
+          else
+            git commit -m "microclimate: profiles ${{ github.run_id }} [skip ci]"
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}" || true
+            git push
+          fi
