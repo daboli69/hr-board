@@ -535,6 +535,28 @@
   .pen-meta{font-size:10.5px;color:var(--muted);font-weight:400;font-family:"IBM Plex Mono"}
   .pen-why{font-size:11px;color:var(--muted);line-height:1.5;margin-top:3px}
   .pen-val{font-family:Archivo;font-weight:800;font-size:20px;min-width:30px;text-align:right}
+  /* grand slam card */
+  .pl-leg-why{font-size:10.5px;color:var(--muted);margin-top:2px;font-family:"IBM Plex Mono"}
+  .pl-leg-r{display:flex;align-items:center;gap:7px}
+  .gs-score{font-family:Archivo;font-weight:800;font-size:20px;color:var(--hot)}
+  .pl-tag.gs-el{font-family:"IBM Plex Mono";font-size:8.5px;font-weight:800;color:var(--good);background:rgba(120,178,145,.15);padding:2px 5px;border-radius:4px}
+  .pl-gs-legend{font-size:10px;color:var(--faint);line-height:1.5;padding:8px 2px 2px}
+  .elite-chip{font-family:"IBM Plex Mono";font-size:8px;font-weight:800;padding:1px 4px;border-radius:3px;margin-left:4px;letter-spacing:.03em;vertical-align:middle}
+  .elite-chip.el{color:var(--good);background:rgba(120,178,145,.16)}
+  .elite-chip.el-plus{color:#fff;background:var(--good)}
+  /* prop parlays */
+  .pl-intro-note{font-size:11px;color:var(--muted);line-height:1.55;background:var(--panel-2);border-radius:10px;padding:11px;margin-bottom:12px}
+  .ppl-leg{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
+  .ppl-leg:first-of-type{border-top:none}
+  .ppl-leg-main{flex:1;min-width:0}
+  .ppl-leg-main b{font-size:13px;color:var(--ink)}
+  .ppl-meta{font-size:10.5px;color:var(--muted)}
+  .ppl-sub{font-size:11px;color:var(--muted);margin-top:2px}
+  .ppl-ev{font-family:"IBM Plex Mono";font-weight:800;font-size:13px;color:var(--good)}
+  .ppl-summary{display:flex;gap:8px;margin:10px 0 4px}
+  .ppl-summary>div{flex:1;background:var(--panel-2);border-radius:8px;padding:7px 9px;text-align:center}
+  .ppl-summary span{display:block;font-size:9px;color:var(--faint);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+  .ppl-summary b{font-family:Archivo;font-size:15px;color:var(--ink)}
   .pg-evtag{font-weight:800;padding:1px 5px;border-radius:3px;margin-left:4px}
   .pg-evtag.pos{color:var(--good);background:rgba(120,178,145,.14)}
   .pg-evtag.neg{color:var(--muted);background:rgba(140,150,165,.12)}
@@ -1729,6 +1751,13 @@ function tierBlock(p){
   </div>`;
 }
 
+// Elite gate chip — the four-threshold profile (pull/EV/barrel/ideal-AA), app-wide.
+function eliteChip(p){
+  const e=p.elite; if(!e||!e.tier||e.tier==="BELOW"||e.tier==="NEAR") return "";
+  const cls=e.tier==="ELITE+"?"el-plus":"el";
+  const tip=e.checks?`pull ${e.checks.pull.val!=null?Math.round(e.checks.pull.val)+'%':'–'} · EV ${e.checks.ev.val!=null?e.checks.ev.val.toFixed(1):'–'} · brl ${e.checks.barrel.val!=null?Math.round(e.checks.barrel.val)+'%':'–'}${e.checks.ideal_aa.val!=null?' · iAA '+Math.round(e.checks.ideal_aa.val)+'%':''}`:"";
+  return `<span class="elite-chip ${cls}" title="${tip}">${e.tier}</span>`;
+}
 function badgeChips(p,max){
   const bs=(p.badges||[]);
   if(!bs.length) return "";
@@ -2417,7 +2446,7 @@ function render(){
           <div class="rank mono">${i+1}</div>
           <div class="cheat" style="background:${col}">${H(p)}</div>
           <div class="cwho">
-            <div class="name"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span class="nm-txt">${p.name}</span><span class="liststar"${listHas(p.id)?"":" hidden"}>★</span></div>
+            <div class="name"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span class="nm-txt">${p.name}</span>${eliteChip(p)}<span class="liststar"${listHas(p.id)?"":" hidden"}>★</span></div>
             <div class="cmini">${sm?'<span class="clearflag">SMASH</span> ':""}${hlabPill(p)}${p.robbed?`<span class="robtag">ROBBED${p.robbed.n>1?" ×"+p.robbed.n:""}</span> `:""}${p.milestone?`<span class="mstone">${p.milestone.kind==="team"?`vs ${p.milestone.target.split(" ").pop()}: ${p.milestone.away===1?"1 HR":p.milestone.away+" HR"}`:`HR ${p.milestone.career_hr} → ${p.milestone.next}`}</span> `:""}${bpChip}${lbChip}${pkChip}${mdChip}${trendBadge(p.trend)?trendBadge(p.trend)+" ":""}${p.lineup_status==="projected"?`<span class="spot" style="color:var(--seam);border-color:var(--seam)">proj</span> `:""}${p.lineup_spot?`#${p.lineup_spot} · `:""}${p.team}→${p.opp_team} · ${timeStr(p.time)}${armSc!=null?` · arm <b style="color:${armCol}">${armSc}</b>`:""} · ${(p.windows&&p.windows.L14d&&p.windows.L14d.pa!=null)?`${p.windows.L14d.pa}PA`:"–"}</div>
           </div>
           <div class="cmetrics">${mini}</div>
@@ -4620,9 +4649,38 @@ function renderParlays(){
     }
   }catch(e){ trustHTML=""; }
 
+  // ---- Grand Slam Jackpot: 3 hitters most likely to hit a grand slam (DK jackpot). Ranks by
+  // the GS score = traffic (bases loaded when he bats) x punish (golfs a grooved in-zone FB). ----
+  const grandSlamCard=()=>{
+    const gs=(BOARD&&BOARD.grand_slam)||[];
+    if(!gs.length) return "";
+    const picks=gs.slice(0,3);
+    if(picks.length<3) return "";
+    const leg2=(p)=>{
+      const eliteChip=p.elite&&p.elite!=="BELOW"?`<span class="pl-tag gs-el">${p.elite}</span>`:"";
+      return `<div class="pl-leg" onclick="scanToPlayer?scanToPlayer(${p.id}):null">
+        <div class="pl-leg-l">
+          <div class="pl-leg-nm"><b>${p.name}</b> <span class="pl-leg-sub">${p.team} · #${p.spot||"?"} vs ${p.opp_team}</span></div>
+          <div class="pl-leg-why">${(p.drivers||[]).slice(0,3).join(" · ")}</div>
+        </div>
+        <div class="pl-leg-r">
+          <div class="gs-score">${p.score.toFixed(0)}</div>
+          ${eliteChip}
+        </div>
+      </div>`;
+    };
+    return `<div class="pl-card">
+      <div class="pl-card-h"><div class="pl-card-t">Grand Slam Jackpot <span class="beta-pill">BETA</span></div>
+        <div class="pl-card-d">The 3 hitters most likely to hit a grand slam tonight — ranked by traffic (bases loaded when they bat) × punish (can they golf a grooved in-zone fastball). A slam needs both: ducks on the pond AND a masher who capitalizes.</div></div>
+      ${picks.map(leg2).join("")}
+      <div class="pl-gs-legend">Each shows <b>GS score</b> (0-100), the drivers, and the elite tier. Traffic comes from the on-base bats ahead in the order + the starter's wildness; punish from barrel/EV/pull and in-zone fastball damage.</div>
+      <div class="pl-foot">⚠︎ Experimental — grand slams are rare and high-variance by nature; this ranks relative likelihood, not a real probability. A lottery ticket, sized accordingly. Not CLV-validated.</div>
+    </div>`;
+  };
+
   let cardsHTML="";
   try{
-    cardsHTML = genCard() + bestEVCard() + jackpotCard() + best3Card() + rrCard();
+    cardsHTML = genCard() + bestEVCard() + grandSlamCard() + jackpotCard() + best3Card() + rrCard();
   }catch(e){ cardsHTML=`<div class="pl-card pl-card-thin"><div class="pl-foot">Couldn't build suggestions for this slate — check back once lineups post.</div></div>`; }
 
   main.innerHTML=`
@@ -4946,6 +5004,7 @@ function renderProps(){
       <button data-p="hrr" class="${propsView==='hrr'?'on':''}">HRR</button>
       <button data-p="k" class="${propsView==='k'?'on':''}">Pitcher Ks</button>
       <button data-p="ev" class="${propsView==='ev'?'on':''}">+EV</button>
+      <button data-p="parlay" class="${propsView==='parlay'?'on':''}">Parlays</button>
       <button data-p="ml" class="${propsView==='ml'?'on':''}">Game Lines</button>
     </div>`;
 
@@ -5038,6 +5097,8 @@ function renderProps(){
           : "No arms scored yet — needs probable starters + arm profiles. Should populate on the next build."
       }</div>`}
       <div class="prop-note" style="margin-top:12px"><b>Reading K scores:</b> HIGH k_heat = bet OVER on his K total (typical lines are 5.5 or 6.5). LOW k_heat = bet UNDER. Opener flag means the LISTED pitcher won't throw enough innings for a normal K prop line — usually a play-through-with-caution.</div>`;
+  } else if(propsView==="parlay"){
+    inner=propParlayHTML();
   } else if(propsView==="ml"){
     // Game Lines: run-expectancy engine output — moneyline, total, F5.
     const gp=(BOARD.game_projections||[]).slice();
@@ -5155,6 +5216,98 @@ function renderProps(){
   [...document.querySelectorAll(".prop-subtabs button")].forEach(b=>{
     b.addEventListener("click",()=>{ propsView=b.dataset.p; renderProps(); });
   });
+}
+
+// ---------- PROP PARLAY GENERATOR ----------
+// Builds multi-leg parlays from the priced prop pool (allPropEV): hits, HRR, pitcher Ks, HR,
+// game lines. Same discipline as the HR parlays — rank by honest combined probability/EV, skip
+// longshots that make a parlay noise, and avoid stacking correlated legs from the same game
+// unless intentional. Each leg already carries a model probability and a book price.
+function propParlayLegs(){
+  // pull the priced pool, keep only real +EV legs with a usable probability
+  const pool=(typeof allPropEV==="function")?allPropEV():[];
+  return pool.filter(x=>x.prob!=null && x.price!=null && x.ev!=null);
+}
+function _combProbEV(picks){
+  // combined model probability = product of leg probs; combined decimal payout = product of
+  // decimal prices; EV = p*payout - 1 (per $1). Honest, assumes independence (flagged in UI).
+  let p=1, dec=1;
+  for(const x of picks){ p*=x.prob; dec*=americanToDecimal(x.price); }
+  return {prob:p, dec, ev:p*dec-1};
+}
+function _americanFromDec(dec){
+  if(dec>=2) return "+"+Math.round((dec-1)*100);
+  return "-"+Math.round(100/(dec-1));
+}
+function propParlayHTML(){
+  if(!ODDS||!ODDS.props){
+    return `<div class="empty">No book odds loaded yet. Prop parlays need priced legs — once odds.json populates (after a build with the odds fetch), parlays appear here.</div>`;
+  }
+  const legs=propParlayLegs();
+  if(legs.length<2){
+    return `<div class="empty">Not enough +EV prop legs priced right now to build a parlay. Check the +EV tab — you need at least 2 genuine edges.</div>`;
+  }
+  // helper: pick N legs greedily by a sort key, max one leg per game (avoid correlation)
+  const pick=(sorted, n, oneManPerGame=true)=>{
+    const out=[], usedGame=new Set(), usedName=new Set();
+    for(const x of sorted){
+      if(out.length>=n) break;
+      const gameKey=[x.team,x.opp].sort().join("@");
+      if(usedName.has(x.name)) continue;                 // never the same player twice
+      if(oneManPerGame && usedGame.has(gameKey)) continue;
+      out.push(x); usedGame.add(gameKey); usedName.add(x.name);
+    }
+    return out;
+  };
+  const legRow=(x)=>`<div class="ppl-leg">
+    <div class="ppl-leg-main">
+      <div><b>${x.name}</b> <span class="ppl-meta">${x.team||"?"}→${x.opp||"?"}</span></div>
+      <div class="ppl-sub">${x.propLabel} <b>${x.side.toUpperCase()}${x.propLabel==="Home Run"?"":" "+(x.line??"")}</b> @ ${fmtAm(x.price)} · model ${(x.prob*100).toFixed(0)}%${x.fallback?" · FD ref":""}</div>
+    </div>
+    <div class="ppl-ev">+${(x.ev*100).toFixed(0)}%</div>
+  </div>`;
+  const card=(title,desc,picks,footFn)=>{
+    if(!picks||picks.length<2) return "";
+    const c=_combProbEV(picks);
+    return `<div class="pl-card">
+      <div class="pl-card-h"><div class="pl-card-t">${title}</div><div class="pl-card-d">${desc}</div></div>
+      ${picks.map(legRow).join("")}
+      <div class="ppl-summary">
+        <div><span>Combined odds</span><b>${_americanFromDec(c.dec)}</b></div>
+        <div><span>Model chance all hit</span><b>${(c.prob*100).toFixed(1)}%</b></div>
+        <div><span>Parlay EV</span><b style="color:${c.ev>0?'var(--good)':'var(--muted)'}">${c.ev>0?"+":""}${(c.ev*100).toFixed(0)}%</b></div>
+      </div>
+      <div class="pl-foot">${footFn(c)}</div>
+    </div>`;
+  };
+
+  // 1. Best value 3-leg: highest individual EV, but each leg must be genuinely likely (prob>=25%)
+  const byEV=legs.filter(x=>x.prob>=0.25).sort((a,b)=>b.ev-a.ev);
+  const best3=pick(byEV,3);
+  const c1=card("Best value · 3-leg",
+    "the three highest-EV prop legs that are each genuinely likely (25%+ model chance), one per game. Real edges, not longshots stacked for a big number.",
+    best3,
+    (c)=>`Combined model chance is honest — parlays multiply risk. ${c.ev>0?"Positive expected value if the legs are independent (same-game legs aren't; these are spread across games).":"Even good legs can combine to thin margins — size small."}`);
+
+  // 2. Safest 2-leg: highest combined probability (the likeliest two to both hit)
+  const byProb=legs.filter(x=>x.ev>0).sort((a,b)=>b.prob-a.prob);
+  const safe2=pick(byProb,2);
+  const c2=card("Safest · 2-leg",
+    "the two likeliest props to BOTH hit (by model probability), one per game. The conservative combo — lower payout, higher chance.",
+    safe2,
+    (c)=>`At ${(c.prob*100).toFixed(0)}% combined, this is the highest-probability +EV pair on the board. Still a parlay — one miss loses it.`);
+
+  // 3. Longshot lottery: bigger payout, still +EV, capped so it's not pure noise
+  const byPayout=legs.filter(x=>x.prob>=0.12 && x.prob<0.35 && x.ev>0.05).sort((a,b)=>b.ev-a.ev);
+  const lotto=pick(byPayout,3);
+  const c3=card("Longshot · 3-leg",
+    "three higher-variance +EV legs for a bigger payout — each still carries an edge, but the combined chance is low by design. A small-stake lottery ticket.",
+    lotto,
+    (c)=>`Combined ${(c.prob*100).toFixed(1)}% — a longshot on purpose. Only worth it because each leg is individually +EV; bet what you'd tip.`);
+
+  const cards=[c2,c1,c3].filter(Boolean).join("");
+  return `<div class="pl-intro-note">Prop parlays built from tonight's priced +EV legs — hits, HRR, pitcher Ks, HR, and game lines. Combined odds and the <b>honest</b> combined probability are shown so you see the real risk. Legs are spread one-per-game to avoid correlation. ⚠︎ Parlays are −EV structurally for most bettors; these only surface when the individual legs carry edge, and even then the combined chance is small.</div>
+    ${cards||'<div class="empty">Couldn\'t assemble parlays from the current priced legs.</div>'}`;
 }
 
 function renderTracker(){
