@@ -571,8 +571,38 @@ def build(date_str: str | None = None) -> dict:
                 "career": car.get(key),
             }
 
-        # auto "why" line — the cleared signals + arm read, for instant scanning
-        why_bits = []
+        # ---- ELITE gate: the four headline thresholds, applied app-wide. A hitter is "elite"
+        # when he clears all four on his season profile (season = stable enough to gate on):
+        #   pull_air_pct >= 33  (66% of HR are pulled; 33 is the floor, <33 removed)
+        #   avg_ev       >= 90  (harder contact = more distance)
+        #   barrel_pct   >= 10  (80-86% of HR are barreled; 10 is the good/elite line)
+        #   ideal_aa_pct >= league-ish (upward attack angle at contact, launch 5-20)
+        # ideal_aa has no universal cutoff yet (new metric); we gate the other three hard and
+        # treat ideal_aa as a bonus tier. Each check reports which it cleared so the UI can show it.
+        def _egate(src):
+            pa_ = src.get("pull_air_pct"); ev_ = src.get("avg_ev")
+            br_ = src.get("barrel_pct"); ia_ = src.get("ideal_aa_pct")
+            checks = {
+                "pull": (pa_ is not None and pa_ >= 33, pa_),
+                "ev":   (ev_ is not None and ev_ >= 90, ev_),
+                "barrel": (br_ is not None and br_ >= 10, br_),
+                "ideal_aa": (ia_ is not None and ia_ >= 55, ia_),   # 55%+ = strong upward-AA rate
+            }
+            core = ["pull", "ev", "barrel"]                 # the three hard gates
+            cleared_core = sum(1 for k in core if checks[k][0])
+            is_elite = cleared_core == 3
+            return {
+                "elite": is_elite,
+                "cleared_core": cleared_core,
+                "ideal_aa_bonus": checks["ideal_aa"][0],
+                "checks": {k: {"ok": v[0], "val": v[1]} for k, v in checks.items()},
+                # a tier label for quick scanning
+                "tier": ("ELITE+" if is_elite and checks["ideal_aa"][0]
+                         else "ELITE" if is_elite
+                         else "NEAR" if cleared_core == 2 else "BELOW"),
+            }
+        elite = _egate(season)
+        elite["recent"] = _egate(recent)      # also flag if he's elite on recent form specifically
         if recent.get("pull_air_pct") is not None and recent["pull_air_pct"] >= 40:
             why_bits.append(f"{recent['pull_air_pct']:.0f}% air-pull")
         if recent.get("barrel_pct") is not None and recent["barrel_pct"] >= 11:
@@ -665,6 +695,8 @@ def build(date_str: str | None = None) -> dict:
             "pitch_usage": pprof.get("usage"),
             "pitch_matchup": pmatch,
             "features": feat,          # parallel edges: pitch_matchup, late_hr (never touch heat)
+            "elite": elite,            # four-threshold elite gate (pull/EV/barrel/ideal-AA)
+            "_season_metrics": {k: season.get(k) for k in ("pull_air_pct","avg_ev","barrel_pct","ideal_aa_pct","bb_pct","iso","xwoba","hardhit_pct")},
             "heat_mix": heat_mix,
             "mix": mix_prof,
             "ev_overall": recent.get("avg_ev"),
@@ -687,6 +719,68 @@ def build(date_str: str | None = None) -> dict:
         })
 
     players.sort(key=lambda p: p["heat"], reverse=True)
+
+    # ---- GRAND SLAM generator: score each hitter's GS likelihood = traffic (bases loaded when
+    # he bats) x punish (can he golf a grooved in-zone fastball) + pen/shift amplifiers. Parallel
+    # to heat. Attaches p["grand_slam"], and board["grand_slam"] = top 3 for the DK jackpot. ----
+    try:
+        from etl import grandslam
+        # on-base proxy per player from season profile (OBP ~ (H+BB)/PA; we approximate with
+        # a blend of bb_pct and batting-average-ish signal available on the row).
+        for p in players:
+            szn = (p.get("_season_metrics") or {})
+            # reconstruct a rough OBP: league-avg baseline nudged by walk rate + on-base skill
+            bb = szn.get("bb_pct")
+            # we stored iso/slg but not AVG directly; use a coarse OBP proxy from bb_pct + xwoba-ish
+            # fallback: heat-independent. If bb missing, use .315 league-ish.
+            ob = 0.300
+            if bb is not None:
+                ob = 0.300 + (bb - 8.5) * 0.006      # each pt of BB% over league ~+6 OBP pts
+            xw = szn.get("xwoba")
+            if xw is not None:
+                ob = max(ob, xw - 0.030)              # xwOBA is a strong OBP proxy
+            p["_ob"] = round(max(0.230, min(0.470, ob)), 3)
+
+        # group hitters by game to model each lineup's traffic
+        by_game_lu = {}
+        for p in players:
+            by_game_lu.setdefault(p.get("game_pk"), []).append(p)
+
+        gs_all = []
+        for gpk, lineup in by_game_lu.items():
+            # opposing starter walk rate (wildness) — same for all hitters facing that arm
+            for p in lineup:
+                opp = p.get("opp_pitcher") or {}
+                opp_bb = (opp.get("season") or {}).get("bb_pct_allowed") or (opp.get("recent") or {}).get("bb_pct_allowed")
+                traffic = grandslam.traffic_score(p.get("lineup_spot"), lineup, opp_bb)
+                # in-zone fastball punish, if the feature pipeline computed it
+                izfb = (p.get("features") or {}).get("in_zone_fb")
+                punish = grandslam.punish_score(p.get("_season_metrics"), p.get("elite"), izfb)
+                # pen amplifier: gassed pen / short starter behind the arm (reuse late_hr feature)
+                pen_boost = 0.0
+                lc = (p.get("features") or {}).get("late_hr")
+                if lc and lc.get("score"):
+                    pen_boost = min(8.0, lc["score"] * 0.10)
+                gs = grandslam.grand_slam_score(traffic, punish, pen_boost=pen_boost)
+                if gs:
+                    p["grand_slam"] = gs
+                    gs_all.append((gs["score"], p))
+        # board-level top 3 for the DK jackpot
+        gs_all.sort(key=lambda x: -x[0])
+        board_gs = []
+        for sc, p in gs_all[:12]:
+            board_gs.append({
+                "id": p["id"], "name": p["name"], "team": p.get("team"),
+                "opp_team": p.get("opp_team"), "spot": p.get("lineup_spot"),
+                "game_pk": p.get("game_pk"), "time": p.get("time"),
+                "score": sc, "traffic": p["grand_slam"]["traffic"],
+                "punish": p["grand_slam"]["punish"], "drivers": p["grand_slam"]["drivers"],
+                "heat": p.get("heat"), "elite": (p.get("elite") or {}).get("tier"),
+            })
+        print(f"[build] grand slam: {len(gs_all)} hitters scored, top {len(board_gs)} surfaced")
+    except Exception as e:
+        board_gs = []
+        _hnote("grand slam", e); print(f"[build] grand slam skipped: {e}")
 
     try:                                           # persist career-BvP cache for the next build
         json.dump({"pairs": bvp_career_cache, "updated": _bvp_now}, open(bvp_cache_path, "w"))
@@ -1096,6 +1190,11 @@ def build(date_str: str | None = None) -> dict:
     except Exception as e:
         _hnote("bullpen rankings", e); print(f"[build] bullpen rankings skipped: {e}")
 
+    # strip build-time helper fields that shouldn't ship in the JSON
+    for _p in players:
+        _p.pop("_ob", None)
+        _p.pop("_season_metrics", None)
+
     board = {
         "generated_at": now.isoformat(timespec="seconds"),
         "slate_date": date_str,
@@ -1123,6 +1222,7 @@ def build(date_str: str | None = None) -> dict:
         "players": players,
         "pitcher_edges": pitcher_edges,     # Edges tab: per-arm zone heatmap + ranked batters
         "bullpen_rankings": bullpen_rankings,   # slate-wide pen ranking, worst to best
+        "grand_slam": board_gs,             # top GS-jackpot candidates (traffic x punish)
         "top_plays": top_plays,
         "stacks": stacks,
         "wx": wx_list,
