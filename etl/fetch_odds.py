@@ -115,35 +115,127 @@ def _better_over(a: int, b: int) -> int:
     return a if _american_to_prob(a) <= _american_to_prob(b) else b
 
 
-def fetch_props(api_key: str, retries: int = 2) -> list:
-    # NOTE: we deliberately do NOT send a bookmakers= filter. The API's book keys may not
-    # match ours, and a wrong filter can silently drop everything. Pull all books for the
-    # HR market and filter locally via _canon_book, where we can log what we actually see.
-    q = urllib.parse.urlencode({
-        "markets": ",".join(ALL_MARKETS),   # HR + hits + hrr + pitcher Ks, one call = 3 credits
-        "apiKey": api_key,
-    })
-    url = f"{API_BASE}/sports/{SPORT}/props?{q}"
+def _fetch(url: str, api_key: str, retries: int = 2):
+    """GET a parlay-api URL with retry/backoff, returning parsed JSON."""
     last_err = None
     for attempt in range(retries + 1):
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "going-yard/1.0"})
-            req.add_header("x-api-key", api_key)   # some tiers prefer header auth; harmless if ignored
+            req.add_header("x-api-key", api_key)
             with urllib.request.urlopen(req, timeout=30) as r:
                 raw = r.read().decode("utf-8")
-            data = json.loads(raw)   # raises on non-JSON (e.g. an HTML error page)
-            return data
+            return json.loads(raw)
         except urllib.error.HTTPError:
-            raise   # 4xx/5xx handled by caller; don't retry auth/quota errors blindly
+            raise
         except (urllib.error.URLError, json.JSONDecodeError, TimeoutError) as e:
             last_err = e
             if attempt < retries:
-                time.sleep(2 * (attempt + 1))   # brief backoff on transient network/parse issues
+                time.sleep(2 * (attempt + 1))
                 continue
             raise
     if last_err:
         raise last_err
     return []
+
+
+def fetch_props(api_key: str, retries: int = 2) -> list:
+    q = urllib.parse.urlencode({
+        "markets": ",".join(ALL_MARKETS),   # HR + hits + hrr + pitcher Ks, one call = 3 credits
+        "apiKey": api_key,
+    })
+    return _fetch(f"{API_BASE}/sports/{SPORT}/props?{q}", api_key, retries)
+
+
+def fetch_game_lines(api_key: str, retries: int = 2) -> list:
+    """Game lines (moneyline + totals) from the /odds endpoint. Costs markets x regions
+    credits = 2 markets x 1 region = 2 credits. Returns TOA-format events with bookmakers."""
+    q = urllib.parse.urlencode({
+        "markets": "h2h,totals",   # moneyline + game total
+        "regions": "us",
+        "apiKey": api_key,
+    })
+    return _fetch(f"{API_BASE}/sports/{SPORT}/odds?{q}", api_key, retries)
+
+
+def build_game_lines(events: list) -> dict:
+    """Parse /odds TOA-format events into {normalized_matchup: {home, away, ml:{home,away},
+    total:{line, over, under}, books}}. Line-shopped best price across DK/Fanatics, FanDuel
+    fallback. The matchup key is a normalized 'away@home' so the frontend can join to its
+    game_projections."""
+    out = {}
+    if not isinstance(events, list):
+        return out
+    for ev in events:
+        try:
+            if not isinstance(ev, dict):
+                continue
+            home = ev.get("home_team") or ""
+            away = ev.get("away_team") or ""
+            if not home or not away:
+                continue
+            key = f"{_norm_name(away)}@{_norm_name(home)}"
+            slot = out.setdefault(key, {
+                "home": home, "away": away,
+                "ml": {"home": None, "away": None, "home_book": None, "away_book": None},
+                "total": {"line": None, "over": None, "under": None, "over_book": None, "under_book": None},
+                "commence_time": ev.get("commence_time"),
+                "fallback_only": True,   # flipped False if any primary book prices it
+            })
+            for bm in ev.get("bookmakers", []):
+                raw_book = bm.get("key") or bm.get("title") or ""
+                book = _canon_book(raw_book)
+                is_fallback = book is None
+                if is_fallback:
+                    book = _canon_fallback(raw_book)
+                if book is None:
+                    continue
+                if not is_fallback:
+                    slot["fallback_only"] = False
+                for mk in bm.get("markets", []):
+                    mkey = mk.get("key")
+                    outcomes = mk.get("outcomes", [])
+                    if mkey == "h2h":
+                        for o in outcomes:
+                            price = _safe_int(o.get("price"))
+                            if price is None:
+                                continue
+                            side = "home" if o.get("name") == home else ("away" if o.get("name") == away else None)
+                            if side is None:
+                                continue
+                            # best (longest) price for a bettor
+                            cur = slot["ml"][side]
+                            if cur is None or _better_over(cur, price) == price:
+                                slot["ml"][side] = price
+                                slot["ml"][side + "_book"] = book
+                    elif mkey == "totals":
+                        for o in outcomes:
+                            price = _safe_int(o.get("price"))
+                            line = o.get("point")
+                            if price is None or line is None:
+                                continue
+                            name = (o.get("name") or "").lower()
+                            side = "over" if "over" in name else ("under" if "under" in name else None)
+                            if side is None:
+                                continue
+                            # anchor to the first line seen; keep best price at that line
+                            if slot["total"]["line"] is None:
+                                slot["total"]["line"] = line
+                            if slot["total"]["line"] != line:
+                                continue
+                            cur = slot["total"][side]
+                            if cur is None or _better_over(cur, price) == price:
+                                slot["total"][side] = price
+                                slot["total"][side + "_book"] = book
+        except Exception:
+            continue
+    return out
+
+
+def _safe_int(v):
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return None
 
 
 def _is_hr_prop(row: dict) -> bool:
@@ -193,6 +285,16 @@ def build_prop_odds(rows: list) -> dict:
             line = row.get("line")
             if line is None:
                 continue
+            # Per-prop line gate. HITS must be the 0.5 line (1+ hits) — NOT 1.5 (2+ hits) or
+            # 2.5. HRR standard market is the 1.5 line. Pitcher Ks keep their real varying line
+            # (each pitcher has a different K total). This is the fix for "hits showing 2-hit
+            # lines": we were accepting any line for player_hits.
+            if prop == "hits" and line != 0.5:
+                continue
+            if prop == "hrr" and line != 1.5:
+                continue
+            if prop == "pk" and (line is None or line < 2.5):
+                continue   # skip the 0.5 "1+ K" novelty; keep real O/U totals
             over = row.get("over_price")
             under = row.get("under_price")
             # need at least one priced side
@@ -450,6 +552,15 @@ def main() -> int:
         print(f"[odds] prop build failed (non-fatal): {e}", file=sys.stderr)
         prop_odds = {k: {} for k in PROP_MARKETS}
 
+    # game lines (moneyline + totals) from the /odds endpoint — separate 2-credit call.
+    # Non-fatal: if it fails, we keep the prop odds and just skip game lines.
+    game_lines = {}
+    try:
+        gl_events = fetch_game_lines(api_key)
+        game_lines = build_game_lines(gl_events)
+    except Exception as e:
+        print(f"[odds] game-line fetch failed (non-fatal): {e}", file=sys.stderr)
+
     payload = {
         "updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "slate_date": slate,
@@ -458,10 +569,12 @@ def main() -> int:
         "count": len(prices),
         "prices": prices,
         "props": prop_odds,
+        "game_lines": game_lines,
     }
     _write(payload)
     for pk, pv in prop_odds.items():
         print(f"[odds] prop '{pk}': {len(pv)} players priced", file=sys.stderr)
+    print(f"[odds] game lines: {len(game_lines)} games priced", file=sys.stderr)
     both = sum(1 for v in prices.values() if len(v["books"]) == 2)
     print(f"[odds] wrote {len(prices)} hitters with HR prices ({both} priced by both books)")
     return 0

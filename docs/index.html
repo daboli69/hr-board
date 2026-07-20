@@ -427,6 +427,16 @@
   .prop-odds-chip{font-family:"IBM Plex Mono";font-size:9px;font-weight:600;color:var(--muted);background:var(--panel-2);padding:2px 6px;border-radius:4px;margin-left:5px;white-space:nowrap}
   .prop-ev-lead{background:rgba(120,178,145,.08);border:1px solid rgba(120,178,145,.3);border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12px;line-height:1.5;color:var(--muted)}
   .prop-ev-lead b{color:var(--ink)}
+  .gl-ev-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
+  .gl-ev{font-family:"IBM Plex Mono";font-size:9.5px;font-weight:800;padding:3px 7px;border-radius:5px;white-space:nowrap}
+  .gl-ev.pos{color:var(--good);background:rgba(120,178,145,.16)}
+  .gl-ev.neg{color:var(--muted);background:rgba(140,150,165,.12)}
+  .gl-fd{font-family:"IBM Plex Mono";font-size:8.5px;font-weight:600;color:var(--faint);background:var(--panel-2);padding:3px 6px;border-radius:5px;align-self:center}
+  .feat-row{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:var(--panel)}
+  .feat-hd{display:flex;justify-content:space-between;align-items:center;font-size:13px;margin-bottom:4px}
+  .feat-sc{font-family:"IBM Plex Mono";font-weight:800;font-size:13px}
+  .feat-dt{font-size:11px;color:var(--muted);line-height:1.5}
+  .feat-foot{font-size:10px;color:var(--faint);line-height:1.5;margin-top:2px}
   .pg-evtag{font-weight:800;padding:1px 5px;border-radius:3px;margin-left:4px}
   .pg-evtag.pos{color:var(--good);background:rgba(120,178,145,.14)}
   .pg-evtag.neg{color:var(--muted);background:rgba(140,150,165,.12)}
@@ -1410,6 +1420,40 @@ function spotBlock(p){
     <div class="spotrow">${cells}</div>
     ${p.lineup_spot?`<div class="spot-note">Batting <b>${p.lineup_spot}</b> today${hs[p.lineup_spot]?` — <b>${hs[p.lineup_spot]}</b> HR from this spot`:` — none from this spot yet`}.</div>`:""}`;
 }
+// Feature-extraction edges: reconstructed signals the market undersamples. These are
+// PARALLEL to heat — informational context, explicitly marked as experimental until the
+// tracker validates each via CLV. Never fold into the heat score.
+function featureBlock(p){
+  const f=p.features;
+  if(!f || (!f.pitch_matchup && !f.late_hr)) return "";
+  let rows="";
+  // 1. Pitch-type matchup: does THIS arm's mix feed THIS hitter's family strength?
+  const pm=f.pitch_matchup;
+  if(pm && pm.score!=null){
+    const fav=pm.score>=60, bad=pm.score<=40;
+    const col=fav?"var(--hot)":bad?"var(--cold)":"var(--muted)";
+    const edgePts=pm.power_edge!=null?(pm.power_edge>=0?"+":"")+(pm.power_edge*1000).toFixed(0):null;
+    rows+=`<div class="feat-row">
+      <div class="feat-hd"><b>Pitch-type matchup</b> <span class="feat-sc" style="color:${col}">${pm.score.toFixed(0)}</span></div>
+      <div class="feat-dt">Faces ${(pm.pitcher_top_usage*100).toFixed(0)}% ${({FB:"fastballs",BR:"breaking balls",OFF:"offspeed"})[pm.pitcher_top_fam]||pm.pitcher_top_fam}.
+      ${edgePts!=null?`His contact quality vs that mix is <b style="color:${col}">${edgePts} xwOBA pts</b> vs league`:""}${pm.whiff_vs_mix!=null?` · whiffs ${(pm.whiff_vs_mix*100).toFixed(0)}% of swings at it`:""}.
+      ${fav?"The arm throws into his strength.":bad?"The arm's mix is where he's weakest.":"Roughly neutral mix."}</div>
+    </div>`;
+  }
+  // 4. Late-HR context: gassed pen + short starter = elevated late HR spot
+  const lc=f.late_hr;
+  if(lc && lc.score!=null && lc.label!=="neutral"){
+    const hot=lc.score>=40;
+    rows+=`<div class="feat-row">
+      <div class="feat-hd"><b>Late-inning HR spot</b> <span class="feat-sc" style="color:${hot?'var(--hot)':'var(--muted)'}">${lc.label}</span></div>
+      <div class="feat-dt">Opposing pen must cover ~${lc.pen_innings_needed} innings and is carrying <b>${lc.pen_avg_fatigue}</b>/100 average fatigue. Tired arms late = extra HR risk the pregame line underweights.</div>
+    </div>`;
+  }
+  if(!rows) return "";
+  return `<h4 style="margin-top:14px">Feature edges <span class="h4-sub">experimental · unvalidated</span></h4>
+    ${rows}
+    <div class="feat-foot">Reconstructed signals the market undersamples — pitch-family matchup and late-inning pen fatigue. Separate from Heat, not yet CLV-validated. Treat as context, not a green light.</div>`;
+}
 function pitchBlock(p){
   const us=p.pitch_usage, hs=p.pitch_splits, pm=p.pitch_matchup;
   if(!us && !hs) return "";
@@ -2298,6 +2342,7 @@ function render(){
         <details class="sec"><summary>Context — recent · season · career</summary>
         <div class="strip" style="border:1px solid var(--line);border-radius:10px">${extra}</div></details>
         ${collapseWrap(pitchBlock(p))}
+        ${collapseWrap(featureBlock(p))}
         ${collapseWrap(luckBlock(p))}
         ${flagChips?`<div class="bd" style="margin-top:12px">${flagChips}</div>`:""}
         ${armBlock}
@@ -3266,6 +3311,108 @@ function _poissonCdf(k, lambda){
   for(let i=1;i<=k;i++){ term*=lambda/i; sum+=term; }
   return Math.min(1, sum);
 }
+// Fetched game-line odds for a matchup (moneyline + total), joined by normalized away@home.
+function fetchedGameLine(away, home){
+  if(!ODDS || !ODDS.game_lines || !oddsMatchSlate()) return null;
+  const key=normName(away)+"@"+normName(home);
+  return ODDS.game_lines[key] || null;
+}
+// Moneyline EV: model home win prob vs the book's home/away prices. Returns better side.
+function mlEV(homeWP, gl){
+  if(homeWP==null || !gl || !gl.ml) return null;
+  const evSide=(p,price)=>{ if(price==null) return null;
+    const dec=americanToDecimal(price); return p*(dec-1)-(1-p); };
+  const opts=[];
+  const eh=evSide(homeWP, gl.ml.home); if(eh!=null) opts.push({side:"home", team:gl.home, ev:eh, price:gl.ml.home, prob:homeWP});
+  const ea=evSide(1-homeWP, gl.ml.away); if(ea!=null) opts.push({side:"away", team:gl.away, ev:ea, price:gl.ml.away, prob:1-homeWP});
+  if(!opts.length) return null;
+  return opts.sort((a,b)=>b.ev-a.ev)[0];
+}
+// Total EV: model projected total vs the book's line, using a normal approximation around
+// the projected total (baseball game totals ~ SD 3 runs). Returns better side (over/under).
+function totalEV(projTotal, gl){
+  if(projTotal==null || !gl || !gl.total || gl.total.line==null) return null;
+  const line=gl.total.line, sd=3.0;
+  // P(actual total > line) via normal CDF approximation
+  const z=(line-projTotal)/sd;
+  const pOver=1-_normCdf(z);
+  const evSide=(p,price)=>{ if(price==null) return null;
+    const dec=americanToDecimal(price); return p*(dec-1)-(1-p); };
+  const opts=[];
+  const eo=evSide(pOver, gl.total.over); if(eo!=null) opts.push({side:"over", ev:eo, price:gl.total.over, prob:pOver, line});
+  const eu=evSide(1-pOver, gl.total.under); if(eu!=null) opts.push({side:"under", ev:eu, price:gl.total.under, prob:1-pOver, line});
+  if(!opts.length) return null;
+  return opts.sort((a,b)=>b.ev-a.ev)[0];
+}
+function _normCdf(z){ return 0.5*(1+_erf(z/Math.SQRT2)); }
+function _erf(x){ // Abramowitz-Stegun approximation
+  const t=1/(1+0.3275911*Math.abs(x));
+  const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x);
+  return x>=0?y:-y;
+}
+
+// Collect every +EV prop play across hits, pitcher-Ks, and HR into one ranked list.
+// Each entry: {name, propLabel, side, line, price, ev, prob, book, fallback}. Sorted by EV.
+function allPropEV(){
+  const out=[];
+  if(!ODDS || !ODDS.props) return out;
+  const players=(BOARD&&BOARD.players)||[];
+  const arms=(BOARD&&BOARD.pitcher_props)||[];
+  // HITS — calibrated P(1+ hit) vs the 0.5 line
+  players.forEach(p=>{
+    if(p.lineup_status==="out") return;
+    const pr=calibratedPropProb("hit1", p.hit_heat);
+    const e=fetchedPropFor("hit", p.name);
+    if(pr==null||!e) return;
+    const best=propEV(pr, e.over, e.under);
+    if(best&&best.ev>0) out.push({name:p.name, team:p.team, opp:p.opp_team, propLabel:"1+ Hits",
+      side:best.side, line:e.line, price:best.price, ev:best.ev, prob:best.prob, fallback:e.fallback});
+  });
+  // PITCHER Ks — Poisson P(over line) from est_ks
+  arms.forEach(a=>{
+    const e=fetchedPropFor("pk", a.name||"");
+    if(!e||a.est_ks==null) return;
+    const pOver=1-_poissonCdf(Math.floor(e.line), a.est_ks);
+    const best=propEV(pOver, e.over, e.under);
+    if(best&&best.ev>0) out.push({name:a.name, team:a.team, opp:a.opp_team, propLabel:`Ks O/U ${e.line}`,
+      side:best.side, line:e.line, price:best.price, ev:best.ev, prob:best.prob, fallback:e.fallback});
+  });
+  // HRR — calibrated P(HRR>=2) vs the 1.5 line
+  players.forEach(p=>{
+    if(p.lineup_status==="out") return;
+    const pr=calibratedPropProb("hrr", p.hrr_heat);
+    const e=fetchedPropFor("hrr", p.name);
+    if(pr==null||!e) return;
+    const best=propEV(pr, e.over, e.under);
+    if(best&&best.ev>0) out.push({name:p.name, team:p.team, opp:p.opp_team, propLabel:"HRR 1.5",
+      side:best.side, line:e.line, price:best.price, ev:best.ev, prob:best.prob, fallback:e.fallback});
+  });
+  // HR — the calibrated HR prob vs the HR book price (reuse existing HR odds)
+  players.forEach(p=>{
+    if(p.lineup_status==="out") return;
+    const hp=calibratedHRprob(p.heat);
+    const e=fetchedOddsFor(p.id);
+    if(hp==null||!e||e.best==null) return;
+    const dec=americanToDecimal(e.best);
+    const ev=hp*(dec-1)-(1-hp);
+    if(ev>0) out.push({name:p.name, team:p.team, opp:p.opp_team, propLabel:"Home Run",
+      side:"over", line:0.5, price:e.best, ev, prob:hp, fallback:e.fallback});
+  });
+  // GAME LINES — moneyline + total from the run model vs book
+  const gproj=(BOARD&&BOARD.game_projections)||[];
+  gproj.forEach(g=>{
+    const gl=fetchedGameLine(g.away, g.home);
+    if(!gl) return;
+    const ml=mlEV(g.home_wp, gl);
+    if(ml&&ml.ev>0) out.push({name:`${ml.team} ML`, team:g.away, opp:g.home, propLabel:"Moneyline",
+      side:ml.side, line:null, price:ml.price, ev:ml.ev, prob:ml.prob, fallback:gl.fallback_only});
+    const tot=totalEV(g.total, gl);
+    if(tot&&tot.ev>0) out.push({name:`${g.away}@${g.home} ${tot.side.toUpperCase()} ${tot.line}`, team:g.away, opp:g.home, propLabel:"Game Total",
+      side:tot.side, line:tot.line, price:tot.price, ev:tot.ev, prob:tot.prob, fallback:gl.fallback_only});
+  });
+  return out.sort((a,b)=>b.ev-a.ev);
+}
+
 // Fetched two-sided prop odds for a player, by prop key and name. Accepts either the ETL
 // bucket key (hits/hrr/pk) or the view key (hit/hrr/k) and normalizes.
 function fetchedPropFor(prop, name){
@@ -4311,11 +4458,36 @@ function renderProps(){
       <button data-p="hit" class="${propsView==='hit'?'on':''}">Hits</button>
       <button data-p="hrr" class="${propsView==='hrr'?'on':''}">HRR</button>
       <button data-p="k" class="${propsView==='k'?'on':''}">Pitcher Ks</button>
+      <button data-p="ev" class="${propsView==='ev'?'on':''}">+EV</button>
       <button data-p="ml" class="${propsView==='ml'?'on':''}">Game Lines</button>
     </div>`;
 
   let inner="";
-  if(propsView==="k"){
+  if(propsView==="ev"){
+    const plays=allPropEV();
+    const rows=plays.map((x,i)=>{
+      const conf = x.prob>=0.5?"high": x.prob>=0.25?"medium":"speculative";
+      const confCls = x.prob>=0.5?"pos": x.prob>=0.25?"":"spec";
+      return `<div class="prop-row" style="background:${x.ev>=0.15?'rgba(120,178,145,.14)':'rgba(120,134,150,.10)'}">
+        <div class="prop-rk">${i+1}</div>
+        <div class="prop-sc" style="color:var(--good)">+${(x.ev*100).toFixed(0)}<span style="font-size:8px">%EV</span></div>
+        <div class="prop-body">
+          <div class="prop-nm"><b>${x.name}</b> <span class="prop-meta">${x.team||"?"}→${x.opp||"?"}</span></div>
+          <div class="prop-sub">${x.propLabel} · <b>${x.side.toUpperCase()}${x.propLabel==="Home Run"?"":" "+x.line}</b> at ${fmtAm(x.price)} · model ${(x.prob*100).toFixed(0)}%${x.fallback?" · FD ref":""}</div>
+          <div class="prop-tags"><span class="prop-ev-chip ${confCls}">${conf} confidence</span></div>
+        </div>
+      </div>`;
+    }).join("");
+    const haveOdds = ODDS && ODDS.props;
+    inner=`
+      <h2 class="prop-h">Most +EV Plays</h2>
+      <div class="prop-lead">Every prop where the model's probability beats the book's price — hits, pitcher Ks, and home runs, ranked by expected value. This is your one-stop "what's worth betting tonight" list.</div>
+      ${subTabs}
+      <div class="prop-note">${plays.length} +EV play${plays.length===1?"":"s"} found across all prop types. Higher confidence = the model gives it a higher chance to hit (shorter-priced, more reliable). Speculative = longshot; treat as a dart. Every edge is a hypothesis until your CLV proves it.</div>
+      ${rows || `<div class="empty">${haveOdds
+        ? "No +EV plays right now — every priced prop is at or below fair value. That's normal and honest; not betting is a fine decision."
+        : "Book odds haven't loaded yet. Once odds.json populates (after the next build with the odds fetch), your +EV plays appear here."}</div>`}`;
+  } else if(propsView==="k"){
     // Ks = PITCHER-level view. Rank BOARD.pitcher_props by k_heat.
     const arms=(BOARD.pitcher_props||[]).slice().sort((a,b)=>(b.k_heat||0)-(a.k_heat||0));
     const rows=arms.map((a,i)=>{
@@ -4392,6 +4564,19 @@ function renderProps(){
       const conf = favPct>=65?"strong":favPct>=57?"lean":"coinflip";
       const bg = conf==="strong"?"rgba(200,71,43,.14)":conf==="lean"?"rgba(215,120,60,.09)":"var(--panel-2)";
       const unconf = !g.lineups_confirmed?`<span class="ml-proj">PROJ LINEUP</span>`:"";
+      // real book odds + EV: moneyline vs model win prob, total vs projected total
+      const gl=fetchedGameLine(g.away, g.home);
+      let evLine="";
+      if(gl){
+        const ml=mlEV(g.home_wp, gl);
+        const tot=totalEV(g.total, gl);
+        const parts=[];
+        if(ml){ const good=ml.ev>0;
+          parts.push(`<span class="gl-ev ${good?'pos':'neg'}" title="model ${(ml.prob*100).toFixed(0)}% vs book">${ml.team} ML ${fmtAm(ml.price)} · ${good?"+":""}${(ml.ev*100).toFixed(0)}% EV</span>`); }
+        if(tot){ const good=tot.ev>0;
+          parts.push(`<span class="gl-ev ${good?'pos':'neg'}" title="proj ${g.total} vs line ${tot.line}">${tot.side.toUpperCase()} ${tot.line} ${fmtAm(tot.price)} · ${good?"+":""}${(tot.ev*100).toFixed(0)}% EV</span>`); }
+        if(parts.length) evLine=`<div class="gl-ev-row">${parts.join("")}${gl.fallback_only?`<span class="gl-fd">FD ref</span>`:""}</div>`;
+      }
       return `<div class="ml-row" style="background:${bg}">
         <div class="ml-head"><b>${g.away} @ ${g.home}</b><span class="ml-time">${timeStr(g.time)}</span></div>
         <div class="ml-sp">${g.away_sp||"?"} vs ${g.home_sp||"?"}${g.park?` · ${g.park}`:""}</div>
@@ -4406,6 +4591,7 @@ function renderProps(){
           <span class="ml-conf ${conf}">${conf.toUpperCase()}</span>
           ${unconf}
         </div>
+        ${evLine}
       </div>`;
     }).join("");
     inner=`
@@ -4434,14 +4620,16 @@ function renderProps(){
       const tag = sc>=70?"TIER 1": sc>=55?"TIER 2": sc>=40?"TIER 3":"low";
       const armForm=(p.opp_pitcher&&p.opp_pitcher.form)?p.opp_pitcher.form.label:"";
       const heatRef=`HR heat ${p.heat}`;
-      // calibrated fair odds for 1+ hits — backtest gives the real cash rate for this
-      // score band, so it's a price you can compare against a book (hit view only).
-      const pr = propsView==="hit" ? calibratedPropProb("hit1", sc) : null;
+      // calibrated fair odds — backtest gives the real cash rate for this score band, so it's
+      // a price you can compare against a book. Hits: P(1+ hit) vs 0.5. HRR: P(HRR>=2) vs 1.5.
+      const pr = propsView==="hit" ? calibratedPropProb("hit1", sc)
+               : propsView==="hrr" ? calibratedPropProb("hrr", sc) : null;
+      const fairSub = propsView==="hrr" ? "to clear 1.5 HRR" : "to get 1+ hit";
       const fairLine = pr!=null
-        ? `<div class="prop-fair">fair <b>${(pr*100).toFixed(0)}%</b> · <b>${americanFair(pr)}</b> <span class="pf-sub">to get 1+ hit</span></div>`
+        ? `<div class="prop-fair">fair <b>${(pr*100).toFixed(0)}%</b> · <b>${americanFair(pr)}</b> <span class="pf-sub">${fairSub}</span></div>`
         : "";
-      // +EV badge from real book odds: hits uses calibrated P(over); hrr shows book line only
-      const evBadge = propEVBadge(propsView, p.name, propsView==="hit"?pr:null);
+      // +EV badge from real book odds: both hits and hrr now use a calibrated P(over)
+      const evBadge = propEVBadge(propsView, p.name, pr);
       return `<div class="prop-row" style="background:${bg}">
         <div class="prop-rk">${i+1}</div>
         <div class="prop-sc">${sc.toFixed(0)}</div>
@@ -4455,14 +4643,16 @@ function renderProps(){
     }).join("");
     // best +EV callout (hits only, where we have a calibrated probability)
     let evLead="";
-    if(propsView==="hit" && ODDS && ODDS.props){
-      const cands=scored.map(p=>{ const pr=calibratedPropProb("hit1",propsScore(p,"hit"));
-        const e=fetchedPropFor("hit",p.name); if(pr==null||!e) return null;
+    if((propsView==="hit"||propsView==="hrr") && ODDS && ODDS.props){
+      const kind=propsView==="hit"?"hit1":"hrr";
+      const label=propsView==="hit"?"hit prop":"HRR prop";
+      const cands=scored.map(p=>{ const pr=calibratedPropProb(kind,propsScore(p,propsView));
+        const e=fetchedPropFor(propsView,p.name); if(pr==null||!e) return null;
         const best=propEV(pr,e.over,e.under); return best?{p,best,e}:null; }).filter(Boolean)
         .filter(x=>x.best.ev>0).sort((a,b)=>b.best.ev-a.best.ev);
       if(cands.length){
         const t=cands[0];
-        evLead=`<div class="prop-ev-lead">💰 Best +EV hit prop: <b>${t.p.name}</b> ${t.best.side.toUpperCase()} ${t.e.line} at ${fmtAm(t.best.price)} — model ${(t.best.prob*100).toFixed(0)}%, <b>+${(t.best.ev*100).toFixed(0)}% EV</b>. ${cands.length} +EV play${cands.length>1?"s":""} total.</div>`;
+        evLead=`<div class="prop-ev-lead">💰 Best +EV ${label}: <b>${t.p.name}</b> ${t.best.side.toUpperCase()} ${t.e.line} at ${fmtAm(t.best.price)} — model ${(t.best.prob*100).toFixed(0)}%, <b>+${(t.best.ev*100).toFixed(0)}% EV</b>. ${cands.length} +EV play${cands.length>1?"s":""} total.</div>`;
       }
     }
     inner=`

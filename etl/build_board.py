@@ -19,6 +19,10 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from etl import statsapi, statcast_data, parks, compute, park_model, props
+try:
+    from etl import features                 # parallel feature-extraction edges (never touch heat)
+except Exception:
+    features = None
 
 try:                       # cache Savant pulls to disk so repeat runs are fast
     from pybaseball import cache as pyb_cache
@@ -215,6 +219,31 @@ def build(date_str: str | None = None) -> dict:
     except Exception as e:
         start_lens, p_apps = {}, {}; _hnote("starter lengths", e); print(f"[build] starter lengths skipped: {e}")
 
+    # ---- FEATURE EDGES (parallel track, never touches heat) ----
+    # Reliever cumulative fatigue: per-arm leverage-weighted workload over trailing 5 days.
+    fatigue_log = {}
+    fatigue_by_pid = {}
+    if features is not None:
+        try:
+            fatigue_log = statcast_data.reliever_appearance_log(df, roles=p_roles)
+            for _pid, _apps in fatigue_log.items():
+                fatigue_by_pid[_pid] = features.reliever_fatigue(_apps, date_str)
+            print(f"[build] reliever fatigue: {len(fatigue_by_pid)} arms scored")
+        except Exception as e:
+            _hnote("reliever fatigue", e); print(f"[build] reliever fatigue skipped: {e}")
+    # Pitcher arsenals for the pitch-matchup join (starters facing today's hitters).
+    arsenal_by_pid = {}
+    if features is not None:
+        try:
+            for _pid in pitcher_ids:
+                _rows = statcast_data.pitcher_arsenal_rows(df, _pid, date_str)
+                _ars = features.pitcher_arsenal(_rows)
+                if _ars:
+                    arsenal_by_pid[_pid] = _ars
+            print(f"[build] pitcher arsenals: {len(arsenal_by_pid)} built")
+        except Exception as e:
+            _hnote("pitcher arsenals", e); print(f"[build] pitcher arsenals skipped: {e}")
+
     try:                                           # B2B: homered in his most recent game
         b2b_set = statcast_data.hr_last_game(df)
     except Exception as e:
@@ -358,6 +387,34 @@ def build(date_str: str | None = None) -> dict:
             max_ev=(prof.get("season", {}) or {}).get("max_ev"))
 
         pr = pprof.get("recent", {})
+
+        # ---- FEATURE EDGES per hitter (parallel track, never touches heat) ----
+        feat = {}
+        if features is not None:
+            try:
+                # 1. pitch-type matchup: hitter's family power+whiff profile vs THIS arm's arsenal
+                ars = arsenal_by_pid.get(pid) if pid else None
+                if ars:
+                    hp_rows = statcast_data.batter_pitch_rows(df, bid, date_str)
+                    hprof = features.hitter_pitch_profile(hp_rows)
+                    if hprof:
+                        pm = features.pitch_matchup(hprof, ars)
+                        if pm:
+                            feat["pitch_matchup"] = pm
+                # 4. late-HR context: short starter + gassed pen behind the OPPOSING arm.
+                # (elevated late HR expectancy this hitter benefits from when facing this team)
+                opp_abbr = g["home"] if side == "away" else g["away"] if g else None
+                pen_obj = _bullpen_for(opp_abbr) if opp_abbr else None
+                if pen_obj and pid:
+                    exp_ip = start_lens.get(pid, {}).get("avg_ip") if isinstance(start_lens.get(pid), dict) else start_lens.get(pid)
+                    pen_pids = pen_obj.get("arm_ids") or []
+                    fidx = [fatigue_by_pid[a]["index"] for a in pen_pids if a in fatigue_by_pid]
+                    if exp_ip and fidx:
+                        lc = features.late_hr_context(exp_ip, fidx)
+                        if lc:
+                            feat["late_hr"] = lc
+            except Exception:
+                pass   # feature failure never breaks a row
         ps = pprof.get("season", {})
         opp_pitcher_obj = {
             "id": pid,
@@ -566,6 +623,7 @@ def build(date_str: str | None = None) -> dict:
             "pitch_splits": prof.get("pitch_splits"),
             "pitch_usage": pprof.get("usage"),
             "pitch_matchup": pmatch,
+            "features": feat,          # parallel edges: pitch_matchup, late_hr (never touch heat)
             "heat_mix": heat_mix,
             "mix": mix_prof,
             "ev_overall": recent.get("avg_ev"),

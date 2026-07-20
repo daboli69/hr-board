@@ -45,6 +45,15 @@ def pull_season(start: str, end: str) -> pd.DataFrame:
     df = statcast(start_dt=start, end_dt=end)
     if df is None or df.empty:
         return pd.DataFrame()
+    # Regular season ONLY. This matters most across the All-Star break: an All-Star
+    # participant's newest batted balls are the exhibition game (game_type 'A') — neutral
+    # park, non-optimal effort — which would pollute his two-week form on the exact
+    # morning the second half restarts. Spring ('S'), exhibition ('E'), and postseason
+    # ('D'/'L'/'W'/'F') are likewise not real regular-season signal. Keep only 'R'.
+    if "game_type" in df.columns:
+        df = df[df["game_type"] == "R"]
+        if df.empty:
+            return pd.DataFrame()
     keep = [
         "game_date", "game_pk", "batter", "pitcher", "events", "description",
         "launch_speed", "launch_angle", "launch_speed_angle", "bb_type", "hit_distance_sc",
@@ -55,6 +64,9 @@ def pull_season(start: str, end: str) -> pd.DataFrame:
         "post_home_score", "post_away_score",
         "estimated_woba_using_speedangle", "estimated_ba_using_speedangle",
         "woba_value", "woba_denom",
+        # --- feature-extraction additions ---
+        "plate_x", "plate_z", "zone",      # pitch LOCATION for pitch-type/location matchup
+        "sv_id",                            # encodes YYMMDD_HHMMSS — timestamp for microclimate
     ]
     keep = [c for c in keep if c in df.columns]
     return normalize_frame(df[keep].copy())
@@ -557,6 +569,7 @@ def bullpen_profiles(df: pd.DataFrame, asof: str, recent_days: int = 14,
             "recent": _pitcher_metrics(g_recent),
             "splits": splits,
             "arms": int(g["pitcher"].nunique()),
+            "arm_ids": [int(x) for x in g_recent["pitcher"].unique()],  # recent arms for fatigue join
         }
     return out
 
@@ -985,6 +998,90 @@ def starter_lengths(df: pd.DataFrame) -> dict:
         if len(lens):
             out[int(pid)] = {"starts": int(len(lens)), "med_len": float(lens.median())}
     return out
+
+
+def reliever_appearance_log(df: pd.DataFrame, roles: dict = None) -> dict:
+    """Per-reliever workload log for the fatigue index: {pid: [{date, pitches, high_leverage,
+    back_to_back}, ...]} most-recent-first. Pitches = pitch count in that game; high_leverage
+    approximated by score margin <=2 during the appearance; back_to_back = pitched the prior day.
+    Only RELIEF appearances (role-aware) so a starter's start isn't counted as pen fatigue.
+    """
+    need = {"pitcher", "game_pk", "game_date"}
+    if df is None or df.empty or not need.issubset(df.columns):
+        return {}
+    w = df.copy()
+    # per (pitcher, game): pitch count, date, and whether it was close (leverage proxy)
+    grp = w.groupby(["pitcher", "game_pk"])
+    recs = {}
+    for (pid, gpk), g in grp:
+        pid = int(pid)
+        # role filter: skip if this pitcher is a season-long STARTER making his start
+        if roles is not None:
+            role = roles.get(pid)
+            if role == "SP":
+                # only count if this specific game was a relief appearance (came in mid-game)
+                if "inning" in g.columns and pd.to_numeric(g["inning"], errors="coerce").min() <= 1:
+                    continue
+        date = str(g["game_date"].iloc[0])[:10]
+        pitches = int(len(g))
+        # leverage proxy: any pitch thrown with score margin within 2
+        high_lev = False
+        if "post_home_score" in g.columns and "post_away_score" in g.columns:
+            hs = pd.to_numeric(g["post_home_score"], errors="coerce")
+            as_ = pd.to_numeric(g["post_away_score"], errors="coerce")
+            margin = (hs - as_).abs()
+            high_lev = bool((margin <= 2).any())
+        recs.setdefault(pid, []).append({"date": date, "pitches": pitches, "high_leverage": high_lev})
+    # sort each log most-recent-first, tag back-to-back
+    out = {}
+    for pid, apps in recs.items():
+        apps = sorted(apps, key=lambda a: a["date"], reverse=True)
+        for i, a in enumerate(apps):
+            a["back_to_back"] = False
+            if i + 1 < len(apps):
+                try:
+                    import datetime as _d
+                    d0 = _d.date.fromisoformat(a["date"])
+                    d1 = _d.date.fromisoformat(apps[i + 1]["date"])
+                    a["back_to_back"] = (d0 - d1).days == 1
+                except Exception:
+                    pass
+        out[pid] = apps
+    return out
+
+
+def pitcher_arsenal_rows(df: pd.DataFrame, pitcher_id: int, asof: str, days: int = 60):
+    """Raw pitch rows for one pitcher over a trailing window — feeds features.pitcher_arsenal.
+    Trailing 60 days captures the current arsenal without ancient data."""
+    if df is None or df.empty or "pitcher" not in df.columns:
+        return df.iloc[0:0] if df is not None else None
+    w = df[df["pitcher"] == pitcher_id].copy()
+    if w.empty or "game_date" not in w.columns:
+        return w
+    try:
+        import datetime as _d
+        cutoff = (_d.date.fromisoformat(asof[:10]) - _d.timedelta(days=days)).isoformat()
+        w = w[w["game_date"].astype(str) >= cutoff]
+    except Exception:
+        pass
+    return w
+
+
+def batter_pitch_rows(df: pd.DataFrame, batter_id: int, asof: str, days: int = 365):
+    """Raw pitch rows a batter saw over a trailing window — feeds features.hitter_pitch_profile.
+    Full season (365d) because pitch-family skill is stable and needs sample."""
+    if df is None or df.empty or "batter" not in df.columns:
+        return df.iloc[0:0] if df is not None else None
+    w = df[df["batter"] == batter_id].copy()
+    if w.empty or "game_date" not in w.columns:
+        return w
+    try:
+        import datetime as _d
+        cutoff = (_d.date.fromisoformat(asof[:10]) - _d.timedelta(days=days)).isoformat()
+        w = w[w["game_date"].astype(str) >= cutoff]
+    except Exception:
+        pass
+    return w
 
 
 def pitcher_appearances(df: pd.DataFrame) -> dict:
