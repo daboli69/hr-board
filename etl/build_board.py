@@ -603,6 +603,9 @@ def build(date_str: str | None = None) -> dict:
             }
         elite = _egate(season)
         elite["recent"] = _egate(recent)      # also flag if he's elite on recent form specifically
+
+        # auto "why" line — the cleared signals + arm read, for instant scanning
+        why_bits = []
         if recent.get("pull_air_pct") is not None and recent["pull_air_pct"] >= 40:
             why_bits.append(f"{recent['pull_air_pct']:.0f}% air-pull")
         if recent.get("barrel_pct") is not None and recent["barrel_pct"] >= 11:
