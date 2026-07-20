@@ -469,6 +469,55 @@
   .zc{aspect-ratio:1;border:1px solid var(--line);border-radius:4px;display:flex;align-items:center;justify-content:center;position:relative}
   .zc-u{font-family:"IBM Plex Mono";font-size:11px;font-weight:700;color:var(--ink)}
   .zc-star{position:absolute;top:3px;right:4px;color:var(--hot);font-size:9px}
+  .zc-star.danger{color:var(--bad);font-size:11px;text-shadow:0 0 4px rgba(214,110,90,.6)}
+  /* Scan tab */
+  .scan-wrap{padding-bottom:20px}
+  .scan-hd{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+  .scan-hd h2{font-family:Archivo;font-size:20px;color:var(--ink);margin:0}
+  .scan-hd-sub{font-size:11px;color:var(--faint);margin-left:auto}
+  .scan-intro{font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:12px}
+  .scan-back{background:none;border:none;color:var(--seam);font-size:13px;cursor:pointer;font:inherit;padding:0}
+  .scan-card{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:9px;cursor:pointer;font:inherit;color:inherit}
+  .scan-card:active{transform:scale(.99)}
+  .scan-card-l{flex:1;min-width:0}
+  .scan-mu{font-size:15px;color:var(--ink)}
+  .scan-mu b{font-weight:700}
+  .scan-sub{font-size:11px;color:var(--muted);margin-top:1px}
+  .scan-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+  .sc-chip{font-family:"IBM Plex Mono";font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap}
+  .sc-chip.hot{color:var(--hot);background:rgba(214,110,90,.14)}
+  .sc-chip.ev{color:var(--good);background:rgba(120,178,145,.15)}
+  .sc-chip.vuln{color:var(--seam);background:rgba(215,120,60,.13)}
+  .sc-chip.gassed{color:var(--bad);background:rgba(214,110,90,.14)}
+  .sc-chip.micro{color:#6ba3c4;background:rgba(107,163,196,.14)}
+  .sc-chip.late,.sc-chip.total,.sc-chip.warm,.sc-chip.wind{color:var(--muted);background:var(--panel-2)}
+  .sc-chip.quiet{color:var(--faint);background:var(--panel-2)}
+  .scan-score{font-family:Archivo;font-weight:800;font-size:24px;min-width:32px;text-align:right}
+  .sd-strip{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  .sd-stat{flex:1;min-width:70px;background:var(--panel-2);border-radius:8px;padding:7px 9px}
+  .sd-stat span{display:block;font-size:9px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em}
+  .sd-stat b{font-size:15px;color:var(--ink)}
+  .sd-sec-h{font-size:12px;font-weight:700;color:var(--ink);margin:12px 0 6px}
+  .sd-sec{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .sd-hit,.sd-arm,.sd-ev{display:flex;align-items:center;gap:10px;padding:9px 11px;border-top:1px solid var(--line);cursor:pointer}
+  .sd-hit:first-child,.sd-arm:first-child,.sd-ev:first-child{border-top:none}
+  .sd-hit:active,.sd-arm:active{background:var(--panel-2)}
+  .sd-hit-heat{font-family:Archivo;font-weight:800;font-size:16px;min-width:26px;text-align:center}
+  .sd-hit-main,.sd-arm-main,.sd-ev-main{flex:1;min-width:0}
+  .sd-hit-main b,.sd-arm-main b,.sd-ev-main b{font-size:13px;color:var(--ink)}
+  .sd-hit-meta{font-size:10.5px;color:var(--muted)}
+  .sd-hit-bdg{font-size:9.5px;color:var(--faint);font-family:"IBM Plex Mono";margin-top:1px}
+  .sd-hit-tags{display:flex;flex-wrap:wrap;gap:3px;justify-content:flex-end;max-width:44%}
+  .sd-tag{font-family:"IBM Plex Mono";font-size:8.5px;font-weight:800;padding:2px 5px;border-radius:3px;white-space:nowrap}
+  .sd-tag.hot{color:var(--hot);background:rgba(214,110,90,.14)}
+  .sd-tag.boost,.sd-tag.mu{color:var(--good);background:rgba(120,178,145,.14)}
+  .sd-tag.fade{color:var(--cold);background:rgba(90,140,214,.14)}
+  .sd-tag.late,.sd-tag.gassed,.sd-tag.worn{color:var(--muted);background:var(--panel-2)}
+  .sd-arm-ex{font-family:"IBM Plex Mono";font-weight:800;font-size:14px;min-width:44px}
+  .sd-arm-go{color:var(--faint);font-size:16px}
+  .sd-ev-tag{font-family:"IBM Plex Mono";font-weight:800;font-size:13px;min-width:38px}
+  .sd-empty{font-size:11px;color:var(--faint);padding:10px;border:1px solid var(--line);border-radius:10px}
+  .scan-foot{font-size:10px;color:var(--faint);line-height:1.5;margin-top:14px}
   .edge-dd-zk{text-align:center;font-size:9.5px;color:var(--faint);margin:5px 0 4px}
   .edge-bat{display:flex;align-items:center;gap:10px;padding:9px 4px;border-top:1px solid var(--line);cursor:pointer}
   .edge-bat:active{background:var(--panel-2)}
@@ -478,6 +527,14 @@
   .edge-bat-meta{font-size:10.5px;color:var(--muted)}
   .edge-bat-sub{font-size:10.5px;color:var(--muted);margin-top:1px}
   .edge-bat-sc{font-family:"IBM Plex Mono";font-weight:800;font-size:14px}
+  /* bullpen rankings */
+  .pen-rank{display:flex;align-items:flex-start;gap:11px;padding:11px;border:1px solid var(--line);border-radius:11px;margin-bottom:8px;background:var(--panel)}
+  .pen-rk{font-family:Archivo;font-weight:800;font-size:18px;min-width:22px;text-align:center}
+  .pen-main{flex:1;min-width:0}
+  .pen-team{font-size:14px;color:var(--ink);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .pen-meta{font-size:10.5px;color:var(--muted);font-weight:400;font-family:"IBM Plex Mono"}
+  .pen-why{font-size:11px;color:var(--muted);line-height:1.5;margin-top:3px}
+  .pen-val{font-family:Archivo;font-weight:800;font-size:20px;min-width:30px;text-align:right}
   .pg-evtag{font-weight:800;padding:1px 5px;border-radius:3px;margin-left:4px}
   .pg-evtag.pos{color:var(--good);background:rgba(120,178,145,.14)}
   .pg-evtag.neg{color:var(--muted);background:rgba(140,150,165,.12)}
@@ -1345,6 +1402,7 @@
 
 <nav id="tabbar" aria-label="Primary navigation">
   <button data-view="board" aria-pressed="true"><svg viewBox="0 0 20 20"><circle cx="4" cy="5.5" r="1"/><circle cx="4" cy="10" r="1"/><circle cx="4" cy="14.5" r="1"/><line x1="7.5" y1="5.5" x2="16" y2="5.5"/><line x1="7.5" y1="10" x2="16" y2="10"/><line x1="7.5" y1="14.5" x2="16" y2="14.5"/></svg><span>Board</span></button>
+  <button data-view="scan" aria-pressed="false"><svg viewBox="0 0 20 20"><rect x="3" y="3" width="6" height="6" rx="1"/><rect x="11" y="3" width="6" height="6" rx="1"/><rect x="3" y="11" width="6" height="6" rx="1"/><rect x="11" y="11" width="6" height="6" rx="1"/></svg><span>Scan</span></button>
   <button data-view="props" aria-pressed="false"><svg viewBox="0 0 20 20"><path d="M4 15V8"/><path d="M8 15V5"/><path d="M12 15v-6"/><path d="M16 15v-4"/><line x1="3" y1="15" x2="17" y2="15"/></svg><span>Props</span></button>
   <button data-view="bets" aria-pressed="false"><svg viewBox="0 0 20 20"><path d="M5 3.5h10v13l-2-1.3-2 1.3-2-1.3-2 1.3V3.5z"/><line x1="7.5" y1="7.5" x2="12.5" y2="7.5"/><line x1="7.5" y1="10.5" x2="12.5" y2="10.5"/></svg><span>Bets</span></button>
   <button data-view="tracker" aria-pressed="false"><svg viewBox="0 0 20 20"><polyline points="3 14 8 9 11 12 17 5"/><polyline points="12.5 5 17 5 17 9.5"/></svg><span>Trends</span></button>
@@ -1354,7 +1412,7 @@
 <div id="moreSheet" class="sheet" onclick="if(event.target===this)this.classList.remove('show')">
   <div class="sheet-card">
     <div class="sheet-h">More views</div>
-    <button class="more-item" onclick="goView('edges')"><div class="mi-ic">⚡</div><div class="mi-tx"><b>Edges <span class="beta-pill">BETA</span></b><span>New signals: pitch-matchup, pen fatigue</span></div><div class="mi-ar">›</div></button>
+    <button class="more-item" onclick="goView('edges')"><div class="mi-ic">⚡</div><div class="mi-tx"><b>Edges <span class="beta-pill">BETA</span></b><span>New signals: matchup, pen fatigue, microclimate</span></div><div class="mi-ar">›</div></button>
     <button class="more-item" onclick="goView('parlays')"><div class="mi-ic">⛓</div><div class="mi-tx"><b>Parlays</b><span>Auto-built combos, honestly priced</span></div><div class="mi-ar">›</div></button>
     <button class="more-item" onclick="goView('stacks')"><div class="mi-ic">◆</div><div class="mi-tx"><b>Stacks</b><span>Best hitters grouped by game</span></div><div class="mi-ar">›</div></button>
     <button class="more-item" onclick="goView('matchup')"><div class="mi-ic">◎</div><div class="mi-tx"><b>Matchup</b><span>Head-to-head hitter vs pitcher</span></div><div class="mi-ar">›</div></button>
@@ -1507,7 +1565,7 @@ function featureBlock(p){
   if(!rows) return "";
   return `<h4 style="margin-top:14px">Feature edges <span class="h4-sub">experimental · unvalidated</span></h4>
     ${rows}
-    <div class="feat-foot">Reconstructed signals the market undersamples — pitch-family matchup and late-inning pen fatigue. Separate from Heat, not yet CLV-validated. Treat as context, not a green light.</div>`;
+    <div class="feat-foot">Reconstructed signals the market undersamples — pitch-family matchup, late-inning pen fatigue, and temperature microclimate. Separate from Heat, not yet CLV-validated. Treat as context, not a green light.</div>`;
 }
 function pitchBlock(p){
   const us=p.pitch_usage, hs=p.pitch_splits, pm=p.pitch_matchup;
@@ -2453,36 +2511,289 @@ function renderView(){
   const safe=fn=>{ try{ fn(); }catch(e){ console.error("render",e);
     const m=document.getElementById("main");
     if(m) m.innerHTML=`<div class="empty">This tab hit a snag rendering today's data — the rest of the app is fine.<br>Tap another tab or check back after the next board update.</div>`; } };
-  if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="matchup") safe(renderMatchup); else if(view==="stacks") safe(renderStacks); else if(view==="bets") safe(renderBetsTab); else if(view==="weather") safe(renderWeather); else if(view==="edges") safe(renderEdges); else safe(render);
+  if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="matchup") safe(renderMatchup); else if(view==="stacks") safe(renderStacks); else if(view==="bets") safe(renderBetsTab); else if(view==="weather") safe(renderWeather); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else safe(render);
 }
 
 // Weather dashboard: today's slate, one card per game — conditions, roof call,
 // disruption status, and the wind drawn over a diamond oriented to that park.
 const WX_STATUS={clear:["Clear","var(--good)"],chance:["Chance for delay","var(--warm)"],
   likely:["Delay likely","#E0913A"],postpone:["Postponement likely","var(--bad)"],unknown:["No forecast","var(--faint)"]};
+// ---------- SCAN TAB: per-game, everything in one scannable place ----------
+// The answer to "270 players is unseeable." You scan GAMES (score + chips), tap one, and see
+// everything for that matchup: ranked hitters, both arms' vulnerability, weather, pen state,
+// best props/EV. Score ranks the slate; chips explain at a glance; detail is one tap away.
+let scanGame = null;   // expanded game_pk
+
+// Build a per-game summary object joining every data source for one game.
+function scanGameData(g){
+  const players=(BOARD&&BOARD.players)||[];
+  const arms=(BOARD&&BOARD.pitcher_edges)||[];
+  const proj=((BOARD&&BOARD.game_projections)||[]).find(p=>(p.away===g.away&&p.home===g.home));
+  const wx=((BOARD&&BOARD.wx)||[]).find(w=>w.game_pk===g.game_pk);
+  const hitters=players.filter(p=>p.game_pk===g.game_pk && p.lineup_status!=="out");
+  const gArms=arms.filter(a=>a.game_pk===g.game_pk);
+  // top hitters by heat
+  const topHit=hitters.slice().sort((a,b)=>(b.heat||0)-(a.heat||0));
+  // +EV plays in this game
+  const evAll=(typeof allPropEV==="function")?allPropEV():[];
+  const gTeams=new Set([g.away,g.home]);
+  const evGame=evAll.filter(e=>gTeams.has(e.team)||gTeams.has(e.opp));
+  // signal counts for chips
+  const hotN=hitters.filter(p=>(p.heat||0)>=70).length;
+  const microN=hitters.filter(p=>p.features&&p.features.microclimate&&p.features.microclimate.flag).length;
+  const lateN=hitters.filter(p=>p.features&&p.features.late_hr&&p.features.late_hr.label&&p.features.late_hr.label!=="neutral").length;
+  const vulnArm=gArms.slice().sort((a,b)=>(b.exploit_score||0)-(a.exploit_score||0))[0];
+  const gassedPen=gArms.some(a=>a.fatigue&&a.fatigue.state==="GASSED");
+  const total=proj?proj.total:null;
+  const temp=wx?wx.temp_f:null;
+  const windOut=wx&&wx.wind_help!=null?wx.wind_help>0:null;
+
+  // GAME SCORE 0-100: how much edge/action this game holds. A blend, capped, transparent.
+  let score=0;
+  score += Math.min(30, hotN*8);                        // hot hitters
+  score += Math.min(18, evGame.filter(e=>e.ev>=0.1).length*6);  // +EV plays
+  score += vulnArm&&vulnArm.exploit_score?Math.min(20,(vulnArm.exploit_score-0.320)*250):0; // exploitable arm
+  score += microN*4 + lateN*4;                          // reconstructed edges
+  score += gassedPen?8:0;
+  score += (total!=null&&total>=9)?10:(total!=null&&total>=8.5)?5:0;  // high total
+  score += (temp!=null&&temp>=82)?6:0;                  // hot weather
+  score += (windOut===true)?6:0;
+  score = Math.max(0, Math.min(100, Math.round(score)));
+
+  return {g, proj, wx, hitters, gArms, topHit, evGame, hotN, microN, lateN,
+          vulnArm, gassedPen, total, temp, windOut, score};
+}
+
+function scanChips(d){
+  const c=[];
+  if(d.hotN) c.push(`<span class="sc-chip hot">${d.hotN} hot</span>`);
+  if(d.evGame.filter(e=>e.ev>=0.1).length) c.push(`<span class="sc-chip ev">${d.evGame.filter(e=>e.ev>=0.1).length} +EV</span>`);
+  if(d.vulnArm&&d.vulnArm.exploit_score>=0.360) c.push(`<span class="sc-chip vuln">vuln arm</span>`);
+  if(d.gassedPen) c.push(`<span class="sc-chip gassed">gassed pen</span>`);
+  if(d.microN) c.push(`<span class="sc-chip micro">${d.microN} climate</span>`);
+  if(d.lateN) c.push(`<span class="sc-chip late">${d.lateN} late-HR</span>`);
+  if(d.total!=null&&d.total>=9) c.push(`<span class="sc-chip total">O/U ${d.total}</span>`);
+  if(d.temp!=null&&d.temp>=82) c.push(`<span class="sc-chip warm">${Math.round(d.temp)}°</span>`);
+  if(d.windOut===true) c.push(`<span class="sc-chip wind">wind out</span>`);
+  return c.join("");
+}
+
+function renderScan(){
+  const main=document.getElementById("main");
+  const games=(BOARD&&BOARD.games)||[];
+  if(!games.length){ main.innerHTML=`<div class="empty">No games loaded yet.</div>`; return; }
+  const data=games.map(scanGameData).sort((a,b)=>b.score-a.score);
+
+  if(scanGame){
+    const d=data.find(x=>x.g.game_pk===scanGame);
+    if(d){ main.innerHTML=scanDetail(d); return; }
+  }
+
+  const rows=data.map(d=>{
+    const col=d.score>=55?"var(--hot)":d.score>=35?"var(--ink)":"var(--muted)";
+    return `<button class="scan-card" onclick="scanGame=${d.g.game_pk};renderScan()">
+      <div class="scan-card-l">
+        <div class="scan-mu"><b>${d.g.away}</b> @ <b>${d.g.home}</b></div>
+        <div class="scan-sub">${timeStr(d.g.time)} · ${d.g.park||""}${d.total!=null?` · O/U ${d.total}`:""}</div>
+        <div class="scan-chips">${scanChips(d)||'<span class="sc-chip quiet">quiet</span>'}</div>
+      </div>
+      <div class="scan-score" style="color:${col}">${d.score}</div>
+    </button>`;
+  }).join("");
+
+  main.innerHTML=`<div class="scan-wrap">
+    <div class="scan-hd"><h2>Scan</h2><span class="scan-hd-sub">${games.length} games · ranked by action</span></div>
+    <div class="scan-intro">Every game scored by how much edge it holds tonight. Chips show what's live at a glance — tap any game to see its hitters, arms, weather, pen, and best bets in one place.</div>
+    ${rows}
+  </div>`;
+}
+
+function scanDetail(d){
+  const g=d.g;
+  // hitters mini-list (top 6 by heat) with their key signals inline
+  const hitRows=d.topHit.slice(0,7).map(p=>{
+    const f=p.features||{};
+    const tags=[];
+    if((p.heat||0)>=70) tags.push('<span class="sd-tag hot">hot</span>');
+    if(f.microclimate&&f.microclimate.flag) tags.push(`<span class="sd-tag ${f.microclimate.flag.includes('BOOST')?'boost':'fade'}">${f.microclimate.flag}</span>`);
+    if(f.late_hr&&f.late_hr.label&&f.late_hr.label!=="neutral") tags.push('<span class="sd-tag late">late-HR</span>');
+    if(f.pitch_matchup&&f.pitch_matchup.score>=60) tags.push('<span class="sd-tag mu">mix+</span>');
+    const bdg=(p.badges||[]).slice(0,2).map(b=>b.t).join(" · ");
+    return `<div class="sd-hit" onclick="scanToPlayer(${p.id})">
+      <div class="sd-hit-heat" style="color:${p.heat>=70?'var(--hot)':p.heat>=55?'var(--ink)':'var(--muted)'}">${p.heat??"–"}</div>
+      <div class="sd-hit-main"><div><b>${p.name}</b> <span class="sd-hit-meta">#${p.lineup_spot||"?"} ${p.bats||""}</span></div>
+        ${bdg?`<div class="sd-hit-bdg">${bdg}</div>`:""}</div>
+      <div class="sd-hit-tags">${tags.join("")}</div>
+    </div>`;
+  }).join("");
+
+  // arms
+  const armRows=d.gArms.slice().sort((a,b)=>(b.exploit_score||0)-(a.exploit_score||0)).map(a=>{
+    const ex=a.exploit_score;
+    const col=ex==null?"var(--muted)":ex>=0.380?"var(--hot)":ex>=0.340?"var(--ink)":"var(--muted)";
+    const fat=a.fatigue&&a.fatigue.state&&a.fatigue.state!=="FRESH"?`<span class="sd-tag ${a.fatigue.state.toLowerCase()}">${a.fatigue.state} pen</span>`:"";
+    return `<div class="sd-arm" onclick="scanGame=null;edgesPitcher=${a.id};goView('edges')">
+      <div class="sd-arm-ex" style="color:${col}">${ex!=null?ex.toFixed(3):"–"}</div>
+      <div class="sd-arm-main"><b>${a.name}</b> <span class="sd-hit-meta">${a.throws||"?"}HP${a.arsenal&&a.arsenal.usage?` · ${Math.round((a.arsenal.usage.FB||0)*100)}% FB`:""}</span></div>
+      ${fat}<span class="sd-arm-go">›</span>
+    </div>`;
+  }).join("");
+
+  // best EV in this game
+  const evRows=d.evGame.slice(0,5).map(e=>{
+    const good=e.ev>=0.1;
+    return `<div class="sd-ev">
+      <div class="sd-ev-tag" style="color:${good?'var(--good)':'var(--muted)'}">+${(e.ev*100).toFixed(0)}%</div>
+      <div class="sd-ev-main"><b>${e.name}</b> <span class="sd-hit-meta">${e.propLabel} ${e.side.toUpperCase()}${e.line?" "+e.line:""} @ ${fmtAm(e.price)}</span></div>
+    </div>`;
+  }).join("");
+
+  // weather + total summary
+  const wx=d.wx;
+  const wxLine=wx?`${wx.temp_f!=null?Math.round(wx.temp_f)+"°F":""}${wx.wind_mph!=null?` · wind ${Math.round(wx.wind_mph)}mph ${wx.wind_dir||""}`:""}${wx.roof?` · ${wx.roof}`:""}`:"weather n/a";
+
+  return `<div class="scan-wrap">
+    <div class="scan-hd">
+      <button class="scan-back" onclick="scanGame=null;renderScan()">‹ slate</button>
+      <h2>${g.away} @ ${g.home}</h2>
+    </div>
+    <div class="scan-sub" style="margin-bottom:10px">${timeStr(g.time)} · ${g.park||""}</div>
+
+    <div class="sd-strip">
+      ${d.total!=null?`<div class="sd-stat"><span>Total</span><b>${d.total}</b></div>`:""}
+      ${d.proj?`<div class="sd-stat"><span>Proj</span><b>${d.proj.away_runs}–${d.proj.home_runs}</b></div>`:""}
+      ${d.proj&&d.proj.home_wp!=null?`<div class="sd-stat"><span>Win%</span><b>${Math.round((d.proj.home_wp>=0.5?d.proj.home_wp:1-d.proj.home_wp)*100)}% ${d.proj.home_wp>=0.5?g.home:g.away}</b></div>`:""}
+      <div class="sd-stat"><span>Weather</span><b style="font-size:12px">${wxLine}</b></div>
+    </div>
+
+    ${armRows?`<div class="sd-sec-h">Arms — vulnerability</div><div class="sd-sec">${armRows}</div>`:""}
+    ${hitRows?`<div class="sd-sec-h">Top hitters</div><div class="sd-sec">${hitRows}</div>`:""}
+    ${evRows?`<div class="sd-sec-h">Best +EV in this game</div><div class="sd-sec">${evRows}</div>`:`<div class="sd-sec-h">+EV</div><div class="sd-empty">No +EV plays priced yet for this game.</div>`}
+
+    <div class="scan-foot">Everything for this matchup in one place. Tap a hitter for the full card, or an arm for its zone map. Heat is the frozen model; the rest are context and experimental edges — none is a green light on its own.</div>
+  </div>`;
+}
+
+function scanToPlayer(id){
+  scanGame=null;
+  goView("board");
+  setTimeout(()=>{
+    const row=document.querySelector(`.row[data-id="${id}"]`);
+    if(row){ row.classList.add("open"); row.scrollIntoView({block:"center",behavior:"smooth"}); }
+  }, 120);
+}
+
 // ---------- EDGES TAB (beta) ----------
 // Pitcher-first: today's arms ranked by exploitability. Tap an arm -> zone heatmap of where
 // he lives + the opposing batters ranked by how much they punish exactly those zones. This
 // makes the pitch-matchup edge spatial and scannable instead of buried in 270 cards.
 let edgesPitcher = null;   // currently-drilled pitcher id
+let edgesView = "arms";    // arms | micro | late
+function setEdgesView(v){ edgesView=v; edgesPitcher=null; renderEdges(); }
 function renderEdges(){
   const main=document.getElementById("main");
   const arms=(BOARD&&BOARD.pitcher_edges)||[];
-  if(!arms.length){
-    main.innerHTML=`<div class="edges-wrap">
-      <div class="edges-hd"><h2>Edges <span class="beta-pill">BETA</span></h2></div>
-      <div class="empty">No pitcher edges yet. This needs the updated build with <code>etl/features.py</code> deployed and the board re-run. These are experimental signals — pitch-family matchup and bullpen fatigue — not yet CLV-validated.</div>
-    </div>`;
-    return;
-  }
+  const players=(BOARD&&BOARD.players)||[];
+  // drilldown short-circuits everything
   if(edgesPitcher){
     const p=arms.find(a=>a.id===edgesPitcher);
     if(p){ main.innerHTML=edgesDrilldown(p); return; }
   }
-  // list view: arms ranked by exploitability
-  const rows=arms.map(a=>{
+  const subTabs=`<div class="prop-subtabs" style="margin-bottom:12px">
+    <button class="${edgesView==='arms'?'on':''}" onclick="setEdgesView('arms')">Arms</button>
+    <button class="${edgesView==='pens'?'on':''}" onclick="setEdgesView('pens')">Bullpens</button>
+    <button class="${edgesView==='micro'?'on':''}" onclick="setEdgesView('micro')">Microclimate</button>
+    <button class="${edgesView==='late'?'on':''}" onclick="setEdgesView('late')">Late-HR</button>
+  </div>`;
+  const hd=`<div class="edges-hd"><h2>Edges <span class="beta-pill">BETA</span></h2></div>`;
+  const note=`<div class="edges-note">⚠︎ Experimental signals, not yet CLV-validated. These reconstruct matchups the market undersamples. Treat as leads — log a bet if you act, so the tracker can prove or kill the edge over time.</div>`;
+
+  if(edgesView==="pens"){
+    const pens=(BOARD&&BOARD.bullpen_rankings)||[];
+    const rows=pens.map((p,i)=>{
+      // worst (most exploitable) at top get hot color; best get cool
+      const worst=i<Math.ceil(pens.length/3), best=i>=Math.floor(pens.length*2/3);
+      const col=worst?"var(--hot)":best?"var(--good)":"var(--muted)";
+      const labelChip=p.label&&p.label!=="RESTED"&&p.label!=="NORMAL"
+        ? `<span class="edge-fat ${p.label.toLowerCase()}">${p.label}</span>` : "";
+      const hrTxt=p.hr_score!=null?`HR-vuln ${Math.round(p.hr_score)}`:"";
+      const availTxt=p.n_available!=null?`${p.n_available} fresh${p.n_unavailable?` · ${p.n_unavailable} down`:""}`:"";
+      return `<div class="pen-rank">
+        <div class="pen-rk" style="color:${col}">${i+1}</div>
+        <div class="pen-main">
+          <div class="pen-team"><b>${p.team}</b> ${labelChip} <span class="pen-meta">${[hrTxt,availTxt].filter(Boolean).join(" · ")}</span></div>
+          <div class="pen-why">${(p.reasons||[]).join(" · ")}</div>
+        </div>
+        <div class="pen-val" style="color:${col}">${p.rank_val!=null?p.rank_val.toFixed(0):"–"}</div>
+      </div>`;
+    }).join("");
+    main.innerHTML=`<div class="edges-wrap">${hd}${subTabs}
+      <div class="edges-intro">Every bullpen on tonight's slate ranked <b>most exploitable to toughest</b> — a blend of HR-vulnerability and how gassed the pen is. The pens at the top are the ones to attack late; the ones at the bottom shut it down.</div>
+      ${note}
+      ${rows||'<div class="empty">No bullpen rankings yet — needs the updated build with bullpen ranking deployed and the board re-run.</div>'}
+    </div>`;
+    return;
+  }
+
+  if(edgesView==="micro"){
+    // hitters flagged by tonight's temperature vs their sensitivity
+    const flagged=players.filter(p=>p.features&&p.features.microclimate&&p.features.microclimate.flag)
+      .map(p=>({p, m:p.features.microclimate}))
+      .sort((a,b)=>Math.abs(b.m.sensitivity_ev)-Math.abs(a.m.sensitivity_ev));
+    const rows=flagged.map(({p,m})=>{
+      const boost=m.flag.includes("BOOST"), col=boost?"var(--hot)":"var(--cold)";
+      return `<button class="edge-arm" onclick="edgesToPlayer(${p.id})">
+        <div class="edge-arm-top"><div><b>${p.name}</b> <span class="edge-arm-hand">${p.team}→${p.opp_team}</span></div>
+          <div class="edge-arm-ex" style="color:${col};font-size:13px">${m.flag}</div></div>
+        <div class="edge-arm-sub">EV swings ${Math.abs(m.sensitivity_ev).toFixed(1)} mph by temp · tonight ~${m.today_temp}°F vs ${m.median_temp}°F median · ${m.n} balls</div>
+      </button>`;
+    }).join("");
+    main.innerHTML=`<div class="edges-wrap">${hd}${subTabs}
+      <div class="edges-intro">Hitters whose power is <b>temperature-sensitive</b>, flagged when tonight's forecast favors or hurts them — from real contact-time weather (GUMBO timestamps + hourly temps).</div>
+      ${note}
+      ${rows||'<div class="empty">No microclimate flags tonight. Either conditions are neutral for the sensitive hitters, or the microclimate profiles are not built yet (run the Microclimate workflow).</div>'}
+    </div>`;
+    return;
+  }
+
+  if(edgesView==="late"){
+    // games/hitters with an elevated late-HR spot
+    const flagged=players.filter(p=>p.features&&p.features.late_hr&&p.features.late_hr.label&&p.features.late_hr.label!=="neutral")
+      .map(p=>({p, l:p.features.late_hr}))
+      .sort((a,b)=>(b.l.score||0)-(a.l.score||0));
+    // dedupe by game for the header, but list hitters who benefit
+    const rows=flagged.map(({p,l})=>{
+      const hot=l.score>=65, col=hot?"var(--hot)":"var(--seam)";
+      return `<button class="edge-arm" onclick="edgesToPlayer(${p.id})">
+        <div class="edge-arm-top"><div><b>${p.name}</b> <span class="edge-arm-hand">${p.team}→${p.opp_team}</span></div>
+          <div class="edge-arm-ex" style="color:${col};font-size:12px">${l.label}</div></div>
+        <div class="edge-arm-sub">Opp pen covers ~${l.pen_innings_needed} inn at ${l.pen_avg_fatigue}/100 fatigue — elevated late HR risk</div>
+      </button>`;
+    }).join("");
+    main.innerHTML=`<div class="edges-wrap">${hd}${subTabs}
+      <div class="edges-intro">Hitters in <b>gassed-bullpen spots</b>: the opposing starter is short and the pen behind him is tired, so innings 6-9 carry extra HR risk the pregame line underweights.</div>
+      ${note}
+      ${rows||'<div class="empty">No elevated late-HR spots on the slate tonight.</div>'}
+    </div>`;
+    return;
+  }
+
+  // default: arms view
+  if(!arms.length){
+    main.innerHTML=`<div class="edges-wrap">${hd}${subTabs}
+      <div class="empty">No pitcher edges yet. This needs the updated build with <code>etl/features.py</code> deployed and the board re-run.</div>
+    </div>`;
+    return;
+  }
+  // sort most-vulnerable first (highest exploit score); arms with no lineup yet go last
+  const rows=arms.slice().sort((a,b)=>{
+    const av=a.exploit_score, bv=b.exploit_score;
+    if(av==null && bv==null) return 0;
+    if(av==null) return 1;
+    if(bv==null) return -1;
+    return bv-av;
+  }).map(a=>{
     const ex=a.exploit_score;
-    const exPct=ex!=null?Math.round((ex-0.320)*400+50):null;   // center ~league xwOBA
     const col=ex==null?"var(--muted)":ex>=0.380?"var(--hot)":ex>=0.340?"var(--ink)":"var(--muted)";
     const fatChip=a.fatigue&&a.fatigue.state&&a.fatigue.state!=="FRESH"
       ? `<span class="edge-fat ${a.fatigue.state.toLowerCase()}">${a.fatigue.state}</span>` : "";
@@ -2496,28 +2807,46 @@ function renderEdges(){
       ${topBat?`<div class="edge-arm-tb">Top threat: <b>${topBat.name}</b>${topBat.hot_zone?` punishes zone ${topBat.hot_zone}`:""}</div>`:""}
     </button>`;
   }).join("");
-  main.innerHTML=`<div class="edges-wrap">
-    <div class="edges-hd"><h2>Edges <span class="beta-pill">BETA</span></h2></div>
+  main.innerHTML=`<div class="edges-wrap">${hd}${subTabs}
     <div class="edges-intro">Today's arms ranked by how <b>exploitable</b> they are — the higher the number, the more the opposing lineup punishes the zones and pitches this arm actually throws. Tap any arm for its zone map and the batters who hurt it most.</div>
-    <div class="edges-note">⚠︎ Experimental signals, not yet CLV-validated. These reconstruct pitch-family and zone matchups the market undersamples. Treat as leads to investigate — log a bet if you act, so the tracker can prove or kill the edge over time.</div>
+    ${note}
     ${rows}
   </div>`;
 }
 
-// Zone heatmap: 3x3 grid colored by pitcher usage, with the batter's punish overlaid.
-function zoneHeatmap(grid, batterZone){
+// Zone heatmap: 3x3 grid colored by pitcher usage, with a punish overlay showing where the
+// facing lineup does the most damage. `punishMap` = {zone: {maxXw, names[]}} aggregated across
+// all facing batters. A cell lights a ● when someone crushes a zone the pitcher lives in.
+function zoneHeatmap(grid, punishMap){
   if(!grid) return "";
   const cells=[];
   for(let z=1;z<=9;z++){
     const u=grid[String(z)]||0;
     const intensity=Math.min(1, u/0.20);   // 20% usage in one cell = max heat
     const bg=`rgba(214,110,90,${(intensity*0.7).toFixed(2)})`;
-    const bz=batterZone?batterZone[String(z)]:null;
-    const punish=(bz&&bz.xwobacon!=null&&bz.xwobacon>=0.400)?'<span class="zc-star">●</span>':"";
-    cells.push(`<div class="zc" style="background:${bg}">
-      <span class="zc-u">${Math.round(u*100)}%</span>${punish}</div>`);
+    const pz=punishMap?punishMap[String(z)]:null;
+    // danger = pitcher throws here a lot AND the lineup crushes here
+    const danger=(pz && pz.maxXw!=null && pz.maxXw>=0.380 && u>=0.09);
+    const warn=(pz && pz.maxXw!=null && pz.maxXw>=0.420);
+    const mark=danger?'<span class="zc-star danger">◆</span>':warn?'<span class="zc-star">●</span>':"";
+    const tip=pz&&pz.maxXw!=null?` title="crushed by ${(pz.names||[]).slice(0,2).join(', ')} · ${pz.maxXw.toFixed(3)} xwOBA"`:"";
+    cells.push(`<div class="zc"${tip} style="background:${bg}">
+      <span class="zc-u">${Math.round(u*100)}%</span>${mark}</div>`);
   }
   return `<div class="zone-grid">${cells.join("")}</div>`;
+}
+// Aggregate per-zone punish across all facing batters -> {zone:{maxXw, names[]}}
+function buildPunishMap(bats){
+  const m={};
+  (bats||[]).forEach(b=>{
+    const zd=b.zone_dmg; if(!zd) return;
+    Object.entries(zd).forEach(([z,xw])=>{
+      if(xw==null) return;
+      if(!m[z]||xw>m[z].maxXw) m[z]={maxXw:xw, names:[b.name]};
+      else if(xw>=m[z].maxXw-0.03) m[z].names.push(b.name);
+    });
+  });
+  return m;
 }
 
 function edgesDrilldown(p){
@@ -2545,8 +2874,8 @@ function edgesDrilldown(p){
     <div class="edge-dd-sub">${p.team} vs ${p.opp_team} · ${timeStr(p.time)} · ${p.park||""}</div>
     <div class="edge-dd-ars">${arsLine}</div>
     ${fatLine}
-    <div class="edge-dd-zone-h">Where he lives <span>darker = more pitches there · ● = a facing batter crushes it</span></div>
-    ${zoneHeatmap(g, bats[0]?null:null)}
+    <div class="edge-dd-zone-h">Where he lives <span>darker = more pitches there · ◆ danger zone (throws here + lineup crushes it) · ● lineup crushes it</span></div>
+    ${zoneHeatmap(g, buildPunishMap(bats))}
     <div class="edge-dd-zk"><span>catcher's view · up top, down bottom</span></div>
     <div class="edge-dd-bh">Batters who punish his zones <span>ranked by xwOBA in the cells he throws to</span></div>
     ${batRows||'<div class="empty" style="padding:16px">No batter zone data for this arm yet.</div>'}
