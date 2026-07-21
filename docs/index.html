@@ -4449,42 +4449,42 @@ function renderParlays(){
   // ---- Bet 1 · Longest HR Jackpot: distance ceiling on names the FIELD ignores ----
   // The jackpot pays for the single longest HR — so the winner is almost never a chalk favorite
   // (those are priced short precisely because everyone expects them). The point is a longshot
-  // with a huge distance ceiling. "Chalk" here means SHORT ODDS (public favorites), not top-3 by
-  // our heat — a hitter can rank mid-board on heat but still be a chalky name at the book. So we
-  // exclude short-priced guys by their actual HR odds when we have them, and fall back to a wide
-  // heat-rank exclusion only when odds aren't loaded.
+  // with a huge distance ceiling. "Chalk" means SHORT REAL BOOK ODDS — not model odds. Every
+  // candidate MUST have a live book price; a hitter with no real odds is simply skipped and the
+  // card fills from the next longshot who IS priced. No model-odds fallback for eligibility.
   const jackpotCard=()=>{
     const mev=p=>((p.max_ev||{}).season ?? (p.max_ev||{}).recent) || 0;
-    // odds-based chalk detection: a hitter is "chalk" if his HR price is shorter than +260
-    // (implied ~28%+), i.e. a public favorite. Longshots (+300 and out) are the jackpot's target.
+    // REAL book price from odds.json (parlay-api, best of DK/Fanatics). null = no live odds.
     const priceOf=p=>{ const e=(typeof fetchedOddsFor==="function")?fetchedOddsFor(p.id):null; return e&&e.best!=null?e.best:null; };
-    const haveOdds = (BOARD.players||[]).some(p=>priceOf(p)!=null);
-    const isChalk=p=>{
+    // Eligibility requires a REAL price: must be priced, not chalk (shorter than +260), not an
+    // absurd dart (longer than +900). No odds -> not eligible, full stop.
+    // Chalk/longshot cutoffs on REAL book odds. For a LONGEST-HR jackpot the winner is an
+    // overlooked bomber, so we want genuine longshots — a +280 star still reads as chalk here.
+    // Tunable: raise CHALK_MAX to be stricter (fewer favorites), lower it to allow more names.
+    const CHALK_MAX = 350;    // odds shorter (smaller +) than this = chalk, excluded
+    const DART_MAX  = 1200;   // odds longer than this = pure dart, excluded
+    const elig=ranked.filter(p=>{
       const pr=priceOf(p);
-      if(pr!=null) return pr < 260;             // short-priced favorite = chalk (odds-based)
-      return p._rank < 4;                        // fallback when no odds: top-3 heat
-    };
-    const tooLong=p=>{ const pr=priceOf(p); return pr!=null && pr > 900; };  // +900 = dart throw, skip
-    const elig=ranked.filter(p=>!p.hr_last_game && !isChalk(p) && !tooLong(p)
-                                && (p.heat||0)>=45 && mev(p)>=108);
+      if(pr==null) return false;               // no real book odds -> skip this player entirely
+      if(pr < CHALK_MAX) return false;         // chalk favorite (real odds) -> excluded
+      if(pr > DART_MAX) return false;          // too long even for a distance dart
+      return !p.hr_last_game && (p.heat||0)>=45 && mev(p)>=108;
+    });
     if(elig.length<2) return thinCard("Longest HR Jackpot — candidates",
-      haveOdds ? "Not enough live-priced longshots with a big distance ceiling yet — fills in as odds/lineups post."
-               : "Not enough non-chalk, non-B2B power on this slate yet — fills in as lineups post.");
+      "Waiting on live book odds — the jackpot only ranks hitters with a real HR price (chalk excluded by those odds). Fills in once odds.json posts for this slate.");
     const dist=p=>{
       const ev=(Math.min(118,Math.max(105,mev(p)))-105)/13;                 // raw distance ceiling
       const pk=(p.park_hr&&p.park_hr.boost!=null)?Math.max(-0.5,Math.min(1,p.park_hr.boost/20)):0;
       const iso=((p.windows||{}).L14d||{}).iso||0;
-      // reward LONGER odds slightly — the jackpot pays for the overlooked name, not the 2nd favorite
+      // reward LONGER real odds slightly — the jackpot pays for the overlooked name
       const pr=priceOf(p);
-      const longshot = pr!=null ? Math.max(0,Math.min(1,(pr-250)/450)) : 0;  // +250..+700 ramp
+      const longshot = Math.max(0,Math.min(1,(pr-350)/500));               // +350..+850 ramp
       return ev*0.45 + pk*0.25 + Math.min(1,iso/0.30)*0.15 + longshot*0.15;
     };
     const picks=elig.slice().sort((a,b)=>dist(b)-dist(a)).slice(0,3);
     const priceTag=p=>{ const pr=priceOf(p); return pr!=null?` · ${pr>0?"+":""}${pr}`:""; };
     return cardShell("Longest HR Jackpot — candidates",
-      haveOdds
-        ? "distance ceiling on LONGSHOTS the field skips — chalk excluded by live odds. The winner is usually 400ft+ from a name nobody bet."
-        : "distance ceiling on mid-tier names: never chalk, never B2B — the winner is usually 400ft+ from someone the field skipped",
+      "distance ceiling on LONGSHOTS the field skips — chalk excluded by real book odds. The winner is usually 400ft+ from a name nobody bet.",
       picks,
       p=>leg(p,`<span class="pl-tag lb">${mev(p)?mev(p).toFixed(1)+" max EV":""}${priceTag(p)}${(p.park_hr&&p.park_hr.boost>0)?` · park +${p.park_hr.boost}%`:""}</span>`),
       "single entries, not a parlay — ranked by distance ceiling (max EV · park · ISO) with a longshot tilt", true);
