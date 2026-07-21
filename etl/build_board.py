@@ -1604,8 +1604,8 @@ def main():
             return 99
         jp_pool = [p for p in live_p
                    if not p.get("hr_last_game")
-                   and _rk(p) >= 4
-                   and (p.get("heat") or 0) >= 45
+                   and _rk(p) >= 8
+                   and 45 <= (p.get("heat") or 0) <= 78
                    and _mev(p) >= 108]
         def _dist(p):
             ev = (min(118.0, max(105.0, _mev(p))) - 105.0) / 13.0
