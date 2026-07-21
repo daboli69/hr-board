@@ -266,8 +266,8 @@ def build(date_str: str | None = None) -> dict:
         except Exception as e:
             _hnote("microclimate temps", e); print(f"[build] microclimate temps skipped: {e}")
 
-    try:                                           # B2B: homered in his most recent game
-        b2b_set = statcast_data.hr_last_game(df)
+    try:                                           # B2B: homered in his most recent game AND it was actually yesterday
+        b2b_set = statcast_data.hr_last_game(df, slate_date=date_str)
     except Exception as e:
         b2b_set = set(); _hnote("hr_last_game", e); print(f"[build] hr_last_game skipped: {e}")
 
@@ -428,7 +428,8 @@ def build(date_str: str | None = None) -> dict:
                 opp_abbr = g["home"] if side == "away" else g["away"] if g else None
                 pen_obj = _bullpen_for(opp_abbr) if opp_abbr else None
                 if pen_obj and pid:
-                    exp_ip = start_lens.get(pid, {}).get("avg_ip") if isinstance(start_lens.get(pid), dict) else start_lens.get(pid)
+                    _sl = start_lens.get(pid)
+                    exp_ip = _sl.get("med_len") if isinstance(_sl, dict) else _sl
                     pen_pids = pen_obj.get("arm_ids") or []
                     fidx = [fatigue_by_pid[a]["index"] for a in pen_pids if a in fatigue_by_pid]
                     if exp_ip and fidx:
@@ -1576,7 +1577,21 @@ def main():
     parlay_picks = []
     try:
         live_p = [p for p in board["players"] if p.get("lineup_status") != "out"]
-        by_heat = sorted(live_p, key=lambda p: -(p.get("heat") or 0))
+
+        # Sample-aware heat for PARLAY RANKING ONLY — never touches the real heat field or the
+        # model. A recent HR legitimately raises the power metrics, but in a thin window (few
+        # batted balls) one or two big games spike the score disproportionately. For parlays we
+        # shrink heat toward a neutral 50 when the recent sample is small, so a genuine 14-day
+        # streak on solid sample ranks ahead of a "2 HRs in 15 BBE" mirage. Full trust at 25+
+        # batted balls; linearly reduced below that.
+        def _adj_heat(p):
+            h = p.get("heat") or 0
+            bbe = (((p.get("windows") or {}).get("L14d") or {}).get("bb_count")
+                   or (p.get("sample") or {}).get("L15") or 0)
+            # shrink factor: 1.0 at 25+ BBE, ramps down to 0.55 at 0 BBE
+            trust = max(0.55, min(1.0, 0.55 + 0.45 * (bbe / 25.0)))
+            return 50 + (h - 50) * trust      # pull toward 50 when sample is thin
+        by_heat = sorted(live_p, key=lambda p: -_adj_heat(p))
 
         # Jackpot: top-3 mid-tier by (max_ev + park_hr + iso), not B2B, heat>=45
         def _mev(p):
@@ -1640,11 +1655,11 @@ def main():
             return None
 
         rr_slots = [
-            lambda p: (p.get("heat") or 0) >= 75,
-            lambda p: 55 <= (p.get("heat") or 0) < 75,
-            lambda p: 55 <= (p.get("heat") or 0) < 75,
-            lambda p: 40 <= (p.get("heat") or 0) < 55,
-            lambda p: (p.get("heat") or 0) < 55 and _rk(p) >= 20,
+            lambda p: _adj_heat(p) >= 75,
+            lambda p: 55 <= _adj_heat(p) < 75,
+            lambda p: 55 <= _adj_heat(p) < 75,
+            lambda p: 40 <= _adj_heat(p) < 55,
+            lambda p: _adj_heat(p) < 55 and _rk(p) >= 20,
         ]
         rr_picks = []
         used_ids, used_games = set(), set()

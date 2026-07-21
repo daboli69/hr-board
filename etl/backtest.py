@@ -61,69 +61,31 @@ def _tier(h):
 
 
 def _day_outcomes(day: pd.DataFrame) -> tuple[dict, dict, dict]:
-    """Per-batter (hits, hrr_approx, ks) and per-pitcher K totals for one date.
-    HRR approximation mirrors track.py: walk each half-inning's PA events in
-    order, track base state, credit runs/RBIs on hits and walks. A floor, not
-    exact — but identical to how the live tracker grades, so backtest and
-    tracker read on the same scale."""
-    bat_hits, bat_ks, bat_hrr = {}, {}, {}
+    """Per-batter (hits, hrr, ks) and per-pitcher K totals for one date.
+    HRR now uses the shared hrr_recon module (authoritative rbi + score-delta runs), IDENTICAL
+    to how track.py grades live — so backtest and tracker stay on the same scale. This replaced
+    the old base-runner sim that undercounted runs/RBIs (missed sac flies, groundout RBIs, runs
+    on outs), which had biased HRR low and made Unders look +EV everywhere."""
+    from etl import hrr_recon
+    bat_hits, bat_ks = {}, {}
     pit_ks = {}
     pa_df = day[day["events"].notna() & (day["events"] != "")]
-    ordered = pa_df.sort_values(["game_pk", "inning", "inning_topbot",
-                                 "at_bat_number", "pitch_number"])
-    for (gp, inn, half), grp in ordered.groupby(
-            ["game_pk", "inning", "inning_topbot"], sort=False):
-        seen = set()
-        base = {}
-        for _, row in grp.iterrows():
-            ab = row.get("at_bat_number")
-            if ab in seen or row["batter"] != row["batter"]:
-                continue
-            seen.add(ab)
-            bid = int(row["batter"])
-            ev = row["events"]
-            h = bat_hrr.setdefault(bid, {"hits": 0, "runs": 0, "rbis": 0})
-            if ev in K_EVENTS:
-                bat_ks[bid] = bat_ks.get(bid, 0) + 1
-                pit = row.get("pitcher")
-                if pit == pit:
-                    pit_ks[int(pit)] = pit_ks.get(int(pit), 0) + 1
-            if ev in HIT_EVENTS:
-                bat_hits[bid] = bat_hits.get(bid, 0) + 1
-                h["hits"] += 1
-                if ev == "home_run":
-                    h["rbis"] += 1 + len(base)
-                    h["runs"] += 1
-                    for r_ in list(base):
-                        bat_hrr.setdefault(r_, {"hits": 0, "runs": 0, "rbis": 0})["runs"] += 1
-                    base = {}
-                elif ev == "single":
-                    for r_, b_ in list(base.items()):
-                        if b_ == 3:
-                            bat_hrr.setdefault(r_, {"hits": 0, "runs": 0, "rbis": 0})["runs"] += 1
-                            h["rbis"] += 1
-                            del base[r_]
-                    base[bid] = 1
-                else:                                   # double / triple
-                    for r_ in list(base):
-                        bat_hrr.setdefault(r_, {"hits": 0, "runs": 0, "rbis": 0})["runs"] += 1
-                        h["rbis"] += 1
-                    base = {}
-                    base[bid] = 2 if ev == "double" else 3
-            elif ev in ("walk", "intent_walk", "hit_by_pitch"):
-                if 1 in base.values():
-                    for r_ in list(base):
-                        if base[r_] == 3:
-                            bat_hrr.setdefault(r_, {"hits": 0, "runs": 0, "rbis": 0})["runs"] += 1
-                            h["rbis"] += 1
-                            del base[r_]
-                        elif base[r_] == 2:
-                            base[r_] = 3
-                        elif base[r_] == 1:
-                            base[r_] = 2
-                base[bid] = 1
-    return ({"hits": bat_hits, "ks": bat_ks, "hrr": bat_hrr}, pit_ks,
-            {bid: v["hits"] + v["runs"] + v["rbis"] for bid, v in bat_hrr.items()})
+    # hits + strikeouts (exact from events)
+    for _, row in pa_df.iterrows():
+        if row["batter"] != row["batter"]:
+            continue
+        bid = int(row["batter"]); ev = row["events"]
+        if ev in K_EVENTS:
+            bat_ks[bid] = bat_ks.get(bid, 0) + 1
+            pit = row.get("pitcher")
+            if pit == pit:
+                pit_ks[int(pit)] = pit_ks.get(int(pit), 0) + 1
+        if ev in HIT_EVENTS:
+            bat_hits[bid] = bat_hits.get(bid, 0) + 1
+    # HRR via the shared, corrected reconstruction
+    hrr_map = hrr_recon.hrr_map(pa_df)
+    hrr_total = {bid: v["hits"] + v["runs"] + v["rbis"] for bid, v in hrr_map.items()}
+    return ({"hits": bat_hits, "ks": bat_ks, "hrr": hrr_map}, pit_ks, hrr_total)
 
 
 def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str) -> dict:

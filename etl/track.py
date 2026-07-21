@@ -113,70 +113,11 @@ def _truthy(v):
 
 
 def _hrr_map(sc):
-    """{bid: (hits, runs, rbis)} — hits are exact, runs/rbis approximated by
-    walking each half-inning's PA events in order and tracking base state."""
-    out = {}
-    # sort by (game_pk, inning, inning_topbot, at_bat_number, pitch_number)
-    # so the final row of each PA has the outcome
-    df = sc.sort_values(["game_pk", "inning", "inning_topbot", "at_bat_number", "pitch_number"])
-    # keep only rows with a real PA-ending event
-    pa_df = df[df["events"].isin(list(PA_EVENTS_TRACK))]
-    if pa_df.empty:
-        return out
-    for (gp, inn, half), grp in pa_df.groupby(["game_pk", "inning", "inning_topbot"], sort=False):
-        # walk in AB order, one row per PA
-        seen = set()
-        base = {}      # runner_id -> 1/2/3 (base occupied)
-        for _, row in grp.iterrows():
-            ab = row.get("at_bat_number")
-            if ab in seen or row["batter"] != row["batter"]:
-                continue
-            seen.add(ab)
-            bid = int(row["batter"])
-            ev = row["events"]
-            rec = out.setdefault(bid, {"hits": 0, "runs": 0, "rbis": 0})
-            if ev in HIT_EVENTS:
-                rec["hits"] += 1
-                # Everyone on base scores conservatively on a HR;
-                # on other hits, we credit 1 rbi if runners were on
-                if ev == "home_run":
-                    rec["rbis"] += 1 + len(base)      # self + runners on
-                    rec["runs"] += 1
-                    for runner in list(base):
-                        rr = out.setdefault(runner, {"hits": 0, "runs": 0, "rbis": 0})
-                        rr["runs"] += 1
-                    base = {}
-                elif ev in ("single", "double", "triple"):
-                    # approximate: on double/triple everyone scores; on single, r3 scores
-                    if ev == "single":
-                        if 3 in [b for b in base.values()]:
-                            for runner, b in list(base.items()):
-                                if b == 3:
-                                    out.setdefault(runner, {"hits":0,"runs":0,"rbis":0})["runs"] += 1
-                                    rec["rbis"] += 1
-                                    del base[runner]
-                    else:                              # double or triple
-                        for runner in list(base):
-                            out.setdefault(runner, {"hits":0,"runs":0,"rbis":0})["runs"] += 1
-                            rec["rbis"] += 1
-                        base = {}
-                    # then the batter takes his base
-                    base[bid] = 1 if ev == "single" else 2 if ev == "double" else 3
-            elif ev in ("walk", "intent_walk", "hit_by_pitch"):
-                # walk with runner on 1st -> everyone forces up 1
-                if 1 in base.values():
-                    for runner in list(base):
-                        if base[runner] == 3:
-                            out.setdefault(runner, {"hits":0,"runs":0,"rbis":0})["runs"] += 1
-                            rec["rbis"] += 1
-                            del base[runner]
-                        elif base[runner] == 2:
-                            base[runner] = 3
-                        elif base[runner] == 1:
-                            base[runner] = 2
-                base[bid] = 1
-            # everything else (outs, K, sacs, etc) leaves base state approximately unchanged
-    return out
+    """{bid: {hits,runs,rbis}} — delegates to the shared hrr_recon module so live grading uses
+    IDENTICAL logic to the backtest calibration (authoritative rbi + score-delta runs). The old
+    per-file base-runner sim undercounted runs/RBIs and biased HRR low."""
+    from etl import hrr_recon
+    return hrr_recon.hrr_map(sc)
 
 
 # PA_EVENTS defined in statcast_data — mirror it here to avoid an extra import at load time

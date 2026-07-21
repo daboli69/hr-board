@@ -67,6 +67,9 @@ def pull_season(start: str, end: str) -> pd.DataFrame:
         # --- feature-extraction additions ---
         "plate_x", "plate_z", "zone",      # pitch LOCATION for pitch-type/location matchup
         "sv_id",                            # encodes YYMMDD_HHMMSS — timestamp for microclimate
+        # --- authoritative scoring fields for accurate HRR (no base-runner simulation) ---
+        "rbi",                              # exact RBI credited on this PA
+        "bat_score", "post_bat_score",      # batting-team score before/after PA -> runs scored
     ]
     keep = [c for c in keep if c in df.columns]
     return normalize_frame(df[keep].copy())
@@ -1093,9 +1096,17 @@ def pitcher_appearances(df: pd.DataFrame) -> dict:
     return {int(k): int(v) for k, v in g.items()}
 
 
-def hr_last_game(df: pd.DataFrame) -> set:
-    """Batter ids who homered in their most recent game — the 'back-to-back' fade signal
-    (public loads up on last night's HR hitters; the repeat is priced badly)."""
+def hr_last_game(df: pd.DataFrame, slate_date: str = None, max_gap_days: int = 1) -> set:
+    """Batter ids who homered in their most recent game AND that game was actually recent
+    (within max_gap_days of the slate) — the true 'back-to-back' fade signal.
+
+    IMPORTANT: 'most recent game' is per-batter, so a player who homered Saturday, sat out
+    Sunday, then plays Monday would otherwise be flagged b2b on Monday even though he didn't
+    play yesterday. That's wrong — b2b requires the HR game to be the ACTUAL prior day. We now
+    gate on the gap between the slate date and the batter's last game: only flag if that gap is
+    <= max_gap_days (1 = homered yesterday). Without a slate_date we fall back to the old
+    per-batter behavior for backward compatibility, but callers should pass it.
+    """
     need = {"batter", "game_date", "events"}
     if df is None or df.empty or not need.issubset(df.columns):
         return set()
@@ -1104,7 +1115,25 @@ def hr_last_game(df: pd.DataFrame) -> set:
     d = d.merge(last, on="batter")
     recent = d[d["game_date"] == d["last_g"]]
     hr = recent[recent["events"].eq("home_run")]
-    return set(int(b) for b in hr["batter"].unique())
+    hr_batters = {int(b): g for b, g in zip(hr["batter"], hr["last_g"])}
+    if not hr_batters:
+        return set()
+    if slate_date is None:
+        return set(hr_batters)          # legacy fallback (no recency gate)
+    import datetime as _dt
+    try:
+        slate = _dt.date.fromisoformat(str(slate_date)[:10])
+    except Exception:
+        return set(hr_batters)
+    out = set()
+    for bid, lastg in hr_batters.items():
+        try:
+            lg = _dt.date.fromisoformat(str(lastg)[:10])
+            if 0 <= (slate - lg).days <= max_gap_days:   # last game was actually yesterday-ish
+                out.add(bid)
+        except Exception:
+            continue
+    return out
 
 
 def pitcher_batted_profile(df: pd.DataFrame) -> dict:
