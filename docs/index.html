@@ -4407,6 +4407,17 @@ function renderParlays(){
       catch(e){ return Object.assign({}, p, {_score:0,_prob:0.02,_trend:1,_mix:1,_tags:1,_luck:1,_rank:rankMap[p.id]??99}); } })
     .sort((a,b)=>b._score-a._score);
 
+  // Sample-aware HR probability for PARLAY RANKING ONLY. A recent HR legitimately lifts the
+  // power metrics, but in a thin batted-ball window one or two big games spike the score. For
+  // parlays we shrink the model prob toward the base rate when the recent sample is small, so a
+  // genuine streak on solid sample outranks a "2 HRs in 15 BBE" mirage. Never touches the board.
+  const _bbeOf=(p)=> (((p.windows||{}).L14d||{}).bb_count) || ((p.sample||{}).L15) || 0;
+  const _parlayProb=(p)=>{
+    const base=p._prob||0, bbe=_bbeOf(p);
+    const trust=Math.max(0.6, Math.min(1, 0.6 + 0.4*(bbe/25)));  // full trust at 25+ BBE
+    const NEUTRAL=0.05;                                          // league-ish base HR rate
+    return NEUTRAL + (base-NEUTRAL)*trust;                      // shrink toward base rate when thin
+  };
   const leg=(p,extra)=>{
     const tags=[];
     // priority order: the extra (card-specific, e.g. price/prob) first, then the 2 most useful
@@ -4415,6 +4426,7 @@ function renderParlays(){
     else if(p._rank>=20) tags.push(`<span class="pl-tag sl">sleeper</span>`);
     if(p.trend && p.trend.dir==="up") tags.push(`<span class="pl-tag up">▲ trending</span>`);
     if(p.hr_last_game) tags.push(`<span class="pl-tag warn">B2B</span>`);
+    else if(_bbeOf(p)<15) tags.push(`<span class="pl-tag warn">thin sample</span>`);
     else if(p._tags>1.05) tags.push(`<span class="pl-tag tg">tags+</span>`);
     else if(p._mix>1.03) tags.push(`<span class="pl-tag mx">mix+</span>`);
     // cap at 3 tags total so legs never overflow, even before wrapping
@@ -4460,18 +4472,19 @@ function renderParlays(){
   // HR probability (which favors the shorter-priced, likelier hitters), not raw model score,
   // and shows the honest combined chance so you see what you're really betting.
   const best3Card=()=>{
-    // rank by model HR PROBABILITY, not _score — the likeliest hitters, not the flashiest
-    const byProb=ranked.slice().sort((a,b)=>(b._prob||0)-(a._prob||0));
+    // rank by SAMPLE-ADJUSTED HR probability — the likeliest hitters on solid sample, so a
+    // thin-window HR spike doesn't jump the queue
+    const byProb=ranked.slice().sort((a,b)=>_parlayProb(b)-_parlayProb(a));
     const used=new Set(); const picks=[];
     for(const p of byProb){
       if(picks.length>=3) break;
       if(used.has(p.team)) continue;
-      if((p._prob||0)<0.10) continue;    // skip true longshots — a parlay of <10% legs is noise
+      if(_parlayProb(p)<0.10) continue;    // skip true longshots — a parlay of <10% legs is noise
       if(p.hr_last_game && picks.some(x=>x.hr_last_game)) continue;
       picks.push(p); used.add(p.team);
     }
-    if(picks.length<3) return thinCard("Best Board · 3-leg","Fewer than 3 teams with a hitter likely enough to parlay (10%+ model HR chance). On a thin slate, a single straight bet is the better play — parlays need multiple genuinely likely legs.");
-    const comb=picks.reduce((a,p)=>a*(p._prob||0),1);
+    if(picks.length<3) return thinCard("Best Board · 3-leg","Fewer than 3 teams with a hitter likely enough to parlay (10%+ sample-adjusted HR chance). On a thin slate, a single straight bet is the better play — parlays need multiple genuinely likely legs.");
+    const comb=picks.reduce((a,p)=>a*_parlayProb(p),1);
     return cardShell("Best Board · 3-leg",
       "the three LIKELIEST hitters to homer (by model probability), one per team — not the flashiest names, the ones most likely to actually go deep. A parlay only makes sense when each leg is genuinely probable.",
       picks,
