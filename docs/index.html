@@ -468,8 +468,10 @@
   .zone-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;max-width:220px;margin:0 auto;aspect-ratio:1}
   .zc{aspect-ratio:1;border:1px solid var(--line);border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;gap:1px}
   .zc-lbl{position:absolute;top:2px;left:4px;font-family:"IBM Plex Mono";font-size:8px;color:var(--faint);font-weight:700}
+  .zc-use{position:absolute;bottom:2px;left:4px;font-family:"IBM Plex Mono";font-size:8px;color:var(--seam);font-weight:700}
   .zc-u{font-family:"IBM Plex Mono";font-size:12px;font-weight:700;color:var(--ink)}
   .zc-xw{font-family:"IBM Plex Mono";font-size:11px;font-weight:800;color:var(--ink)}
+  .zc-pow{display:block;font-family:"IBM Plex Mono";font-size:7px;color:var(--muted);margin-top:1px;line-height:1.1}
   .zc-xw.dim{color:var(--faint);font-weight:400}
   .zc-star{position:absolute;top:2px;right:4px;color:var(--hot);font-size:10px}
   .edge-zbadge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;background:var(--hot);color:#0c0f14;font-family:"IBM Plex Mono";font-size:10px;font-weight:800;border-radius:8px;vertical-align:middle}
@@ -1554,8 +1556,22 @@ function spotBlock(p){
 // tracker validates each via CLV. Never fold into the heat score.
 function featureBlock(p){
   const f=p.features;
-  if(!f || (!f.pitch_matchup && !f.late_hr && !f.microclimate)) return "";
+  if(!f || (!f.pitch_matchup && !f.late_hr && !f.microclimate && !f.hr_power)) return "";
   let rows="";
+  // 0. HR power profile — raw batted-ball power lens (barrel / distance / HR-swing rate)
+  const hp=f.hr_power;
+  if(hp && (hp.barrel_pct!=null || hp.max_dist!=null)){
+    const bits=[];
+    if(hp.barrel_pct!=null) bits.push(`<b>${hp.barrel_pct}%</b> barrel`);
+    if(hp.hr_swing_pct!=null) bits.push(`<b>${hp.hr_swing_pct}%</b> HR-swing`);
+    if(hp.avg_fb_dist!=null) bits.push(`<b>${hp.avg_fb_dist}ft</b> avg FB`);
+    if(hp.max_dist!=null) bits.push(`<b>${hp.max_dist}ft</b> max`);
+    const strong=(hp.barrel_pct!=null&&hp.barrel_pct>=12)||(hp.hr_swing_pct!=null&&hp.hr_swing_pct>=14);
+    rows+=`<div class="feat-row">
+      <div class="feat-hd"><b>HR power profile</b> <span class="feat-sc" style="color:${strong?'var(--hot)':'var(--muted)'}">${strong?'PLUS':'—'}</span></div>
+      <div class="feat-dt">${bits.join(" · ")}. Raw over-the-fence contact from ${hp.n} batted balls — barrel rate and carry are the leading HR indicators, shown separately from Heat.</div>
+    </div>`;
+  }
   // 1. Pitch-type matchup: does THIS arm's mix feed THIS hitter's family strength?
   const pm=f.pitch_matchup;
   if(pm && pm.score!=null){
@@ -2872,15 +2888,22 @@ function zoneHeatmap(grid, batter){
   for(let z=1;z<=9;z++){
     const zk=String(z);
     const u=grid[zk]||0;                       // pitcher usage in this cell
+    // pitcher usage badge — shown in BOTH modes so you always see how often he throws here
+    const usePct=Math.round(u*100);
+    const useBadge=`<span class="zc-use">${usePct}%</span>`;
     let bg, mark="", label=`<span class="zc-lbl">${z}</span>`, sub="";
     if(batter && batter.zone_dmg){
-      // BATTER MODE: color by his contact quality here
+      // BATTER MODE: color by his contact quality here; still show pitcher usage in the corner
       const zd=batter.zone_dmg[zk];
-      const xw=zd?zd.xw:null, n=zd?zd.n:null;
+      const xw=zd?zd.xw:null, n=zd?zd.n:null, brl=zd?zd.brl:null, dist=zd?zd.dist:null;
       if(xw!=null){
-        const t=Math.max(0,Math.min(1,(xw-0.250)/0.300));   // .250...550 xwOBA ramp
+        const t=Math.max(0,Math.min(1,(xw-0.250)/0.300));   // .250-.550 xwOBA ramp
         bg=`rgba(214,110,90,${(t*0.85).toFixed(2)})`;
-        sub=`<span class="zc-xw">${xw.toFixed(3)}</span>`;
+        // main = xwOBA; secondary line = barrel% and distance (HR-power context)
+        const brlTxt=brl!=null?`${Math.round(brl)}% brl`:"";
+        const distTxt=dist!=null?`${dist}ft`:"";
+        sub=`<span class="zc-xw">${xw.toFixed(3)}</span>`+
+            (brlTxt||distTxt?`<span class="zc-pow">${[brlTxt,distTxt].filter(Boolean).join(" · ")}</span>`:"");
         const crushes=(xw>=0.400 && (n||0)>=6);
         const pitcherThrows=u>=0.10;
         if(crushes && pitcherThrows) mark='<span class="zc-star danger">◆</span>';
@@ -2889,13 +2912,14 @@ function zoneHeatmap(grid, batter){
         bg="var(--panel-2)";
         sub=`<span class="zc-xw dim">–</span>`;   // no sample here
       }
+      cells.push(`<div class="zc" style="background:${bg}">${label}${useBadge}${sub}${mark}</div>`);
     }else{
-      // PITCHER MODE: color by where he lives
+      // PITCHER MODE: color by where he lives; usage is the main number
       const intensity=Math.min(1, u/0.20);
       bg=`rgba(214,110,90,${(intensity*0.7).toFixed(2)})`;
-      sub=`<span class="zc-u">${Math.round(u*100)}%</span>`;
+      sub=`<span class="zc-u">${usePct}%</span>`;
+      cells.push(`<div class="zc" style="background:${bg}">${label}${sub}</div>`);
     }
-    cells.push(`<div class="zc" style="background:${bg}">${label}${sub}${mark}</div>`);
   }
   return `<div class="zone-grid">${cells.join("")}</div>`;
 }
@@ -2926,7 +2950,7 @@ function edgesDrilldown(p){
   const fatLine=p.fatigue&&p.fatigue.state?`<div class="edge-dd-fat ${p.fatigue.state.toLowerCase()}">Pen fatigue: <b>${p.fatigue.state}</b> (${p.fatigue.index}/100) — ${p.fatigue.driver}</div>`:"";
 
   const mapHeader=sel
-    ? `<b>${sel.name}</b>'s contact by zone vs ${p.name} <span>darker = higher xwOBA · ◆ he crushes it AND ${p.name} throws there · ● he crushes it</span>`
+    ? `<b>${sel.name}</b>'s contact by zone vs ${p.name} <span>big number = his xwOBA · small line = barrel% · distance · corner % = how often ${p.name} throws there · ◆ he crushes it AND ${p.name} lives there · ● he crushes it</span>`
     : `Where ${p.name} lives <span>darker = more pitches there · tap a batter below to see HIS zones</span>`;
 
   return `<div class="edges-wrap">
