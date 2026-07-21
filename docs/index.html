@@ -465,10 +465,17 @@
   .edge-dd-fat.worn{color:var(--seam);background:rgba(215,120,60,.08);border:1px solid rgba(215,120,60,.25)}
   .edge-dd-zone-h,.edge-dd-bh{font-size:12px;font-weight:700;color:var(--ink);margin:10px 0 6px}
   .edge-dd-zone-h span,.edge-dd-bh span{display:block;font-weight:400;color:var(--faint);font-size:10px;margin-top:1px}
-  .zone-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;max-width:200px;margin:0 auto;aspect-ratio:1}
-  .zc{aspect-ratio:1;border:1px solid var(--line);border-radius:4px;display:flex;align-items:center;justify-content:center;position:relative}
-  .zc-u{font-family:"IBM Plex Mono";font-size:11px;font-weight:700;color:var(--ink)}
-  .zc-star{position:absolute;top:3px;right:4px;color:var(--hot);font-size:9px}
+  .zone-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;max-width:220px;margin:0 auto;aspect-ratio:1}
+  .zc{aspect-ratio:1;border:1px solid var(--line);border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;gap:1px}
+  .zc-lbl{position:absolute;top:2px;left:4px;font-family:"IBM Plex Mono";font-size:8px;color:var(--faint);font-weight:700}
+  .zc-u{font-family:"IBM Plex Mono";font-size:12px;font-weight:700;color:var(--ink)}
+  .zc-xw{font-family:"IBM Plex Mono";font-size:11px;font-weight:800;color:var(--ink)}
+  .zc-xw.dim{color:var(--faint);font-weight:400}
+  .zc-star{position:absolute;top:2px;right:4px;color:var(--hot);font-size:10px}
+  .edge-zbadge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;background:var(--hot);color:#0c0f14;font-family:"IBM Plex Mono";font-size:10px;font-weight:800;border-radius:8px;vertical-align:middle}
+  .edge-bat.sel{background:var(--panel-2);border-left:3px solid var(--hot)}
+  .edge-dd-help{font-size:10.5px;color:var(--muted);line-height:1.55;background:var(--panel-2);border-radius:9px;padding:10px 12px;margin-top:12px}
+  .edge-dd-help b{color:var(--ink)}
   .zc-star.danger{color:var(--bad);font-size:11px;text-shadow:0 0 4px rgba(214,110,90,.6)}
   /* Scan tab */
   .scan-wrap{padding-bottom:20px}
@@ -2717,6 +2724,7 @@ function scanToPlayer(id){
 // he lives + the opposing batters ranked by how much they punish exactly those zones. This
 // makes the pitch-matchup edge spatial and scannable instead of buried in 270 cards.
 let edgesPitcher = null;   // currently-drilled pitcher id
+let edgesBatter = null;    // selected batter id for the interactive zone map
 let edgesView = "arms";    // arms | micro | late
 function setEdgesView(v){ edgesView=v; edgesPitcher=null; renderEdges(); }
 function renderEdges(){
@@ -2765,10 +2773,17 @@ function renderEdges(){
   }
 
   if(edgesView==="micro"){
-    // hitters flagged by tonight's temperature vs their sensitivity
+    // hitters flagged by tonight's temperature vs their sensitivity, ordered by ACTUAL impact
+    // tonight = sensitivity × how far tonight's temp is from the hitter's median (a very
+    // temp-sensitive hitter whose median ≈ tonight's temp has little real edge tonight).
+    const impact=(m)=>{
+      const sens=Math.abs(m.sensitivity_ev||0);
+      const gap=(m.today_temp!=null&&m.median_temp!=null)?Math.abs(m.today_temp-m.median_temp):0;
+      return sens * Math.min(1.5, gap/10);   // scale gap; 15°+ from median = full weight
+    };
     const flagged=players.filter(p=>p.features&&p.features.microclimate&&p.features.microclimate.flag)
-      .map(p=>({p, m:p.features.microclimate}))
-      .sort((a,b)=>Math.abs(b.m.sensitivity_ev)-Math.abs(a.m.sensitivity_ev));
+      .map(p=>({p, m:p.features.microclimate, imp:impact(p.features.microclimate)}))
+      .sort((a,b)=>b.imp-a.imp);
     const rows=flagged.map(({p,m})=>{
       const boost=m.flag.includes("BOOST"), col=boost?"var(--hot)":"var(--cold)";
       return `<button class="edge-arm" onclick="edgesToPlayer(${p.id})">
@@ -2837,7 +2852,7 @@ function renderEdges(){
     </button>`;
   }).join("");
   main.innerHTML=`<div class="edges-wrap">${hd}${subTabs}
-    <div class="edges-intro">Today's arms ranked by how <b>exploitable</b> they are — the higher the number, the more the opposing lineup punishes the zones and pitches this arm actually throws. Tap any arm for its zone map and the batters who hurt it most.</div>
+    <div class="edges-intro">Today's arms ranked by <b>zone-matchup exploitability</b> — the average xwOBA the top opposing hitters post in exactly the cells this arm throws to most (only hitters with real sample count). <b>Note:</b> this is a different lens than "Arms today" on the board, which ranks by the HR-vulnerability model. This one is spatial matchup; that one is season HR-suppression. They won't match — they're measuring different things. Tap any arm for its zone map.</div>
     ${note}
     ${rows}
   </div>`;
@@ -2846,75 +2861,97 @@ function renderEdges(){
 // Zone heatmap: 3x3 grid colored by pitcher usage, with a punish overlay showing where the
 // facing lineup does the most damage. `punishMap` = {zone: {maxXw, names[]}} aggregated across
 // all facing batters. A cell lights a ● when someone crushes a zone the pitcher lives in.
-function zoneHeatmap(grid, punishMap){
+// Zone heatmap. Two modes:
+//  - pitcher mode (no batter selected): cells colored by where the PITCHER lives, labeled 1-9.
+//  - batter mode (a hitter selected): cells colored by THAT hitter's xwOBA, with a ◆ on zones he
+//    crushes that the pitcher also throws to (the danger overlap), ● on zones he crushes elsewhere.
+// Every cell is labeled with its zone number so "crushes zone 8" is locatable.
+function zoneHeatmap(grid, batter){
   if(!grid) return "";
   const cells=[];
   for(let z=1;z<=9;z++){
-    const u=grid[String(z)]||0;
-    const intensity=Math.min(1, u/0.20);   // 20% usage in one cell = max heat
-    const bg=`rgba(214,110,90,${(intensity*0.7).toFixed(2)})`;
-    const pz=punishMap?punishMap[String(z)]:null;
-    // danger = pitcher throws here a lot AND the lineup crushes here
-    const danger=(pz && pz.maxXw!=null && pz.maxXw>=0.380 && u>=0.09);
-    const warn=(pz && pz.maxXw!=null && pz.maxXw>=0.420);
-    const mark=danger?'<span class="zc-star danger">◆</span>':warn?'<span class="zc-star">●</span>':"";
-    const tip=pz&&pz.maxXw!=null?` title="crushed by ${(pz.names||[]).slice(0,2).join(', ')} · ${pz.maxXw.toFixed(3)} xwOBA"`:"";
-    cells.push(`<div class="zc"${tip} style="background:${bg}">
-      <span class="zc-u">${Math.round(u*100)}%</span>${mark}</div>`);
+    const zk=String(z);
+    const u=grid[zk]||0;                       // pitcher usage in this cell
+    let bg, mark="", label=`<span class="zc-lbl">${z}</span>`, sub="";
+    if(batter && batter.zone_dmg){
+      // BATTER MODE: color by his contact quality here
+      const zd=batter.zone_dmg[zk];
+      const xw=zd?zd.xw:null, n=zd?zd.n:null;
+      if(xw!=null){
+        const t=Math.max(0,Math.min(1,(xw-0.250)/0.300));   // .250...550 xwOBA ramp
+        bg=`rgba(214,110,90,${(t*0.85).toFixed(2)})`;
+        sub=`<span class="zc-xw">${xw.toFixed(3)}</span>`;
+        const crushes=(xw>=0.400 && (n||0)>=6);
+        const pitcherThrows=u>=0.10;
+        if(crushes && pitcherThrows) mark='<span class="zc-star danger">◆</span>';
+        else if(crushes) mark='<span class="zc-star">●</span>';
+      }else{
+        bg="var(--panel-2)";
+        sub=`<span class="zc-xw dim">–</span>`;   // no sample here
+      }
+    }else{
+      // PITCHER MODE: color by where he lives
+      const intensity=Math.min(1, u/0.20);
+      bg=`rgba(214,110,90,${(intensity*0.7).toFixed(2)})`;
+      sub=`<span class="zc-u">${Math.round(u*100)}%</span>`;
+    }
+    cells.push(`<div class="zc" style="background:${bg}">${label}${sub}${mark}</div>`);
   }
   return `<div class="zone-grid">${cells.join("")}</div>`;
-}
-// Aggregate per-zone punish across all facing batters -> {zone:{maxXw, names[]}}
-function buildPunishMap(bats){
-  const m={};
-  (bats||[]).forEach(b=>{
-    const zd=b.zone_dmg; if(!zd) return;
-    Object.entries(zd).forEach(([z,xw])=>{
-      if(xw==null) return;
-      if(!m[z]||xw>m[z].maxXw) m[z]={maxXw:xw, names:[b.name]};
-      else if(xw>=m[z].maxXw-0.03) m[z].names.push(b.name);
-    });
-  });
-  return m;
 }
 
 function edgesDrilldown(p){
   const g=p.zone_grid;
-  const bats=(p.batters||[]).filter(b=>b.zone_score!=null).slice(0,8);
-  const batRows=bats.map((b,i)=>{
+  const bats=(p.batters||[]).filter(b=>b.zone_score!=null);
+  // which batter is selected for the map? default: none (pitcher mode)
+  const sel=bats.find(b=>b.id===edgesBatter) || null;
+
+  const batRows=bats.slice(0,9).map((b,i)=>{
+    const on=sel&&sel.id===b.id;
     const col=b.zone_score>=0.400?"var(--hot)":b.zone_score>=0.340?"var(--ink)":"var(--muted)";
-    return `<div class="edge-bat" onclick="edgesToPlayer(${b.id})">
+    const nZ=(b.crushed_zones||[]).length;
+    const zoneBadge=nZ>0?`<span class="edge-zbadge" title="crushes ${nZ} zone(s): ${(b.crushed_zones||[]).join(', ')}">${nZ}</span>`:"";
+    return `<div class="edge-bat${on?' sel':''}" onclick="edgesBatter=${on?'null':b.id};renderEdges()">
       <div class="edge-bat-rk">${i+1}</div>
       <div class="edge-bat-main">
-        <div><b>${b.name}</b> <span class="edge-bat-meta">${b.bats||"?"} · #${b.spot||"?"} · heat ${b.heat??"–"}</span></div>
-        <div class="edge-bat-sub">${b.hot_zone?`crushes zone ${b.hot_zone}`:""}${b.hot_xw!=null?` (${b.hot_xw.toFixed(3)} xwOBA)`:""}${b.matchup_score!=null?` · pitch-mix ${b.matchup_score.toFixed(0)}`:""}</div>
+        <div><b>${b.name}</b> ${zoneBadge} <span class="edge-bat-meta">${b.bats||"?"} · #${b.spot||"?"} · heat ${b.heat??"–"}</span></div>
+        <div class="edge-bat-sub">${(b.crushed_zones||[]).length?`crushes zones ${b.crushed_zones.join(", ")}`:"no dominant zone"}${b.matchup_score!=null?` · pitch-mix ${b.matchup_score.toFixed(0)}`:""}</div>
       </div>
       <div class="edge-bat-sc" style="color:${col}">${b.zone_score.toFixed(3)}</div>
     </div>`;
   }).join("");
+
   const ars=p.arsenal;
   const arsLine=ars&&ars.usage?`${Math.round((ars.usage.FB||0)*100)}% FB · ${Math.round((ars.usage.BR||0)*100)}% breaking · ${Math.round((ars.usage.OFF||0)*100)}% offspeed`:"arsenal n/a";
   const fatLine=p.fatigue&&p.fatigue.state?`<div class="edge-dd-fat ${p.fatigue.state.toLowerCase()}">Pen fatigue: <b>${p.fatigue.state}</b> (${p.fatigue.index}/100) — ${p.fatigue.driver}</div>`:"";
+
+  const mapHeader=sel
+    ? `<b>${sel.name}</b>'s contact by zone vs ${p.name} <span>darker = higher xwOBA · ◆ he crushes it AND ${p.name} throws there · ● he crushes it</span>`
+    : `Where ${p.name} lives <span>darker = more pitches there · tap a batter below to see HIS zones</span>`;
+
   return `<div class="edges-wrap">
     <div class="edges-hd">
-      <button class="edge-back" onclick="edgesPitcher=null;renderEdges()">‹ arms</button>
+      <button class="edge-back" onclick="edgesBatter=null;edgesPitcher=null;renderEdges()">‹ arms</button>
       <h2>${p.name} <span class="edge-dd-hand">${p.throws||"?"}HP</span></h2>
     </div>
     <div class="edge-dd-sub">${p.team} vs ${p.opp_team} · ${timeStr(p.time)} · ${p.park||""}</div>
     <div class="edge-dd-ars">${arsLine}</div>
     ${fatLine}
-    <div class="edge-dd-zone-h">Where he lives <span>darker = more pitches there · ◆ danger zone (throws here + lineup crushes it) · ● lineup crushes it</span></div>
-    ${zoneHeatmap(g, buildPunishMap(bats))}
-    <div class="edge-dd-zk"><span>catcher's view · up top, down bottom</span></div>
-    <div class="edge-dd-bh">Batters who punish his zones <span>ranked by xwOBA in the cells he throws to</span></div>
+    <div class="edge-dd-zone-h">${mapHeader}</div>
+    ${zoneHeatmap(g, sel)}
+    <div class="edge-dd-zk"><span>catcher's view · zones 1-3 up, 4-6 middle, 7-9 down${sel?` · <a onclick="edgesBatter=null;renderEdges()" style="color:var(--seam);cursor:pointer">show pitcher's zones</a>`:""}</span></div>
+    <div class="edge-dd-bh">Batters who punish his zones <span>tap one to light up his zones on the map above</span></div>
     ${batRows||'<div class="empty" style="padding:16px">No batter zone data for this arm yet.</div>'}
-    <div class="edges-note" style="margin-top:12px">⚠︎ Beta signal. The ranking is each batter's contact quality in exactly the zones this arm favors — a spatial matchup the market doesn't price directly. Not yet validated; treat as a lead.</div>
+    <div class="edge-dd-help">
+      <b>How to read this:</b> the number by each batter is his <b>zone-match score</b> — his average xwOBA in exactly the cells this pitcher throws to most (higher = worse matchup for the arm). The <b>badge</b> is how many zones he crushes (xwOBA ≥ .400 on 6+ balls). The arm's own rank comes from how much its top opponents punish its favorite zones.
+    </div>
+    <div class="edges-note" style="margin-top:12px">⚠︎ Beta signal — a spatial matchup the market doesn't price directly. Zone stats need sample; low-sample cells are hidden. Not yet CLV-validated.</div>
   </div>`;
 }
 
-// From an Edges batter row, jump to that hitter's full card on the Board.
+// From an Edges batter row, jump to that hitter's full card on the Board (used elsewhere).
 function edgesToPlayer(id){
-  edgesPitcher=null;
+  edgesBatter=null; edgesPitcher=null;
   goView("board");
   setTimeout(()=>{
     const row=document.querySelector(`.row[data-id="${id}"]`);
