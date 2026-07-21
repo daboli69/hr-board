@@ -1100,20 +1100,38 @@ def build(date_str: str | None = None) -> dict:
                             bz = None
                         vz = features.batter_vs_pitcher_zones(bz, zgrid) if bz else {}
                         pm = (pl.get("features") or {}).get("pitch_matchup") or {}
+                        # zones this batter "crushes" = cells with xwOBAcon >= 0.400 on adequate
+                        # sample. Count is shown as a badge; the map colors these for THIS hitter.
+                        crushed = []
+                        zdmg_full = {}
+                        if bz:
+                            for zk, zv in bz.items():
+                                xw = zv.get("xwobacon"); n = zv.get("n")
+                                zdmg_full[zk] = {"xw": xw, "n": n}
+                                if xw is not None and xw >= 0.400 and (n or 0) >= 6:
+                                    crushed.append(int(zk))
                         opp_batters.append({
                             "id": pl["id"], "name": pl["name"], "spot": pl.get("lineup_spot"),
                             "bats": pl.get("bats"), "heat": pl.get("heat"),
                             "zone_score": vz.get("score"), "hot_zone": vz.get("hot_zone"),
                             "hot_xw": vz.get("hot_xw"),
                             "matchup_score": pm.get("score"),
-                            # per-zone xwOBA (compact: {zone: xwobacon}) for the heatmap overlay
-                            "zone_dmg": {z: v.get("xwobacon") for z, v in (bz or {}).items()} if bz else None,
+                            # full per-zone {xw, n} for the interactive per-hitter heatmap
+                            "zone_dmg": zdmg_full or None,
+                            "crushed_zones": sorted(crushed),      # e.g. [4,7,8] -> badge "3"
                         })
                     # rank opponents by zone score (who punishes where he lives)
                     opp_batters.sort(key=lambda b: (b["zone_score"] is not None, b["zone_score"] or 0), reverse=True)
                     fat = fatigue_by_pid.get(pid) if p_roles.get(pid, {}).get("role") != "SP" else None
-                    # exploitability: how much the top opponents punish his zones + his own fatigue
-                    top_scores = [b["zone_score"] for b in opp_batters[:5] if b["zone_score"] is not None]
+                    # exploitability: how much the top opponents punish his zones. Only count
+                    # batters with ADEQUATE total zone sample (>=20 batted balls across their
+                    # graded zones) so a hitter with 5 BBE doesn't inflate an arm's rank.
+                    def _bat_sample(b):
+                        zd = b.get("zone_dmg") or {}
+                        return sum((zv.get("n") or 0) for zv in zd.values())
+                    qualified = [b for b in opp_batters
+                                 if b["zone_score"] is not None and _bat_sample(b) >= 20]
+                    top_scores = [b["zone_score"] for b in qualified[:5]]
                     exploit = round(sum(top_scores) / len(top_scores), 3) if top_scores else None
                     pitcher_edges.append({
                         "id": pid, "name": meta.get("name") or f"#{pid}",

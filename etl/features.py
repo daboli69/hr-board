@@ -126,10 +126,10 @@ def pitcher_zone_grid(rows) -> dict:
     return grid
 
 
-def batter_zone_damage(rows) -> dict:
+def batter_zone_damage(rows, min_n: int = 6) -> dict:
     """A hitter's xwOBAcon by strike-zone cell (1-9). Which zones does he punish?
-    Returns {zone: {xwobacon, n}}. Joined against a pitcher's zone_grid to find the batters
-    who most exploit exactly where that pitcher lives.
+    Returns {zone: {xwobacon, n}}. Requires min_n batted balls in a cell (default 6) so a
+    2-3 ball fluke doesn't read as 'crushes this zone'. Joined against a pitcher's zone_grid.
     """
     if pd is None or rows is None or rows.empty or "zone" not in rows.columns:
         return {}
@@ -142,7 +142,7 @@ def batter_zone_damage(rows) -> dict:
     out = {}
     for zone in range(1, 10):
         sub = bb[bb["_z"] == zone]
-        if len(sub) < 3:
+        if len(sub) < min_n:
             continue
         xw = pd.to_numeric(sub.get("estimated_woba_using_speedangle"), errors="coerce").dropna()
         if len(xw):
