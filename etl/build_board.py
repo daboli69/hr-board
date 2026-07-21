@@ -416,13 +416,23 @@ def build(date_str: str | None = None) -> dict:
             try:
                 # 1. pitch-type matchup: hitter's family power+whiff profile vs THIS arm's arsenal
                 ars = arsenal_by_pid.get(pid) if pid else None
+                _hp_rows = None
                 if ars:
-                    hp_rows = statcast_data.batter_pitch_rows(df, bid, date_str)
-                    hprof = features.hitter_pitch_profile(hp_rows)
+                    _hp_rows = statcast_data.batter_pitch_rows(df, bid, date_str)
+                    hprof = features.hitter_pitch_profile(_hp_rows)
                     if hprof:
                         pm = features.pitch_matchup(hprof, ars)
                         if pm:
                             feat["pitch_matchup"] = pm
+                # HR power profile: raw batted-ball power lens (barrel/dist/hr-swing). Reuses the
+                # rows already pulled above; only pulls its own if pitch_matchup didn't.
+                try:
+                    _pp_rows = _hp_rows if _hp_rows is not None else statcast_data.batter_pitch_rows(df, bid, date_str)
+                    hpp = features.hr_power_profile(_pp_rows)
+                    if hpp:
+                        feat["hr_power"] = hpp
+                except Exception:
+                    pass
                 # 4. late-HR context: short starter + gassed pen behind the OPPOSING arm.
                 # (elevated late HR expectancy this hitter benefits from when facing this team)
                 opp_abbr = g["home"] if side == "away" else g["away"] if g else None
@@ -1107,7 +1117,10 @@ def build(date_str: str | None = None) -> dict:
                         if bz:
                             for zk, zv in bz.items():
                                 xw = zv.get("xwobacon"); n = zv.get("n")
-                                zdmg_full[zk] = {"xw": xw, "n": n}
+                                # carry barrel% + air distance so the map shows HR-power context
+                                zdmg_full[zk] = {"xw": xw, "n": n,
+                                                 "brl": zv.get("barrel_pct"),
+                                                 "dist": zv.get("avg_dist")}
                                 if xw is not None and xw >= 0.400 and (n or 0) >= 6:
                                     crushed.append(int(zk))
                         opp_batters.append({
