@@ -1159,6 +1159,20 @@ def build(date_str: str | None = None) -> dict:
             # rank arms by exploitability (most exploitable first)
             pitcher_edges.sort(key=lambda e: (e["exploit_score"] is not None, e["exploit_score"] or 0), reverse=True)
             print(f"[build] pitcher edges: {len(pitcher_edges)} arms")
+            # Unify edge surfacing: copy each hitter's zone profile (vs today's opposing arm) back
+            # onto their own player row, so the BOARD CARD can show which zones they crush without
+            # the user drilling into Edges. One hitter faces one arm, so this is unambiguous.
+            _pid_map = {p["id"]: p for p in players}
+            for pe in pitcher_edges:
+                for b in pe.get("batters") or []:
+                    tgt = _pid_map.get(b["id"])
+                    if tgt is not None and b.get("crushed_zones"):
+                        tgt.setdefault("features", {})["zone_profile"] = {
+                            "crushed": b["crushed_zones"],
+                            "zone_dmg": b.get("zone_dmg"),
+                            "vs_arm": pe["name"],
+                            "zone_score": b.get("zone_score"),
+                        }
         except Exception as e:
             _hnote("pitcher edges", e); print(f"[build] pitcher edges skipped: {e}")
 
