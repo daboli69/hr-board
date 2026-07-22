@@ -1566,8 +1566,23 @@ function chipColor(h){                         // 0..100 -> cold..hot
 }
 function timeStr(iso){
   if(!iso) return "";
-  try{const d=new Date(iso);
-    return d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});}catch{return "";}
+  try{
+    const d=new Date(iso);
+    let t=d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});
+    // If a game's LOCAL calendar day differs from the slate it's listed under (common with late
+    // West-Coast games crossing midnight in eastern zones, or a postponed game made up on a new
+    // date that still carries an odd timestamp), append the day so it never silently reads as the
+    // wrong date. Anchored to the board's slate_date, not the device's midnight.
+    if(typeof BOARD!=="undefined" && BOARD && BOARD.slate_date){
+      const gameDay=d.toLocaleDateString("en-CA");           // device-local Y-M-D of the game
+      const slate=String(BOARD.slate_date).slice(0,10);
+      if(gameDay!==slate){
+        const md=d.toLocaleDateString([], {month:"short",day:"numeric"});
+        t += ` (${md})`;                                     // e.g. "9:40 PM (Jul 23)"
+      }
+    }
+    return t;
+  }catch{return "";}
 }
 
 function hrByHandBlock(op){
