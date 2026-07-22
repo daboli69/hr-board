@@ -147,6 +147,8 @@
     font:inherit;font-size:11px;font-weight:600;padding:6px 11px;border-radius:999px;cursor:pointer;
     white-space:nowrap;-webkit-tap-highlight-color:transparent}
   .chip[aria-pressed="true"]{border-color:var(--seam);color:var(--seam);background:rgba(200,71,43,.09)}
+  .edge-chip{border-style:dashed}
+  .edge-chip[aria-pressed="true"]{border-style:solid;border-color:var(--hot);color:#fff;background:var(--hot)}
   .shown-count{margin-left:auto;flex:none;font-size:11px;color:var(--faint);white-space:nowrap;padding-right:2px}
   details.sec{margin-top:12px;border-top:1px solid var(--line)}
   details.sec>summary{list-style:none;cursor:pointer;padding:11px 0 7px;font-family:Archivo;
@@ -465,14 +467,14 @@
   .edge-dd-fat.worn{color:var(--seam);background:rgba(215,120,60,.08);border:1px solid rgba(215,120,60,.25)}
   .edge-dd-zone-h,.edge-dd-bh{font-size:12px;font-weight:700;color:var(--ink);margin:10px 0 6px}
   .edge-dd-zone-h span,.edge-dd-bh span{display:block;font-weight:400;color:var(--faint);font-size:10px;margin-top:1px}
-  .zone-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;max-width:220px;margin:0 auto;aspect-ratio:1}
-  .zc{aspect-ratio:1;border:1px solid var(--line);border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;gap:1px}
-  .zc-lbl{position:absolute;top:2px;left:4px;font-family:"IBM Plex Mono";font-size:8px;color:var(--faint);font-weight:700}
-  .zc-use{position:absolute;bottom:2px;left:4px;font-family:"IBM Plex Mono";font-size:8px;color:var(--seam);font-weight:700}
-  .zc-u{font-family:"IBM Plex Mono";font-size:12px;font-weight:700;color:var(--ink)}
-  .zc-xw{font-family:"IBM Plex Mono";font-size:11px;font-weight:800;color:var(--ink)}
-  .zc-pow{display:block;font-family:"IBM Plex Mono";font-size:7px;color:var(--muted);margin-top:1px;line-height:1.1}
-  .zc-xw.dim{color:var(--faint);font-weight:400}
+  .zone-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;max-width:288px;margin:0 auto;aspect-ratio:1}
+  .zc{aspect-ratio:1;border:1px solid var(--line);border-radius:5px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;gap:1px;padding:2px;overflow:hidden}
+  .zc-lbl{position:absolute;top:2px;left:4px;font-family:"IBM Plex Mono";font-size:8px;color:#fff;opacity:.75;font-weight:700}
+  .zc-use{position:absolute;bottom:2px;right:3px;font-family:"IBM Plex Mono";font-size:8px;font-weight:800;color:#E8EDF2;background:rgba(14,17,22,.78);padding:1px 3px;border-radius:3px;letter-spacing:.02em}
+  .zc-u{font-family:"IBM Plex Mono";font-size:13px;font-weight:800;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+  .zc-xw{font-family:"IBM Plex Mono";font-size:12px;font-weight:800;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.55)}
+  .zc-pow{display:block;font-family:"IBM Plex Mono";font-size:7.5px;color:#fff;opacity:.82;margin-top:1px;line-height:1.15;text-shadow:0 1px 1px rgba(0,0,0,.5)}
+  .zc-xw.dim{color:var(--faint);font-weight:600;text-shadow:none}
   .zc-star{position:absolute;top:2px;right:4px;color:var(--hot);font-size:10px}
   .edge-zbadge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;background:var(--hot);color:#0c0f14;font-family:"IBM Plex Mono";font-size:10px;font-weight:800;border-radius:8px;vertical-align:middle}
   .edge-bat.sel{background:var(--panel-2);border-left:3px solid var(--hot)}
@@ -526,6 +528,20 @@
   .sd-arm-go{color:var(--faint);font-size:16px}
   .sd-ev-tag{font-family:"IBM Plex Mono";font-weight:800;font-size:13px;min-width:38px}
   .sd-empty{font-size:11px;color:var(--faint);padding:10px;border:1px solid var(--line);border-radius:10px}
+  .sd-wx{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .sd-wx-row{display:flex;justify-content:space-between;align-items:center;padding:8px 11px;font-size:12px;border-top:1px solid var(--line)}
+  .sd-wx-row:first-child{border-top:none}
+  .sd-wx-row span{color:var(--muted)}
+  .sd-wx-row b{color:var(--ink);font-weight:600}
+  .sd-wx-row b.wind-out{color:var(--hot)}
+  .sd-wx-row b.wind-in{color:var(--cold)}
+  .sd-stack{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--panel-2)}
+  .sd-stack-team{font-size:12.5px;color:var(--ink)}
+  .sd-stack-team.strong b:last-child{color:var(--hot)}
+  .sd-stack-sub{font-size:10.5px;color:var(--muted);margin-top:4px;line-height:1.4}
+  .zp-grid{display:grid;grid-template-columns:repeat(3,22px);gap:2px;margin:6px 0}
+  .zp-cell{width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-family:"IBM Plex Mono";font-size:9px;font-weight:700;color:var(--faint);background:var(--panel-2);border:1px solid var(--line);border-radius:3px}
+  .zp-cell.on{color:#fff;background:var(--hot);border-color:var(--hot)}
   .scan-foot{font-size:10px;color:var(--faint);line-height:1.5;margin-top:14px}
   .edge-dd-zk{text-align:center;font-size:9.5px;color:var(--faint);margin:5px 0 4px}
   .edge-bat{display:flex;align-items:center;gap:10px;padding:9px 4px;border-top:1px solid var(--line);cursor:pointer}
@@ -1209,6 +1225,12 @@
     <button id="mixBtn" class="chip" aria-pressed="false" title="Re-rank by EV/barrel vs this pitcher's mix">vs Pitch Mix</button>
     <button id="thinBtn" class="chip" aria-pressed="false" title="Hide hitters with thin recent samples">Hide small</button>
     <button id="listBtn" class="chip" aria-pressed="false" title="Show only players on your list">★ My List</button>
+    <button class="chip edge-chip" data-edge="elite" aria-pressed="false" title="Only hitters clearing the elite gate (pull/EV/barrel)">⭐ Elite</button>
+    <button class="chip edge-chip" data-edge="power" aria-pressed="false" title="Only hitters with a PLUS HR-power profile (barrel / HR-swing)">💣 Power+</button>
+    <button class="chip edge-chip" data-edge="zone" aria-pressed="false" title="Only hitters who crush a zone (vs today's arm)">◆ Zone edge</button>
+    <button class="chip edge-chip" data-edge="climate" aria-pressed="false" title="Only hitters with a warm/cold climate BOOST tonight">☀ Climate+</button>
+    <button class="chip edge-chip" data-edge="mix" aria-pressed="false" title="Only hitters with a favorable pitch-mix matchup (60+)">◎ Mix+</button>
+    <button class="chip edge-chip" data-edge="late" aria-pressed="false" title="Only hitters in an elevated late-HR spot">⏱ Late-HR</button>
     <button id="listClearBtn" class="chip listclear" onclick="listClear()" title="Empty your list — asked automatically each new slate">Clear</button>
     <span id="shown" class="shown-count"></span>
   </div>
@@ -1328,6 +1350,9 @@
         <p style="margin-top:8px;font-size:12px;color:var(--muted)">Most days, <b style="color:var(--ink)">the honest answer is "no bet."</b> Books price home runs pretty well. Passing is a decision, not a failure.</p>
       </div>
 
+      <h3>The five tabs</h3>
+      <p><b>Board</b> — every hitter today, ranked by Heat. Your player-first view. <b>Scan</b> — the same slate grouped by game; tap a game for its arms, hitters, weather, team stack, and best +EV all in one place. <b>Edges <span class="beta-pill">BETA</span></b> — the experimental spatial + situational signals (zone heatmaps, vulnerable arms, bullpen fatigue, microclimate, late-HR). <b>Props</b> — hits, HRR, pitcher Ks, +EV, prop parlays, game lines. <b>Bets</b> — the Edge Finder where you enter book prices to get instant EV. The <b>More</b> button holds Trends (tracker/backtest/CLV) and Parlays. Stacks, Weather, and Matchup are now folded into Scan and Edges.</p>
+
       <h3>The board</h3>
       <p><b>Heat (0–100)</b> ranks each hitter on six power signals over the last 2 weeks — Pull-air%, Barrel%, ISO, Exit Velo, Ideal Attack Angle%, SLG — then nudges for the opposing pitcher's vulnerability. Higher = better HR spot. The chip runs blue (cold) → orange (elite).</p>
       <p>The <b>four cells</b> (Pull / EV / Brl / IAA) show those signals at a glance — orange means it cleared the "good" mark, blue means below. <b>Tap any column header</b> (HEAT, PULL, EV, BRL, IAA) to re-sort the whole slate by that stat — that's how you find a low-Heat guy who's elite in one area.</p>
@@ -1354,6 +1379,7 @@
 
       <h3>Filters & sorting</h3>
       <p><b>Heat / Trend / BP / Bomb / Park / Name / Time</b> sort the list — <b>BP</b> ranks by how vulnerable the opposing bullpen is to each hitter's hand, <b>Bomb</b> ranks by raw long-ball ceiling (season max exit velo nudged by recent form; the "NNN EV" chip shows the ceiling), and <b>Park</b> ranks by today's park &amp; weather HR boost (the chip shows the % swing plus wind).</p>
+      <p><b>Edge filter chips</b> (⭐ Elite · 💣 Power+ · ◆ Zone edge · ☀ Climate+ · ◎ Mix+ · ⏱ Late-HR) narrow the board to hitters carrying specific edges, and <b>stack with AND logic</b> — tap several to drill to exactly the spot you want. They're dashed until active, solid orange when on, and clear with "Clear all."</p>
 
       <h3>Park &amp; weather model</h3>
       <p>A separate, physics-based read — its own lens that <b>never touches the Heat score</b>. It flies each hitter's actual batted balls (exit velocity, launch angle, spray direction) through the real wall distances and heights of today's park, under today's temperature and wind, and counts how many clear the fence versus a neutral park. That gives a <b>per-hitter</b> boost, not a flat park factor: a dead-pull hitter gets more from a short porch on his side, and wind/heat scale with how often he already lives near the wall. Tap any row for the full read — expected HR per 100 batted balls here vs neutral, plus the conditions used. Two honest limits, shared by every public version of this (Ballpark Pal included): batted-ball backspin is estimated from launch conditions, not measured, and closed retractable roofs can't be detected, so treat it as a strong secondary signal — and for the final per-hitter precision, Ballpark Pal is still the authority.</p>
@@ -1362,8 +1388,22 @@
 
       <p>In <b>⚙ Filters</b>: <b>Games</b> and <b>Teams</b> narrow to specific matchups or clubs, <b>Heat floor</b> (40/55/70+) cuts the long tail, <b>Opposing starter</b> drops strong SP so you only see hitters facing a vulnerable one, <b>Bats</b> shows one handedness, and <b>Traits</b> lets you tap any badge to show only hitters carrying it (tap several to stack them). Every filter combines, so you can stack (say) a vulnerable starter + weak bullpen sort + a trait + a team at once. <b>Hide small samples</b> drops hitters under ~25 PA in the window <i>or</i> whose score leans on missing signal data (fewer than 4 of the 6 signals have numbers).</p>
 
-      <h3>Top Plays & Stacks</h3>
-      <p><b>Top Plays</b> (panel up top) = the strongest non-thin hitters not facing a sharp arm, each with a one-line "why" — your fast scan. <b>Stacks</b> (view toggle) groups hot hitters by the vulnerable arm they share — built for grand-slam parlays / same-game pairing.</p>
+      <h3>Top Plays</h3>
+      <p><b>Top Plays</b> (panel up top on the Board) = the strongest non-thin hitters not facing a sharp arm, each with a one-line "why" — your fast scan. Tap to expand the reasons.</p>
+
+      <h3>Scan tab</h3>
+      <p>The whole slate grouped <b>by game</b>, each scored 0–100 for how much edge/action it holds. Chips flag what's inside at a glance: hot hitters, +EV plays, a vulnerable arm, a gassed pen, climate boosts, late-HR spots, a high total, warm weather, wind blowing out. <b>Tap a game</b> and you get everything for that matchup in one screen: the arms ranked by vulnerability, the top hitters with their edge tags, a full <b>weather &amp; park</b> block (temp, wind interpreted as helps/suppresses HR, precip, humidity, roof), the <b>team stack</b> signal (which side has the denser cluster of hot bats), and the best +EV plays. This is where the old Weather and Stacks views now live.</p>
+
+      <h3>Edges tab <span class="beta-pill">BETA</span></h3>
+      <p>The experimental signals — spatial and situational matchups the market doesn't price directly. Four sub-views:</p>
+      <p><b>Arms</b> — today's starters ranked by <b>zone-matchup exploitability</b>: the average xwOBA the top opposing hitters post in exactly the cells this arm throws to most (only hitters with real sample count). <i>This is a different lens than "Arms Today" on the board</i>, which ranks by the season HR-vulnerability model — they measure different things and won't match. <b>Tap an arm</b> for its interactive zone map: cells 1–9 colored by where he lives. <b>Tap a hitter below</b> and the map repaints to show <i>that hitter's</i> xwOBA in each zone vs this arm, with barrel% and distance, and the pitcher's usage % in the corner of each box. ◆ = he crushes it and the pitcher throws there (the danger overlap); ● = he crushes it elsewhere. A number badge by each hitter's name = how many zones he crushes.</p>
+      <p><b>Pens</b> — every bullpen on the slate ranked worst-to-best, blending HR-vulnerability and fatigue. <b>Micro</b> — hitters flagged by tonight's temperature vs their personal temperature sensitivity, ordered by <i>actual impact tonight</i> (sensitivity × how far tonight's temp is from their median). <b>Late</b> — games where a short starter meets a gassed pen, raising late-inning HR expectancy.</p>
+
+      <h3>Zone profile &amp; HR power (on the card)</h3>
+      <p>Every hitter's card now carries two HR-specific lenses, both <b>separate from Heat</b>. <b>Zone profile</b> — a mini 9-cell grid lighting up the zones he crushes (xwOBA ≥ .400) vs today's arm, so you see his damage zones without opening Edges. <b>HR power profile</b> — his raw over-the-fence contact: barrel%, HR-swing% (how often he takes a home-run-shaped swing), average fly-ball distance, and max distance. Flagged PLUS when the power is strong. Barrel rate and carry are the leading HR indicators, shown plainly.</p>
+
+      <h3>Elite gate &amp; edge filters</h3>
+      <p>An <b>ELITE / ELITE+</b> chip appears by a hitter's name app-wide when he clears the four headline thresholds (pull-air ≥33%, EV ≥90, barrel ≥10%, plus ideal attack angle for the +). On the Board, the <b>edge filter chips</b> (⭐ Elite · 💣 Power+ · ◆ Zone edge · ☀ Climate+ · ◎ Mix+ · ⏱ Late-HR) let you narrow the slate to hitters carrying specific edges. They <b>stack with AND logic</b> — tap several to drill to your exact spot (e.g. Elite + Power+ + Zone edge = only the hitters clearing the gate who also have plus power and crush a zone their pitcher lives in). None of these touch Heat.</p>
 
       <h3>The pitcher</h3>
       <p><b>Arms Today</b> ranks starters by how shellable they are. Form labels: <b>SHELLABLE</b> (bad & getting worse — prime), <b>STEADY-BAD</b> (consistently hittable — still a target), <b>SLIPPING</b> (was fine, now cracking), <b>BAD-IMPROVING / BOUNCING-BACK</b> (downgrade — numbers improving), <b>DEALING</b> (avoid). <b>Arm badges</b> spell out the specific vulnerability behind the label: <b>HR PRONE</b> (gives up bombs), <b>BARRELED</b> (barreled ≥10%), <b>LOUD</b> (hard contact/high EV allowed), <b>PULL-AIR</b> (pulled fly balls allowed), <b>WEAK vs R/L</b> (which hand's taken him deep over 2yr — target those hitters), <b>VELO ↓</b> (velo trending down), <b>SLIPPING</b> (recent worse than season), <b>TOUGH</b> (low vulnerability — avoid). <b>Platoon</b> shows whether the arm gets hit harder by RHB or LHB, and the score vs your hitter's hand. <b>Opposing bullpen</b> shows the pen's HR-vulnerability and its split vs your hitter's hand.</p>
@@ -1383,6 +1423,15 @@
       <p><b>Hits</b> — ranks hitters for 1+ / 2+ hits using xBA, hard-hit%, line-drive%, plate discipline (BB% minus K%), contact%, and the opposing arm's hittability. <b>HRR</b> — hits + runs + RBIs, which is hit skill plus a lineup-spot multiplier (top of the order gets more PAs and more RBI chances) plus an HR-upside boost, since one swing can produce all three. <b>Pitcher Ks</b> — ranks starters for their K-total prop using their own K% and SwStr% blended over 2 weeks, weighted against the opposing lineup's K vulnerability. Each card shows an <b>estimated K total and target line</b> ("est. 7.8 Ks · line target O7.5") so you can compare directly against the book before opening the odds screen. Openers get an automatic downgrade — they can't throw enough innings to clear a normal line.</p>
       <p><b>K Under</b> — sorted <i>low to high</i> on purpose. The lowest K-prone scores are the best "UNDER 0.5 strikeouts" bets: contact hitters facing low-whiff arms. Tags run <b>STRONG UNDER</b> (under 30) → <b>LEAN UNDER</b> → <b>NEUTRAL</b> → <b>FADE</b> (60+, the K-prone guys you'd avoid).</p>
       <p>All four use the same 2-week trailing window as the HR model, with the same thin-sample discount on both the batter and pitcher side.</p>
+
+      <h3>Prop parlays</h3>
+      <p>In the Props tab → <b>Parlays</b> sub-tab. Builds multi-leg parlays from tonight's priced +EV prop legs (hits, HRR, pitcher Ks, HR, game lines). Three cards: <b>Safest 2-leg</b> (the two likeliest props to both hit), <b>Best value 3-leg</b> (highest-EV legs that are each still genuinely likely), and <b>Longshot 3-leg</b> (bigger payout, only genuine edges). Each shows the combined odds and the <b>honest combined probability</b> so you see the real risk, not just a flashy payout. Legs are spread one-per-game to avoid correlation. Parlays are structurally −EV for most bettors — these only surface when the individual legs each carry an edge, and even then the combined chance is small.</p>
+
+      <h3>Grand Slam Jackpot</h3>
+      <p>In the Parlays view (More → Parlays). The 3 hitters most likely to hit a grand slam tonight, ranked by <b>traffic × punish</b>: traffic = how likely the bases are loaded when he bats (the on-base bats ahead of him + the opposing starter's wildness), punish = can he golf a grooved in-zone fastball (barrel/EV/pull + the elite gate). A slam needs both — a masher batting leadoff scores near zero. This is the highest-variance thing in the app: it ranks <i>relative</i> likelihood, not a real probability. A lottery ticket, sized accordingly.</p>
+
+      <h3>Longest HR Jackpot</h3>
+      <p>In Bets. The candidates for the single longest home run — distance ceiling on <b>longshots the field skips</b>. Chalk (short-priced favorites) is excluded by <b>real book odds</b>, not the model: every candidate must have a live HR price, favorites shorter than +350 are cut, and the ranking tilts toward the overlooked names with a big distance ceiling (max EV, park, ISO). If book odds haven't posted for the slate, the card waits rather than guess.</p>
 
       <h3>Tracker</h3>
       <p>Grades every model against reality each morning. <b>Model vs baselines</b> is the one that matters: does Heat's top 10 homer more than just sorting by ISO or barrel%? If yes, the model is genuinely finding HR hitters better than the simple stats. The rest shows HR rate by Heat tier, by arm form, top-N success, which signals correlate to HRs, and a daily log.</p>
@@ -1434,20 +1483,20 @@
 <nav id="tabbar" aria-label="Primary navigation">
   <button data-view="board" aria-pressed="true"><svg viewBox="0 0 20 20"><circle cx="4" cy="5.5" r="1"/><circle cx="4" cy="10" r="1"/><circle cx="4" cy="14.5" r="1"/><line x1="7.5" y1="5.5" x2="16" y2="5.5"/><line x1="7.5" y1="10" x2="16" y2="10"/><line x1="7.5" y1="14.5" x2="16" y2="14.5"/></svg><span>Board</span></button>
   <button data-view="scan" aria-pressed="false"><svg viewBox="0 0 20 20"><rect x="3" y="3" width="6" height="6" rx="1"/><rect x="11" y="3" width="6" height="6" rx="1"/><rect x="3" y="11" width="6" height="6" rx="1"/><rect x="11" y="11" width="6" height="6" rx="1"/></svg><span>Scan</span></button>
+  <button data-view="edges" aria-pressed="false"><svg viewBox="0 0 20 20"><path d="M10 2l2.4 5.2 5.6.7-4.2 3.9 1.1 5.5-4.9-2.8-4.9 2.8 1.1-5.5L2 7.9l5.6-.7z"/></svg><span>Edges</span></button>
   <button data-view="props" aria-pressed="false"><svg viewBox="0 0 20 20"><path d="M4 15V8"/><path d="M8 15V5"/><path d="M12 15v-6"/><path d="M16 15v-4"/><line x1="3" y1="15" x2="17" y2="15"/></svg><span>Props</span></button>
   <button data-view="bets" aria-pressed="false"><svg viewBox="0 0 20 20"><path d="M5 3.5h10v13l-2-1.3-2 1.3-2-1.3-2 1.3V3.5z"/><line x1="7.5" y1="7.5" x2="12.5" y2="7.5"/><line x1="7.5" y1="10.5" x2="12.5" y2="10.5"/></svg><span>Bets</span></button>
-  <button data-view="tracker" aria-pressed="false"><svg viewBox="0 0 20 20"><polyline points="3 14 8 9 11 12 17 5"/><polyline points="12.5 5 17 5 17 9.5"/></svg><span>Trends</span></button>
   <button id="moreBtn" onclick="document.getElementById('moreSheet').classList.add('show')" aria-label="More views"><svg viewBox="0 0 20 20"><circle cx="4" cy="10" r="1.4"/><circle cx="10" cy="10" r="1.4"/><circle cx="16" cy="10" r="1.4"/></svg><span>More</span></button>
 </nav>
 
 <div id="moreSheet" class="sheet" onclick="if(event.target===this)this.classList.remove('show')">
   <div class="sheet-card">
     <div class="sheet-h">More views</div>
-    <button class="more-item" onclick="goView('edges')"><div class="mi-ic">⚡</div><div class="mi-tx"><b>Edges <span class="beta-pill">BETA</span></b><span>New signals: matchup, pen fatigue, microclimate</span></div><div class="mi-ar">›</div></button>
+    <button class="more-item" onclick="goView('tracker')"><div class="mi-ic">📈</div><div class="mi-tx"><b>Trends</b><span>Tracker, backtest, CLV — is it working?</span></div><div class="mi-ar">›</div></button>
     <button class="more-item" onclick="goView('parlays')"><div class="mi-ic">⛓</div><div class="mi-tx"><b>Parlays</b><span>Auto-built combos, honestly priced</span></div><div class="mi-ar">›</div></button>
-    <button class="more-item" onclick="goView('stacks')"><div class="mi-ic">◆</div><div class="mi-tx"><b>Stacks</b><span>Best hitters grouped by game</span></div><div class="mi-ar">›</div></button>
-    <button class="more-item" onclick="goView('matchup')"><div class="mi-ic">◎</div><div class="mi-tx"><b>Matchup</b><span>Head-to-head hitter vs pitcher</span></div><div class="mi-ar">›</div></button>
-    <button class="more-item" onclick="goView('weather')"><div class="mi-ic">☁</div><div class="mi-tx"><b>Weather</b><span>Wind, temp, roof calls per game</span></div><div class="mi-ar">›</div></button>
+    <div class="sheet-sub">Now inside Scan &amp; Edges</div>
+    <button class="more-item" onclick="goView('scan')"><div class="mi-ic">◆</div><div class="mi-tx"><b>Stacks &amp; Weather</b><span>Folded into Scan — tap a game to see them</span></div><div class="mi-ar">›</div></button>
+    <button class="more-item" onclick="goView('edges')"><div class="mi-ic">◎</div><div class="mi-tx"><b>Matchups</b><span>Folded into Edges — tap an arm for the zone map</span></div><div class="mi-ar">›</div></button>
     <button class="sheet-close" onclick="document.getElementById('moreSheet').classList.remove('show')">Close</button>
   </div>
 </div>
@@ -1490,7 +1539,7 @@ const EXTRA = [
   {k:"fb_pct",     label:"FB%",      fmt:v=>fmt(v,1)},
   {k:"pull_pct",   label:"Pull(all)",fmt:v=>fmt(v,1)},
 ];
-let BOARD=null, HISTORY=null, view="board", sortKey="heat", q="", hideThin=false, minHeat=0, spFloor=0, gameSel=new Set(), batFilter="", traitSel=new Set(), labSel=new Set(), teamSel=new Set(), drySel=new Set(), tierSel=new Set(), mixView=false, listFilter=false, muSort="hist", armsSortMode="vuln";
+let BOARD=null, HISTORY=null, view="board", sortKey="heat", q="", hideThin=false, minHeat=0, spFloor=0, gameSel=new Set(), batFilter="", traitSel=new Set(), labSel=new Set(), teamSel=new Set(), drySel=new Set(), tierSel=new Set(), mixView=false, listFilter=false, muSort="hist", armsSortMode="vuln", edgeSel=new Set();
 // effective heat: vs-pitch-mix variant when the toggle is on, else standard
 function H(p){return (mixView && p.heat_mix!=null) ? p.heat_mix : p.heat;}
 
@@ -1556,8 +1605,24 @@ function spotBlock(p){
 // tracker validates each via CLV. Never fold into the heat score.
 function featureBlock(p){
   const f=p.features;
-  if(!f || (!f.pitch_matchup && !f.late_hr && !f.microclimate && !f.hr_power)) return "";
+  if(!f || (!f.pitch_matchup && !f.late_hr && !f.microclimate && !f.hr_power && !f.zone_profile)) return "";
   let rows="";
+  // 0a. Zone profile — which zones this hitter crushes vs today's arm (from the Edges zone data,
+  // surfaced here so the card is the single home for a hitter's edges).
+  const zp=f.zone_profile;
+  if(zp && zp.crushed && zp.crushed.length){
+    const zoneMini=[1,2,3,4,5,6,7,8,9].map(z=>{
+      const hit=zp.crushed.includes(z);
+      const zd=zp.zone_dmg?zp.zone_dmg[String(z)]:null;
+      const xw=zd?zd.xw:null;
+      return `<span class="zp-cell${hit?' on':''}" title="zone ${z}${xw!=null?': '+xw.toFixed(3)+' xwOBA':''}">${z}</span>`;
+    }).join("");
+    rows+=`<div class="feat-row">
+      <div class="feat-hd"><b>Zone profile</b> <span class="feat-sc" style="color:var(--hot)">${zp.crushed.length} zone${zp.crushed.length>1?'s':''}</span></div>
+      <div class="zp-grid">${zoneMini}</div>
+      <div class="feat-dt">Crushes zone${zp.crushed.length>1?'s':''} ${zp.crushed.join(", ")} (xwOBA ≥ .400) vs ${zp.vs_arm}. Tap Edges → this arm to see where he throws. Lit cells = his damage zones.</div>
+    </div>`;
+  }
   // 0. HR power profile — raw batted-ball power lens (barrel / distance / HR-swing rate)
   const hp=f.hr_power;
   if(hp && (hp.barrel_pct!=null || hp.max_dist!=null)){
@@ -2096,6 +2161,22 @@ function render(){
       return [...traitSel].every(k=>ks.has(k));   // must carry every selected trait
     });
   }
+  if(edgeSel.size){
+    // Edge filters — target hitters carrying specific parallel-signal edges. AND logic: a hitter
+    // must carry EVERY selected edge (stack them to narrow to your ideal spot). Never touches heat.
+    players=players.filter(p=>{
+      const f=p.features||{};
+      for(const e of edgeSel){
+        if(e==="elite"){ const t=(p.elite||{}).tier; if(t!=="ELITE"&&t!=="ELITE+") return false; }
+        else if(e==="climate"){ const m=f.microclimate; if(!m||!m.flag||!m.flag.includes("BOOST")) return false; }
+        else if(e==="zone"){ const zp=f.zone_profile; if(!zp||!(zp.crushed&&zp.crushed.length)) return false; }
+        else if(e==="power"){ const hp=f.hr_power; if(!hp||!((hp.barrel_pct!=null&&hp.barrel_pct>=12)||(hp.hr_swing_pct!=null&&hp.hr_swing_pct>=14))) return false; }
+        else if(e==="mix"){ const pm=f.pitch_matchup; if(!pm||!(pm.score>=60)) return false; }
+        else if(e==="late"){ const lc=f.late_hr; if(!lc||!lc.label||lc.label==="neutral") return false; }
+      }
+      return true;
+    });
+  }
   if(tierSel.size){
     players=players.filter(p=>{
       const t=(p.score_breakdown&&p.score_breakdown.tier)||p.tier;
@@ -2563,7 +2644,11 @@ function renderView(){
   const safe=fn=>{ try{ fn(); }catch(e){ console.error("render",e);
     const m=document.getElementById("main");
     if(m) m.innerHTML=`<div class="empty">This tab hit a snag rendering today's data — the rest of the app is fine.<br>Tap another tab or check back after the next board update.</div>`; } };
-  if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="matchup") safe(renderMatchup); else if(view==="stacks") safe(renderStacks); else if(view==="bets") safe(renderBetsTab); else if(view==="weather") safe(renderWeather); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else safe(render);
+  // legacy per-game views (Stacks/Weather/Matchup) are folded into Scan & Edges — redirect any
+  // stale route to the new home so old bookmarks/links don't dead-end.
+  if(view==="stacks"||view==="weather"){ view="scan"; }
+  else if(view==="matchup"){ view="edges"; }
+  if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else safe(render);
 }
 
 // Weather dashboard: today's slate, one card per game — conditions, roof call,
@@ -2577,6 +2662,30 @@ const WX_STATUS={clear:["Clear","var(--good)"],chance:["Chance for delay","var(-
 let scanGame = null;   // expanded game_pk
 
 // Build a per-game summary object joining every data source for one game.
+// Human-readable wind help from direction relative to center field.
+function windText(wx){
+  if(!wx||wx.wind_rel_deg==null||!wx.wind_mph||wx.wind_mph<3) return {label:"calm", cls:"", detail:`${wx&&wx.wind_mph?Math.round(wx.wind_mph)+" mph":"light"}`};
+  const d=((wx.wind_rel_deg%360)+360)%360;
+  const mph=Math.round(wx.wind_mph);
+  if(d<=45||d>=315) return {label:"blowing out", cls:"wind-out", detail:`${mph} mph to center — helps HR`};
+  if(d>=135&&d<=225) return {label:"blowing in", cls:"wind-in", detail:`${mph} mph from center — suppresses HR`};
+  if(d>45&&d<135) return {label:"out to right", cls:"wind-out", detail:`${mph} mph L→R — helps pull HR`};
+  return {label:"out to left", cls:"wind-out", detail:`${mph} mph R→L`};
+}
+// Compact weather detail block for Scan (folds in the old Weather view).
+function scanWeatherBlock(wx){
+  if(!wx) return `<div class="sd-empty">Weather not posted yet for this game.</div>`;
+  const w=windText(wx);
+  const roof=wx.roof&&/closed|dome|retract/i.test(wx.roof);
+  const rows=[];
+  if(wx.temp_f!=null) rows.push(`<div class="sd-wx-row"><span>Temp</span><b>${Math.round(wx.temp_f)}°F${wx.temp_f>=82?' · warm, ball carries':wx.temp_f<=55?' · cold, ball dies':''}</b></div>`);
+  rows.push(`<div class="sd-wx-row"><span>Wind</span><b class="${w.cls}">${w.label} · ${w.detail}</b></div>`);
+  if(wx.precip_prob!=null) rows.push(`<div class="sd-wx-row"><span>Precip</span><b>${wx.precip_prob}%${wx.precip_prob>=50?' · rain risk':''}</b></div>`);
+  if(wx.rh_pct!=null) rows.push(`<div class="sd-wx-row"><span>Humidity</span><b>${wx.rh_pct}%</b></div>`);
+  if(wx.roof) rows.push(`<div class="sd-wx-row"><span>Roof</span><b>${roof?'closed — weather neutral':wx.roof}</b></div>`);
+  return `<div class="sd-wx">${rows.join("")}</div>`;
+}
+
 function scanGameData(g){
   const players=(BOARD&&BOARD.players)||[];
   const arms=(BOARD&&BOARD.pitcher_edges)||[];
@@ -2598,7 +2707,16 @@ function scanGameData(g){
   const gassedPen=gArms.some(a=>a.fatigue&&a.fatigue.state==="GASSED");
   const total=proj?proj.total:null;
   const temp=wx?wx.temp_f:null;
-  const windOut=wx&&wx.wind_help!=null?wx.wind_help>0:null;
+  // wind help: wind_rel_deg is direction relative to center field. ~0deg = blowing straight OUT
+  // (helps HR), ~180deg = blowing IN. Within +/-60deg of out = meaningful carry.
+  let windOut=null;
+  if(wx&&wx.wind_rel_deg!=null&&wx.wind_mph){
+    const d=((wx.wind_rel_deg%360)+360)%360;
+    if(wx.wind_mph>=5){
+      if(d<=60||d>=300) windOut=true;         // blowing out
+      else if(d>=120&&d<=240) windOut=false;  // blowing in
+    }
+  }
 
   // GAME SCORE 0-100: how much edge/action this game holds. A blend, capped, transparent.
   let score=0;
@@ -2702,7 +2820,22 @@ function scanDetail(d){
 
   // weather + total summary
   const wx=d.wx;
-  const wxLine=wx?`${wx.temp_f!=null?Math.round(wx.temp_f)+"°F":""}${wx.wind_mph!=null?` · wind ${Math.round(wx.wind_mph)}mph ${wx.wind_dir||""}`:""}${wx.roof?` · ${wx.roof}`:""}`:"weather n/a";
+  const wxLine=wx?`${wx.temp_f!=null?Math.round(wx.temp_f)+"°F":""}${wx.wind_mph!=null?` · wind ${Math.round(wx.wind_mph)}mph`:""}${wx.roof?` · ${wx.roof}`:""}`:"weather n/a";
+
+  // STACK signal (folds in the old Stacks view): which side has the stronger cluster of hot
+  // bats — a team stack. Sum of top-4 heat per team; flag the better-stacked side.
+  const stackFor=(team)=>{
+    const hs=d.hitters.filter(p=>p.team===team).map(p=>p.heat||0).sort((a,b)=>b-a).slice(0,4);
+    return {team, sum:hs.reduce((a,b)=>a+b,0), avg:hs.length?Math.round(hs.reduce((a,b)=>a+b,0)/hs.length):0, n:hs.length};
+  };
+  const sAway=stackFor(g.away), sHome=stackFor(g.home);
+  const bestStack=sAway.sum>=sHome.sum?sAway:sHome;
+  const stackBlock=(bestStack.n>=3&&bestStack.avg>=55)?`
+    <div class="sd-sec-h">Team stack</div>
+    <div class="sd-stack">
+      <div class="sd-stack-team ${bestStack.avg>=65?'strong':''}"><b>${bestStack.team}</b> top-4 avg heat <b>${bestStack.avg}</b> · the more stackable side tonight</div>
+      <div class="sd-stack-sub">${sAway.team} ${sAway.avg} vs ${sHome.team} ${sHome.avg} — higher = a denser cluster of hot bats for a same-game stack</div>
+    </div>`:"";
 
   return `<div class="scan-wrap">
     <div class="scan-hd">
@@ -2719,7 +2852,9 @@ function scanDetail(d){
     </div>
 
     ${armRows?`<div class="sd-sec-h">Arms — vulnerability</div><div class="sd-sec">${armRows}</div>`:""}
+    ${stackBlock}
     ${hitRows?`<div class="sd-sec-h">Top hitters</div><div class="sd-sec">${hitRows}</div>`:""}
+    <div class="sd-sec-h">Weather &amp; park</div>${scanWeatherBlock(d.wx)}
     ${evRows?`<div class="sd-sec-h">Best +EV in this game</div><div class="sd-sec">${evRows}</div>`:`<div class="sd-sec-h">+EV</div><div class="sd-empty">No +EV plays priced yet for this game.</div>`}
 
     <div class="scan-foot">Everything for this matchup in one place. Tap a hitter for the full card, or an arm for its zone map. Heat is the frozen model; the rest are context and experimental edges — none is a green light on its own.</div>
@@ -2890,7 +3025,7 @@ function zoneHeatmap(grid, batter){
     const u=grid[zk]||0;                       // pitcher usage in this cell
     // pitcher usage badge — shown in BOTH modes so you always see how often he throws here
     const usePct=Math.round(u*100);
-    const useBadge=`<span class="zc-use">${usePct}%</span>`;
+    const useBadge=`<span class="zc-use" title="how often ${'this pitcher'} throws here">P ${usePct}%</span>`;
     let bg, mark="", label=`<span class="zc-lbl">${z}</span>`, sub="";
     if(batter && batter.zone_dmg){
       // BATTER MODE: color by his contact quality here; still show pitcher usage in the corner
@@ -5786,6 +5921,15 @@ document.getElementById("listBtn").addEventListener("click",e=>{
 document.getElementById("mixBtn").addEventListener("click",e=>{
   mixView=!mixView; e.target.setAttribute("aria-pressed",mixView); savePrefs(); render();
 });
+// edge filter chips (toggle-able, stackable)
+document.querySelectorAll(".edge-chip").forEach(btn=>{
+  btn.addEventListener("click",e=>{
+    const k=btn.dataset.edge;
+    if(edgeSel.has(k)) edgeSel.delete(k); else edgeSel.add(k);
+    btn.setAttribute("aria-pressed", edgeSel.has(k));
+    savePrefs(); render();
+  });
+});
 function populateGames(){
   const list=document.getElementById("gameList");
   if(!BOARD||!BOARD.games){if(list)list.innerHTML="";return;}
@@ -5832,7 +5976,8 @@ function updateFiltCount(){
   if(n>0){el.textContent=n;el.hidden=false;}else{el.hidden=true;}
 }
 function clearFilters(){
-  gameSel.clear(); teamSel.clear(); batFilter=""; traitSel.clear(); labSel.clear(); drySel.clear(); tierSel.clear(); minHeat=0; spFloor=0; hideThin=false; mixView=false;
+  gameSel.clear(); teamSel.clear(); batFilter=""; traitSel.clear(); labSel.clear(); drySel.clear(); tierSel.clear(); minHeat=0; spFloor=0; hideThin=false; mixView=false; edgeSel.clear();
+  document.querySelectorAll(".edge-chip").forEach(b=>b.setAttribute("aria-pressed","false"));
   document.querySelectorAll('#floor button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.min==="0"));
   document.querySelectorAll('#spF button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.sp==="0"));
   document.querySelectorAll('#bats button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.bat===""));
