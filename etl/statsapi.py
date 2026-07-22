@@ -21,6 +21,31 @@ def _get(url: str, params: dict | None = None) -> dict:
     return r.json()
 
 
+def _playable(g: dict) -> bool:
+    """True only if this game is actually going to be (or is being) played on the queried date.
+    MLB's schedule endpoint returns postponed/cancelled/suspended games too — and when a game is
+    postponed and made up later, a ghost entry can appear under the original date. We must drop
+    those, or the board shows a game that isn't happening (the 'thinks today's game was yesterday'
+    glitch). We key off the documented status fields and are conservative: anything clearly not a
+    live/scheduled/final game is excluded.
+    """
+    st = g.get("status", {}) or {}
+    detailed = (st.get("detailedState") or "").lower()
+    coded = (st.get("codedGameState") or "").upper()
+    abstract = (st.get("abstractGameState") or "").lower()
+    # explicit non-playable detailed states
+    bad_words = ("postponed", "cancelled", "canceled", "suspended", "forfeit")
+    if any(w in detailed for w in bad_words):
+        return False
+    # coded/abstract fallbacks: 'D' = Postponed, 'C' = Cancelled, 'U'/'T' = Suspended (MLB codes)
+    if coded in ("D", "C", "U", "T"):
+        return False
+    # a game with a rescheduleDate set (and not yet resumed) has been moved off this date
+    if g.get("rescheduleDate") and abstract not in ("live", "final"):
+        return False
+    return True
+
+
 def get_slate(date_str: str) -> dict:
     """
     Return the full slate for a given YYYY-MM-DD.
@@ -34,6 +59,11 @@ def get_slate(date_str: str) -> dict:
       }
     Lineups are only populated once teams post them (usually a few hours before
     first pitch). Re-running through the afternoon fills them in.
+
+    Postponement handling: the schedule endpoint can return postponed/cancelled games and,
+    around makeup dates, ghost entries whose date doesn't match what we asked for. We (1) skip
+    non-playable games via _playable(), and (2) only accept games whose own date matches the
+    queried slate date, so a game postponed to/from another day never bleeds in.
     """
     hydrate = "probablePitcher(note),lineups,team,venue"
     data = _get(
@@ -42,9 +72,25 @@ def get_slate(date_str: str) -> dict:
     )
 
     games, lineups, pitchers = [], {}, {}
+    seen_pks = set()
     for d in data.get("dates", []):
+        # the schedule groups games under a "date"; only trust the block that matches our query
+        block_date = d.get("date")
         for g in d.get("games", []):
             pk = g["gamePk"]
+            if pk in seen_pks:            # de-dupe: a makeup can appear under two date blocks
+                continue
+            if not _playable(g):          # drop postponed / cancelled / suspended / moved
+                continue
+            # date consistency: the game's OWN date must be the slate date. officialDate is the
+            # authoritative calendar day a game counts for; fall back to the block date, then to
+            # the gameDate's date portion. If none match date_str, this game isn't today's slate.
+            official = g.get("officialDate") or block_date
+            game_day = official or (g.get("gameDate", "")[:10])
+            if game_day and game_day != date_str:
+                continue
+            seen_pks.add(pk)
+
             away = g["teams"]["away"]["team"]
             home = g["teams"]["home"]["team"]
             venue = g.get("venue", {}).get("name", "")
@@ -64,6 +110,9 @@ def get_slate(date_str: str) -> dict:
                 "home_name": home.get("name", ""),
                 "park": venue,
                 "time": g.get("gameDate", ""),
+                "official_date": g.get("officialDate") or block_date or date_str,
+                "game_number": g.get("gameNumber", 1),   # doubleheader game 1 vs 2
+                "status": (g.get("status", {}) or {}).get("detailedState", ""),
                 "away_pitcher_id": ap_id,
                 "home_pitcher_id": hp_id,
             })
