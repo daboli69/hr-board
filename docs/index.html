@@ -476,7 +476,9 @@
   .zc-pow{display:block;font-family:"IBM Plex Mono";font-size:7.5px;color:#fff;opacity:.82;margin-top:1px;line-height:1.15;text-shadow:0 1px 1px rgba(0,0,0,.5)}
   .zc-xw.dim{color:var(--faint);font-weight:600;text-shadow:none}
   .zc-star{position:absolute;top:2px;right:4px;color:var(--hot);font-size:10px}
-  .edge-zbadge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;background:var(--hot);color:#0c0f14;font-family:"IBM Plex Mono";font-size:10px;font-weight:800;border-radius:8px;vertical-align:middle}
+  .edge-zbadge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;background:var(--seam);color:#fff;font-family:"IBM Plex Mono";font-size:10px;font-weight:800;border-radius:8px;vertical-align:middle}
+  .edge-zbadge.prem{background:var(--hot);color:#0c0f14}
+  .zc-star b{font-size:8px;font-weight:800;margin-left:1px}
   .edge-bat.sel{background:var(--panel-2);border-left:3px solid var(--hot)}
   .edge-dd-help{font-size:10.5px;color:var(--muted);line-height:1.55;background:var(--panel-2);border-radius:9px;padding:10px 12px;margin-top:12px}
   .edge-dd-help b{color:var(--ink)}
@@ -542,6 +544,56 @@
   .zp-grid{display:grid;grid-template-columns:repeat(3,22px);gap:2px;margin:6px 0}
   .zp-cell{width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-family:"IBM Plex Mono";font-size:9px;font-weight:700;color:var(--faint);background:var(--panel-2);border:1px solid var(--line);border-radius:3px}
   .zp-cell.on{color:#fff;background:var(--hot);border-color:var(--hot)}
+  .zp-cell.amber{color:#0c0f14;background:#F5A623;border-color:#F5A623;position:relative;font-weight:800}
+  .zp-cell.own{color:var(--seam);border-color:var(--seam);background:rgba(200,71,43,.10)}
+  .zp-cell.meat{color:var(--muted);border-color:var(--muted);border-style:dashed}
+  .zp-hr{position:absolute;top:-4px;right:-4px;min-width:13px;height:13px;border-radius:7px;background:#0c0f14;color:#F5A623;font-family:"IBM Plex Mono";font-size:8px;font-weight:800;display:flex;align-items:center;justify-content:center;font-style:normal;padding:0 2px}
+  .sv-card{margin:7px 0 4px}
+  .sv-row{display:flex;align-items:center;gap:7px;margin-top:4px}
+  .sv-nm{font-size:10px;color:var(--muted);min-width:82px}
+  .sv-track{flex:1;height:6px;background:var(--panel-2);border-radius:3px;overflow:hidden}
+  .sv-fill{display:block;height:100%;border-radius:3px}
+  .sv-val{font-family:"IBM Plex Mono";font-size:9.5px;color:var(--ink);min-width:38px;text-align:right}
+  .sv-p{font-family:"IBM Plex Mono";font-size:10px;font-weight:800;min-width:22px;text-align:right}
+  .pd-icons{display:inline-flex;gap:3px;margin-left:5px;vertical-align:middle}
+  .pd-ic{font-size:11px;line-height:1;cursor:help}
+  .pd-ic.eye{color:#4FD1C5}
+  .pd-ic.cross{color:#68D391}
+  .pd-ic.warn{color:#FC8181}
+  .qt-arm{border:1px solid var(--line);border-radius:11px;padding:11px;margin-bottom:10px;background:var(--panel)}
+  .qt-hd{font-size:13px;color:var(--ink);margin-bottom:8px}
+  .qt-meta{font-size:10.5px;color:var(--muted);font-weight:400}
+  .qt-slots{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+  .qt-slot{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:7px 9px;cursor:pointer}
+  .qt-slot.top{border-color:var(--hot)}
+  .qt-num{font-family:Archivo;font-weight:800;font-size:15px;color:var(--hot)}
+  .qt-stat{font-family:"IBM Plex Mono";font-size:9.5px;color:var(--muted);margin-top:1px}
+  .qt-who{font-size:11px;color:var(--ink);margin-top:3px}
+  .qt-tbd{color:var(--faint);font-style:italic}
+  .edge-arm-rt{display:flex;align-items:center;gap:9px}
+  .vuln-badge{border:2px solid var(--muted);border-radius:9px;padding:3px 7px;text-align:center;min-width:52px}
+  .vuln-num{font-family:Archivo;font-weight:800;font-size:19px;line-height:1}
+  .vuln-lab{font-family:"IBM Plex Mono";font-size:7.5px;font-weight:800;letter-spacing:.03em;margin-top:1px}
+  .vuln-block{border:1px solid var(--line);border-radius:11px;padding:11px;margin-bottom:10px;background:var(--panel)}
+  .vb-hd{font-size:12.5px;color:var(--ink);margin-bottom:8px}
+  .vb-row{display:flex;align-items:center;gap:8px;margin-top:5px}
+  .vb-nm{font-size:11px;color:var(--muted);min-width:78px}
+  .vb-track{flex:1;height:6px;background:var(--panel-2);border-radius:3px;overflow:hidden}
+  .vb-fill{display:block;height:100%;background:var(--hot);border-radius:3px}
+  .vb-pts{font-family:"IBM Plex Mono";font-size:10px;color:var(--ink);min-width:44px;text-align:right}
+  .vb-note{font-size:9.5px;color:var(--faint);margin:1px 0 0 86px;line-height:1.3}
+  .vb-miss{font-size:10px;color:var(--faint);margin-top:8px;line-height:1.4;border-top:1px solid var(--line);padding-top:7px}
+  .grade-pill{font-family:"IBM Plex Mono";font-size:8px;font-weight:800;padding:1.5px 5px;border-radius:3px;margin-left:5px;letter-spacing:.04em;vertical-align:middle}
+  .grade-pill.g-elite{background:var(--hot);color:#0c0f14}
+  .grade-pill.g-strong{background:rgba(200,71,43,.18);color:var(--seam);border:1px solid var(--seam)}
+  .grade-pill.g-mod{background:var(--panel-2);color:var(--muted);border:1px solid var(--line)}
+  .mg-cnt{font-family:"IBM Plex Mono";font-size:9.5px;color:var(--faint);margin-left:6px}
+  .mg-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin:7px 0 3px}
+  .mg-f{background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:5px 3px;text-align:center;font-size:9px;color:var(--faint);line-height:1.3}
+  .mg-f.on{border-color:var(--hot);color:var(--ink)}
+  .mg-dot{display:block;font-size:10px;color:var(--faint)}
+  .mg-f.on .mg-dot{color:var(--hot)}
+  .mg-v{display:block;font-family:"IBM Plex Mono";font-size:7.5px;margin-top:1px;opacity:.8}
   .scan-foot{font-size:10px;color:var(--faint);line-height:1.5;margin-top:14px}
   .edge-dd-zk{text-align:center;font-size:9.5px;color:var(--faint);margin:5px 0 4px}
   .edge-bat{display:flex;align-items:center;gap:10px;padding:9px 4px;border-top:1px solid var(--line);cursor:pointer}
@@ -1212,6 +1264,7 @@
       <option value="trend">Sort · Trend</option>
       <option value="bp">Sort · Bullpen</option>
       <option value="bomb">Sort · Bomb</option>
+      <option value="grade">Sort · Grade</option>
       <option value="park">Sort · Park</option>
       <option value="hrsp">Sort · HR vs SP</option>
       <option value="hrbp">Sort · HR vs PEN</option>
@@ -1231,6 +1284,8 @@
     <button class="chip edge-chip" data-edge="climate" aria-pressed="false" title="Only hitters with a warm/cold climate BOOST tonight">☀ Climate+</button>
     <button class="chip edge-chip" data-edge="mix" aria-pressed="false" title="Only hitters with a favorable pitch-mix matchup (60+)">◎ Mix+</button>
     <button class="chip edge-chip" data-edge="late" aria-pressed="false" title="Only hitters in an elevated late-HR spot">⏱ Late-HR</button>
+    <button class="chip edge-chip" data-edge="eye" aria-pressed="false" title="Only disciplined hitters (elite eye or in-zone contact)">👁 Discipline</button>
+    <button class="chip edge-chip" data-edge="grade" aria-pressed="false" title="Only ELITE or STRONG matchup grades (4+ factors aligned)">🎯 Graded</button>
     <button id="listClearBtn" class="chip listclear" onclick="listClear()" title="Empty your list — asked automatically each new slate">Clear</button>
     <span id="shown" class="shown-count"></span>
   </div>
@@ -1433,6 +1488,33 @@
       <h3>Longest HR Jackpot</h3>
       <p>In Bets. The candidates for the single longest home run — distance ceiling on <b>longshots the field skips</b>. Chalk (short-priced favorites) is excluded by <b>real book odds</b>, not the model: every candidate must have a live HR price, favorites shorter than +350 are cut, and the ranking tilts toward the overlooked names with a big distance ceiling (max EV, park, ISO). If book odds haven't posted for the slate, the card waits rather than guess.</p>
 
+      <h3>Matchup Grade — ELITE / STRONG / MOD / WEAK</h3>
+      <p>The per-hitter grade for <b>today's specific matchup</b>, by <b>factor convergence</b> rather than a weighted average. Five factors either align or they don't: <b>Power</b> (ISO — HIGH at .200, ELITE at .250), <b>Zone</b> (3+ overlap dots viable, 5+ premium), <b>Arm</b> (the opposing pitcher's HR Vulnerability tier), <b>Park</b> (1.05+ boost, 1.10+ premium), and <b>Form</b> (bat trending up). <b>4+ aligned = STRONG · all five with premium levels = ELITE.</b> The card shows a five-cell grid of exactly which factors hit. Plate discipline nudges the grade one step (elite eye up, chaser down) but never inflates a spot with nothing else going for it. Sort the board by Grade, or use the 🎯 Graded filter for ELITE/STRONG only.</p>
+
+      <h3>Bomb Score</h3>
+      <p>The composite batter-vs-pitcher matchup score, 0–100 — this replaced the old raw max-exit-velo "Bomb" sort. Combines ISO, SLG, <b>zone overlap</b> (weighted heaviest), park factor, platoon edge, the opposing starter's ERA, a hot-bat bonus, and the pitcher's times-through-order fade. <b>≥55 high-priority, ≥65 elite.</b> Every component's 0–100 subscore is shown on the card so you can see what's driving the number.</p>
+
+      <h3>HR Vulnerability Score (pitchers)</h3>
+      <p>The big badge on each arm in Edges — a 0–100 read on how susceptible that pitcher is to giving up a home run today. Point budget: <b>ERA 30 · park 20 · HR-splits by batter hand 15 · WHIP 15 · zone damage 12 · dangerous bats faced 8.</b> <b>≥70 = ELITE TARGET, ≥50 = STRONG.</b> Tap an arm for the full breakdown — a bar per component with its earned points and a plain-English note. HR splits use the pitcher's <i>worse</i> handedness side, since that's the exploitable one. If ERA/WHIP aren't available for a starter, the score rescales over what could be measured and tells you what's missing.</p>
+
+      <h3>Square Up Rating</h3>
+      <p>A 0–100 quality-of-contact score: how consistently a hitter squares the ball up. Built from Sweet Spot%, Barrel%, Hard Hit%, and average exit velo. <b>≥75 Elite · ≥60 Strong · ≥45 Average.</b> Separate from both Heat and HR power — it measures contact quality, not home-run shape specifically.</p>
+
+      <h3>Plate discipline icons</h3>
+      <p>Three icons next to a hitter's name, from chase rate and in-zone contact percentiles: <b>👁 Eye</b> (chase rate in the top 25% — rarely chases, forces pitchers into the zone), <b>⊕ Crosshair</b> (in-zone contact in the top 25% — squares up strikes), <b>⚠ Warning</b> (bottom 25% chase rate — swings at everything). Eye and Crosshair together is the top-tier confirmation. Percentiles are <b>true MLB percentiles</b> computed over every qualified hitter in the season pull. These now <b>adjust HR probability in the parlay math</b> — Eye ×1.06, Crosshair ×1.05, Warning ×0.94.</p>
+
+      <h3>Statcast percentile card</h3>
+      <p>A Savant-style bar chart in the expanded card ranking the hitter against <b>every qualified MLB hitter</b> — not just today's slate — across nine categories: Exit Velocity, Barrel%, Hard Hit%, xwOBA, Walk Rate, Chase Rate, Whiff%, Zone Contact% and K%. Computed from the full season pull, so these are real league percentiles. Chase, Whiff and K% are inverted so higher is always better. Red/orange across Exit Velo, Barrel% and Zone Contact% together = an elite power-contact hitter.</p>
+
+      <h3>Quick Target</h3>
+      <p>In Edges — the <b>batting-order spots</b> that have done the most damage against each arm (HR + ISO + SLG at that slot), cross-referenced with <b>who's actually hitting there today</b>. Every pitcher bleeds more to certain spots in the order; this surfaces which, so you can check the lineup and target the hitter standing in that spot. Tap a name to open their card.</p>
+
+      <h3>ZONE — the #1 signal</h3>
+      <p><b>ZONE 5 means this batter has hit 5 home runs in the exact zones this pitcher is most hittable in.</b> Not contact quality — actual home runs, landing in the pitcher's meatball cells. <b>Meatball zones</b> are where a pitcher gives up the most damage (highest xwOBA allowed — his worst few cells). <b>3 is the minimum threshold · 5+ is premium · no badge means no matchup.</b> On the card's grid, amber cells mark the overlap with the HR count on them; on the big Edges heatmap, ◆ marks a HR hit in a meatball zone and ● a HR elsewhere, each labeled with how many. HRs over the heart of the plate carry more confidence than corner overlaps.</p>
+
+      <h3>Day / Night</h3>
+      <p>Today's game condition (from MLB's official day/night flag) checked against the hitter's own historical day-vs-night splits. The card shows both splits and whether tonight's condition favors him, with the OPS gap. A meaningful gap in the favorable direction is a confidence add; splits only appear when there's enough sample on both sides.</p>
+
       <h3>Tracker</h3>
       <p>Grades every model against reality each morning. <b>Model vs baselines</b> is the one that matters: does Heat's top 10 homer more than just sorting by ISO or barrel%? If yes, the model is genuinely finding HR hitters better than the simple stats. The rest shows HR rate by Heat tier, by arm form, top-N success, which signals correlate to HRs, and a daily log.</p>
       <p><b>Parlay performance</b> shows how the auto-generated parlays actually converted — the leg hit rate is the honest number; if it isn't beating the base rate, that strategy isn't earning. <b>Props performance</b> does the same for hits, 2+ hits, HRR, pitcher Ks, and K Under, each with its own base rate derived from your own data (never a hard-coded league average).</p>
@@ -1619,23 +1701,134 @@ function spotBlock(p){
 // PARALLEL to heat — informational context, explicitly marked as experimental until the
 // tracker validates each via CLV. Never fold into the heat score.
 function featureBlock(p){
-  const f=p.features;
-  if(!f || (!f.pitch_matchup && !f.late_hr && !f.microclimate && !f.hr_power && !f.zone_profile)) return "";
+  const f=p.features||{};
+  const _hasRoot = p.bomb_score || p.matchup_grade || (p.dn_split && p.day_night);
+  if(!_hasRoot && (!p.features || (!f.pitch_matchup && !f.late_hr && !f.microclimate && !f.hr_power && !f.zone_profile && !f.discipline && !f.square_up))) return "";
   let rows="";
-  // 0a. Zone profile — which zones this hitter crushes vs today's arm (from the Edges zone data,
-  // surfaced here so the card is the single home for a hitter's edges).
+  // 0a. ZONE — the #1 signal. Counts the HOME RUNS this hitter has hit in the exact zones this
+  // pitcher is most hittable in. ZONE 5 = 5 HRs in his meatball zones. 3 min, 5+ premium.
   const zp=f.zone_profile;
-  if(zp && zp.crushed && zp.crushed.length){
+  if(zp && zp.overlap){
+    const ov=zp.overlap||{count:0,cells:[],hr_by_cell:{},badge:null,meatballs:[]};
+    const hrCell=ov.hr_by_cell||{};
+    const meat=new Set(ov.meatballs||[]);
+    const hrz=zp.hr_zones||{};
     const zoneMini=[1,2,3,4,5,6,7,8,9].map(z=>{
-      const hit=zp.crushed.includes(z);
-      const zd=zp.zone_dmg?zp.zone_dmg[String(z)]:null;
-      const xw=zd?zd.xw:null;
-      return `<span class="zp-cell${hit?' on':''}" title="zone ${z}${xw!=null?': '+xw.toFixed(3)+' xwOBA':''}">${z}</span>`;
+      const nHR=hrCell[String(z)]||0;                 // HRs here AND it's a meatball
+      const isMeat=meat.has(z);
+      const ownHR=hrz[String(z)]||0;                  // his HRs here regardless
+      const cls=nHR?"amber":isMeat?"meat":ownHR?"own":"";
+      const tip=`zone ${z}${ownHR?` · ${ownHR} HR here`:""}${isMeat?" · pitcher meatball":""}${nHR?" · OVERLAP":""}`;
+      return `<span class="zp-cell ${cls}" title="${tip}">${z}${nHR?`<i class="zp-hr">${nHR}</i>`:""}</span>`;
+    }).join("");
+    const badgeTxt = ov.badge ? `ZONE ${ov.count}${ov.badge.tier==="premium"?" · premium":""}` : (ov.count>0?`${ov.count} HR — below threshold`:"no matchup");
+    const badgeCol = ov.badge ? (ov.badge.tier==="premium"?"var(--hot)":"var(--seam)") : "var(--muted)";
+    rows+=`<div class="feat-row">
+      <div class="feat-hd"><b>ZONE</b> <span class="feat-sc" style="color:${badgeCol};font-weight:800">${badgeTxt}</span></div>
+      <div class="zp-grid">${zoneMini}</div>
+      <div class="feat-dt">${ov.count>0
+        ? `He has hit <b>${ov.count} HR${ov.count===1?"":"s"}</b> in the zones <b>${zp.vs_arm}</b> is most hittable in (zones ${ov.cells.join(", ")})${ov.center_count>0?` · ${ov.center_count} over the heart of the plate`:""}. <b>3 is the minimum threshold, 5+ is premium.</b>`
+        : `No HRs in ${zp.vs_arm}'s meatball zones — <b>no matchup</b> on the app's #1 signal.`} Amber = overlap (number = HRs there) · outlined = his other HR zones · dim = pitcher meatball he hasn't tagged.</div>
+    </div>`;
+  }
+  // 0b. Square Up Rating — quality-of-contact composite (separate from HR power + heat)
+  const su=f.square_up;
+  if(su && su.rating!=null){
+    const col=su.rating>=75?"var(--hot)":su.rating>=60?"var(--seam)":su.rating>=45?"var(--ink)":"var(--muted)";
+    const bits=[];
+    if(su.sweet_spot_pct!=null) bits.push(`${su.sweet_spot_pct}% sweet-spot`);
+    if(su.barrel_pct!=null) bits.push(`${su.barrel_pct}% barrel`);
+    if(su.hard_pct!=null) bits.push(`${su.hard_pct}% hard-hit`);
+    if(su.avg_ev!=null) bits.push(`${su.avg_ev} EV`);
+    rows+=`<div class="feat-row">
+      <div class="feat-hd"><b>Square Up</b> <span class="feat-sc" style="color:${col}">${su.rating} · ${su.tier}</span></div>
+      <div class="feat-dt">${bits.join(" · ")}. How consistently he squares the ball up (0–100) — from ${su.n} batted balls.</div>
+    </div>`;
+  }
+  // 0c. Plate discipline — chase% + z-contact% percentiles + the icon meanings
+  const pd=f.discipline;
+  if(pd && (pd.chase_pctl!=null || pd.zcontact_pctl!=null)){
+    const tags=[];
+    if(pd.eye) tags.push(`<b style="color:#4FD1C5">👁 elite eye</b>`);
+    if(pd.crosshair) tags.push(`<b style="color:#68D391">⊕ elite contact</b>`);
+    if(pd.warning) tags.push(`<b style="color:#FC8181">⚠ chaser</b>`);
+    const bits=[];
+    if(pd.chase_pct!=null) bits.push(`chase ${pd.chase_pct}% (${pd.chase_pctl}th pctl)`);
+    if(pd.zcontact_pct!=null) bits.push(`z-contact ${pd.zcontact_pct}% (${pd.zcontact_pctl}th pctl)`);
+    const multTxt = pd.hr_mult&&pd.hr_mult!==1 ? ` · HR prob ×${pd.hr_mult}` : "";
+    rows+=`<div class="feat-row">
+      <div class="feat-hd"><b>Plate discipline</b> ${tags.length?`<span class="feat-sc">${tags.join(" ")}</span>`:""}</div>
+      <div class="feat-dt">${bits.join(" · ")}${multTxt}. Chase = how often he swings at balls (lower is better); z-contact = how often he connects on strikes. Percentiles vs today's slate.</div>
+    </div>`;
+  }
+  // 0aa. MATCHUP GRADE — the unifying convergence read, shown first
+  const mg=p.matchup_grade;
+  if(mg && mg.grade){
+    const col=mg.grade==="ELITE"?"var(--hot)":mg.grade==="STRONG"?"var(--seam)":mg.grade==="MOD"?"var(--ink)":"var(--muted)";
+    const F5=mg.factors||{};
+    const fRow=(key,label)=>{
+      const v=F5[key];
+      const on=v && !["LOW","NONE","NEUTRAL","SUPPRESS","COLD","STEADY","MID","MODERATE","AVOID"].includes(v);
+      return `<div class="mg-f ${on?'on':''}"><span class="mg-dot">${on?'✓':'·'}</span>${label}<span class="mg-v">${v||'–'}</span></div>`;
+    };
+    rows+=`<div class="feat-row">
+      <div class="feat-hd"><b>Matchup Grade</b> <span class="feat-sc" style="color:${col};font-weight:800">${mg.grade}</span> <span class="mg-cnt">${mg.aligned}/5 aligned</span></div>
+      <div class="mg-grid">
+        ${fRow("iso","Power")}${fRow("zone","Zone")}${fRow("vuln","Arm")}${fRow("park","Park")}${fRow("form","Form")}
+      </div>
+      <div class="feat-dt">${(mg.notes||[]).length?mg.notes.join(" · ")+"." : "No factors aligned for this matchup."} Grade is factor <b>convergence</b> — 4+ aligned is STRONG, all five with premium levels is ELITE.</div>
+    </div>`;
+  }
+  // 0z. BOMB SCORE — the composite matchup score (primary ranking signal)
+  const bs=p.bomb_score;
+  if(bs && bs.score!=null){
+    const col=bs.tier==="elite"?"var(--hot)":bs.tier==="high"?"var(--seam)":bs.tier==="mid"?"var(--ink)":"var(--muted)";
+    const label=bs.tier==="elite"?"ELITE MATCHUP":bs.tier==="high"?"HIGH PRIORITY":bs.tier==="mid"?"moderate":"low";
+    const pm=bs.parts||{};
+    const partBits=[];
+    if(pm.zone!=null) partBits.push(`zone ${pm.zone}`);
+    if(pm.iso!=null) partBits.push(`ISO ${pm.iso}`);
+    if(pm.era!=null) partBits.push(`arm ${pm.era}`);
+    if(pm.park!=null) partBits.push(`park ${pm.park}`);
+    if(pm.platoon!=null) partBits.push(`platoon ${pm.platoon}`);
+    if(pm.tto!=null) partBits.push(`TTO ${pm.tto}`);
+    rows+=`<div class="feat-row">
+      <div class="feat-hd"><b>Bomb Score</b> <span class="feat-sc" style="color:${col}">${bs.score} · ${label}</span></div>
+      <div class="feat-dt">Components (0-100 each): ${partBits.join(" · ")}${bs.hot_bonus?` · +${bs.hot_bonus} hot-bat bonus`:""}. Composite of power, zone overlap, park, platoon, the arm's ERA and TTO fade. ≥55 high-priority, ≥65 elite.</div>
+    </div>`;
+  }
+  // 0y. Day/Night — today's condition vs this hitter's historical split
+  const dn=p.dn_split, cond=(p.day_night||"").toLowerCase();
+  if(dn && dn.day && dn.night && cond){
+    const isDay=cond==="day";
+    const mine=isDay?dn.day:dn.night, other=isDay?dn.night:dn.day;
+    const edge=(mine.ops_proxy||0)-(other.ops_proxy||0);
+    const good=edge>=0.030, bad=edge<=-0.030;
+    const col=good?"var(--hot)":bad?"var(--cold)":"var(--muted)";
+    rows+=`<div class="feat-row">
+      <div class="feat-hd"><b>${isDay?"☀️ Day game":"🌙 Night game"}</b> <span class="feat-sc" style="color:${col}">${good?"favorable":bad?"unfavorable":"neutral"}</span></div>
+      <div class="feat-dt">Day ${dn.day.ops_proxy} OPS (${dn.day.pa} PA, ${dn.day.hr} HR) vs night ${dn.night.ops_proxy} (${dn.night.pa} PA, ${dn.night.hr} HR). ${good?`He's <b>${Math.round(edge*1000)}</b> OPS points better in tonight's condition.`:bad?`He's <b>${Math.round(Math.abs(edge)*1000)}</b> OPS points worse in tonight's condition.`:"No meaningful gap between conditions."}</div>
+    </div>`;
+  }
+  // 0d. STATCAST PERCENTILE CARD — Savant-style bars vs ALL qualified MLB hitters
+  const pc=f.percentiles;
+  if(pc && Object.keys(pc).length){
+    const ORDER=["avg_ev","barrel_pct","hard_pct","xwoba","bb_pct","chase_pct","whiff_pct","zcontact_pct","k_pct"];
+    const fmtV=(k,v)=>k==="xwoba"?v.toFixed(3).replace(/^0/,""):k==="avg_ev"?v.toFixed(1):`${v}%`;
+    const bars=ORDER.filter(k=>pc[k]).map(k=>{
+      const c=pc[k], p=c.pctl;
+      const col=p>=80?"var(--hot)":p>=60?"var(--seam)":p>=40?"var(--muted)":"var(--faint)";
+      return `<div class="sv-row">
+        <span class="sv-nm">${c.label}</span>
+        <span class="sv-track"><span class="sv-fill" style="width:${p}%;background:${col}"></span></span>
+        <span class="sv-val">${fmtV(k,c.value)}</span>
+        <span class="sv-p" style="color:${col}">${p}</span>
+      </div>`;
     }).join("");
     rows+=`<div class="feat-row">
-      <div class="feat-hd"><b>Zone profile</b> <span class="feat-sc" style="color:var(--hot)">${zp.crushed.length} zone${zp.crushed.length>1?'s':''}</span></div>
-      <div class="zp-grid">${zoneMini}</div>
-      <div class="feat-dt">Crushes zone${zp.crushed.length>1?'s':''} ${zp.crushed.join(", ")} (xwOBA ≥ .400) vs ${zp.vs_arm}. Tap Edges → this arm to see where he throws. Lit cells = his damage zones.</div>
+      <div class="feat-hd"><b>Statcast percentiles</b> <span class="feat-sc" style="font-size:9.5px;color:var(--faint)">vs all qualified MLB hitters</span></div>
+      <div class="sv-card">${bars}</div>
+      <div class="feat-dt">Percentile rank against every qualified hitter in the league. Chase, Whiff and K% are inverted so higher is always better. Red/orange across Exit Velo, Barrel% and Zone Contact% together = elite power-contact profile.</div>
     </div>`;
   }
   // 0. HR power profile — raw batted-ball power lens (barrel / distance / HR-swing rate)
@@ -1855,6 +2048,24 @@ function tierBlock(p){
 }
 
 // Elite gate chip — the four-threshold profile (pull/EV/barrel/ideal-AA), app-wide.
+// Plate discipline icons — Eye (elite discipline), Crosshair (elite in-zone contact),
+// Warning (high chaser). Sourced from chase% + z-contact% percentiles vs the slate.
+// Matchup Grade pill — ELITE / STRONG / MOD / WEAK from factor convergence.
+function gradePill(p){
+  const mg=p.matchup_grade; if(!mg||!mg.grade) return "";
+  if(mg.grade==="WEAK") return "";              // don't clutter rows with the negative case
+  const cls=mg.grade==="ELITE"?"g-elite":mg.grade==="STRONG"?"g-strong":"g-mod";
+  const tip=`${mg.aligned}/5 factors aligned${mg.premium?` (${mg.premium} premium)`:""}: ${(mg.notes||[]).join(" · ")}`;
+  return `<span class="grade-pill ${cls}" title="${tip}">${mg.grade}</span>`;
+}
+function disciplineIcons(p){
+  const d=(p.features||{}).discipline; if(!d) return "";
+  const out=[];
+  if(d.eye) out.push(`<span class="pd-ic eye" title="Elite plate discipline — chase rate ${d.chase_pct}% (${d.chase_pctl}th pctl). Rarely chases; forces pitchers into the zone. +HR probability.">👁</span>`);
+  if(d.crosshair) out.push(`<span class="pd-ic cross" title="Elite in-zone contact — ${d.zcontact_pct}% (${d.zcontact_pctl}th pctl). Squares up strikes at a top rate. +HR probability.">⊕</span>`);
+  if(d.warning) out.push(`<span class="pd-ic warn" title="High chaser — chase rate ${d.chase_pct}% (${d.chase_pctl}th pctl). Swings outside the zone often. −HR probability.">⚠</span>`);
+  return out.length?`<span class="pd-icons">${out.join("")}</span>`:"";
+}
 function eliteChip(p){
   const e=p.elite; if(!e||!e.tier||e.tier==="BELOW"||e.tier==="NEAR") return "";
   const cls=e.tier==="ELITE+"?"el-plus":"el";
@@ -1906,6 +2117,21 @@ function trendVal(t){
 }
 function bpVal(p){const bp=p.opp_bullpen||{}; const v=bp.vs_hand!=null?bp.vs_hand:bp.score; return v!=null?v:-1;}
 // Long-ball / distance ceiling: how hard he CAN hit it (season max EV), nudged by recent form.
+// Bomb Score sort value — prefers the new composite matchup score (ISO/SLG/zone-overlap/park/
+// platoon/ERA/hot-streak/TTO). Falls back to the old raw max-EV ceiling if the board predates
+// the composite, so the sort never goes blank on an older build.
+// Matchup Grade sort value — grade rank first, then how many factors aligned as the tiebreak.
+function gradeVal(p){
+  const mg=p.matchup_grade; if(!mg||!mg.grade) return -1;
+  const rank={WEAK:0,MOD:1,STRONG:2,ELITE:3}[mg.grade];
+  return (rank==null?-1:rank)*10 + (mg.aligned||0);
+}
+function bombVal(p){
+  const bs=p.bomb_score;
+  if(bs && bs.score!=null) return bs.score;
+  const c=lbCeil(p);
+  return c!=null ? Math.max(0, Math.min(60, (c-100)*3)) : -1;   // old ceiling, scaled below 65
+}
 function lbCeil(p){const mx=p.max_ev||{}; return mx.season!=null?mx.season:mx.recent;}
 function _lbn(v,lo,hi){ if(v==null) return null; return Math.max(0,Math.min(100,(v-lo)/(hi-lo)*100)); }
 // loft: distance needs launch in the long-ball band (~10-30°); penalize too flat / too steep
@@ -2184,10 +2410,12 @@ function render(){
       for(const e of edgeSel){
         if(e==="elite"){ const t=(p.elite||{}).tier; if(t!=="ELITE"&&t!=="ELITE+") return false; }
         else if(e==="climate"){ const m=f.microclimate; if(!m||!m.flag||!m.flag.includes("BOOST")) return false; }
-        else if(e==="zone"){ const zp=f.zone_profile; if(!zp||!(zp.crushed&&zp.crushed.length)) return false; }
+        else if(e==="zone"){ const zp=f.zone_profile; const oc=zp&&zp.overlap?zp.overlap.count:0; if(oc<3) return false; }
         else if(e==="power"){ const hp=f.hr_power; if(!hp||!((hp.barrel_pct!=null&&hp.barrel_pct>=12)||(hp.hr_swing_pct!=null&&hp.hr_swing_pct>=14))) return false; }
         else if(e==="mix"){ const pm=f.pitch_matchup; if(!pm||!(pm.score>=60)) return false; }
         else if(e==="late"){ const lc=f.late_hr; if(!lc||!lc.label||lc.label==="neutral") return false; }
+        else if(e==="eye"){ const d=f.discipline; if(!d||!(d.eye||d.crosshair)) return false; }
+        else if(e==="grade"){ const g2=p.matchup_grade; if(!g2||!["ELITE","STRONG"].includes(g2.grade)) return false; }
       }
       return true;
     });
@@ -2219,7 +2447,8 @@ function render(){
     if(sortKey==="time") return (a.time||"").localeCompare(b.time||"")|| b.heat-a.heat;
     if(sortKey==="trend") return trendVal(b.trend)-trendVal(a.trend)|| b.heat-a.heat;
     if(sortKey==="bp") return bpVal(b)-bpVal(a)|| b.heat-a.heat;
-    if(sortKey==="bomb") return lbVal(b)-lbVal(a)|| b.heat-a.heat;
+    if(sortKey==="bomb") return bombVal(b)-bombVal(a)|| b.heat-a.heat;
+    if(sortKey==="grade") return gradeVal(b)-gradeVal(a)|| bombVal(b)-bombVal(a)|| b.heat-a.heat;
     if(sortKey==="park") return pkVal(b)-pkVal(a)|| b.heat-a.heat;
     if(sortKey==="hrsp"||sortKey==="hrbp"){
       // sort hitters carrying the badge first (by heat within), then everyone else by heat
@@ -2565,7 +2794,7 @@ function render(){
           <div class="rank mono">${i+1}</div>
           <div class="cheat" style="background:${col}">${H(p)}</div>
           <div class="cwho">
-            <div class="name"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span class="nm-txt">${p.name}</span>${eliteChip(p)}<span class="liststar"${listHas(p.id)?"":" hidden"}>★</span></div>
+            <div class="name"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span class="nm-txt">${p.name}</span>${gradePill(p)}${eliteChip(p)}${disciplineIcons(p)}<span class="liststar"${listHas(p.id)?"":" hidden"}>★</span></div>
             <div class="cmini">${sm?'<span class="clearflag">SMASH</span> ':""}${hlabPill(p)}${p.robbed?`<span class="robtag">ROBBED${p.robbed.n>1?" ×"+p.robbed.n:""}</span> `:""}${p.milestone?`<span class="mstone">${p.milestone.kind==="team"?`vs ${p.milestone.target.split(" ").pop()}: ${p.milestone.away===1?"1 HR":p.milestone.away+" HR"}`:`HR ${p.milestone.career_hr} → ${p.milestone.next}`}</span> `:""}${bpChip}${lbChip}${pkChip}${mdChip}${trendBadge(p.trend)?trendBadge(p.trend)+" ":""}${p.lineup_status==="projected"?`<span class="spot" style="color:var(--seam);border-color:var(--seam)">proj</span> `:""}${p.lineup_spot?`#${p.lineup_spot} · `:""}${p.team}→${p.opp_team} · ${timeStr(p.time)}${armSc!=null?` · arm <b style="color:${armCol}">${armSc}</b>`:""} · ${(p.windows&&p.windows.L14d&&p.windows.L14d.pa!=null)?`${p.windows.L14d.pa}PA`:"–"}</div>
           </div>
           <div class="cmetrics">${mini}</div>
@@ -2904,12 +3133,50 @@ function renderEdges(){
   }
   const subTabs=`<div class="prop-subtabs" style="margin-bottom:12px">
     <button class="${edgesView==='arms'?'on':''}" onclick="setEdgesView('arms')">Arms</button>
+    <button class="${edgesView==='qt'?'on':''}" onclick="setEdgesView('qt')">Quick Target</button>
     <button class="${edgesView==='pens'?'on':''}" onclick="setEdgesView('pens')">Bullpens</button>
     <button class="${edgesView==='micro'?'on':''}" onclick="setEdgesView('micro')">Microclimate</button>
     <button class="${edgesView==='late'?'on':''}" onclick="setEdgesView('late')">Late-HR</button>
   </div>`;
   const hd=`<div class="edges-hd"><h2>Edges <span class="beta-pill">BETA</span></h2></div>`;
   const note=`<div class="edges-note">⚠︎ Experimental signals, not yet CLV-validated. These reconstruct matchups the market undersamples. Treat as leads — log a bet if you act, so the tracker can prove or kill the edge over time.</div>`;
+
+  if(edgesView==="qt"){
+    // QUICK TARGET: the top-4 most dangerous batting-order spots vs each arm on the slate,
+    // cross-referenced with who's actually hitting there in today's confirmed lineup.
+    const arms=((BOARD&&BOARD.pitcher_edges)||[]).filter(a=>a.quick_target&&a.quick_target.top&&a.quick_target.top.length);
+    if(!arms.length){
+      main.innerHTML=`<div class="edges-wrap">${hd}${subTabs}
+        <div class="empty">Quick Target needs the updated build — dangerous lineup spots fill in after the next board run.</div></div>`;
+      return;
+    }
+    const players=(BOARD.players||[]);
+    const rows=arms.map(a=>{
+      const qt=a.quick_target, slots=qt.slots||{};
+      // who is actually batting in those spots today (the opposing lineup)
+      const lineup={};
+      players.forEach(p=>{ if(p.game_pk===a.game_pk && p.team===a.opp_team && p.lineup_spot) lineup[p.lineup_spot]=p; });
+      const spotCells=(qt.top||[]).map((s,i)=>{
+        const sd=slots[s]||{};
+        const who=lineup[s];
+        const hot=i===0;
+        return `<div class="qt-slot${hot?' top':''}"${who?` onclick="scanToPlayer&&scanToPlayer(${who.id})"`:""}>
+          <div class="qt-num">#${s}</div>
+          <div class="qt-stat">${sd.hr!=null?`${sd.hr} HR`:""}${sd.iso!=null?` · ISO ${sd.iso.toFixed(3)}`:""}</div>
+          <div class="qt-who">${who?`<b>${who.name}</b>${who.heat!=null?` · heat ${who.heat}`:""}`:`<span class="qt-tbd">lineup TBD</span>`}</div>
+        </div>`;
+      }).join("");
+      return `<div class="qt-arm">
+        <div class="qt-hd"><b>${a.name}</b> <span class="qt-meta">${a.team} vs ${a.opp_team} · ${timeStr(a.time)}${a.season&&a.season.era!=null?` · ${a.season.era.toFixed(2)} ERA`:""}</span></div>
+        <div class="qt-slots">${spotCells}</div>
+      </div>`;
+    }).join("");
+    main.innerHTML=`<div class="edges-wrap">${hd}${subTabs}
+      <div class="edges-intro"><b>Quick Target</b> — the batting-order spots that have done the most damage against each arm (2-season HR + ISO + SLG at that slot). Check which spot is hot, then look at who's actually hitting there today. Tap a name to open their card.</div>
+      ${rows}
+      ${note}</div>`;
+    return;
+  }
 
   if(edgesView==="pens"){
     const pens=(BOARD&&BOARD.bullpen_rankings)||[];
@@ -2996,29 +3263,44 @@ function renderEdges(){
     return;
   }
   // sort most-vulnerable first (highest exploit score); arms with no lineup yet go last
+  // sort by HR Vulnerability (the headline pitcher score); exploit_score breaks ties, and
+  // arms with neither go last
   const rows=arms.slice().sort((a,b)=>{
-    const av=a.exploit_score, bv=b.exploit_score;
-    if(av==null && bv==null) return 0;
-    if(av==null) return 1;
-    if(bv==null) return -1;
-    return bv-av;
+    const av=(a.vuln&&a.vuln.score!=null)?a.vuln.score:null;
+    const bv=(b.vuln&&b.vuln.score!=null)?b.vuln.score:null;
+    if(av!=null && bv!=null && av!==bv) return bv-av;
+    if(av!=null && bv==null) return -1;
+    if(av==null && bv!=null) return 1;
+    const ax=a.exploit_score, bx=b.exploit_score;
+    if(ax==null && bx==null) return 0;
+    if(ax==null) return 1;
+    if(bx==null) return -1;
+    return bx-ax;
   }).map(a=>{
     const ex=a.exploit_score;
     const col=ex==null?"var(--muted)":ex>=0.380?"var(--hot)":ex>=0.340?"var(--ink)":"var(--muted)";
     const fatChip=a.fatigue&&a.fatigue.state&&a.fatigue.state!=="FRESH"
       ? `<span class="edge-fat ${a.fatigue.state.toLowerCase()}">${a.fatigue.state}</span>` : "";
     const topBat=(a.batters||[]).find(b=>b.zone_score!=null);
+    const vs=a.vuln;
+    const vCol=!vs?"var(--muted)":vs.tier==="elite_target"?"var(--hot)":vs.tier==="strong"?"var(--seam)":vs.tier==="moderate"?"var(--ink)":"var(--muted)";
+    const vLabel=!vs?"":vs.tier==="elite_target"?"ELITE TARGET":vs.tier==="strong"?"STRONG":vs.tier==="moderate"?"MOD":"AVOID";
+    const vulnBadge=vs?`<div class="vuln-badge" style="border-color:${vCol}">
+        <div class="vuln-num" style="color:${vCol}">${Math.round(vs.score)}</div>
+        <div class="vuln-lab" style="color:${vCol}">${vLabel}</div>
+      </div>`:"";
+    const eraBit=a.season&&a.season.era!=null?` · ${a.season.era.toFixed(2)} ERA`:"";
     return `<button class="edge-arm" onclick="edgesPitcher=${a.id};renderEdges()">
       <div class="edge-arm-top">
         <div><b>${a.name}</b> <span class="edge-arm-hand">${a.throws||"?"}HP</span> ${fatChip}</div>
-        <div class="edge-arm-ex" style="color:${col}">${ex!=null?ex.toFixed(3):"–"}</div>
+        <div class="edge-arm-rt">${vulnBadge}<div class="edge-arm-ex" style="color:${col}">${ex!=null?ex.toFixed(3):"–"}</div></div>
       </div>
-      <div class="edge-arm-sub">${a.team} vs ${a.opp_team} · ${timeStr(a.time)}${a.arsenal&&a.arsenal.usage?` · ${Math.round((a.arsenal.usage.FB||0)*100)}% FB`:""}</div>
+      <div class="edge-arm-sub">${a.team} vs ${a.opp_team} · ${timeStr(a.time)}${eraBit}${a.arsenal&&a.arsenal.usage?` · ${Math.round((a.arsenal.usage.FB||0)*100)}% FB`:""}</div>
       ${topBat?`<div class="edge-arm-tb">Top threat: <b>${topBat.name}</b>${topBat.hot_zone?` punishes zone ${topBat.hot_zone}`:""}</div>`:""}
     </button>`;
   }).join("");
   main.innerHTML=`<div class="edges-wrap">${hd}${subTabs}
-    <div class="edges-intro">Today's arms ranked by <b>zone-matchup exploitability</b> — the average xwOBA the top opposing hitters post in exactly the cells this arm throws to most (only hitters with real sample count). <b>Note:</b> this is a different lens than "Arms today" on the board, which ranks by the HR-vulnerability model. This one is spatial matchup; that one is season HR-suppression. They won't match — they're measuring different things. Tap any arm for its zone map.</div>
+    <div class="edges-intro">Today's arms ranked by <b>HR Vulnerability</b> (the big badge, 0–100): ERA 30 · park 20 · HR-splits by hand 15 · WHIP 15 · zone damage 12 · dangerous bats 8. <b>≥70 = ELITE TARGET, ≥50 = STRONG.</b> The smaller number is zone-matchup exploitability — the xwOBA today's top opposing hitters post in the cells this arm actually throws to. <b>Note:</b> both differ from "Arms today" on the board, which uses the season Statcast HR-suppression model. Different lenses, so they won't match. Tap any arm for its zone map and breakdown.</div>
     ${note}
     ${rows}
   </div>`;
@@ -3032,8 +3314,17 @@ function renderEdges(){
 //  - batter mode (a hitter selected): cells colored by THAT hitter's xwOBA, with a ◆ on zones he
 //    crushes that the pitcher also throws to (the danger overlap), ● on zones he crushes elsewhere.
 // Every cell is labeled with its zone number so "crushes zone 8" is locatable.
-function zoneHeatmap(grid, batter){
+function zoneHeatmap(grid, batter, meatballs){
   if(!grid) return "";
+  // meatball set = the pitcher's most-damaged cells (same definition the ZONE badge uses)
+  const meatSet=new Set();
+  if(meatballs){
+    const ranked=Object.entries(meatballs)
+      .map(([z,v])=>[z, (v&&v.xwobacon!=null)?v.xwobacon:null])
+      .filter(([,x])=>x!=null && x>=0.370)
+      .sort((a,b)=>b[1]-a[1]).slice(0,4);
+    ranked.forEach(([z])=>meatSet.add(String(z)));
+  }
   const cells=[];
   for(let z=1;z<=9;z++){
     const zk=String(z);
@@ -3054,13 +3345,17 @@ function zoneHeatmap(grid, batter){
         const distTxt=dist!=null?`${dist}ft`:"";
         sub=`<span class="zc-xw">${xw.toFixed(3)}</span>`+
             (brlTxt||distTxt?`<span class="zc-pow">${[brlTxt,distTxt].filter(Boolean).join(" · ")}</span>`:"");
-        const crushes=(xw>=0.400 && (n||0)>=6);
-        const pitcherThrows=u>=0.10;
-        if(crushes && pitcherThrows) mark='<span class="zc-star danger">◆</span>';
-        else if(crushes) mark='<span class="zc-star">●</span>';
+        const nHR=(batter.hr_zones&&batter.hr_zones[zk])||0;   // his HRs in this cell
+        const isMeat=meatSet.has(zk);
+        // ◆ = he has hit a HR here AND it's one of the pitcher's meatball zones (the ZONE signal)
+        // ● = he has hit a HR here, but the pitcher isn't especially vulnerable in this cell
+        if(nHR && isMeat) mark=`<span class="zc-star danger">◆<b>${nHR}</b></span>`;
+        else if(nHR) mark=`<span class="zc-star">●<b>${nHR}</b></span>`;
       }else{
         bg="var(--panel-2)";
         sub=`<span class="zc-xw dim">–</span>`;   // no sample here
+        const nHR=(batter.hr_zones&&batter.hr_zones[zk])||0;
+        if(nHR) mark=meatSet.has(zk)?`<span class="zc-star danger">◆<b>${nHR}</b></span>`:`<span class="zc-star">●<b>${nHR}</b></span>`;
       }
       cells.push(`<div class="zc" style="background:${bg}">${label}${useBadge}${sub}${mark}</div>`);
     }else{
@@ -3076,20 +3371,26 @@ function zoneHeatmap(grid, batter){
 
 function edgesDrilldown(p){
   const g=p.zone_grid;
-  const bats=(p.batters||[]).filter(b=>b.zone_score!=null);
+  // rank by the ZONE signal first (HRs in this arm's meatball zones), then zone-match xwOBA
+  const bats=(p.batters||[]).filter(b=>b.zone_score!=null || ((b.overlap||{}).count||0)>0)
+    .slice().sort((a,b)=>{
+      const ac=(a.overlap||{}).count||0, bc=(b.overlap||{}).count||0;
+      if(ac!==bc) return bc-ac;
+      return (b.zone_score||0)-(a.zone_score||0);
+    });
   // which batter is selected for the map? default: none (pitcher mode)
   const sel=bats.find(b=>b.id===edgesBatter) || null;
 
   const batRows=bats.slice(0,9).map((b,i)=>{
     const on=sel&&sel.id===b.id;
     const col=b.zone_score>=0.400?"var(--hot)":b.zone_score>=0.340?"var(--ink)":"var(--muted)";
-    const nZ=(b.crushed_zones||[]).length;
-    const zoneBadge=nZ>0?`<span class="edge-zbadge" title="crushes ${nZ} zone(s): ${(b.crushed_zones||[]).join(', ')}">${nZ}</span>`:"";
+    const ovc=(b.overlap||{}).count||0;
+    const zoneBadge=ovc>0?`<span class="edge-zbadge${ovc>=5?' prem':''}" title="${ovc} HR in ${p.name}'s meatball zones${ovc>=5?' — premium':ovc>=3?' — viable':' — below the 3 threshold'}">${ovc}</span>`:"";
     return `<div class="edge-bat${on?' sel':''}" onclick="edgesBatter=${on?'null':b.id};renderEdges()">
       <div class="edge-bat-rk">${i+1}</div>
       <div class="edge-bat-main">
         <div><b>${b.name}</b> ${zoneBadge} <span class="edge-bat-meta">${b.bats||"?"} · #${b.spot||"?"} · heat ${b.heat??"–"}</span></div>
-        <div class="edge-bat-sub">${(b.crushed_zones||[]).length?`crushes zones ${b.crushed_zones.join(", ")}`:"no dominant zone"}${b.matchup_score!=null?` · pitch-mix ${b.matchup_score.toFixed(0)}`:""}</div>
+        <div class="edge-bat-sub">${ovc>0?`<b>${ovc} HR</b> in his meatball zones (${(b.overlap.cells||[]).join(", ")})`:"no HRs in his meatball zones"}${b.matchup_score!=null?` · pitch-mix ${b.matchup_score.toFixed(0)}`:""}</div>
       </div>
       <div class="edge-bat-sc" style="color:${col}">${b.zone_score.toFixed(3)}</div>
     </div>`;
@@ -3100,7 +3401,7 @@ function edgesDrilldown(p){
   const fatLine=p.fatigue&&p.fatigue.state?`<div class="edge-dd-fat ${p.fatigue.state.toLowerCase()}">Pen fatigue: <b>${p.fatigue.state}</b> (${p.fatigue.index}/100) — ${p.fatigue.driver}</div>`:"";
 
   const mapHeader=sel
-    ? `<b>${sel.name}</b>'s contact by zone vs ${p.name} <span>big number = his xwOBA · small line = barrel% · distance · corner % = how often ${p.name} throws there · ◆ he crushes it AND ${p.name} lives there · ● he crushes it</span>`
+    ? `<b>${sel.name}</b> vs ${p.name} <span>big number = his xwOBA · small line = barrel% · distance · corner % = how often ${p.name} throws there · <b>◆ = HR he hit in one of ${p.name}'s meatball zones (the ZONE signal)</b> · ● = HR elsewhere · number on the marker = how many</span>`
     : `Where ${p.name} lives <span>darker = more pitches there · tap a batter below to see HIS zones</span>`;
 
   return `<div class="edges-wrap">
@@ -3110,9 +3411,35 @@ function edgesDrilldown(p){
     </div>
     <div class="edge-dd-sub">${p.team} vs ${p.opp_team} · ${timeStr(p.time)} · ${p.park||""}</div>
     <div class="edge-dd-ars">${arsLine}</div>
+    ${(()=>{
+      const v=p.vuln; if(!v||v.score==null) return "";
+      const c=v.tier==="elite_target"?"var(--hot)":v.tier==="strong"?"var(--seam)":v.tier==="moderate"?"var(--ink)":"var(--muted)";
+      const lab=v.tier==="elite_target"?"ELITE TARGET":v.tier==="strong"?"STRONG":v.tier==="moderate"?"MODERATE":"AVOID";
+      const P=v.parts||{};
+      const bar=(key,name,extra)=>{
+        const pp=P[key]; if(!pp) return "";
+        const pct=Math.round((pp.pts/pp.max)*100);
+        return `<div class="vb-row"><span class="vb-nm">${name}</span>
+          <span class="vb-track"><span class="vb-fill" style="width:${pct}%"></span></span>
+          <span class="vb-pts">${pp.pts}/${pp.max}</span></div>
+          ${extra?`<div class="vb-note">${extra}</div>`:""}`;
+      };
+      const handNote=P.hand_hr?`worst vs ${P.hand_hr.side}HB — ${P.hand_hr.value}% HR/PA over 2 yrs`:"";
+      const zoneNote=P.zone?`${P.zone.meatballs} meatball zone${P.zone.meatballs===1?"":"s"} · worst cells avg ${P.zone.worst_avg} xwOBA`:"";
+      return `<div class="vuln-block">
+        <div class="vb-hd"><b>HR Vulnerability</b> <span style="color:${c};font-family:Archivo;font-weight:800;font-size:17px">${Math.round(v.score)}</span> <span style="color:${c};font-size:10px;font-family:'IBM Plex Mono';font-weight:800">${lab}</span></div>
+        ${bar("era","ERA",P.era?`${P.era.value} season ERA`:"")}
+        ${bar("park","Park",P.park?`${P.park.value}× HR factor today`:"")}
+        ${bar("hand_hr","HR splits",handNote)}
+        ${bar("whip","WHIP",P.whip?`${P.whip.value} season WHIP`:"")}
+        ${bar("zone","Zone damage",zoneNote)}
+        ${bar("danger","Danger bats",P.danger?`${P.danger.value} genuine threats in today's lineup`:"")}
+        ${v.missing&&v.missing.length?`<div class="vb-miss">Not available today: ${v.missing.join(", ")} — score rescaled over the ${v.coverage} points we could measure.</div>`:""}
+      </div>`;
+    })()}
     ${fatLine}
     <div class="edge-dd-zone-h">${mapHeader}</div>
-    ${zoneHeatmap(g, sel)}
+    ${zoneHeatmap(g, sel, p.meatball_zones)}
     <div class="edge-dd-zk"><span>catcher's view · zones 1-3 up, 4-6 middle, 7-9 down${sel?` · <a onclick="edgesBatter=null;renderEdges()" style="color:var(--seam);cursor:pointer">show pitcher's zones</a>`:""}</span></div>
     <div class="edge-dd-bh">Batters who punish his zones <span>tap one to light up his zones on the map above</span></div>
     ${batRows||'<div class="empty" style="padding:16px">No batter zone data for this arm yet.</div>'}
@@ -4627,7 +4954,11 @@ function renderParlays(){
     const base=p._prob||0, bbe=_bbeOf(p);
     const trust=Math.max(0.6, Math.min(1, 0.6 + 0.4*(bbe/25)));  // full trust at 25+ BBE
     const NEUTRAL=0.05;                                          // league-ish base HR rate
-    return NEUTRAL + (base-NEUTRAL)*trust;                      // shrink toward base rate when thin
+    let v = NEUTRAL + (base-NEUTRAL)*trust;                      // shrink toward base rate when thin
+    // plate-discipline adjustment: elite eye / in-zone contact lift HR probability, chasers cut it
+    const d=(p.features||{}).discipline;
+    if(d && d.hr_mult) v *= d.hr_mult;
+    return Math.max(0, Math.min(0.95, v));
   };
   const leg=(p,extra)=>{
     const tags=[];
