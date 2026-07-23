@@ -195,6 +195,14 @@ def grade_date(date):
     by_badge = {}
     by_park, by_trend = {}, {}      # does park+weather boost / trend direction actually convert?
     by_smash, by_opener, by_spot, by_b2b, by_hlabel = {}, {}, {}, {}, {}
+    # ---- NEW-SIGNAL grading: every edge added since the core model, bucketed so the tracker
+    # proves or kills each one. Same {n, hr} shape as by_signal so the UI can render uniformly.
+    by_edge = {}
+    def _edge(group, bucket, hit):
+        g = by_edge.setdefault(group, {})
+        b = g.setdefault(bucket, {"n": 0, "hr": 0})
+        b["n"] += 1
+        b["hr"] += 1 if hit else 0
     def _park_bucket(b):
         if b is None: return "n/a"
         if b >= 12: return "strong+"
@@ -223,6 +231,63 @@ def grade_date(date):
         for k in badges:
             bb = by_badge.setdefault(k, {"n": 0, "hr": 0})
             bb["n"] += 1; bb["hr"] += 1 if hit else 0
+
+        # ---- NEW SIGNALS ----
+        # ZONE: HRs this hitter has in the arm's meatball zones. The app's #1 claim.
+        _z = p.get("zone")
+        if _z is not None:
+            _z = int(_z or 0)
+            _edge("zone", "5+ premium" if _z >= 5 else "3-4 viable" if _z >= 3
+                  else "1-2 thin" if _z >= 1 else "0 none", hit)
+        # Matchup Grade
+        if p.get("grade"):
+            _edge("grade", p["grade"], hit)
+        # Bomb Score band
+        _b = p.get("bomb")
+        if _b is not None:
+            _edge("bomb", "65+ elite" if _b >= 65 else "55-64 high" if _b >= 55
+                  else "40-54 mid" if _b >= 40 else "<40 low", hit)
+        # Opposing pitcher vulnerability tier
+        if p.get("vuln"):
+            _edge("vuln", p["vuln"], hit)
+        # Elite gate
+        if p.get("elite_tier"):
+            _edge("elite", p["elite_tier"], hit)
+        # Square Up rating band
+        _s = p.get("sq_up")
+        if _s is not None:
+            _edge("square_up", "75+ elite" if _s >= 75 else "60-74 strong" if _s >= 60
+                  else "45-59 avg" if _s >= 45 else "<45 weak", hit)
+        # Plate discipline icons
+        if p.get("eye") or p.get("crosshair") or p.get("chaser"):
+            if p.get("chaser"):
+                _edge("discipline", "chaser (warn)", hit)
+            elif p.get("eye") and p.get("crosshair"):
+                _edge("discipline", "eye + crosshair", hit)
+            elif p.get("eye"):
+                _edge("discipline", "eye", hit)
+            else:
+                _edge("discipline", "crosshair", hit)
+        else:
+            _edge("discipline", "none", hit)
+        # HR power (barrel%) band
+        _hp = p.get("hr_power")
+        if _hp is not None:
+            _edge("hr_power", "12%+ barrel" if _hp >= 12 else "8-11%" if _hp >= 8 else "<8%", hit)
+        # Microclimate flag
+        if p.get("micro"):
+            _edge("microclimate", p["micro"], hit)
+        # Late-HR spot
+        _l = p.get("late_hr")
+        if _l:
+            _edge("late_hr", _l, hit)
+        # Pitch-mix matchup band
+        _pm = p.get("pitch_mix")
+        if _pm is not None:
+            _edge("pitch_mix", "60+ favorable" if _pm >= 60 else "40-59 neutral" if _pm >= 40 else "<40 poor", hit)
+        # Day vs night
+        if p.get("day_night"):
+            _edge("day_night", p["day_night"], hit)
         pk = by_park.setdefault(_park_bucket(p.get("park_boost")), {"n": 0, "hr": 0})
         pk["n"] += 1; pk["hr"] += 1 if hit else 0
         tdir = p.get("trend") or "n/a"
@@ -383,6 +448,7 @@ def grade_date(date):
         "hitters_homered": n_hit,
         "total_hr": total_hr, "sp_hr": sp_hr, "bp_hr": bp_hr,
         "by_tier": tiers, "by_form": forms, "by_signal": by_signal, "by_badge": by_badge,
+        "by_edge": by_edge,
         "by_park": by_park, "by_trend": by_trend,
         "by_smash": by_smash, "by_opener": by_opener, "by_spot": by_spot, "by_b2b": by_b2b,
         "by_hlabel": by_hlabel,

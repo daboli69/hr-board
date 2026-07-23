@@ -314,12 +314,20 @@ def pitcher_arsenal(rows) -> dict:
         return {}
     total = len(w)
     usage = {fam: round(float((w["fam"] == fam).sum()) / total, 3) for fam in FAMILIES}
+    # average velocity per family — shown on the pitch-mix cards
+    velo = {}
+    if "release_speed" in w.columns:
+        rs = pd.to_numeric(w["release_speed"], errors="coerce")
+        for fam in FAMILIES:
+            v = rs[(w["fam"] == fam)].dropna()
+            if len(v) >= 10:
+                velo[fam] = round(float(v.mean()), 1)
     up_pct = None
     if "plate_z" in w.columns:
         pz = pd.to_numeric(w["plate_z"], errors="coerce").dropna()
         if len(pz):
             up_pct = round(float((pz >= 2.8).sum()) / len(pz), 3)
-    return {"usage": usage, "n": int(total), "up_pct": up_pct}
+    return {"usage": usage, "velo": velo or None, "n": int(total), "up_pct": up_pct}
 
 
 def pitch_matchup(hitter_profile: dict, arsenal: dict, league_xwobacon: float = 0.360) -> dict:

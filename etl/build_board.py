@@ -1260,6 +1260,37 @@ def build(date_str: str | None = None) -> dict:
                         zone_damage=pzdmg,
                         danger_count=_danger)
 
+                    # batted-ball profile allowed (GB/FB, contact quality, velo) for the arm card
+                    _pp = pitch_profiles.get(pid) or {}
+                    _pseason = _pp.get("season") or {}
+                    _precent = _pp.get("recent") or {}
+                    _arm_profile = {
+                        "gb_pct": _pseason.get("gb_pct"), "fb_pct": _pseason.get("fb_pct"),
+                        "ld_pct": _pseason.get("ld_pct"),
+                        "avg_ev_allowed": _pseason.get("avg_ev_allowed"),
+                        "barrel_pct_allowed": _pseason.get("barrel_pct_allowed"),
+                        "hardhit_pct_allowed": _pseason.get("hardhit_pct_allowed"),
+                        "fb_velo": _pseason.get("fb_velo") or _precent.get("fb_velo"),
+                        "velo_trend": _precent.get("velo_trend"),
+                        "recent_barrel": _precent.get("barrel_pct_allowed"),
+                        "recent_ev": _precent.get("avg_ev_allowed"),
+                    }
+                    # HR HOT SPOTS: hitters who have taken this arm deep (from the BvP table)
+                    _hot_spots = []
+                    try:
+                        for (_b, _p2), _v in (bvp or {}).items():
+                            if _p2 != pid:
+                                continue
+                            _hr = _v[1] if isinstance(_v, (list, tuple)) and len(_v) > 1 else 0
+                            if _hr and _hr > 0:
+                                _nm = (hands.get(_b, {}) or {}).get("name") or str(_b)
+                                _hot_spots.append({"id": int(_b), "name": _nm, "hr": int(_hr),
+                                                   "pa": int(_v[0]) if _v else 0})
+                        _hot_spots.sort(key=lambda x: -x["hr"])
+                        _hot_spots = _hot_spots[:6]
+                    except Exception:
+                        _hot_spots = []
+
                     pitcher_edges.append({
                         "id": pid, "name": meta.get("name") or f"#{pid}",
                         "team": g["home"] if p_side == "home" else g["away"],
@@ -1272,6 +1303,10 @@ def build(date_str: str | None = None) -> dict:
                         "vuln": vuln,                # 0-100 HR vulnerability composite
                         "quick_target": spot_damage.get(pid),   # dangerous lineup slots vs him
                         "tto": tto_by_pid.get(pid),  # times-through-order vulnerability
+                        "profile": _arm_profile,     # GB/FB/EV/barrel/hardhit allowed + velo
+                        "hand_splits": (hand2yr.get(pid) or {}),   # HR allowed by batter hand
+                        "hr_hot_spots": _hot_spots,  # batters who've taken him deep
+                        "park_hr_factor": round(_pf, 2) if _pf else None,
                         "fatigue": fat, "exploit_score": exploit,
                         "batters": opp_batters,
                     })
@@ -1350,6 +1385,62 @@ def build(date_str: str | None = None) -> dict:
                 _hnote("bomb score", e); print(f"[build] bomb score skipped: {e}")
         except Exception as e:
             _hnote("pitcher edges", e); print(f"[build] pitcher edges skipped: {e}")
+
+    # ---- TOP PLAYS v2: now that grade / bomb / ZONE / vuln all exist, rebuild the panel so it
+    # ranks by CONVERGENCE rather than heat alone. A hitter with an ELITE grade and 5 HRs in the
+    # arm's meatball zones outranks a hotter bat in a neutral spot. Falls back to the heat-only
+    # list if the edge data didn't populate. ----
+    try:
+        _vuln_tier_by_pid = {}
+        for _pe in (pitcher_edges or []):
+            if _pe.get("vuln") and _pe.get("id") is not None:
+                _vuln_tier_by_pid[_pe["id"]] = _pe["vuln"].get("tier")
+
+        def _tp_rank(p):
+            mg = p.get("matchup_grade") or {}
+            gr = {"ELITE": 3, "STRONG": 2, "MOD": 1}.get(mg.get("grade"), 0)
+            bs = (p.get("bomb_score") or {}).get("score") or 0
+            zc = (((p.get("features") or {}).get("zone_profile") or {}).get("overlap") or {}).get("count", 0)
+            return (gr, zc, bs, p.get("heat") or 0)
+
+        _cands = [p for p in players
+                  if not _thin(p)
+                  and (p.get("heat") or 0) >= 55
+                  and (p["opp_pitcher"].get("form") or {}).get("label") != "DEALING"]
+        _cands.sort(key=_tp_rank, reverse=True)
+        _tp2 = []
+        for p in _cands:
+            mg = p.get("matchup_grade") or {}
+            bs = p.get("bomb_score") or {}
+            zov = (((p.get("features") or {}).get("zone_profile") or {}).get("overlap") or {})
+            d = (p.get("features") or {}).get("discipline") or {}
+            # only surface plays that have SOME edge beyond heat
+            if not (mg.get("grade") in ("ELITE", "STRONG") or zov.get("count", 0) >= 3
+                    or (bs.get("score") or 0) >= 55 or (p.get("heat") or 0) >= 70):
+                continue
+            _tp2.append({
+                "id": p["id"], "name": p["name"], "team": p["team"], "opp_team": p["opp_team"],
+                "heat": p["heat"], "tier": p["tier"], "why": p.get("why"),
+                "spot": p.get("lineup_spot"), "time": p.get("time"),
+                "arm": p["opp_pitcher"].get("name"),
+                "arm_form": (p["opp_pitcher"].get("form") or {}).get("label"),
+                "arm_score": p["opp_pitcher"].get("hr_score"),
+                # --- new signals ---
+                "grade": mg.get("grade"), "aligned": mg.get("aligned"),
+                "bomb": bs.get("score"), "bomb_tier": bs.get("tier"),
+                "zone": zov.get("count", 0), "zone_cells": zov.get("cells") or [],
+                "vuln_tier": _vuln_tier_by_pid.get(p["opp_pitcher"].get("id")),
+                "elite": (p.get("elite") or {}).get("tier"),
+                "eye": bool(d.get("eye")), "crosshair": bool(d.get("crosshair")),
+                "warning": bool(d.get("warning")),
+            })
+            if len(_tp2) >= 12:
+                break
+        if _tp2:
+            top_plays = _tp2
+            print(f"[build] top plays v2: {len(top_plays)} (ranked by grade/zone/bomb)")
+    except Exception as e:
+        _hnote("top plays v2", e); print(f"[build] top plays v2 skipped: {e}")
 
     # ---- BULLPEN RANKINGS: one ranked list of every pen on the slate, worst (most
     # HR-vulnerable + most gassed) to best, each with the reasons why. Combines HR-vulnerability
@@ -1910,6 +2001,11 @@ def main():
     try:
         snap_dir = os.path.join(os.path.dirname(OUT_PATH) or ".", "snapshots")
         os.makedirs(snap_dir, exist_ok=True)
+        # vuln tier per arm, so each hitter's snapshot records how vulnerable his opponent was
+        _vuln_tier_snap = {}
+        for _pe in (board.get("pitcher_edges") or []):
+            if _pe.get("vuln") and _pe.get("id") is not None:
+                _vuln_tier_snap[_pe["id"]] = _pe["vuln"].get("tier")
         snap = {
             "date": board["slate_date"],
             "window_v": (board.get("recent_window") or {}).get("v", 1),
@@ -1939,6 +2035,22 @@ def main():
                 "hit_heat": p.get("hit_heat"),
                 "hrr_heat": p.get("hrr_heat"),
                 "k_heat_bat": p.get("k_heat_bat"),
+                # ---- NEW SIGNALS (graded by track.py; each is a testable hypothesis) ----
+                "zone": ((((p.get("features") or {}).get("zone_profile") or {}).get("overlap")) or {}).get("count", 0),
+                "grade": (p.get("matchup_grade") or {}).get("grade"),
+                "grade_aligned": (p.get("matchup_grade") or {}).get("aligned"),
+                "bomb": (p.get("bomb_score") or {}).get("score"),
+                "vuln": _vuln_tier_snap.get((p.get("opp_pitcher") or {}).get("id")),
+                "elite_tier": (p.get("elite") or {}).get("tier"),
+                "sq_up": ((p.get("features") or {}).get("square_up") or {}).get("rating"),
+                "eye": bool(((p.get("features") or {}).get("discipline") or {}).get("eye")),
+                "crosshair": bool(((p.get("features") or {}).get("discipline") or {}).get("crosshair")),
+                "chaser": bool(((p.get("features") or {}).get("discipline") or {}).get("warning")),
+                "hr_power": ((p.get("features") or {}).get("hr_power") or {}).get("barrel_pct"),
+                "micro": ((p.get("features") or {}).get("microclimate") or {}).get("flag"),
+                "late_hr": ((p.get("features") or {}).get("late_hr") or {}).get("label"),
+                "pitch_mix": ((p.get("features") or {}).get("pitch_matchup") or {}).get("score"),
+                "day_night": p.get("day_night"),
             } for p in board["players"]],
         }
         with open(os.path.join(snap_dir, f"{board['slate_date']}.json"), "w") as f:

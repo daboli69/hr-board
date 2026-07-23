@@ -138,6 +138,17 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str) -> dict:
             k_sc = None
         if k_sc is not None:
             pitcher_scores[pid] = (float(k_sc), int(pit_ks_today.get(pid, 0)))
+    # ---- NEW-SIGNAL replay: compute the ZONE signal AS OF this date from `past` only (no
+    # leakage), so the backtest can prove or kill the newer edges the way it validates heat.
+    _meat_by_sp = {}
+    try:
+        from etl import features as _F
+        for pid in sp_ids:
+            _prows = past[past["pitcher"] == pid]
+            if len(_prows) >= 150:
+                _meat_by_sp[pid] = _F.pitcher_zone_damage(_prows)
+    except Exception:
+        _meat_by_sp = {}
     for bid in batters:
         prof = bprof.get(bid)
         if not prof:
@@ -175,6 +186,23 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str) -> dict:
             badge_keys = [b["k"] for b in badge_list]
         except Exception:
             badge_keys = []
+        # ---- NEW SIGNALS, computed from `past` only (no leakage) ----
+        _zone = None; _squp = None; _hrpow = None
+        try:
+            _brows = past[past["batter"] == bid]
+            if len(_brows) >= 50:
+                _bhr = _F.batter_hr_zones(_brows)
+                _mb = _meat_by_sp.get(face.get(bid))
+                if _bhr and _mb:
+                    _zone = int((_F.zone_overlap(_bhr, _mb) or {}).get("count", 0))
+                _sq = _F.square_up_rating(_brows)
+                if _sq:
+                    _squp = _sq.get("rating")
+                _hp = _F.hr_power_profile(_brows)
+                if _hp:
+                    _hrpow = _hp.get("barrel_pct")
+        except Exception:
+            pass
         out[bid] = {
             "heat": float(heat), "hr": bid in hr_today,
             "hit_heat": float(hh) if hh is not None else None,
@@ -183,6 +211,7 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str) -> dict:
             "ks": int(bat_out["ks"].get(bid, 0)),
             "hrr": int(hrr_val.get(bid, 0)),
             "badges": badge_keys,
+            "zone": _zone, "square_up": _squp, "hr_power": _hrpow,
         }
     return out, pitcher_scores
 
@@ -217,6 +246,12 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
     }
     pk_n = pk_ks = pk_o5 = pk_o6 = pk_o7 = 0
     hit_n = hit1_tot = hit2_tot = hrr_n = hrr2_tot = 0
+    # new-signal buckets, same {n,hr} shape the tracker uses so the UI renders them uniformly
+    by_edge = {}
+    def _edge(group, bucket, hit):
+        g = by_edge.setdefault(group, {})
+        b = g.setdefault(bucket, {"n": 0, "hr": 0})
+        b["n"] += 1; b["hr"] += 1 if hit else 0
     for D in dates:
         day = df[df["_gd"] == D]
         past = df[df["_gd"] < D]
@@ -236,6 +271,18 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
             b = int(min(max(r["heat"], 0), 99) // 10) * 10
             c = calib.setdefault(str(b), {"n": 0, "hr": 0})
             c["n"] += 1; c["hr"] += 1 if hit else 0
+            # ---- new-signal grading ----
+            _z = r.get("zone")
+            if _z is not None:
+                _edge("zone", "5+ premium" if _z >= 5 else "3-4 viable" if _z >= 3
+                      else "1-2 thin" if _z >= 1 else "0 none", hit)
+            _sq = r.get("square_up")
+            if _sq is not None:
+                _edge("square_up", "75+ elite" if _sq >= 75 else "60-74 strong" if _sq >= 60
+                      else "45-59 avg" if _sq >= 45 else "<45 weak", hit)
+            _hp = r.get("hr_power")
+            if _hp is not None:
+                _edge("hr_power", "12%+ barrel" if _hp >= 12 else "8-11%" if _hp >= 8 else "<8%", hit)
             # badge tally: each badge this hitter carries gets a plate appearance + HR credit
             for bk in r.get("badges", []):
                 bb = by_badge.setdefault(bk, {"n": 0, "hr": 0})
@@ -288,7 +335,7 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
         "days": graded_days, "pool": n_tot, "hr": hr_tot,
         "model_version": compute.MODEL_VERSION,
         "base_pct": round(100 * hr_tot / n_tot, 2) if n_tot else None,
-        "by_tier": by_tier, "top_n": top_n,
+        "by_tier": by_tier, "top_n": top_n, "by_edge": by_edge,
         "by_badge": _badge_lift(by_badge, hr_tot / n_tot if n_tot else 0),
         "calib": {k: calib[k] for k in sorted(calib, key=int)},
         "props": {
