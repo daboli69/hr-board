@@ -1445,3 +1445,180 @@ def career_hr_milestones(batter_ids, id_to_team=None, within: int = 5, timeout: 
             out[bid] = best
     print(f"[milestones] {len(totals)} careers fetched, {len(out)} near a milestone")
     return out
+
+
+def pitcher_damage_by_spot(df: "pd.DataFrame", min_pa: int = 8) -> dict:
+    """QUICK TARGET: which BATTING-ORDER SLOTS do the most damage against each pitcher.
+
+    For every pitcher, group the plate appearances they allowed by the batting slot of the
+    hitter (slot cycles strictly, so the k-th PA by a team is slot ((k-1) mod 9)+1), then
+    compute HR allowed, ISO and SLG allowed at that slot. Returns the composite-ranked slots.
+
+    {pitcher_id: {"slots": {slot: {hr, pa, iso, slg, score}}, "top": [slot, slot, slot, slot]}}
+    Slots with fewer than min_pa plate appearances are kept but score low (thin sample).
+    """
+    need = {"events", "at_bat_number", "inning_topbot", "home_team", "away_team",
+            "batter", "pitcher", "game_pk"}
+    if df is None or df.empty or not need.issubset(df.columns):
+        return {}
+    pa = df[df["events"].notna() & (df["events"] != "")].copy()
+    if pa.empty:
+        return {}
+    pa["bteam"] = np.where(pa["inning_topbot"].eq("Top"), pa["away_team"], pa["home_team"])
+    pa = pa.sort_values(["game_pk", "bteam", "at_bat_number"])
+    pa["tidx"] = pa.groupby(["game_pk", "bteam"]).cumcount()
+    pa["slot"] = (pa["tidx"] % 9) + 1
+
+    # total-bases map for SLG/ISO
+    TB = {"single": 1, "double": 2, "triple": 3, "home_run": 4}
+    pa["_tb"] = pa["events"].map(TB).fillna(0).astype(float)
+    pa["_hit"] = pa["events"].isin(list(TB)).astype(float)
+    pa["_hr"] = pa["events"].eq("home_run").astype(float)
+    # at-bats: exclude walks/HBP/sacs so SLG denominator is right
+    NON_AB = {"walk", "intent_walk", "hit_by_pitch", "sac_fly", "sac_bunt",
+              "catcher_interf", "sac_fly_double_play"}
+    pa["_ab"] = (~pa["events"].isin(list(NON_AB))).astype(float)
+
+    out = {}
+    for pid, grp in pa.groupby("pitcher"):
+        try:
+            pid_i = int(pid)
+        except (TypeError, ValueError):
+            continue
+        slots = {}
+        for slot, sg in grp.groupby("slot"):
+            ab = float(sg["_ab"].sum())
+            n_pa = int(len(sg))
+            hr = int(sg["_hr"].sum())
+            tb = float(sg["_tb"].sum())
+            hits = float(sg["_hit"].sum())
+            slg = round(tb / ab, 3) if ab >= 1 else None
+            avg = (hits / ab) if ab >= 1 else None
+            iso = round(slg - avg, 3) if (slg is not None and avg is not None) else None
+            slots[int(slot)] = {"hr": hr, "pa": n_pa, "ab": int(ab),
+                                "slg": slg, "iso": iso}
+        if not slots:
+            continue
+        # composite: HR rate (per PA) + ISO + SLG, each scaled, with a thin-sample discount
+        for slot, s in slots.items():
+            hr_rate = (s["hr"] / s["pa"]) if s["pa"] else 0.0
+            c_hr = min(1.0, hr_rate / 0.06)                       # 6% HR/PA = max
+            c_iso = min(1.0, (s["iso"] or 0) / 0.280) if s["iso"] is not None else 0.0
+            c_slg = min(1.0, ((s["slg"] or 0) - 0.300) / 0.300) if s["slg"] is not None else 0.0
+            c_slg = max(0.0, c_slg)
+            trust = min(1.0, s["pa"] / float(min_pa * 2))          # full trust at 2x min_pa
+            s["score"] = round((c_hr * 0.45 + c_iso * 0.30 + c_slg * 0.25) * 100 * trust, 1)
+        top = sorted(slots.items(), key=lambda kv: -kv[1]["score"])[:4]
+        out[pid_i] = {"slots": slots, "top": [int(k) for k, _ in top]}
+    return out
+
+
+def day_night_splits(df: "pd.DataFrame", min_pa: int = 25) -> dict:
+    """Per-batter DAY vs NIGHT performance splits.
+
+    Statcast has no dayNight flag, so we derive it from `sv_id`, which encodes the pitch
+    timestamp as YYMMDD_HHMMSS (ET). Games starting before 17:00 ET are day games. sv_id is
+    sparse in some seasons — when a batter has too few classifiable PAs we simply omit him
+    rather than report a split built on noise.
+
+    {batter_id: {"day": {pa, hr, slg, iso, ops_proxy}, "night": {...}, "gap": float}}
+    'gap' = night OPS-proxy minus day OPS-proxy (positive = better at night).
+    """
+    need = {"events", "batter", "sv_id"}
+    if df is None or df.empty or not need.issubset(df.columns):
+        return {}
+    pa = df[df["events"].notna() & (df["events"] != "")].copy()
+    if pa.empty:
+        return {}
+    # parse hour out of sv_id: "YYMMDD_HHMMSS"
+    def _hour(s):
+        try:
+            t = str(s)
+            if "_" not in t:
+                return None
+            hh = t.split("_", 1)[1][:2]
+            return int(hh)
+        except Exception:
+            return None
+    pa["_hr_of_day"] = pa["sv_id"].map(_hour)
+    pa = pa[pa["_hr_of_day"].notna()]
+    if pa.empty:
+        return {}
+    pa["_isday"] = pa["_hr_of_day"] < 17
+
+    TB = {"single": 1, "double": 2, "triple": 3, "home_run": 4}
+    NON_AB = {"walk", "intent_walk", "hit_by_pitch", "sac_fly", "sac_bunt",
+              "catcher_interf", "sac_fly_double_play"}
+    pa["_tb"] = pa["events"].map(TB).fillna(0).astype(float)
+    pa["_hit"] = pa["events"].isin(list(TB)).astype(float)
+    pa["_hr"] = pa["events"].eq("home_run").astype(float)
+    pa["_ab"] = (~pa["events"].isin(list(NON_AB))).astype(float)
+    pa["_ob"] = (pa["_hit"] + pa["events"].isin(["walk", "intent_walk", "hit_by_pitch"]).astype(float))
+
+    out = {}
+    for bid, g in pa.groupby("batter"):
+        try:
+            bid_i = int(bid)
+        except (TypeError, ValueError):
+            continue
+        rec = {}
+        for label, sub in (("day", g[g["_isday"]]), ("night", g[~g["_isday"]])):
+            n_pa = int(len(sub))
+            ab = float(sub["_ab"].sum())
+            if n_pa < min_pa or ab < 1:
+                continue
+            slg = sub["_tb"].sum() / ab
+            avg = sub["_hit"].sum() / ab
+            obp = sub["_ob"].sum() / n_pa
+            rec[label] = {"pa": n_pa, "hr": int(sub["_hr"].sum()),
+                          "slg": round(float(slg), 3), "iso": round(float(slg - avg), 3),
+                          "ops_proxy": round(float(obp + slg), 3)}
+        if "day" in rec and "night" in rec:
+            rec["gap"] = round(rec["night"]["ops_proxy"] - rec["day"]["ops_proxy"], 3)
+            out[bid_i] = rec
+    return out
+
+
+def tto_vulnerability(df: "pd.DataFrame", min_pa: int = 30) -> dict:
+    """Times-Through-the-Order penalty per pitcher: how much MORE damage they allow the 3rd+
+    time facing a lineup vs the 1st. Real signal, computed from the pitch data — within each
+    game we count how many times a pitcher has faced each batter.
+
+    {pitcher_id: {"tto1_slg": x, "tto3_slg": y, "delta": y-x, "score": 0-100, "pa3": n}}
+    score scales the delta: 0 = no TTO penalty, 100 = severe (SLG jumps .250+ by the 3rd look).
+    """
+    need = {"events", "batter", "pitcher", "game_pk", "at_bat_number"}
+    if df is None or df.empty or not need.issubset(df.columns):
+        return {}
+    pa = df[df["events"].notna() & (df["events"] != "")].copy()
+    if pa.empty:
+        return {}
+    pa = pa.sort_values(["game_pk", "pitcher", "at_bat_number"])
+    # nth time THIS pitcher has faced THIS batter in THIS game
+    pa["_tto"] = pa.groupby(["game_pk", "pitcher", "batter"]).cumcount() + 1
+
+    TB = {"single": 1, "double": 2, "triple": 3, "home_run": 4}
+    NON_AB = {"walk", "intent_walk", "hit_by_pitch", "sac_fly", "sac_bunt",
+              "catcher_interf", "sac_fly_double_play"}
+    pa["_tb"] = pa["events"].map(TB).fillna(0).astype(float)
+    pa["_ab"] = (~pa["events"].isin(list(NON_AB))).astype(float)
+
+    out = {}
+    for pid, g in pa.groupby("pitcher"):
+        try:
+            pid_i = int(pid)
+        except (TypeError, ValueError):
+            continue
+        first = g[g["_tto"] == 1]
+        third = g[g["_tto"] >= 3]
+        ab1 = float(first["_ab"].sum()); ab3 = float(third["_ab"].sum())
+        if ab1 < min_pa or ab3 < 12:          # need real sample on both sides
+            continue
+        slg1 = float(first["_tb"].sum()) / ab1
+        slg3 = float(third["_tb"].sum()) / ab3
+        delta = slg3 - slg1
+        score = max(0.0, min(100.0, (delta / 0.250) * 100))   # +.250 SLG by 3rd look = max
+        out[pid_i] = {"tto1_slg": round(slg1, 3), "tto3_slg": round(slg3, 3),
+                      "delta": round(delta, 3), "score": round(score, 1),
+                      "pa3": int(len(third))}
+    return out

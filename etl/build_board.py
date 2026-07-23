@@ -227,6 +227,46 @@ def build(date_str: str | None = None) -> dict:
     except Exception as e:
         start_lens, p_apps = {}, {}; _hnote("starter lengths", e); print(f"[build] starter lengths skipped: {e}")
 
+    # ---- PHASE C precomputes: Quick Target, Day/Night, TTO, pitcher ERA/WHIP ----
+    # ---- LEAGUE-WIDE STATCAST PERCENTILES (true MLB percentiles from the full season pull) ----
+    league_pctl = {}
+    try:
+        _lg = features.league_batter_stats(df)
+        league_pctl = features.league_percentiles(_lg)
+        print(f"[build] league percentiles: {len(league_pctl)} qualified MLB batters")
+    except Exception as e:
+        _hnote("league percentiles", e); print(f"[build] league percentiles skipped: {e}")
+
+    try:                                           # QUICK TARGET: dangerous lineup spots per arm
+        spot_damage = statcast_data.pitcher_damage_by_spot(df)
+        print(f"[build] quick target: {len(spot_damage)} arms scored by lineup slot")
+    except Exception as e:
+        spot_damage = {}; _hnote("quick target", e); print(f"[build] quick target skipped: {e}")
+
+    try:                                           # day/night splits (from sv_id timestamps)
+        dn_splits = statcast_data.day_night_splits(df)
+        print(f"[build] day/night splits: {len(dn_splits)} batters")
+    except Exception as e:
+        dn_splits = {}; _hnote("day/night", e); print(f"[build] day/night skipped: {e}")
+
+    try:                                           # times-through-order vulnerability per arm
+        tto_by_pid = statcast_data.tto_vulnerability(df)
+        print(f"[build] TTO vulnerability: {len(tto_by_pid)} arms")
+    except Exception as e:
+        tto_by_pid = {}; _hnote("tto", e); print(f"[build] TTO skipped: {e}")
+
+    try:                                           # season ERA/WHIP for today's starters
+        _sp_ids = []
+        for _g in games:
+            for _k in ("away_pitcher_id", "home_pitcher_id"):
+                if _g.get(_k):
+                    _sp_ids.append(_g[_k])
+        pstats = statsapi.get_pitcher_stats(_sp_ids) if _sp_ids else {}
+        print(f"[build] pitcher season stats: {len(pstats)}/{len(_sp_ids)} starters (ERA/WHIP)")
+    except Exception as e:
+        pstats = {}; _hnote("pitcher stats", e); print(f"[build] pitcher stats skipped: {e}")
+
+
     # ---- FEATURE EDGES (parallel track, never touches heat) ----
     # Reliever cumulative fatigue: per-arm leverage-weighted workload over trailing 5 days.
     fatigue_log = {}
@@ -351,6 +391,7 @@ def build(date_str: str | None = None) -> dict:
         return pid, g
 
     players = []
+    _discipline_raw = {}      # {batter_id: {chase_pct, zcontact_pct...}} -> percentiled after loop
     for bid in batter_ids:
         prof = profiles.get(bid, {})
         recent = prof.get("recent", {})
@@ -431,6 +472,16 @@ def build(date_str: str | None = None) -> dict:
                     hpp = features.hr_power_profile(_pp_rows)
                     if hpp:
                         feat["hr_power"] = hpp
+                    sqr = features.square_up_rating(_pp_rows)
+                    if sqr:
+                        feat["square_up"] = sqr
+                    # plate discipline (raw chase% + z-contact%); percentile-ranked after the loop
+                    try:
+                        pdr = features.plate_discipline_raw(_pp_rows)
+                        if pdr:
+                            _discipline_raw[bid] = pdr
+                    except Exception:
+                        pass
                 except Exception:
                     pass
                 # 4. late-HR context: short starter + gassed pen behind the OPPOSING arm.
@@ -679,6 +730,8 @@ def build(date_str: str | None = None) -> dict:
             "bvp": player_bvp,
             "hr_by_spot": hr_spot.get(bid, {}),
             "hr_last_game": bid in b2b_set,
+            "day_night": (g or {}).get("day_night") or "",     # today's game condition
+            "dn_split": dn_splits.get(bid),                     # his day vs night history
             "hit_label": hit_labels.get(bid),
             "lineup_spot": spot_of_batter.get(bid),
             "lineup_status": status_of_batter.get(bid, "confirmed"),
@@ -733,6 +786,36 @@ def build(date_str: str | None = None) -> dict:
         })
 
     players.sort(key=lambda p: p["heat"], reverse=True)
+
+    # Plate discipline + Statcast percentile card, both from TRUE MLB percentiles (computed
+    # over every qualified batter in the season pull, not just today's slate).
+    try:
+        for _p in players:
+            cats = league_pctl.get(_p["id"])
+            if not cats:
+                continue
+            _p.setdefault("features", {})["percentiles"] = cats
+            ch = cats.get("chase_pct"); zc = cats.get("zcontact_pct")
+            eye = bool(ch and ch["pctl"] >= 75)
+            crosshair = bool(zc and zc["pctl"] >= 75)
+            warning = bool(ch and ch["pctl"] <= 25)
+            mult = 1.0; grade = 0
+            if eye: mult *= 1.06; grade += 1
+            if crosshair: mult *= 1.05; grade += 1
+            if warning: mult *= 0.94; grade -= 1
+            _p["features"]["discipline"] = {
+                "chase_pct": ch["value"] if ch else None,
+                "chase_pctl": ch["pctl"] if ch else None,
+                "zcontact_pct": zc["value"] if zc else None,
+                "zcontact_pctl": zc["pctl"] if zc else None,
+                "eye": eye, "crosshair": crosshair, "warning": warning,
+                "hr_mult": round(mult, 3), "grade_delta": grade,
+                "scope": "mlb",          # true league percentiles, not slate-relative
+            }
+        _n_pc = sum(1 for _p in players if (_p.get("features") or {}).get("percentiles"))
+        print(f"[build] percentile cards: {_n_pc} hitters (true MLB percentiles)")
+    except Exception as e:
+        _hnote("percentiles", e); print(f"[build] percentiles skipped: {e}")
 
     # ---- GRAND SLAM generator: score each hitter's GS likelihood = traffic (bases loaded when
     # he bats) x punish (can he golf a grooved in-zone fastball) + pen/shift amplifiers. Parallel
@@ -1096,6 +1179,7 @@ def build(date_str: str | None = None) -> dict:
                     ars = arsenal_by_pid.get(pid)
                     arows = statcast_data.pitcher_arsenal_rows(df, pid, date_str)
                     zgrid = features.pitcher_zone_grid(arows)
+                    pzdmg = features.pitcher_zone_damage(arows)   # MEATBALL zones (damage allowed)
                     meta = slate["pitchers"].get(pid, {})
                     # opposing batters: those in this game on the other side
                     opp_batters = []
@@ -1103,11 +1187,13 @@ def build(date_str: str | None = None) -> dict:
                         if pl.get("game_pk") != g["game_pk"] or pl.get("side") != opp_side:
                             continue
                         bz = None
+                        bhr = None
                         try:
                             brows = statcast_data.batter_pitch_rows(df, pl["id"], date_str)
                             bz = features.batter_zone_damage(brows)
+                            bhr = features.batter_hr_zones(brows)      # actual HR locations
                         except Exception:
-                            bz = None
+                            bz = None; bhr = None
                         vz = features.batter_vs_pitcher_zones(bz, zgrid) if bz else {}
                         pm = (pl.get("features") or {}).get("pitch_matchup") or {}
                         # zones this batter "crushes" = cells with xwOBAcon >= 0.400 on adequate
@@ -1123,6 +1209,8 @@ def build(date_str: str | None = None) -> dict:
                                                  "dist": zv.get("avg_dist")}
                                 if xw is not None and xw >= 0.400 and (n or 0) >= 6:
                                     crushed.append(int(zk))
+                        # ZONE SIGNAL: HRs this batter hit in this pitcher's meatball zones.
+                        overlap = features.zone_overlap(bhr, pzdmg) if bhr else {"count":0,"cells":[],"hr_by_cell":{},"center_count":0,"badge":None,"meatballs":[]}
                         opp_batters.append({
                             "id": pl["id"], "name": pl["name"], "spot": pl.get("lineup_spot"),
                             "bats": pl.get("bats"), "heat": pl.get("heat"),
@@ -1132,6 +1220,9 @@ def build(date_str: str | None = None) -> dict:
                             # full per-zone {xw, n} for the interactive per-hitter heatmap
                             "zone_dmg": zdmg_full or None,
                             "crushed_zones": sorted(crushed),      # e.g. [4,7,8] -> badge "3"
+                            "overlap": overlap,                     # HRs in his meatball zones
+                            "hr_zones": bhr or None,                # his HR count per zone
+                            "elite": (pl.get("elite") or {}).get("tier"),
                         })
                     # rank opponents by zone score (who punishes where he lives)
                     opp_batters.sort(key=lambda b: (b["zone_score"] is not None, b["zone_score"] or 0), reverse=True)
@@ -1146,6 +1237,29 @@ def build(date_str: str | None = None) -> dict:
                                  if b["zone_score"] is not None and _bat_sample(b) >= 20]
                     top_scores = [b["zone_score"] for b in qualified[:5]]
                     exploit = round(sum(top_scores) / len(top_scores), 3) if top_scores else None
+
+                    # ---- HR VULNERABILITY SCORE (additional pitcher score, 0-100) ----
+                    # ERA 30 · park 20 · hand-splits 15 · WHIP 15 · zone damage 12 · danger 8
+                    _ps = (pstats or {}).get(pid) or {}
+                    # park HR factor: average the L/R factors for a general park read
+                    try:
+                        _pf_l = parks.park_factor(g["park"], "L")
+                        _pf_r = parks.park_factor(g["park"], "R")
+                        _pf = (float(_pf_l) + float(_pf_r)) / 2.0
+                    except Exception:
+                        _pf = None
+                    # dangerous bats today: elite-gated or genuinely hot, in this lineup
+                    _danger = sum(1 for b in opp_batters
+                                  if (b.get("elite") in ("ELITE", "ELITE+"))
+                                  or (b.get("heat") or 0) >= 65
+                                  or ((b.get("overlap") or {}).get("count", 0) >= 3))
+                    vuln = features.vuln_score(
+                        era=_ps.get("era"), whip=_ps.get("whip"),
+                        park_factor=_pf,
+                        hand_hr=(hand2yr.get(pid) or {}).get("two_yr"),
+                        zone_damage=pzdmg,
+                        danger_count=_danger)
+
                     pitcher_edges.append({
                         "id": pid, "name": meta.get("name") or f"#{pid}",
                         "team": g["home"] if p_side == "home" else g["away"],
@@ -1153,6 +1267,11 @@ def build(date_str: str | None = None) -> dict:
                         "game_pk": g["game_pk"], "time": g["time"], "park": g["park"],
                         "throws": (hands.get(pid, {}) or {}).get("throws", ""),
                         "arsenal": ars, "zone_grid": zgrid,
+                        "meatball_zones": pzdmg,     # per-zone damage allowed (darkest = meatball)
+                        "season": pstats.get(pid),   # ERA / WHIP / IP / HR allowed
+                        "vuln": vuln,                # 0-100 HR vulnerability composite
+                        "quick_target": spot_damage.get(pid),   # dangerous lineup slots vs him
+                        "tto": tto_by_pid.get(pid),  # times-through-order vulnerability
                         "fatigue": fat, "exploit_score": exploit,
                         "batters": opp_batters,
                     })
@@ -1166,13 +1285,69 @@ def build(date_str: str | None = None) -> dict:
             for pe in pitcher_edges:
                 for b in pe.get("batters") or []:
                     tgt = _pid_map.get(b["id"])
-                    if tgt is not None and b.get("crushed_zones"):
+                    if tgt is not None and (b.get("hr_zones") or b.get("crushed_zones")):
                         tgt.setdefault("features", {})["zone_profile"] = {
                             "crushed": b["crushed_zones"],
                             "zone_dmg": b.get("zone_dmg"),
                             "vs_arm": pe["name"],
                             "zone_score": b.get("zone_score"),
+                            "overlap": b.get("overlap"),          # true ZONE-badge overlap count
+                            "hr_zones": b.get("hr_zones"),        # his HR count per zone
+                            "meatball_zones": pe.get("meatball_zones"),  # for the amber-dot map
                         }
+
+            # ---- BOMB SCORE: the composite batter-vs-pitcher matchup score (replaces the old
+            # max-EV "Bomb" sort). Needs zone overlap, so it runs after the edges block. ----
+            try:
+                _era_by_pid = {int(k): v.get("era") for k, v in (pstats or {}).items()}
+                # vuln tier per arm, for the Matchup Grade's pitcher-vulnerability factor
+                _vuln_by_pid = {}
+                for _pe in pitcher_edges:
+                    if _pe.get("vuln") and _pe.get("id") is not None:
+                        _vuln_by_pid[_pe["id"]] = _pe["vuln"]
+                for _p in players:
+                    _f = _p.get("features") or {}
+                    _zp = _f.get("zone_profile") or {}
+                    _ov = (_zp.get("overlap") or {}).get("count", 0)
+                    _w = (_p.get("windows") or {}).get("L14d") or {}
+                    _opp = _p.get("opp_pitcher") or {}
+                    _opp_id = _opp.get("id")
+                    # platoon edge: LHB vs RHP or RHB vs LHP (switch hitters always have it)
+                    _bats = (_p.get("bats") or "").upper()
+                    _thr = (_opp.get("throws") or "").upper()
+                    _plat = None
+                    if _bats and _thr:
+                        _plat = True if (_bats == "S" or _bats != _thr) else False
+                    _tto = (tto_by_pid.get(_opp_id) or {}).get("score") if _opp_id else None
+                    bs = features.bomb_score(
+                        iso=_w.get("iso"), slg=_w.get("slg"),
+                        overlap_count=_ov,
+                        park_boost=(_p.get("park_hr") or {}).get("boost"),
+                        platoon=_plat,
+                        pitcher_era=_era_by_pid.get(_opp_id) if _opp_id else None,
+                        hot_streak=_p.get("trend"),
+                        tto_score=_tto)
+                    if bs:
+                        _p["bomb_score"] = bs
+
+                    # ---- MATCHUP GRADE: factor convergence across the five inputs ----
+                    _vt = (_vuln_by_pid.get(_opp_id) or {}).get("tier") if _opp_id else None
+                    _dd = ((_f.get("discipline") or {}).get("grade_delta")) or 0
+                    mg = features.matchup_grade(
+                        iso=_w.get("iso"),
+                        overlap_count=_ov,
+                        vuln_tier=_vt,
+                        park_factor=_p.get("park_hr_factor"),
+                        hot_form=_p.get("trend"),
+                        discipline_delta=_dd)
+                    if mg:
+                        _p["matchup_grade"] = mg
+                _n_bs = sum(1 for _p in players if _p.get("bomb_score"))
+                _n_mg = sum(1 for _p in players if _p.get("matchup_grade"))
+                _elite = sum(1 for _p in players if (_p.get("matchup_grade") or {}).get("grade") == "ELITE")
+                print(f"[build] bomb score: {_n_bs} hitters · matchup grade: {_n_mg} ({_elite} ELITE)")
+            except Exception as e:
+                _hnote("bomb score", e); print(f"[build] bomb score skipped: {e}")
         except Exception as e:
             _hnote("pitcher edges", e); print(f"[build] pitcher edges skipped: {e}")
 

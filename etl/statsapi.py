@@ -112,6 +112,7 @@ def get_slate(date_str: str) -> dict:
                 "time": g.get("gameDate", ""),
                 "official_date": g.get("officialDate") or block_date or date_str,
                 "game_number": g.get("gameNumber", 1),   # doubleheader game 1 vs 2
+                "day_night": (g.get("dayNight") or "").lower(),   # 'day' | 'night' (authoritative)
                 "status": (g.get("status", {}) or {}).get("detailedState", ""),
                 "away_pitcher_id": ap_id,
                 "home_pitcher_id": hp_id,
@@ -132,6 +133,60 @@ def get_slate(date_str: str) -> dict:
                     }
 
     return {"games": games, "lineups": lineups, "pitchers": pitchers}
+
+
+def get_pitcher_stats(pitcher_ids: list[int], season: int | None = None) -> dict:
+    """Season ERA / WHIP / IP / HR-allowed for a list of pitchers, from the official API.
+    Feeds the HR Vulnerability score and Bomb Score, which weight ERA and WHIP directly.
+    Returns { pitcher_id: {"era": float, "whip": float, "ip": float, "hr": int,
+                           "so": int, "bb": int, "h": int} }.
+    Missing/unavailable pitchers are simply absent from the dict (callers must handle None).
+    """
+    out = {}
+    if not pitcher_ids:
+        return out
+    if season is None:
+        season = datetime.now().year
+    for pid in pitcher_ids:
+        if not pid:
+            continue
+        try:
+            data = _get(f"{BASE}/people/{int(pid)}/stats",
+                        {"stats": "season", "group": "pitching",
+                         "season": season, "sportId": 1})
+            splits = (data.get("stats") or [{}])[0].get("splits") or []
+            if not splits:
+                continue
+            st = splits[-1].get("stat", {}) or {}
+            def _f(key):
+                v = st.get(key)
+                try:
+                    return float(v)
+                except (TypeError, ValueError):
+                    return None
+            def _i(key):
+                v = st.get(key)
+                try:
+                    return int(v)
+                except (TypeError, ValueError):
+                    return None
+            ip_raw = st.get("inningsPitched")
+            # MLB reports IP as "123.1" meaning 123 and 1/3 innings — convert properly
+            ip = None
+            if ip_raw is not None:
+                try:
+                    whole, _, frac = str(ip_raw).partition(".")
+                    ip = float(whole) + ({"1": 1/3, "2": 2/3}.get(frac, 0.0) if frac else 0.0)
+                except Exception:
+                    ip = _f("inningsPitched")
+            rec = {"era": _f("era"), "whip": _f("whip"), "ip": ip,
+                   "hr": _i("homeRuns"), "so": _i("strikeOuts"),
+                   "bb": _i("baseOnBalls"), "h": _i("hits")}
+            if rec["era"] is not None or rec["whip"] is not None:
+                out[int(pid)] = rec
+        except Exception:
+            continue
+    return out
 
 
 def get_recent_lineup(team_id: int, before_date: str) -> list[int]:
