@@ -228,6 +228,50 @@
     font-size:10.5px;color:var(--muted);margin-top:1px}
   .nav-item:active{background:var(--panel-2)}
   .nav-item.on{color:var(--hot);box-shadow:inset 2px 0 0 var(--hot)}
+  /* pitcher card (reference-style) */
+  .pc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px}
+  .pc-head-l{min-width:0;flex:1}
+  .pc-name{font-family:Archivo;font-weight:800;font-size:21px;color:var(--ink);line-height:1.1;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .pc-tag{font-family:"IBM Plex Mono";font-size:9px;font-weight:800;padding:2px 7px;border:1px solid;border-radius:5px;letter-spacing:.04em}
+  .pc-meta{font-size:14px;color:var(--muted);margin-top:5px;letter-spacing:.01em}
+  .pc-meta2{font-size:11px;color:var(--faint);margin-top:3px}
+  .pc-vuln{flex:none;border:2px solid;border-radius:11px;padding:7px 12px;text-align:center;min-width:64px}
+  .pc-vuln-n{font-family:Archivo;font-weight:900;font-size:30px;line-height:1}
+  .pc-vuln-l{font-family:"IBM Plex Mono";font-size:8px;font-weight:800;color:var(--faint);letter-spacing:.1em;margin-top:2px}
+  .pc-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:9px}
+  .pc-stat{background:var(--panel);padding:9px 4px;text-align:center}
+  .pc-stat-l{font-family:"IBM Plex Mono";font-size:9px;color:var(--faint);letter-spacing:.06em}
+  .pc-stat-v{font-family:"IBM Plex Mono";font-size:19px;font-weight:700;color:var(--ink);margin-top:2px}
+  .pc-stat-v.warn{color:var(--hot)}
+  .pc-bar{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-radius:9px;margin-bottom:8px;font-family:"IBM Plex Mono";font-size:11px;letter-spacing:.04em}
+  .pc-bar.bad{background:rgba(228,87,46,.10);border:1px solid rgba(228,87,46,.42);color:var(--hot)}
+  .pc-bar b{font-size:16px;font-weight:800}
+  .pc-split{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+  .pc-half{background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:8px 11px;display:flex;justify-content:space-between;align-items:center}
+  .pc-half span{font-family:"IBM Plex Mono";font-size:10px;color:var(--muted)}
+  .pc-half b{font-family:"IBM Plex Mono";font-size:14px;color:var(--ink)}
+  .pc-half.bad{border-color:rgba(228,87,46,.45)} .pc-half.bad b{color:var(--hot)}
+  .pc-half.ok b{color:var(--ink)}
+  .pc-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:9px}
+  .pc-cell{background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:9px 5px;text-align:center}
+  .pc-cell-l{font-family:"IBM Plex Mono";font-size:9px;color:var(--faint);letter-spacing:.05em}
+  .pc-cell-v{font-family:"IBM Plex Mono";font-size:16px;font-weight:700;color:var(--ink);margin-top:2px}
+  .pc-cell-v.hot{color:var(--hot)}
+  .pc-sec-l{font-family:"IBM Plex Mono";font-size:9.5px;font-weight:700;color:var(--faint);letter-spacing:.09em;margin:12px 0 6px}
+  .pc-hot{margin-bottom:4px}
+  .pc-hot-row{display:flex;flex-wrap:wrap;gap:5px}
+  .pc-hot-chip{background:rgba(245,166,35,.12);border:1px solid rgba(245,166,35,.4);color:#F5A623;
+    border-radius:6px;padding:4px 8px;font-size:11px}
+  .pc-hot-chip b{color:var(--ink);font-weight:700}
+  .pc-mixes{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:6px}
+  .pc-mix{background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:8px}
+  .pc-mix.vuln{border-color:#F5A623}
+  .pc-mix-t{font-family:"IBM Plex Mono";font-size:12px;color:var(--ink);display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+  .pc-mix-v{color:var(--muted);font-size:11px}
+  .pc-mix-tag{font-size:7.5px;font-weight:800;background:#F5A623;color:#0c0f14;padding:1px 4px;border-radius:3px}
+  .pc-mix-bar{height:5px;background:var(--panel);border-radius:3px;overflow:hidden;margin:5px 0 3px}
+  .pc-mix-bar span{display:block;height:100%;background:var(--hot);border-radius:3px}
+  .pc-mix-p{font-family:"IBM Plex Mono";font-size:10px;color:var(--muted);text-align:right}
   .bats{flex:none;font-size:9px;font-weight:800;min-width:14px;height:15px;padding:0 2px;
     display:inline-flex;align-items:center;justify-content:center;border-radius:4px;color:#0c0f14}
   .b-R{background:#E4572E}.b-L{background:#3E7CB1}.b-S{background:#9B7EDE}.b-undefined{background:#5a6472}
@@ -1084,6 +1128,23 @@
   .tp-row .hc{font-family:Archivo;font-weight:900;font-size:15px;width:34px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex:none}
   .tp-row .nm{font-family:Archivo;font-weight:700;font-size:14px}
   .tp-row .why{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.45}
+  .tp-sig{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-top:5px;padding-left:42px}
+  .tp-bomb{font-family:"IBM Plex Mono";font-size:8px;font-weight:800;padding:1.5px 5px;border-radius:3px;
+    background:rgba(200,71,43,.16);color:var(--seam);border:1px solid var(--seam);vertical-align:middle}
+  .tp-bomb.elite{background:var(--hot);color:#0c0f14;border-color:var(--hot)}
+  .btg-sec{margin:18px 0}
+  .btg-sub{font-family:"IBM Plex Mono";font-size:10px;font-weight:700;color:var(--faint);letter-spacing:.08em;margin:10px 0 5px;text-transform:uppercase}
+  .btg-note{font-size:11.5px;color:var(--muted);line-height:1.5}
+  .btg-tbl{width:100%;border-collapse:collapse;font-size:11.5px}
+  .btg-tbl th{text-align:left;font-family:"IBM Plex Mono";font-size:9px;color:var(--faint);
+    letter-spacing:.05em;text-transform:uppercase;padding:5px 4px;border-bottom:1px solid var(--line)}
+  .btg-tbl td{padding:7px 4px;border-bottom:1px solid var(--line);vertical-align:top}
+  .btg-tbl td b{color:var(--ink);font-size:11.5px}
+  .btg-b{display:block;color:var(--muted);font-size:10px;margin-top:1px}
+  .btg-n{font-family:"IBM Plex Mono";color:var(--ink);white-space:nowrap}
+  .btg-l{font-family:"IBM Plex Mono";font-weight:800;white-space:nowrap}
+  .btg-s{font-family:"IBM Plex Mono";font-size:10px;color:var(--muted);white-space:nowrap}
+  .btg-s i{display:block;font-style:normal;font-size:8.5px;color:var(--faint)}
   .spot{font-size:9px;color:var(--faint);border:1px solid var(--line);border-radius:4px;padding:1px 4px;font-family:"IBM Plex Mono",monospace}
   /* stacks */
   .stack{background:var(--panel);border:1px solid var(--line);border-radius:14px;margin:9px 0;overflow:hidden;transition:border-color .15s ease;content-visibility:auto;contain-intrinsic-size:auto 220px}
@@ -1475,7 +1536,7 @@
       <p>In <b>⚙ Filters</b>: <b>Games</b> and <b>Teams</b> narrow to specific matchups or clubs, <b>Heat floor</b> (40/55/70+) cuts the long tail, <b>Opposing starter</b> drops strong SP so you only see hitters facing a vulnerable one, <b>Bats</b> shows one handedness, and <b>Traits</b> lets you tap any badge to show only hitters carrying it (tap several to stack them). Every filter combines, so you can stack (say) a vulnerable starter + weak bullpen sort + a trait + a team at once. <b>Hide small samples</b> drops hitters under ~25 PA in the window <i>or</i> whose score leans on missing signal data (fewer than 4 of the 6 signals have numbers).</p>
 
       <h3>Top Plays</h3>
-      <p><b>Top Plays</b> (panel up top on the Board) = the strongest non-thin hitters not facing a sharp arm, each with a one-line "why" — your fast scan. Tap to expand the reasons.</p>
+      <p><b>Top Plays</b> (panel up top on the Board) is your fast scan, now grouped by <b>angle</b> so you can see <i>why</i> each hitter is here. Categories: <b>SMASH</b> (everything converges), <b>◈ ZONE</b> (HRs in this arm’s meatball zones — the #1 signal), <b>🎯 Graded</b> (4+ matchup factors aligned), <b>💣 Bomb Score</b> (best composite matchups), plus Top Heat, Mix Edges, Owns the Arm, Risers, Complete and Due. Every row carries its signal chips — matchup grade, ZONE count, plate-discipline icons and Bomb Score — so you can judge a play without opening the card.</p>
 
       <h3>Scan tab</h3>
       <p>The whole slate grouped <b>by game</b>, each scored 0–100 for how much edge/action it holds. Chips flag what's inside at a glance: hot hitters, +EV plays, a vulnerable arm, a gassed pen, climate boosts, late-HR spots, a high total, warm weather, wind blowing out. <b>Tap a game</b> and you get everything for that matchup in one screen: the arms ranked by vulnerability, the top hitters with their edge tags, a full <b>weather &amp; park</b> block (temp, wind interpreted as helps/suppresses HR, precip, humidity, roof), the <b>team stack</b> signal (which side has the denser cluster of hot bats), and the best +EV plays. This is where the old Weather and Stacks views now live.</p>
@@ -1527,6 +1588,9 @@
 
       <h3>HR Vulnerability Score (pitchers)</h3>
       <p>The big badge on each arm in Edges — a 0–100 read on how susceptible that pitcher is to giving up a home run today. Point budget: <b>ERA 30 · park 20 · HR-splits by batter hand 15 · WHIP 15 · zone damage 12 · dangerous bats faced 8.</b> <b>≥70 = ELITE TARGET, ≥50 = STRONG.</b> Tap an arm for the full breakdown — a bar per component with its earned points and a plain-English note. HR splits use the pitcher's <i>worse</i> handedness side, since that's the exploitable one. If ERA/WHIP aren't available for a starter, the score rescales over what could be measured and tells you what's missing.</p>
+
+      <h3>The pitcher card</h3>
+      <p>Tap any arm in Edges for its full card: the <b>VULN badge</b> and tier up top, then <b>ERA / WHIP / K-9 / BB-9</b>, season HR allowed, the <b>GB% / FB%</b> split (a high fly-ball rate is a HR red flag), and the contact quality he allows (<b>AVG EV / BRL% / HH%</b>). Below that: <b>HR allowed by batter hand</b> over two seasons — target the side he bleeds — and <b>HR HOT SPOTS</b>, the specific hitters who have taken him deep. The <b>pitch mix</b> cards show each family’s velocity and usage, with the fastball flagged VULN when he’s fly-ball prone. Then the interactive zone map and the batters who punish him, ranked by the ZONE signal.</p>
 
       <h3>Square Up Rating</h3>
       <p>A 0–100 quality-of-contact score: how consistently a hitter squares the ball up. Built from Sweet Spot%, Barrel%, Hard Hit%, and average exit velo. <b>≥75 Elite · ≥60 Strong · ≥45 Average.</b> Separate from both Heat and HR power — it measures contact quality, not home-run shape specifically.</p>
@@ -2560,8 +2624,17 @@ function render(){
     const compTop=take([...pool].filter(comp).sort((a,b)=>b.heat-a.heat),3);
     const lk=p=>(p.luck&&p.luck.recent)||{};
     const dueTop=take([...pool].filter(p=>lk(p).luck_gap>=0.045&&lk(p).xwobacon>=0.380).sort((a,b)=>lk(b).luck_gap-lk(a).luck_gap),3);
+    // NEW: convergence-driven categories from the added signals
+    const zc=p=>((((p.features||{}).zone_profile||{}).overlap)||{}).count||0;
+    const zoneTop=take([...pool].filter(p=>zc(p)>=3).sort((a,b)=>zc(b)-zc(a)),3);
+    const gradeRank=p=>({ELITE:3,STRONG:2}[(p.matchup_grade||{}).grade]||0);
+    const gradeTop=take([...pool].filter(p=>gradeRank(p)>0).sort((a,b)=>gradeRank(b)-gradeRank(a)||((b.bomb_score||{}).score||0)-((a.bomb_score||{}).score||0)),3);
+    const bombTop=take([...pool].filter(p=>((p.bomb_score||{}).score||0)>=60).sort((a,b)=>((b.bomb_score||{}).score||0)-((a.bomb_score||{}).score||0)),3);
     const cats=[
       {t:'<span class="clearflag" style="font-size:9.5px">SMASH</span>',d:"everything converges — the day's calls",ps:smashTop,note:p=>{const sm=smashSet.get(p.id);return sm?sm.reasons.slice(0,4).join(" · "):"";}},
+      {t:'<span style="color:#F5A623">◈ ZONE</span>',d:"HRs in this arm's meatball zones — the #1 signal",ps:zoneTop,note:p=>{const o=(((p.features||{}).zone_profile||{}).overlap)||{};return o.count?`${o.count} HR in zones ${(o.cells||[]).join(", ")} — exactly where ${((p.features||{}).zone_profile||{}).vs_arm||"this arm"} gets hurt`:"";}},
+      {t:"🎯 Graded",d:"4+ factors aligned for today",ps:gradeTop,note:p=>{const m=p.matchup_grade||{};return m.notes&&m.notes.length?`${m.grade} · ${m.notes.join(" · ")}`:"";}},
+      {t:"💣 Bomb Score",d:"best composite matchups",ps:bombTop,note:p=>{const b=p.bomb_score||{};const pt=b.parts||{};const bits=[];if(pt.zone!=null)bits.push(`zone ${pt.zone}`);if(pt.iso!=null)bits.push(`ISO ${pt.iso}`);if(pt.era!=null)bits.push(`arm ${pt.era}`);return b.score!=null?`${b.score} — ${bits.join(" · ")}`:"";}},
       {t:"Top Heat",d:"highest overall",ps:heatTop},
       {t:"⚙ Mix Edges",d:"climb vs this arm's mix",ps:mixTop,mix:true},
       {t:"● Owns the Arm",d:"has homered off today's SP or pen",ps:bvpTop},
@@ -2573,11 +2646,15 @@ function render(){
       const armSc=(p.opp_pitcher&&p.opp_pitcher.hr_score!=null)?p.opp_pitcher.hr_score:null;
       const armBit=armSc!=null?` · arm <b style="color:${chipColor(armSc)}">${armSc}</b>`:"";
       const b2b=p.hr_last_game?` <span class="pl-tag warn" style="vertical-align:middle">B2B</span>`:"";
+      // new-signal chips: matchup grade, ZONE count, bomb score
+      const sig=`${gradePill(p)}${zoneBadgeInline(p)}${disciplineIcons(p)}`;
+      const bs=p.bomb_score;
+      const bombBit=(bs&&bs.score!=null&&bs.score>=55)?` <span class="tp-bomb${bs.tier==="elite"?" elite":""}">BOMB ${Math.round(bs.score)}</span>`:"";
       return `<div class="tp-row"><div class="top">
         <div class="hc" style="background:${chipColor(p.heat)}">${p.heat}</div>
-        <div><span class="nm">${p.name}</span>${b2b}${p.lineup_spot?` <span class="spot">#${p.lineup_spot}</span>`:""}
+        <div><span class="nm">${p.name}</span>${b2b}${p.lineup_spot?` <span class="spot">#${p.lineup_spot}</span>`:""}${bombBit}
           <span style="color:var(--muted);font-size:11px"> ${p.team}→${p.opp_team} · ${timeStr(p.time)}${armBit}</span>${extra||""}</div>
-      </div><div class="why">${note||p.angle||p.why||""}</div></div>`;
+      </div>${sig.trim()?`<div class="tp-sig">${sig}</div>`:""}<div class="why">${note||p.angle||p.why||""}</div></div>`;
     };
     const body=cats.map(c=>`<div class="tp-cat"><div class="tp-cat-h">${c.t}<span>${c.d}</span></div>${
       c.ps.map(p=>prow(p,c.mix?` <span class="mixd up">▲${mixGain(p)}</span>`:"",c.note?c.note(p):null)).join("")}</div>`).join("");
@@ -3457,6 +3534,72 @@ function edgesDrilldown(p){
   const arsLine=ars&&ars.usage?`${Math.round((ars.usage.FB||0)*100)}% FB · ${Math.round((ars.usage.BR||0)*100)}% breaking · ${Math.round((ars.usage.OFF||0)*100)}% offspeed`:"arsenal n/a";
   const fatLine=p.fatigue&&p.fatigue.state?`<div class="edge-dd-fat ${p.fatigue.state.toLowerCase()}">Pen fatigue: <b>${p.fatigue.state}</b> (${p.fatigue.index}/100) — ${p.fatigue.driver}</div>`:"";
 
+  // ---- reference-style pitcher card header ----
+  const S=p.season||{}, PR=p.profile||{};
+  const vs=p.vuln;
+  const vTier=vs?vs.tier:null;
+  const vCol=!vs?"var(--muted)":vTier==="elite_target"?"var(--hot)":vTier==="strong"?"var(--seam)":vTier==="moderate"?"var(--ink)":"var(--muted)";
+  const vLab=!vs?"":vTier==="elite_target"?"ELITE TARGET":vTier==="strong"?"HITTABLE":vTier==="moderate"?"MODERATE":"TOUGH";
+  const k9=(S.so!=null&&S.ip)?(S.so*9/S.ip):null;
+  const bb9=(S.bb!=null&&S.ip)?(S.bb*9/S.ip):null;
+  const statCell=(lab,val,warn)=>`<div class="pc-stat"><div class="pc-stat-l">${lab}</div><div class="pc-stat-v${warn?' warn':''}">${val}</div></div>`;
+  const statStrip=`<div class="pc-stats">
+    ${statCell("ERA", S.era!=null?S.era.toFixed(2):"–", S.era!=null&&S.era>=4.5)}
+    ${statCell("WHIP", S.whip!=null?S.whip.toFixed(2):"–", S.whip!=null&&S.whip>=1.35)}
+    ${statCell("K/9", k9!=null?k9.toFixed(1):"–", false)}
+    ${statCell("BB/9", bb9!=null?bb9.toFixed(1):"–", bb9!=null&&bb9>=3.5)}
+  </div>`;
+  const hrAllowed=S.hr!=null?`<div class="pc-bar bad"><span>HR ALLOWED (season)</span><b>${S.hr}</b></div>`:"";
+  const gb=PR.gb_pct, fb=PR.fb_pct;
+  const bbSplit=(gb!=null||fb!=null)?`<div class="pc-split">
+      <div class="pc-half${(gb!=null&&gb>=45)?' ok':''}"><span>GB%</span><b>${gb!=null?gb.toFixed(1)+"%":"–"}</b></div>
+      <div class="pc-half${(fb!=null&&fb>=38)?' bad':''}"><span>FB%</span><b>${fb!=null?fb.toFixed(1)+"%":"–"}</b></div>
+    </div>`:"";
+  // contact quality allowed
+  const cq=[["AVG EV",PR.avg_ev_allowed,(v)=>v!=null?v.toFixed(1):"–",(v)=>v!=null&&v>=89.5],
+            ["BRL%",PR.barrel_pct_allowed,(v)=>v!=null?v.toFixed(1)+"%":"–",(v)=>v!=null&&v>=8],
+            ["HH%",PR.hardhit_pct_allowed,(v)=>v!=null?v.toFixed(1)+"%":"–",(v)=>v!=null&&v>=40]];
+  const cqGrid=cq.some(x=>x[1]!=null)?`<div class="pc-grid3">${cq.map(([l,v,f,w])=>
+      `<div class="pc-cell"><div class="pc-cell-l">${l}</div><div class="pc-cell-v${w(v)?' hot':''}">${f(v)}</div></div>`).join("")}</div>`:"";
+  // HR allowed by batter hand (2yr)
+  const hs=(p.hand_splits||{}).two_yr||{};
+  const handRow=(hs.R||hs.L)?`<div class="pc-split">
+      <div class="pc-half"><span>HR to RHB (2yr)</span><b>${(hs.R&&hs.R.hr!=null)?hs.R.hr:"–"}</b></div>
+      <div class="pc-half"><span>HR to LHB (2yr)</span><b>${(hs.L&&hs.L.hr!=null)?hs.L.hr:"–"}</b></div>
+    </div>`:"";
+  // HR hot spots — hitters who've taken him deep
+  const hot=p.hr_hot_spots||[];
+  const hotBlock=hot.length?`<div class="pc-hot">
+      <div class="pc-sec-l">HR HOT SPOTS — hitters who've gone deep off him</div>
+      <div class="pc-hot-row">${hot.map(h=>`<span class="pc-hot-chip"><b>${h.name}</b> ${h.hr}HR</span>`).join("")}</div>
+    </div>`:"";
+  // pitch mix cards with velo + usage
+  const mixCards=(()=>{
+    const u=(ars&&ars.usage)||{}; const v=(ars&&ars.velo)||{};
+    const fams=[["FB","Fastball"],["BR","Breaking"],["OFF","Offspeed"]];
+    const cards=fams.filter(([k])=>u[k]!=null&&u[k]>0).map(([k,lab])=>{
+      const pct=Math.round(u[k]*100), vel=v[k];
+      const vuln=k==="FB"&&(PR.fb_pct!=null&&PR.fb_pct>=38);
+      return `<div class="pc-mix${vuln?' vuln':''}">
+        <div class="pc-mix-t"><b>${k}</b>${vel!=null?` <span class="pc-mix-v">${Math.round(vel)}</span>`:""}${vuln?' <span class="pc-mix-tag">VULN</span>':""}</div>
+        <div class="pc-mix-bar"><span style="width:${Math.min(100,pct*2)}%"></span></div>
+        <div class="pc-mix-p">${pct}%</div>
+      </div>`;
+    }).join("");
+    return cards?`<div class="pc-sec-l">PITCH MIX</div><div class="pc-mixes">${cards}</div>`:"";
+  })();
+
+  const cardHead=`<div class="pc-head">
+    <div class="pc-head-l">
+      <div class="pc-name">${p.name} ${vLab?`<span class="pc-tag" style="color:${vCol};border-color:${vCol}">${vLab}</span>`:""}</div>
+      <div class="pc-meta">${p.team} • ${p.throws||"?"}HP • vs ${p.opp_team}</div>
+      <div class="pc-meta2">${timeStr(p.time)} · ${p.park||""}${p.park_hr_factor?` · park ${p.park_hr_factor}×`:""}</div>
+    </div>
+    ${vs?`<div class="pc-vuln" style="border-color:${vCol}">
+      <div class="pc-vuln-n" style="color:${vCol}">${Math.round(vs.score)}</div>
+      <div class="pc-vuln-l">VULN</div></div>`:""}
+  </div>`;
+
   const mapHeader=sel
     ? `<b>${sel.name}</b> vs ${p.name} <span>big number = his xwOBA · small line = barrel% · distance · corner % = how often ${p.name} throws there · <b>◆ = HR he hit in one of ${p.name}'s meatball zones (the ZONE signal)</b> · ● = HR elsewhere · number on the marker = how many</span>`
     : `Where ${p.name} lives <span>darker = more pitches there · tap a batter below to see HIS zones</span>`;
@@ -3464,10 +3607,16 @@ function edgesDrilldown(p){
   return `<div class="edges-wrap">
     <div class="edges-hd">
       <button class="edge-back" onclick="edgesBatter=null;edgesPitcher=null;renderEdges()">‹ arms</button>
-      <h2>${p.name} <span class="edge-dd-hand">${p.throws||"?"}HP</span></h2>
     </div>
-    <div class="edge-dd-sub">${p.team} vs ${p.opp_team} · ${timeStr(p.time)} · ${p.park||""}</div>
-    <div class="edge-dd-ars">${arsLine}</div>
+    ${cardHead}
+    ${statStrip}
+    ${hrAllowed}
+    ${bbSplit}
+    ${cqGrid}
+    ${handRow}
+    ${hotBlock}
+    ${mixCards}
+    ${fatLine}
     ${(()=>{
       const v=p.vuln; if(!v||v.score==null) return "";
       const c=v.tier==="elite_target"?"var(--hot)":v.tier==="strong"?"var(--seam)":v.tier==="moderate"?"var(--ink)":"var(--muted)";
@@ -5464,6 +5613,95 @@ async function showBetGuide(){
   modal.classList.add("show");
 }
 
+// Aggregate every measured signal — core-4, badges, and the new edges — from BOTH the
+// backtest (retrospective) and the tracker (forward), and rank them by real lift over the
+// base HR rate. This is what turns "we built a signal" into "this signal works / doesn't".
+function measuredSignalLift(){
+  const out=[];
+  const days=(HISTORY&&HISTORY.days)||[];
+  const base=(BACKTEST&&BACKTEST.base_pct)?BACKTEST.base_pct/100:null;
+
+  // helper: push a row if it clears a minimum sample
+  const push=(group,bucket,n,hr,src,minN)=>{
+    if(!n||n<(minN||120)) return;
+    const rate=hr/n;
+    out.push({group,bucket,n,hr,rate,src,
+      lift: base? (rate/base) : null});
+  };
+
+  // 1. BACKTEST by_edge (zone / square-up / hr-power replayed historically)
+  const be=(BACKTEST&&BACKTEST.by_edge)||{};
+  Object.entries(be).forEach(([g,buckets])=>{
+    Object.entries(buckets||{}).forEach(([b,v])=>push(g,b,v.n,v.hr,"backtest",200));
+  });
+
+  // 2. TRACKER by_edge (everything, graded forward day by day)
+  const agg={};
+  days.forEach(d=>{
+    Object.entries(d.by_edge||{}).forEach(([g,buckets])=>{
+      Object.entries(buckets||{}).forEach(([b,v])=>{
+        const k=g+"||"+b;
+        agg[k]=agg[k]||{g,b,n:0,hr:0};
+        agg[k].n+=v.n||0; agg[k].hr+=v.hr||0;
+      });
+    });
+  });
+  Object.values(agg).forEach(x=>push(x.g,x.b,x.n,x.hr,"tracker",80));
+
+  // 3. TRACKER by_signal (the frozen core-4 + the other scored signals)
+  const sagg={};
+  days.forEach(d=>{
+    Object.entries(d.by_signal||{}).forEach(([k,v])=>{
+      sagg[k]=sagg[k]||{n:0,hr:0};
+      const c=v.cleared||{};
+      sagg[k].n+=c.n||0; sagg[k].hr+=c.hr||0;
+    });
+  });
+  Object.entries(sagg).forEach(([k,v])=>push("core signal",k+" cleared",v.n,v.hr,"tracker",80));
+
+  // 4. TRACKER by_badge
+  const bagg={};
+  days.forEach(d=>{
+    Object.entries(d.by_badge||{}).forEach(([k,v])=>{
+      bagg[k]=bagg[k]||{n:0,hr:0};
+      bagg[k].n+=v.n||0; bagg[k].hr+=v.hr||0;
+    });
+  });
+  Object.entries(bagg).forEach(([k,v])=>push("badge",k,v.n,v.hr,"tracker",80));
+
+  out.sort((a,b)=>(b.lift||0)-(a.lift||0));
+  return {rows:out, base};
+}
+
+// Renders the measured-lift table for the bet guide: what's actually working, ranked.
+function signalLiftHTML(){
+  const {rows,base}=measuredSignalLift();
+  if(!rows.length){
+    return `<div class="btg-sec"><h3>What's actually working</h3>
+      <p class="btg-note">Not enough graded days yet to measure the new signals. The tracker records every one of them each morning (ZONE, matchup grade, Bomb Score, arm vulnerability, elite gate, Square Up, plate discipline, microclimate, late-HR, pitch mix, day/night) — this table fills in as days accumulate, and will show which of them beat the base rate and which don't.</p></div>`;
+  }
+  const pct=x=>(x*100).toFixed(1)+"%";
+  const winners=rows.filter(r=>r.lift!=null&&r.lift>=1.15).slice(0,10);
+  const losers=rows.filter(r=>r.lift!=null&&r.lift<=0.9).slice(-6).reverse();
+  const row=r=>`<tr>
+      <td><b>${r.group}</b><span class="btg-b">${r.bucket}</span></td>
+      <td class="btg-n">${pct(r.rate)}</td>
+      <td class="btg-l" style="color:${r.lift>=1.3?"var(--hot)":r.lift>=1.1?"var(--seam)":r.lift<=0.9?"var(--cold)":"var(--muted)"}">${r.lift.toFixed(2)}×</td>
+      <td class="btg-s">${r.n.toLocaleString()}<i>${r.src}</i></td>
+    </tr>`;
+  return `<div class="btg-sec">
+    <h3>What's actually working</h3>
+    <p class="btg-note">Every signal in the app, measured against reality. <b>Lift</b> = HR rate for hitters carrying that signal ÷ the overall base rate${base?` (${pct(base)})`:""}. Above 1.00 means the signal is finding home runs; below means it isn't. Sourced from the backtest (historical replay) and the tracker (graded daily), with a minimum sample before anything appears.</p>
+    ${winners.length?`<div class="btg-sub">Beating the base rate</div>
+      <table class="btg-tbl"><thead><tr><th>Signal</th><th>HR rate</th><th>Lift</th><th>Sample</th></tr></thead>
+      <tbody>${winners.map(row).join("")}</tbody></table>`:""}
+    ${losers.length?`<div class="btg-sub" style="margin-top:14px">Not earning their keep</div>
+      <table class="btg-tbl"><thead><tr><th>Signal</th><th>HR rate</th><th>Lift</th><th>Sample</th></tr></thead>
+      <tbody>${losers.map(row).join("")}</tbody></table>
+      <p class="btg-note" style="margin-top:8px">These are below the base rate at current sample. That doesn't automatically mean they're broken — small samples move — but don't lean on them until they turn.</p>`:""}
+  </div>`;
+}
+
 function computeBetGuideHTML(){
   const days=(HISTORY&&HISTORY.days)||[];
   const cal = BACKTEST && BACKTEST.calib;
@@ -5486,6 +5724,7 @@ function computeBetGuideHTML(){
 
   if(!days.length){
     return `${primary}
+      ${signalLiftHTML()}
       <p class="faq-lead" style="margin-top:16px">The signal guide below rewrites itself from your tracker data as it grows — right now the tracker is empty, so use this basic method underneath the Edge Finder:</p>
       <h3>The starter method</h3>
       <ol><li><b>Start with Heat top-25.</b> That's your validated pool${cal?" — and the calibration confirms heat predicts homers, climbing cleanly from ~5% at the bottom to ~16%+ up top":""}.</li>
@@ -5571,6 +5810,7 @@ function computeBetGuideHTML(){
   const topTierN=tiers["70+"]?tiers["70+"].n:0;
 
   return `${primary}
+    ${signalLiftHTML()}
     <p class="faq-lead" style="margin-top:16px">Below the Edge Finder, here's a step-by-step picking method built from <b>your ${days.length} graded days</b> (${players} hitter-days, base ${base.toFixed(1)}% HR rate)${cal?`, cross-checked against the backtest calibration (~${pool.toLocaleString()} hitter-days)`:""}. This rewrites itself as your tracker grows.</p>
 
     <h3>Step 1 — Start with Heat rank</h3>
@@ -6086,6 +6326,17 @@ function renderTracker(){
       ${tot?`(${(100*sp/tot).toFixed(0)}% SP)`:""}</div>
     ${acc("⚖︎ Model vs baselines","The real test: does Heat beat just sorting by ISO or barrel%? It has to clear these to have edge.",
       (cmpRows||'<div class="ln" style="color:var(--muted)">— needs a few graded days —</div>')+verdict, true)}
+    ${acc("◈ New signals — measured","Every edge added beyond the core model, graded against reality. Lift above 1.00 means the signal is finding home runs.",
+      (()=>{
+        const {rows,base}=measuredSignalLift();
+        const er=rows.filter(r=>r.src==="tracker"||r.src==="backtest");
+        if(!er.length) return '<div class="ln" style="color:var(--muted)">— accumulating; each signal appears once it has sample —</div>';
+        return er.slice(0,14).map(r=>`<div class="trk-row" style="grid-template-columns:1fr 58px 46px">
+          <div class="lab">${r.group} <span style="color:var(--faint)">${r.bucket}</span></div>
+          <div style="font-family:'IBM Plex Mono';font-size:11px;color:var(--ink);text-align:right">${(r.rate*100).toFixed(1)}%</div>
+          <div style="font-family:'IBM Plex Mono';font-size:11px;font-weight:800;text-align:right;color:${r.lift>=1.3?"var(--hot)":r.lift>=1.1?"var(--seam)":r.lift<=0.9?"var(--cold)":"var(--muted)"}">${r.lift!=null?r.lift.toFixed(2)+"×":"–"}</div>
+        </div>`).join("");
+      })(), true)}
     ${acc("HR rate by Heat tier","Does a higher Heat actually produce more HRs?",
       tierRows||'<div class="ln" style="color:var(--muted)">—</div>', true)}
     ${acc("Conviction &amp; context signals","SMASH, trend, park boost, B2B and opener conversion vs the field — the section that says whether the weights should change. Right column = lift.",
