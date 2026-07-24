@@ -1212,3 +1212,101 @@ def league_percentiles(league: dict) -> dict:
         if cats:
             out[bid] = cats
     return out
+
+
+# ---------------------------------------------------------------------------
+# LONGBALL: who hits it the FARTHEST today (not who is most likely to homer)
+# ---------------------------------------------------------------------------
+
+def longball_score(max_dist=None, avg_fb_dist=None, career_max=None, barrel_pct=None,
+                   avg_ev=None, park_factor=None, park_dist_boost=None,
+                   zone_overlap=0, pitch_matchup=None, temp_f=None) -> dict:
+    """0-100: how likely is THIS hitter to hit the single longest home run on the slate?
+
+    This is deliberately NOT a HR-probability model. It answers a different question:
+    given that a ball leaves the yard, whose leaves it farthest. So it weights raw distance
+    ceiling far above contact frequency, and it does NOT care whether the hitter is chalk.
+    A guy back from injury with a 470ft career max belongs here if the ceiling is real.
+
+    Inputs:
+      max_dist        longest batted ball in the recent window (ft)
+      avg_fb_dist     average fly-ball distance (ft) — the repeatable carry
+      career_max      longest tracked batted ball over the last 2 seasons (ft)
+      barrel_pct      barrel rate — how often he squares it up enough to reach the ceiling
+      avg_ev          average exit velo
+      park_factor     today's park HR factor (>1 helps)
+      park_dist_boost extra carry from the environment (%, e.g. altitude/heat/wind out)
+      zone_overlap    HRs in this pitcher's meatball zones (does he get a pitch to punish)
+      pitch_matchup   0-100 pitch-mix edge vs this arm
+      temp_f          game temperature (hot air = more carry)
+
+    Returns {score, tier, parts, drivers}.
+    """
+    def clamp(x):
+        return max(0.0, min(1.0, x))
+    parts, comps, drivers = {}, [], []
+
+    # --- CEILING (the dominant term): career max distance is the single best proxy for
+    # "can this man hit one 460ft". 380 -> 480 ft maps 0 -> 1.
+    ceil = career_max if career_max is not None else max_dist
+    if ceil is not None:
+        v = clamp((float(ceil) - 380.0) / 100.0)
+        parts["ceiling"] = round(v * 100)
+        comps.append((v, 0.34))
+        if ceil >= 450:
+            drivers.append(f"{int(ceil)}ft ceiling")
+    # --- REPEATABLE CARRY: average fly-ball distance. 300 -> 380 ft.
+    if avg_fb_dist is not None:
+        v = clamp((float(avg_fb_dist) - 300.0) / 80.0)
+        parts["carry"] = round(v * 100)
+        comps.append((v, 0.18))
+        if avg_fb_dist >= 350:
+            drivers.append(f"{int(avg_fb_dist)}ft avg FB")
+    # --- SQUARE-UP FREQUENCY: he has to actually catch one. barrel 3% -> 18%.
+    if barrel_pct is not None:
+        v = clamp((float(barrel_pct) - 3.0) / 15.0)
+        parts["barrel"] = round(v * 100)
+        comps.append((v, 0.14))
+        if barrel_pct >= 12:
+            drivers.append(f"{barrel_pct:.0f}% barrel")
+    # --- RAW POWER: avg EV 86 -> 95.
+    if avg_ev is not None:
+        v = clamp((float(avg_ev) - 86.0) / 9.0)
+        parts["ev"] = round(v * 100)
+        comps.append((v, 0.10))
+    # --- ENVIRONMENT: park + air. This is where a 420ft ball becomes a 450ft ball.
+    env_bits = []
+    if park_factor is not None:
+        env_bits.append(clamp((float(park_factor) - 0.90) / 0.35))
+    if park_dist_boost is not None:
+        env_bits.append(clamp((float(park_dist_boost) + 5.0) / 25.0))
+    if temp_f is not None:
+        env_bits.append(clamp((float(temp_f) - 55.0) / 40.0))
+    if env_bits:
+        v = sum(env_bits) / len(env_bits)
+        parts["env"] = round(v * 100)
+        comps.append((v, 0.14))
+        if park_factor is not None and park_factor >= 1.10:
+            drivers.append(f"{park_factor:.2f}x park")
+        if temp_f is not None and temp_f >= 82:
+            drivers.append(f"{int(temp_f)}°F carry")
+    # --- OPPORTUNITY: will he even see a pitch he can punish?
+    opp_bits = []
+    if zone_overlap is not None:
+        opp_bits.append(clamp(zone_overlap / 5.0))
+    if pitch_matchup is not None:
+        opp_bits.append(clamp((float(pitch_matchup) - 35.0) / 45.0))
+    if opp_bits:
+        v = sum(opp_bits) / len(opp_bits)
+        parts["opportunity"] = round(v * 100)
+        comps.append((v, 0.10))
+        if zone_overlap and zone_overlap >= 3:
+            drivers.append(f"ZONE {zone_overlap}")
+
+    if not comps:
+        return {}
+    wsum = sum(w for _, w in comps)
+    score = round(sum(v * w for v, w in comps) / wsum * 100, 1)
+    tier = ("moonshot" if score >= 72 else "strong" if score >= 58
+            else "live" if score >= 45 else "fringe")
+    return {"score": score, "tier": tier, "parts": parts, "drivers": drivers[:4]}
