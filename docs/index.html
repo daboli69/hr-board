@@ -590,6 +590,10 @@
   .sc-chip.gassed{color:var(--bad);background:rgba(214,110,90,.14)}
   .sc-chip.micro{color:#6ba3c4;background:rgba(107,163,196,.14)}
   .sc-chip.late,.sc-chip.total,.sc-chip.warm,.sc-chip.wind{color:var(--muted);background:var(--panel-2)}
+  .sc-chip.elite{color:var(--hot);background:rgba(214,110,90,.16);font-weight:800}
+  .sc-chip.zone{color:var(--seam);background:rgba(215,120,60,.12)}
+  .sc-chip.park-hot{color:var(--hot);background:rgba(214,110,90,.12)}
+  .sc-chip.park-cold{color:var(--cold);background:rgba(90,140,214,.12)}
   .sc-chip.quiet{color:var(--faint);background:var(--panel-2)}
   .scan-score{font-family:Archivo;font-weight:800;font-size:24px;min-width:32px;text-align:right}
   .sd-strip{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
@@ -612,6 +616,16 @@
   .sd-tag.boost,.sd-tag.mu{color:var(--good);background:rgba(120,178,145,.14)}
   .sd-tag.fade{color:var(--cold);background:rgba(90,140,214,.14)}
   .sd-tag.late,.sd-tag.gassed,.sd-tag.worn{color:var(--muted);background:var(--panel-2)}
+  .sd-tag.elite{color:var(--hot);background:rgba(214,110,90,.16)}
+  .sd-tag.strong{color:var(--good);background:rgba(120,178,145,.16)}
+  .sd-tag.zone{color:var(--seam);background:rgba(215,120,60,.13)}
+  .sd-tag.bomb{color:var(--warm);background:rgba(220,150,70,.14)}
+  .sd-tag.vuln-elite,.sd-tag.vuln-strong{color:var(--hot);background:rgba(214,110,90,.14)}
+  .sd-tag.vuln-moderate,.sd-tag.vuln-mild,.sd-tag.vuln-mod{color:var(--muted);background:var(--panel-2)}
+  .ev-cc{display:flex;align-items:center;gap:8px;margin-top:3px;flex-wrap:wrap}
+  .ev-verdict{font-family:"IBM Plex Mono";font-size:9.5px;font-weight:800}
+  .ev-lift{font-family:"IBM Plex Mono";font-size:9px;font-weight:700;color:var(--muted);background:var(--panel-2);padding:1px 5px;border-radius:4px}
+  .sd-cc-note{font-size:10.5px;color:var(--faint);margin:2px 0 8px;line-height:1.45}
   .sd-arm-ex{font-family:"IBM Plex Mono";font-weight:800;font-size:14px;min-width:44px}
   .sd-arm-go{color:var(--faint);font-size:16px}
   .sd-ev-tag{font-family:"IBM Plex Mono";font-weight:800;font-size:13px;min-width:38px}
@@ -1561,7 +1575,7 @@
       </div>
 
       <h3>Finding things — navigation</h3>
-      <p>Five tabs across the bottom: <b>Board</b> (every hitter ranked by Heat), <b>Scan</b> (the slate by game — tap a game for its arms, hitters, weather, team stack and best +EV), <b>Edges</b> (the experimental signals), <b>Props</b> (hits, HRR, pitcher Ks, +EV, prop parlays, game lines) and <b>Bets</b> (the Edge Finder, your logged bets, and the jackpot cards).</p>
+      <p>Five tabs across the bottom: <b>Board</b> (every hitter ranked by Heat), <b>Scan</b> (the slate by game — tap a game for its arms, hitters, weather, team stack and a +EV cross-check against the model), <b>Edges</b> (the experimental signals), <b>Props</b> (hits, HRR, pitcher Ks, +EV, prop parlays, game lines) and <b>Bets</b> (the Edge Finder, your logged bets, and the jackpot cards).</p>
       <p>Tap <b>More</b> for the full <b>navigation drawer</b>, which lists every view grouped by what you're trying to do:</p>
       <p><b>DAILY</b> — Board, Scan, Props, Bets. <b>TARGETS</b> — Vulnerable Arms (HR Vuln scores + zone maps), Quick Target (dangerous lineup spots per arm), Bullpens, and Parlays &amp; Jackpots. <b>CONDITIONS</b> — Weather &amp; Parks (wind arrows over each park plus tonight's best/worst HR parks), Microclimate (temperature-sensitive hitters tonight) and Late-HR Spots (short starter meets gassed pen). <b>RESULTS</b> — Tracker and this help page. If you can't find a feature, it's in the drawer.</p>
 
@@ -3211,6 +3225,48 @@ function scanWeatherBlock(wx){
   return `<div class="sd-wx">${rows.join("")}</div>`;
 }
 
+// ---- Measured lift lookups from the backtest (BACKTEST loads at boot). Each returns the
+// signal's real HR-rate divided by the base rate — i.e. how much it actually moved outcomes. ----
+function heatBand(h){ return h==null?null: h>=70?"70+": h>=55?"55-69": h>=40?"40-54":"<40"; }
+function btBase(){ return (BACKTEST&&BACKTEST.base_pct)?BACKTEST.base_pct/100:null; }
+function btTierLift(band){ const bt=BACKTEST, base=btBase(); if(!bt||!bt.by_tier||base==null) return null;
+  const v=bt.by_tier[band]; return (v&&v.n)?(v.hr/v.n)/base:null; }
+function btBadgeLift(k){ const b=(BACKTEST&&BACKTEST.by_badge)||{}; return (b[k]&&b[k].lift!=null)?b[k].lift:null; }
+function btZoneLift(cnt){ const be=(BACKTEST&&BACKTEST.by_edge&&BACKTEST.by_edge.zone)||{}, base=btBase();
+  const key=cnt>=5?"5+ premium":cnt>=3?"3-4 viable":cnt>=1?"1-2 thin":"0 none";
+  const v=be[key]; return (v&&v.n&&base)?(v.hr/v.n)/base:null; }
+function liftPct(l){ return l==null?"":`${l>=1?"+":""}${Math.round((l-1)*100)}%`; }
+
+// Cross-check a +EV play against the model: the book says +EV — does OUR model independently
+// like it, and what's the measured backtest lift behind the corroborating signal? This is the
+// guard against book-noise longshots that price +EV while the model says the hitter is cold.
+function evCrossCheck(e){
+  const players=(BOARD&&BOARD.players)||[];
+  const isHitProp=/Hits|HRR|Home Run/.test(e.propLabel||"");
+  const p=isHitProp?players.find(x=>x.name===e.name):null;
+  const bits=[]; let lean=0, bestLift=null, bestLabel="";
+  const consider=(l,label)=>{ if(l!=null&&(bestLift==null||l>bestLift)){bestLift=l;bestLabel=label;} };
+  if(p){
+    const h=p.heat, band=heatBand(h), tl=btTierLift(band);
+    if(band){ bits.push({t:`heat ${h}`, lift:tl}); consider(tl,`heat ${band}`);
+      if(band==="70+") lean+=2; else if(band==="55-69") lean+=1; else if(band==="<40") lean-=2; }
+    const mg=p.matchup_grade;
+    if(mg&&mg.grade){ if(mg.grade==="ELITE"){lean+=2; bits.push({t:"ELITE grade"});}
+      else if(mg.grade==="STRONG"){lean+=1; bits.push({t:"STRONG grade"});}
+      else if(mg.grade==="WEAK"){lean-=1;} }
+    const ov=((p.features||{}).zone_profile||{}).overlap;
+    if(ov&&ov.count>=3){ lean+=1; const zl=btZoneLift(ov.count); bits.push({t:`ZONE ${ov.count}`, lift:zl}); consider(zl,`ZONE ${ov.count>=5?"5+":"3-4"}`); }
+    (p.badges||[]).forEach(b=>{ const bl=btBadgeLift(b.k); if(bl!=null&&bl>=1.2){ lean+=1; bits.push({t:b.t||b.k, lift:bl}); consider(bl,b.t||b.k); } });
+  }
+  let verdict, label, color;
+  if(!p){ verdict="game"; label="game-model play"; color="var(--muted)"; }
+  else if(lean>=3){ verdict="strong"; label="model agrees ✓✓"; color="var(--good)"; }
+  else if(lean>=1){ verdict="lean"; label="model leans in ✓"; color="var(--good)"; }
+  else if(lean<=-2){ verdict="fade"; label="model disagrees ⚠"; color="var(--bad)"; }
+  else { verdict="neutral"; label="+EV only · model neutral"; color="var(--warm)"; }
+  return {verdict, label, color, bestLift, bestLabel, bits};
+}
+
 function scanGameData(g){
   const players=(BOARD&&BOARD.players)||[];
   const arms=(BOARD&&BOARD.pitcher_edges)||[];
@@ -3228,8 +3284,19 @@ function scanGameData(g){
   const hotN=hitters.filter(p=>(p.heat||0)>=70).length;
   const microN=hitters.filter(p=>p.features&&p.features.microclimate&&p.features.microclimate.flag).length;
   const lateN=hitters.filter(p=>p.features&&p.features.late_hr&&p.features.late_hr.label&&p.features.late_hr.label!=="neutral").length;
+  // NEW signal counts (phases A–E + longball) surfaced for scannability
+  const eliteN=hitters.filter(p=>(p.matchup_grade||{}).grade==="ELITE").length;
+  const strongN=hitters.filter(p=>{const gd=(p.matchup_grade||{}).grade;return gd==="ELITE"||gd==="STRONG";}).length;
+  const zoneN=hitters.filter(p=>(((p.features||{}).zone_profile||{}).overlap||{}).count>=3).length;
+  const bombN=hitters.filter(p=>(p.bomb_score||{}).score>=60).length;
+  // longball ceiling names on the slate that belong to THIS game
+  const lbIds=new Set(((BOARD&&BOARD.longball)||[]).map(x=>x.id));
+  const lbN=hitters.filter(p=>lbIds.has(p.id)).length;
   const vulnArm=gArms.slice().sort((a,b)=>(b.exploit_score||0)-(a.exploit_score||0))[0];
   const gassedPen=gArms.some(a=>a.fatigue&&a.fatigue.state==="GASSED");
+  // slate park factor for this game (BallparkPal-driven when live, else local) via park_ranks
+  const pkRank=((BOARD&&BOARD.park_ranks)||[]).find(r=>r.away===g.away&&r.home===g.home);
+  const parkF=pkRank?pkRank.hr_mult:(hitters[0]?hitters[0].park_hr_factor:null);
   const total=proj?proj.total:null;
   const temp=wx?wx.temp_f:null;
   // wind help: wind_rel_deg is direction relative to center field. ~0deg = blowing straight OUT
@@ -3249,25 +3316,33 @@ function scanGameData(g){
   score += Math.min(18, evGame.filter(e=>e.ev>=0.1).length*6);  // +EV plays
   score += vulnArm&&vulnArm.exploit_score?Math.min(20,(vulnArm.exploit_score-0.320)*250):0; // exploitable arm
   score += microN*4 + lateN*4;                          // reconstructed edges
+  score += Math.min(14, eliteN*7 + strongN*2);          // matchup-grade convergence
+  score += Math.min(8, zoneN*3);                        // zone-fit edges
   score += gassedPen?8:0;
   score += (total!=null&&total>=9)?10:(total!=null&&total>=8.5)?5:0;  // high total
   score += (temp!=null&&temp>=82)?6:0;                  // hot weather
   score += (windOut===true)?6:0;
+  score += (parkF!=null&&parkF>=1.08)?5:0;              // hitter's park
   score = Math.max(0, Math.min(100, Math.round(score)));
 
   return {g, proj, wx, hitters, gArms, topHit, evGame, hotN, microN, lateN,
+          eliteN, strongN, zoneN, bombN, lbN, parkF,
           vulnArm, gassedPen, total, temp, windOut, score};
 }
 
 function scanChips(d){
   const c=[];
   if(d.hotN) c.push(`<span class="sc-chip hot">${d.hotN} hot</span>`);
+  if(d.eliteN) c.push(`<span class="sc-chip elite">${d.eliteN} ELITE</span>`);
   if(d.evGame.filter(e=>e.ev>=0.1).length) c.push(`<span class="sc-chip ev">${d.evGame.filter(e=>e.ev>=0.1).length} +EV</span>`);
+  if(d.zoneN) c.push(`<span class="sc-chip zone">${d.zoneN} zone</span>`);
   if(d.vulnArm&&d.vulnArm.exploit_score>=0.360) c.push(`<span class="sc-chip vuln">vuln arm</span>`);
   if(d.gassedPen) c.push(`<span class="sc-chip gassed">gassed pen</span>`);
   if(d.microN) c.push(`<span class="sc-chip micro">${d.microN} climate</span>`);
   if(d.lateN) c.push(`<span class="sc-chip late">${d.lateN} late-HR</span>`);
   if(d.total!=null&&d.total>=9) c.push(`<span class="sc-chip total">O/U ${d.total}</span>`);
+  if(d.parkF!=null&&d.parkF>=1.08) c.push(`<span class="sc-chip park-hot">park ${d.parkF.toFixed(2)}×</span>`);
+  else if(d.parkF!=null&&d.parkF<=0.92) c.push(`<span class="sc-chip park-cold">park ${d.parkF.toFixed(2)}×</span>`);
   if(d.temp!=null&&d.temp>=82) c.push(`<span class="sc-chip warm">${Math.round(d.temp)}°</span>`);
   if(d.windOut===true) c.push(`<span class="sc-chip wind">wind out</span>`);
   return c.join("");
@@ -3298,7 +3373,7 @@ function renderScan(){
 
   main.innerHTML=`<div class="scan-wrap">
     <div class="scan-hd"><h2>Scan</h2><span class="scan-hd-sub">${games.length} games · ranked by action</span></div>
-    <div class="scan-intro">Every game scored by how much edge it holds tonight. Chips show what's live at a glance — tap any game to see its hitters, arms, weather, pen, and best bets in one place.</div>
+    <div class="scan-intro">Every game scored by how much edge it holds tonight. Chips surface what's live at a glance — hot bats, ELITE matchup grades, zone-fit edges, vulnerable arms, gassed pens, and the park's HR factor. Tap any game for its arms (with HR-vulnerability tiers), hitters (grade · ZONE · bomb), weather, park, and a <b>+EV cross-check</b> that pairs each priced edge with whether the model agrees and what that signal actually converts at.</div>
     ${rows}
   </div>`;
 }
@@ -3310,6 +3385,12 @@ function scanDetail(d){
     const f=p.features||{};
     const tags=[];
     if((p.heat||0)>=70) tags.push('<span class="sd-tag hot">hot</span>');
+    const mgg=(p.matchup_grade||{}).grade;
+    if(mgg==="ELITE") tags.push('<span class="sd-tag elite">ELITE</span>');
+    else if(mgg==="STRONG") tags.push('<span class="sd-tag strong">STRONG</span>');
+    const zov=((f.zone_profile||{}).overlap||{}).count;
+    if(zov>=3) tags.push(`<span class="sd-tag zone">ZONE ${zov}</span>`);
+    if((p.bomb_score||{}).score>=60) tags.push('<span class="sd-tag bomb">bomb</span>');
     if(f.microclimate&&f.microclimate.flag) tags.push(`<span class="sd-tag ${f.microclimate.flag.includes('BOOST')?'boost':'fade'}">${f.microclimate.flag}</span>`);
     if(f.late_hr&&f.late_hr.label&&f.late_hr.label!=="neutral") tags.push('<span class="sd-tag late">late-HR</span>');
     if(f.pitch_matchup&&f.pitch_matchup.score>=60) tags.push('<span class="sd-tag mu">mix+</span>');
@@ -3318,7 +3399,7 @@ function scanDetail(d){
       <div class="sd-hit-heat" style="color:${p.heat>=70?'var(--hot)':p.heat>=55?'var(--ink)':'var(--muted)'}">${p.heat??"–"}</div>
       <div class="sd-hit-main"><div><b>${p.name}</b> <span class="sd-hit-meta">#${p.lineup_spot||"?"} ${p.bats||""}</span></div>
         ${bdg?`<div class="sd-hit-bdg">${bdg}</div>`:""}</div>
-      <div class="sd-hit-tags">${tags.join("")}</div>
+      <div class="sd-hit-tags">${tags.slice(0,3).join("")}</div>
     </div>`;
   }).join("");
 
@@ -3327,19 +3408,26 @@ function scanDetail(d){
     const ex=a.exploit_score;
     const col=ex==null?"var(--muted)":ex>=0.380?"var(--hot)":ex>=0.340?"var(--ink)":"var(--muted)";
     const fat=a.fatigue&&a.fatigue.state&&a.fatigue.state!=="FRESH"?`<span class="sd-tag ${a.fatigue.state.toLowerCase()}">${a.fatigue.state} pen</span>`:"";
+    const vt=(a.vuln||{}).tier;
+    const vtag=vt?`<span class="sd-tag vuln-${vt}">VULN ${vt.toUpperCase()}</span>`:"";
     return `<div class="sd-arm" onclick="scanGame=null;edgesPitcher=${a.id};goView('edges')">
       <div class="sd-arm-ex" style="color:${col}">${ex!=null?ex.toFixed(3):"–"}</div>
       <div class="sd-arm-main"><b>${a.name}</b> <span class="sd-hit-meta">${a.throws||"?"}HP${a.arsenal&&a.arsenal.usage?` · ${Math.round((a.arsenal.usage.FB||0)*100)}% FB`:""}</span></div>
-      ${fat}<span class="sd-arm-go">›</span>
+      ${vtag}${fat}<span class="sd-arm-go">›</span>
     </div>`;
   }).join("");
 
-  // best EV in this game
-  const evRows=d.evGame.slice(0,5).map(e=>{
+  // best EV in this game — with the model cross-check: is it +EV AND does the model agree, and
+  // what's the measured backtest lift behind the corroborating signal
+  const evRows=d.evGame.slice(0,6).map(e=>{
     const good=e.ev>=0.1;
+    const cc=evCrossCheck(e);
+    const liftTag=(cc.bestLift!=null)?`<span class="ev-lift" title="measured HR-rate lift in the backtest">${cc.bestLabel} ${liftPct(cc.bestLift)}</span>`:"";
     return `<div class="sd-ev">
       <div class="sd-ev-tag" style="color:${good?'var(--good)':'var(--muted)'}">+${(e.ev*100).toFixed(0)}%</div>
-      <div class="sd-ev-main"><b>${e.name}</b> <span class="sd-hit-meta">${e.propLabel} ${e.side.toUpperCase()}${e.line?" "+e.line:""} @ ${fmtAm(e.price)}</span></div>
+      <div class="sd-ev-main"><b>${e.name}</b> <span class="sd-hit-meta">${e.propLabel} ${e.side.toUpperCase()}${e.line?" "+e.line:""} @ ${fmtAm(e.price)}</span>
+        <div class="ev-cc"><span class="ev-verdict" style="color:${cc.color}">${cc.label}</span>${liftTag}</div>
+      </div>
     </div>`;
   }).join("");
 
@@ -3373,6 +3461,7 @@ function scanDetail(d){
       ${d.total!=null?`<div class="sd-stat"><span>Total</span><b>${d.total}</b></div>`:""}
       ${d.proj?`<div class="sd-stat"><span>Proj</span><b>${d.proj.away_runs}–${d.proj.home_runs}</b></div>`:""}
       ${d.proj&&d.proj.home_wp!=null?`<div class="sd-stat"><span>Win%</span><b>${Math.round((d.proj.home_wp>=0.5?d.proj.home_wp:1-d.proj.home_wp)*100)}% ${d.proj.home_wp>=0.5?g.home:g.away}</b></div>`:""}
+      ${d.parkF!=null?`<div class="sd-stat"><span>Park HR</span><b style="color:${d.parkF>=1.05?'var(--hot)':d.parkF<=0.95?'var(--cold)':'var(--ink)'}">${d.parkF.toFixed(2)}×</b></div>`:""}
       <div class="sd-stat"><span>Weather</span><b style="font-size:12px">${wxLine}</b></div>
     </div>
 
@@ -3380,7 +3469,7 @@ function scanDetail(d){
     ${stackBlock}
     ${hitRows?`<div class="sd-sec-h">Top hitters</div><div class="sd-sec">${hitRows}</div>`:""}
     <div class="sd-sec-h">Weather &amp; park</div>${scanWeatherBlock(d.wx)}
-    ${evRows?`<div class="sd-sec-h">Best +EV in this game</div><div class="sd-sec">${evRows}</div>`:`<div class="sd-sec-h">+EV</div><div class="sd-empty">No +EV plays priced yet for this game.</div>`}
+    ${evRows?`<div class="sd-sec-h">+EV cross-check</div><div class="sd-cc-note">Each priced edge, checked against the model: does our signal agree, and what did that signal actually convert at in the backtest (lift over the ${BACKTEST&&BACKTEST.base_pct?BACKTEST.base_pct.toFixed(1)+"%":"base"} HR rate). A “model disagrees” tag on a +EV longshot is usually book noise, not free money.</div><div class="sd-sec">${evRows}</div>`:`<div class="sd-sec-h">+EV cross-check</div><div class="sd-empty">No +EV plays priced yet for this game — check back once odds post.</div>`}
 
     <div class="scan-foot">Everything for this matchup in one place. Tap a hitter for the full card, or an arm for its zone map. Heat is the frozen model; the rest are context and experimental edges — none is a green light on its own.</div>
   </div>`;
