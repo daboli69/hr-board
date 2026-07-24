@@ -237,6 +237,23 @@ def build(date_str: str | None = None) -> dict:
     except Exception as e:
         _hnote("league percentiles", e); print(f"[build] league percentiles skipped: {e}")
 
+    # ---- BALLPARK PAL park factors (primary source for park/weather effect) ----
+    # Modeled on ~1M batted balls, with PER-HITTER factors based on each batter's own spray
+    # profile. Falls back to the local park model automatically when the key is missing or
+    # the API is down. NOTE: BPP is today-and-future only, so the backtest keeps using the
+    # local model — expect a small live-vs-backtest divergence on park terms.
+    BPP = {"ok": False}
+    try:
+        from etl import ballparkpal
+        BPP = ballparkpal.fetch_all(date_str)
+        if BPP.get("ok"):
+            print(f"[build] park factors: Ballpark Pal ({len(BPP.get('hitters') or {})} hitter-level)")
+        else:
+            print(f"[build] park factors: local model ({BPP.get('reason','api unavailable')})")
+    except Exception as e:
+        BPP = {"ok": False}
+        _hnote("ballparkpal", e); print(f"[build] ballparkpal skipped: {e}")
+
     try:                                           # QUICK TARGET: dangerous lineup spots per arm
         spot_damage = statcast_data.pitcher_damage_by_spot(df)
         print(f"[build] quick target: {len(spot_damage)} arms scored by lineup slot")
@@ -413,7 +430,19 @@ def build(date_str: str | None = None) -> dict:
         eff_side = bats
         if bats == "S":
             eff_side = "L" if throws == "R" else "R"
-        pf = parks.park_factor(g["park"], eff_side) if g else 1.0
+        # Park factor: prefer Ballpark Pal's per-HITTER model (built on this batter's own
+        # spray profile), then their per-game number, then our local geometry model.
+        _pf_local = parks.park_factor(g["park"], eff_side) if g else 1.0
+        pf, pf_src = _pf_local, "local"
+        try:
+            from etl import ballparkpal as _BPP
+            pf, pf_src = _BPP.resolve_hr_mult(
+                BPP, player_id=bid, player_name=name,
+                game_id=(g or {}).get("game_pk"),
+                away=(g or {}).get("away"), home=(g or {}).get("home"),
+                fallback=_pf_local)
+        except Exception:
+            pf, pf_src = _pf_local, "local"
 
         # hitter ranking = four signals, modulated by opposing-arm vulnerability
         score, breakdown = compute.heat_score(recent, phr.get("score"))
@@ -745,6 +774,7 @@ def build(date_str: str | None = None) -> dict:
             "time": g["time"],
             "park": g["park"],
             "park_hr_factor": round(pf, 2),
+            "park_src": pf_src,          # 'bpp_hitter' | 'bpp_game' | 'local'
             "why": why,
             "tier": breakdown.get("tier"),
             "cleared": breakdown.get("cleared"),
@@ -900,9 +930,9 @@ def build(date_str: str | None = None) -> dict:
         try:                                       # spray chart uses last 14d for volume
             _drv_start = (datetime.strptime(date_str, "%Y-%m-%d") - timedelta(days=14)).strftime("%Y-%m-%d")
             drives_map = statcast_data.recent_drives(df, _drv_start)
-            # robbed scan uses only the last 3 days — we care about recent-recent contact
-            # ("did he just miss last night?"), not a two-week-old fly out
-            _rob_start = (datetime.strptime(date_str, "%Y-%m-%d") - timedelta(days=3)).strftime("%Y-%m-%d")
+            # robbed scan: the PRIOR DAY only — "did he just miss last night?" A flyout from
+            # three days ago isn't actionable context for today's slate.
+            _rob_start = (datetime.strptime(date_str, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
             robbed_drives = statcast_data.recent_drives(df, _rob_start, min_dist=320)
         except Exception as e:
             drives_map = {}; robbed_drives = {}
@@ -950,7 +980,12 @@ def build(date_str: str | None = None) -> dict:
                 if rob_hits:
                     best = max(rob_hits, key=lambda x: x["dist"])
                     p["robbed"] = {"n": len(rob_hits),
-                                   "best_ft": best["dist"], "best_date": best["date"]}
+                                   "best_ft": best["dist"], "best_date": best["date"],
+                                   "inning": best.get("inning"), "half": best.get("half"),
+                                   # every near-miss, so the UI can list them with their inning
+                                   "hits": [{"ft": h["dist"], "inning": h.get("inning"),
+                                             "half": h.get("half"), "ev": h.get("ev")}
+                                            for h in sorted(rob_hits, key=lambda x: -x["dist"])[:4]]}
             evs, las, sprays, spans = [], [], [], []
             for p in ps:
                 s = bb_samples.get(p["id"])
@@ -1242,12 +1277,22 @@ def build(date_str: str | None = None) -> dict:
                     # ERA 30 · park 20 · hand-splits 15 · WHIP 15 · zone damage 12 · danger 8
                     _ps = (pstats or {}).get(pid) or {}
                     # park HR factor: average the L/R factors for a general park read
+                    # park HR factor: Ballpark Pal's per-game model, else local L/R average
+                    _pf = None
                     try:
-                        _pf_l = parks.park_factor(g["park"], "L")
-                        _pf_r = parks.park_factor(g["park"], "R")
-                        _pf = (float(_pf_l) + float(_pf_r)) / 2.0
+                        from etl import ballparkpal as _BPP2
+                        _pf, _ = _BPP2.resolve_hr_mult(
+                            BPP, game_id=g.get("game_pk"),
+                            away=g.get("away"), home=g.get("home"), fallback=None)
                     except Exception:
                         _pf = None
+                    if _pf is None:
+                        try:
+                            _pf_l = parks.park_factor(g["park"], "L")
+                            _pf_r = parks.park_factor(g["park"], "R")
+                            _pf = (float(_pf_l) + float(_pf_r)) / 2.0
+                        except Exception:
+                            _pf = None
                     # dangerous bats today: elite-gated or genuinely hot, in this lineup
                     _danger = sum(1 for b in opp_batters
                                   if (b.get("elite") in ("ELITE", "ELITE+"))
@@ -1537,6 +1582,15 @@ def build(date_str: str | None = None) -> dict:
         "players": players,
         "pitcher_edges": pitcher_edges,     # Edges tab: per-arm zone heatmap + ranked batters
         "bullpen_rankings": bullpen_rankings,   # slate-wide pen ranking, worst to best
+        "park_source": ("ballparkpal" if BPP.get("ok") else "local"),
+        "park_ranks": (lambda: [
+            {"away": v.get("away"), "home": v.get("home"),
+             "hr_mult": v.get("hr_mult"), "hr_pct": v.get("hr_pct"),
+             "runs_mult": v.get("runs_mult"), "runs_pct": v.get("runs_pct"),
+             "hr_amount": v.get("hr_amount"), "game_time": v.get("game_time")}
+            for v in sorted((BPP.get("by_teams") or {}).values(),
+                            key=lambda x: -(x.get("hr_mult") or 0))
+        ] if BPP.get("ok") else [])(),
         "grand_slam": board_gs,             # top GS-jackpot candidates (traffic x punish)
         "top_plays": top_plays,
         "stacks": stacks,
