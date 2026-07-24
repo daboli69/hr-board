@@ -1422,6 +1422,33 @@ def build(date_str: str | None = None) -> dict:
                         discipline_delta=_dd)
                     if mg:
                         _p["matchup_grade"] = mg
+
+                    # ---- LONGBALL: who hits the single longest HR on the slate? Pure distance
+                    # ceiling — no chalk logic, no HR-probability. The park term uses this
+                    # hitter's BPP park factor (already weather-inclusive), so game temperature
+                    # is intentionally NOT passed again here to avoid double-counting carry.
+                    _hp = _f.get("hr_power") or {}
+                    # Ceiling-anchored ONLY: a hitter with no measured distance ceiling must not
+                    # rank on a "farthest HR" board. Without this guard the scorer renormalizes
+                    # over the remaining terms and a no-power bat with a good park/zone could
+                    # score high off the environment alone — exactly wrong for this question.
+                    if _hp.get("max_dist") is not None:
+                        _pm = _p.get("pitch_matchup") or {}
+                        _wb = _pm.get("weighted_barrel")
+                        _pm_score = (max(0.0, min(100.0, (float(_wb) - 3.0) / 15.0 * 100.0))
+                                     if _wb is not None else None)
+                        lb = features.longball_score(
+                            max_dist=_hp.get("max_dist"),
+                            avg_fb_dist=_hp.get("avg_fb_dist"),
+                            career_max=_hp.get("max_dist"),     # window max = 2yr ceiling proxy
+                            barrel_pct=_hp.get("barrel_pct"),
+                            avg_ev=_p.get("ev_overall"),
+                            park_factor=_p.get("park_hr_factor"),           # BPP-resolved
+                            park_dist_boost=(_p.get("park_hr") or {}).get("boost"),
+                            zone_overlap=_ov,
+                            pitch_matchup=_pm_score)
+                        if lb:
+                            _p["longball"] = lb
                 _n_bs = sum(1 for _p in players if _p.get("bomb_score"))
                 _n_mg = sum(1 for _p in players if _p.get("matchup_grade"))
                 _elite = sum(1 for _p in players if (_p.get("matchup_grade") or {}).get("grade") == "ELITE")
@@ -1550,6 +1577,40 @@ def build(date_str: str | None = None) -> dict:
     except Exception as e:
         _hnote("bullpen rankings", e); print(f"[build] bullpen rankings skipped: {e}")
 
+    # ---- LONGBALL BOARD: the slate's top 10 by "who hits it FARTHEST", ranked purely by the
+    # longball score (distance ceiling), with no chalk / heat / probability filter. A hitter
+    # back from injury with a real 470ft ceiling belongs here over a hot contact bat. Each entry
+    # carries the "why they're here" breakdown so the card can explain the ranking. ----
+    board_longball = []
+    try:
+        _lb_pool = [p for p in players if (p.get("longball") or {}).get("score") is not None]
+        _lb_pool.sort(key=lambda p: -p["longball"]["score"])
+        for p in _lb_pool[:10]:
+            lb = p["longball"]
+            _hp = (p.get("features") or {}).get("hr_power") or {}
+            _opp = p.get("opp_pitcher") or {}
+            board_longball.append({
+                "id": p.get("id"),
+                "name": p.get("name"),
+                "team": p.get("team"),
+                "opp_team": p.get("opp_team"),
+                "opp_pitcher": _opp.get("name"),
+                "park": p.get("park"),
+                "score": lb["score"],
+                "tier": lb["tier"],
+                "parts": lb["parts"],           # ceiling / carry / barrel / ev / env / opportunity
+                "drivers": lb["drivers"],        # short "why they're here" bullets
+                "max_dist": _hp.get("max_dist"),
+                "avg_fb_dist": _hp.get("avg_fb_dist"),
+                "barrel_pct": _hp.get("barrel_pct"),
+                "park_hr_factor": p.get("park_hr_factor"),
+                "park_src": p.get("park_src"),   # bpp_hitter | bpp_game | local
+                "lineup_status": p.get("lineup_status"),
+            })
+        print(f"[build] longball board: {len(board_longball)} (top by distance ceiling)")
+    except Exception as e:
+        _hnote("longball board", e); print(f"[build] longball board skipped: {e}")
+
     # strip build-time helper fields that shouldn't ship in the JSON
     for _p in players:
         _p.pop("_ob", None)
@@ -1592,6 +1653,7 @@ def build(date_str: str | None = None) -> dict:
                             key=lambda x: -(x.get("hr_mult") or 0))
         ] if BPP.get("ok") else [])(),
         "grand_slam": board_gs,             # top GS-jackpot candidates (traffic x punish)
+        "longball": board_longball,         # top 10 by distance ceiling — the longest-HR jackpot
         "top_plays": top_plays,
         "stacks": stacks,
         "wx": wx_list,

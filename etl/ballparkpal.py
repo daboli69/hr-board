@@ -95,18 +95,30 @@ def _get(path: str, params: dict | None = None) -> object | None:
 
 
 def _rows(payload) -> list:
-    """Unwrap whatever envelope the API used into a list of row dicts."""
+    """Unwrap whatever envelope the API used into a list of row dicts.
+
+    The live v1 API wraps rows two levels deep: {"meta": {...}, "data": {"items": [...]}}.
+    We handle that, a bare list, {"data": [...]}, {"items": [...]}, and a dict-keyed-by-id.
+    """
     if payload is None:
         return []
     if isinstance(payload, list):
         return [r for r in payload if isinstance(r, dict)]
     if isinstance(payload, dict):
-        for k in ("data", "games", "parkFactors", "park_factors", "results", "rows", "hitters"):
+        for k in ("items", "data", "games", "parkFactors", "park_factors",
+                  "results", "rows", "hitters"):
             v = payload.get(k)
             if isinstance(v, list):
                 return [r for r in v if isinstance(r, dict)]
-        # a dict keyed by id -> row
-        vals = [v for v in payload.values() if isinstance(v, dict)]
+            # nested envelope, e.g. {"data": {"items": [...]}}
+            if isinstance(v, dict):
+                for k2 in ("items", "rows", "results", "data"):
+                    v2 = v.get(k2)
+                    if isinstance(v2, list):
+                        return [r for r in v2 if isinstance(r, dict)]
+        # last resort: a dict keyed by id -> row (skip obvious wrapper dicts)
+        vals = [v for v in payload.values()
+                if isinstance(v, dict) and "items" not in v and "asOf" not in v]
         if vals:
             return vals
     return []
@@ -187,11 +199,22 @@ def hitter_park_factors(date_str: str) -> dict:
     for r in rows:
         pid = _pick(r, "playerId", "player_id", "mlbamId", "mlbam_id", "batterId", "id")
         name = _pick(r, "playerName", "player_name", "name", "batter")
-        hr_pct = _pick(r, "homeRunsPercent", "hrPercent", "homeRunPercent")
+        # The hitter endpoint returns a DIRECT multiplier (homeRuns: 0.95 == 5% below league),
+        # split into stadium + weather components — NOT a percent. Prefer the direct field and
+        # only fall back to a percent field if the shape ever changes.
+        hr_direct = _num(_pick(r, "homeRuns", "homeRunsFactor", "hrFactor", "hr"))
+        if hr_direct is not None:
+            hr_mult = round(hr_direct, 4)
+            hr_pct_val = round((hr_direct - 1.0) * 100, 1)
+        else:
+            hr_pct = _pick(r, "homeRunsPercent", "hrPercent", "homeRunPercent")
+            hr_mult = _pct_to_mult(hr_pct)
+            hr_pct_val = _num(hr_pct)
         ent = {
-            "hr_mult": _pct_to_mult(hr_pct),
-            "hr_pct": _num(hr_pct),
-            "runs_mult": _pct_to_mult(_pick(r, "runsPercent")),
+            "hr_mult": hr_mult,
+            "hr_pct": hr_pct_val,
+            "hr_stadium": _num(_pick(r, "homeRunsStadium")),   # park-only component
+            "hr_weather": _num(_pick(r, "homeRunsWeather")),   # weather add-on (carry)
             "name": name,
             "team": _pick(r, "team", "teamAbbr", "teamAbbrev"),
             "game_id": _pick(r, "gameId", "game_id"),
