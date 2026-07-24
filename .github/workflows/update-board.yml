@@ -45,6 +45,9 @@ jobs:
         env:
           SEASON_START: "2026-03-26"   # opening day; bump each season
           RECENT_DAYS: "45"
+          # Ballpark Pal — primary park-factor source (per-hitter model). If this secret is
+          # absent the build silently falls back to etl/park_factors.py; nothing breaks.
+          BPP_API_KEY: ${{ secrets.BPP_API_KEY }}
         run: python tests/canary.py && python -m etl.build_board
 
       - name: Fetch HR prop odds
@@ -59,17 +62,59 @@ jobs:
         run: |
           git config user.name  "hr-board-bot"
           git config user.email "actions@github.com"
-          git add docs/board.json docs/snapshots
-          git add docs/odds.json 2>/dev/null || true
-          git add docs/park_factors.json 2>/dev/null || true
-          git add docs/bvp_career.json 2>/dev/null || true
-          git add docs/wind_sens.json 2>/dev/null || true
+          BRANCH="${GITHUB_REF_NAME}"
+
+          stage() {
+            git add docs/board.json docs/snapshots 2>/dev/null || true
+            git add docs/odds.json 2>/dev/null || true
+            git add docs/park_factors.json 2>/dev/null || true
+            git add docs/bvp_career.json 2>/dev/null || true
+            git add docs/wind_sens.json 2>/dev/null || true
+          }
+
+          stage
           if git diff --staged --quiet; then
             echo "No change to commit"
-          else
-            git commit -m "board: ${{ github.run_id }} [skip ci]"
-            # another scheduled job (e.g. the grader) may push at the same minute;
-            # rebase onto remote first so this push can't lose the race.
-            git pull --rebase --autostash origin "${GITHUB_REF_NAME}" || true
-            git push
+            exit 0
+          fi
+
+          git commit -m "board: ${{ github.run_id }} [skip ci]"
+
+          # Push with a conflict-proof retry. Another job (the grader) can push between our
+          # build and our push; instead of a rebase that can wedge into a detached HEAD on
+          # conflict, we retry: fetch, rebase, and if the rebase conflicts we ABORT it
+          # cleanly and fall back to re-applying our files on top of the fresh remote tip.
+          ok=0
+          for i in 1 2 3 4 5; do
+            if git push origin "HEAD:${BRANCH}" 2>/dev/null; then ok=1; break; fi
+            echo "push $i failed (remote moved) — reconciling…"
+            git fetch origin "${BRANCH}" || true
+            if git rebase "origin/${BRANCH}"; then
+              :  # clean rebase, loop will retry push
+            else
+              # rebase conflicted — abort it, hard-reset to remote, re-apply our outputs.
+              echo "rebase conflicted — hard-resetting to remote and re-staging our files"
+              git rebase --abort || true
+              # save our just-built outputs, reset to remote tip, restore them, recommit
+              tmp="$(mktemp -d)"
+              for f in docs/board.json docs/odds.json docs/park_factors.json docs/bvp_career.json docs/wind_sens.json; do
+                [ -f "$f" ] && mkdir -p "$tmp/$(dirname "$f")" && cp "$f" "$tmp/$f"
+              done
+              [ -d docs/snapshots ] && cp -r docs/snapshots "$tmp/docs/snapshots" 2>/dev/null || true
+              git checkout -B "${BRANCH}" "origin/${BRANCH}"
+              for f in docs/board.json docs/odds.json docs/park_factors.json docs/bvp_career.json docs/wind_sens.json; do
+                [ -f "$tmp/$f" ] && cp "$tmp/$f" "$f"
+              done
+              [ -d "$tmp/docs/snapshots" ] && cp -r "$tmp/docs/snapshots/." docs/snapshots/ 2>/dev/null || true
+              rm -rf "$tmp"
+              stage
+              if git diff --staged --quiet; then echo "nothing left to commit after reconcile"; ok=1; break; fi
+              git commit -m "board: ${{ github.run_id }} [skip ci]"
+            fi
+            sleep 3
+          done
+
+          if [ "$ok" != "1" ]; then
+            echo "::warning::board build succeeded but push could not be completed after retries; next run will pick it up"
+            exit 0   # don't fail the whole run over a push race — the data is fine, next cron re-pushes
           fi
