@@ -812,6 +812,13 @@
   .pl-tag.warn{background:rgba(198,110,80,.12);color:#cd977f;border-color:rgba(198,110,80,.3)}
   .pl-tag.mx{color:var(--warm);border:1px solid var(--warm)}
   .pl-tag.tg{color:var(--seam);border:1px solid var(--line)}
+  .lb-row{display:flex;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
+  .lb-row:first-of-type{border-top:none}
+  .lb-rank{font-family:"IBM Plex Mono";font-weight:800;font-size:18px;min-width:22px;text-align:center;line-height:1.15}
+  .lb-body{flex:1;min-width:0}
+  .lb-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .lb-score{font-family:"IBM Plex Mono";font-weight:800;font-size:15px;white-space:nowrap}
+  .lb-score i{font-style:normal;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-left:5px;opacity:.85}
   .pl-sub{font-size:10.5px;color:var(--muted);margin:-2px 0 6px}
   .mu-wrap{padding:4px 0 20px}
   .mu-head{font-family:Archivo;font-weight:800;font-size:14px;display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:12px}
@@ -1624,7 +1631,7 @@
       <p>In the Parlays view (More → Parlays). The 3 hitters most likely to hit a grand slam tonight, ranked by <b>traffic × punish</b>: traffic = how likely the bases are loaded when he bats (the on-base bats ahead of him + the opposing starter's wildness), punish = can he golf a grooved in-zone fastball (barrel/EV/pull + the elite gate). A slam needs both — a masher batting leadoff scores near zero. This is the highest-variance thing in the app: it ranks <i>relative</i> likelihood, not a real probability. A lottery ticket, sized accordingly.</p>
 
       <h3>Longest HR Jackpot</h3>
-      <p>In Bets. The candidates for the single longest home run — distance ceiling on <b>longshots the field skips</b>. Chalk (short-priced favorites) is excluded by <b>real book odds</b>, not the model: every candidate must have a live HR price, favorites shorter than +350 are cut, and the ranking tilts toward the overlooked names with a big distance ceiling (max EV, park, ISO). If book odds haven't posted for the slate, the card waits rather than guess.</p>
+      <p>In Bets. The slate's <b>top 10 by distance ceiling</b> — who hits the single longest home run if it leaves the yard. It answers only that question, so it does <b>not</b> use HR odds, probability, or chalk: the ranking is driven above all by <b>career-max distance</b> (last two seasons), then repeatable fly-ball carry, barrel rate, exit velo, environment (the hitter's <b>BallparkPal per-hitter park factor</b>), and how well the arm's zones fit his power. Because ceiling rules, a slugger just back from injury with a real 470ft ceiling can outrank a hotter contact bat — that's intended. Each row shows its score, tier, the "why they're here" drivers, and a factor breakdown with the biggest driver highlighted. The park-source tag (<b>BPP·hitter</b> / <b>BPP·park</b> / <b>local pf</b>) tells you where the environment number came from.</p>
 
       <h3>Matchup Grade — ELITE / STRONG / MOD / WEAK</h3>
       <p>The per-hitter grade for <b>today's specific matchup</b>, by <b>factor convergence</b> rather than a weighted average. Five factors either align or they don't: <b>Power</b> (ISO — HIGH at .200, ELITE at .250), <b>Zone</b> (3+ overlap dots viable, 5+ premium), <b>Arm</b> (the opposing pitcher's HR Vulnerability tier), <b>Park</b> (1.05+ boost, 1.10+ premium), and <b>Form</b> (bat trending up). <b>4+ aligned = STRONG · all five with premium levels = ELITE.</b> The card shows a five-cell grid of exactly which factors hit. Plate discipline nudges the grade one step (elite eye up, chaser down) but never inflates a spot with nothing else going for it. Sort the board by Grade, or use the 🎯 Graded filter for ELITE/STRONG only.</p>
@@ -5343,48 +5350,46 @@ function renderParlays(){
     </div>`;
   const thinCard=(title,msg)=>`<div class="pl-card pl-card-thin"><div class="pl-card-h"><b>${title}</b></div><div class="pl-foot">${msg}</div></div>`;
 
-  // ---- Bet 1 · Longest HR Jackpot: distance ceiling on names the FIELD ignores ----
-  // The jackpot pays for the single longest HR — so the winner is almost never a chalk favorite
-  // (those are priced short precisely because everyone expects them). The point is a longshot
-  // with a huge distance ceiling. "Chalk" means SHORT REAL BOOK ODDS — not model odds. Every
-  // candidate MUST have a live book price; a hitter with no real odds is simply skipped and the
-  // card fills from the next longshot who IS priced. No model-odds fallback for eligibility.
+  // ---- Bet 1 · Longest HR Jackpot: the slate's top 10 by DISTANCE CEILING ----
+  // Rebuilt off the ETL longball model (BOARD.longball). This answers ONE question: given a ball
+  // leaves the yard, whose leaves it farthest. Career-max ceiling is weighted above everything,
+  // then repeatable carry, barrel, EV, environment (BallparkPal per-hitter park factor) and zone
+  // opportunity. There is deliberately NO chalk/odds/probability filter — a slugger back from
+  // injury with a real 470ft ceiling belongs over a hot contact bat. Each row explains its rank.
   const jackpotCard=()=>{
-    const mev=p=>((p.max_ev||{}).season ?? (p.max_ev||{}).recent) || 0;
-    // REAL book price from odds.json (parlay-api, best of DK/Fanatics). null = no live odds.
-    const priceOf=p=>{ const e=(typeof fetchedOddsFor==="function")?fetchedOddsFor(p.id):null; return e&&e.best!=null?e.best:null; };
-    // Eligibility requires a REAL price: must be priced, not chalk (shorter than +260), not an
-    // absurd dart (longer than +900). No odds -> not eligible, full stop.
-    // Chalk/longshot cutoffs on REAL book odds. For a LONGEST-HR jackpot the winner is an
-    // overlooked bomber, so we want genuine longshots — a +280 star still reads as chalk here.
-    // Tunable: raise CHALK_MAX to be stricter (fewer favorites), lower it to allow more names.
-    const CHALK_MAX = 350;    // odds shorter (smaller +) than this = chalk, excluded
-    const DART_MAX  = 1200;   // odds longer than this = pure dart, excluded
-    const elig=ranked.filter(p=>{
-      const pr=priceOf(p);
-      if(pr==null) return false;               // no real book odds -> skip this player entirely
-      if(pr < CHALK_MAX) return false;         // chalk favorite (real odds) -> excluded
-      if(pr > DART_MAX) return false;          // too long even for a distance dart
-      return !p.hr_last_game && (p.heat||0)>=45 && mev(p)>=108;
-    });
-    if(elig.length<2) return thinCard("Longest HR Jackpot — candidates",
-      "Waiting on live book odds — the jackpot only ranks hitters with a real HR price (chalk excluded by those odds). Fills in once odds.json posts for this slate.");
-    const dist=p=>{
-      const ev=(Math.min(118,Math.max(105,mev(p)))-105)/13;                 // raw distance ceiling
-      const pk=(p.park_hr&&p.park_hr.boost!=null)?Math.max(-0.5,Math.min(1,p.park_hr.boost/20)):0;
-      const iso=((p.windows||{}).L14d||{}).iso||0;
-      // reward LONGER real odds slightly — the jackpot pays for the overlooked name
-      const pr=priceOf(p);
-      const longshot = Math.max(0,Math.min(1,(pr-350)/500));               // +350..+850 ramp
-      return ev*0.45 + pk*0.25 + Math.min(1,iso/0.30)*0.15 + longshot*0.15;
+    const rows=(BOARD&&BOARD.longball)||[];
+    if(!rows.length) return thinCard("Longest HR Jackpot — top 10 by distance",
+      "Fills once lineups and power profiles post. This ranks the slate purely by distance ceiling (career max, carry, barrel, park) — not HR odds — so a returning slugger with a real 470ft ceiling can top it.");
+    const tierColor={moonshot:"var(--hot)",strong:"var(--good)",live:"var(--seam)",fringe:"var(--faint)"};
+    const srcTag=s=>s==="bpp_hitter"?'<span class="pl-tag lb">BPP·hitter</span>'
+                  :s==="bpp_game"?'<span class="pl-tag tg">BPP·park</span>'
+                  :s==="local"?'<span class="pl-tag tg">local pf</span>':"";
+    const PARTS=[["ceiling","CEIL"],["carry","CARRY"],["barrel","BRL"],["ev","EV"],["env","ENV"],["opportunity","ZONE"]];
+    const rowHTML=(r,i)=>{
+      const col=tierColor[r.tier]||"var(--faint)";
+      const drivers=(r.drivers||[]).map(d=>`<span class="pl-tag up">${d}</span>`).join("");
+      const parts=r.parts||{};
+      const present=PARTS.filter(([k])=>parts[k]!=null);
+      const top=Object.entries(parts).sort((a,b)=>b[1]-a[1])[0];
+      const grid=present.map(([k,lab])=>
+        `<div class="mg-f ${top&&top[0]===k?'on':''}"><span class="mg-dot">${lab}</span><span class="mg-v">${parts[k]}</span></div>`).join("");
+      const pf=r.park_hr_factor!=null?`${(+r.park_hr_factor).toFixed(2)}x park`:"";
+      return `<div class="lb-row">
+        <div class="lb-rank" style="color:${col}">${i+1}</div>
+        <div class="lb-body">
+          <div class="lb-top"><b>${r.name}</b><span class="lb-score" style="color:${col}">${(+r.score).toFixed(0)}<i>${r.tier}</i></span></div>
+          <div class="pl-meta">${r.team}→${r.opp_team}${r.opp_pitcher?` · vs ${r.opp_pitcher}`:""}${r.max_dist?` · ${r.max_dist}ft ceiling`:""}${pf?` · ${pf}`:""}</div>
+          ${(drivers||srcTag(r.park_src))?`<div class="pl-tags">${drivers}${srcTag(r.park_src)}</div>`:""}
+          ${grid?`<div class="mg-grid" style="grid-template-columns:repeat(${present.length},1fr)">${grid}</div>`:""}
+        </div>
+      </div>`;
     };
-    const picks=elig.slice().sort((a,b)=>dist(b)-dist(a)).slice(0,3);
-    const priceTag=p=>{ const pr=priceOf(p); return pr!=null?` · ${pr>0?"+":""}${pr}`:""; };
-    return cardShell("Longest HR Jackpot — candidates",
-      "distance ceiling on LONGSHOTS the field skips — chalk excluded by real book odds. The winner is usually 400ft+ from a name nobody bet.",
-      picks,
-      p=>leg(p,`<span class="pl-tag lb">${mev(p)?mev(p).toFixed(1)+" max EV":""}${priceTag(p)}${(p.park_hr&&p.park_hr.boost>0)?` · park +${p.park_hr.boost}%`:""}</span>`),
-      "single entries, not a parlay — ranked by distance ceiling (max EV · park · ISO) with a longshot tilt", true);
+    return `<div class="pl-card">
+      <div class="pl-card-h"><b>Longest HR Jackpot — top 10 by distance</b><span class="beta-pill">FARTHEST</span></div>
+      <div class="pl-sub">Ranked purely by <b>who hits it farthest if it leaves</b> — career-max ceiling above all, then carry, barrel, EV, park (BallparkPal per-hitter) and zone fit. No chalk filter: a returning slugger with a real ceiling outranks a hot contact bat.</div>
+      ${rows.map(rowHTML).join("")}
+      <div class="pl-foot">single entries, not a parlay — the jackpot pays for the one longest HR, so this finds ceiling, not probability. Highlighted cell is the biggest driver of the rank.</div>
+    </div>`;
   };
 
   // ---- Bet 2 · Best board · 3-leg: highest REALISTIC combined probability, one per team ----
