@@ -1100,6 +1100,18 @@
   .wx-c5 b{font-family:"IBM Plex Mono";font-size:15px;color:var(--ink)}
   .wx-c5 span{font-size:7.5px;color:var(--faint)}
   @media (max-width:480px){.wx-card{grid-template-columns:1.3fr 1fr 60px 40px}.wx-c2{display:none}}
+  .pk-wrap{max-width:760px;margin:18px auto 0}
+  .pk-h{font-family:Archivo;font-weight:800;font-size:14px;margin:2px 0 3px}
+  .pk-sub{font-size:10.5px;color:var(--faint);margin-bottom:9px}
+  .pk-row{display:grid;grid-template-columns:52px 1fr;gap:10px;align-items:center;padding:7px 0;border-top:1px solid var(--line)}
+  .pk-row:first-of-type{border-top:none}
+  .pk-pct{font-family:"IBM Plex Mono";font-weight:800;font-size:13px;text-align:right;white-space:nowrap}
+  .pk-name{font-weight:600;font-size:12.5px;color:var(--ink)}
+  .pk-name .pk-meta{font-family:"IBM Plex Mono";font-weight:600}
+  .pk-meta{font-size:10px;color:var(--muted)}
+  .pk-bar{position:relative;height:6px;border-radius:3px;background:var(--panel-2);margin-top:5px;overflow:hidden}
+  .pk-bar::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--line)}
+  .pk-fill{position:absolute;top:0;bottom:0;border-radius:3px}
   /* tracker */
   .trk{max-width:760px;margin:0 auto}
   .trk-sum{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin:8px 0;font-size:13px;line-height:1.6}
@@ -1551,7 +1563,7 @@
       <h3>Finding things — navigation</h3>
       <p>Five tabs across the bottom: <b>Board</b> (every hitter ranked by Heat), <b>Scan</b> (the slate by game — tap a game for its arms, hitters, weather, team stack and best +EV), <b>Edges</b> (the experimental signals), <b>Props</b> (hits, HRR, pitcher Ks, +EV, prop parlays, game lines) and <b>Bets</b> (the Edge Finder, your logged bets, and the jackpot cards).</p>
       <p>Tap <b>More</b> for the full <b>navigation drawer</b>, which lists every view grouped by what you're trying to do:</p>
-      <p><b>DAILY</b> — Board, Scan, Props, Bets. <b>TARGETS</b> — Vulnerable Arms (HR Vuln scores + zone maps), Quick Target (dangerous lineup spots per arm), Bullpens, and Parlays &amp; Jackpots. <b>CONDITIONS</b> — Microclimate (temperature-sensitive hitters tonight) and Late-HR Spots (short starter meets gassed pen). <b>RESULTS</b> — Tracker and this help page. If you can't find a feature, it's in the drawer.</p>
+      <p><b>DAILY</b> — Board, Scan, Props, Bets. <b>TARGETS</b> — Vulnerable Arms (HR Vuln scores + zone maps), Quick Target (dangerous lineup spots per arm), Bullpens, and Parlays &amp; Jackpots. <b>CONDITIONS</b> — Weather &amp; Parks (wind arrows over each park plus tonight's best/worst HR parks), Microclimate (temperature-sensitive hitters tonight) and Late-HR Spots (short starter meets gassed pen). <b>RESULTS</b> — Tracker and this help page. If you can't find a feature, it's in the drawer.</p>
 
       <h3>The board</h3>
       <p><b>Heat (0–100)</b> ranks each hitter on six power signals over the last 2 weeks — Pull-air%, Barrel%, ISO, Exit Velo, Ideal Attack Angle%, SLG — then nudges for the opposing pitcher's vulnerability. Higher = better HR spot. The chip runs blue (cold) → orange (elite).</p>
@@ -1736,6 +1748,7 @@
       <button class="nav-item" data-nav="parlays" onclick="drawerGo('parlays')">Parlays &amp; Jackpots<i>HR combos · grand slam · longball</i></button>
 
       <div class="nav-sec">CONDITIONS</div>
+      <button class="nav-item" data-nav="weather" onclick="drawerGo('weather')">Weather &amp; Parks<i>wind arrows + best/worst HR parks</i></button>
       <button class="nav-item" data-nav="edges-micro" onclick="drawerGo('edges','micro')">Microclimate<i>temp-sensitive hitters tonight</i></button>
       <button class="nav-item" data-nav="edges-late" onclick="drawerGo('edges','late')">Late-HR Spots<i>short starter + gassed pen</i></button>
 
@@ -3156,11 +3169,11 @@ function renderView(){
   const safe=fn=>{ try{ fn(); }catch(e){ console.error("render",e);
     const m=document.getElementById("main");
     if(m) m.innerHTML=`<div class="empty">This tab hit a snag rendering today's data — the rest of the app is fine.<br>Tap another tab or check back after the next board update.</div>`; } };
-  // legacy per-game views (Stacks/Weather/Matchup) are folded into Scan & Edges — redirect any
-  // stale route to the new home so old bookmarks/links don't dead-end.
-  if(view==="stacks"||view==="weather"){ view="scan"; }
+  // legacy per-game views (Stacks/Matchup) are folded into Scan & Edges — redirect stale routes.
+  // Weather is a live standalone view again (park + wind arrow, plus slate park ranking).
+  if(view==="stacks"){ view="scan"; }
   else if(view==="matchup"){ view="edges"; }
-  if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else safe(render);
+  if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else if(view==="weather") safe(renderWeather); else safe(render);
 }
 
 // Weather dashboard: today's slate, one card per game — conditions, roof call,
@@ -3855,6 +3868,40 @@ function renderWeather(){
     <div class="wx-legend">${legend}</div>
     ${wx.map(card).join("")}
     <div class="pl-note">Arrow shows where the wind blows <i>to</i>, drawn over each park's real orientation — straight up = out to center. Roof calls on retractable parks are predicted from the forecast (heat, cold, or rain risk). The park &amp; weather model on every hitter card already prices all of this in, including each park's learned wind sensitivity.</div>
+    ${parkRankBlock()}
+  </div>`;
+}
+// Best / worst HR park on tonight's slate. Prefers BallparkPal's per-game HR factor (park +
+// weather), falls back to the local park model — the ETL always emits one or the other.
+function parkRankBlock(){
+  const ranks=(BOARD&&BOARD.park_ranks)||[];
+  if(!ranks.length) return "";
+  const src=(BOARD&&BOARD.park_source)==="ballparkpal"?"BallparkPal park model":"local park model";
+  const maxAbs=Math.max(10,...ranks.map(r=>Math.abs(r.hr_pct||0)));
+  const row=(r,i)=>{
+    const pct=r.hr_pct==null?0:r.hr_pct;
+    const w=Math.min(50,Math.abs(pct)/maxAbs*50);
+    const hot=pct>=0;
+    const col=hot?"var(--hot)":"var(--cold)";
+    const fill=pct===0?"":hot
+      ? `<div class="pk-fill" style="left:50%;width:${w}%;background:${col}"></div>`
+      : `<div class="pk-fill" style="right:50%;width:${w}%;background:${col}"></div>`;
+    const sign=pct>0?"+":"";
+    const teams=(r.away&&r.home)?`${r.away}@${r.home}`:"";
+    return `<div class="pk-row">
+      <div class="pk-pct" style="color:${col}">${sign}${Math.round(pct)}%</div>
+      <div>
+        <div class="pk-name">${i+1}. ${r.park||teams||"—"}${r.hr_mult!=null?` <span class="pk-meta">${(+r.hr_mult).toFixed(2)}×</span>`:""}</div>
+        <div class="pk-meta">${teams}${r.game_time?` · ${r.game_time}`:""} · ${hot?"helps HR":"suppresses HR"}</div>
+        <div class="pk-bar">${fill}</div>
+      </div>
+    </div>`;
+  };
+  return `<div class="pk-wrap">
+    <div class="pk-h">Best &amp; worst HR parks tonight</div>
+    <div class="pk-sub">ranked by home-run park factor · green helps the long ball, blue holds it down · source: ${src}</div>
+    ${ranks.map(row).join("")}
+    <div class="pl-note">This is the park's effect on HR rate for tonight — orientation, dimensions, altitude and today's air, combined. It's the same park number feeding every hitter card's environment term, so a bat in a top park here is already getting that credit in Heat's park lens and in the longball board.</div>
   </div>`;
 }
 
