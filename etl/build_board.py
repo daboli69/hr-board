@@ -1611,6 +1611,37 @@ def build(date_str: str | None = None) -> dict:
     except Exception as e:
         _hnote("longball board", e); print(f"[build] longball board skipped: {e}")
 
+    # ---- PARK RANKS: best/worst HR park on tonight's slate, for the Weather view's ranking.
+    # Prefer Ballpark Pal's per-game HR factor (the authoritative park+weather model); fall back
+    # to the local park model so the ranking ALWAYS renders even when the BPP key isn't set.
+    # Each entry carries the park name so the view can label it. ----
+    park_ranks = []
+    try:
+        _pk_by_teams = {f'{g["away"]}@{g["home"]}': g.get("park") for g in games}
+        if BPP.get("ok") and BPP.get("by_teams"):
+            for v in sorted(BPP["by_teams"].values(), key=lambda x: -(x.get("hr_mult") or 0)):
+                park_ranks.append({
+                    "away": v.get("away"), "home": v.get("home"),
+                    "park": _pk_by_teams.get(f'{v.get("away")}@{v.get("home")}'),
+                    "hr_mult": v.get("hr_mult"), "hr_pct": v.get("hr_pct"),
+                    "runs_mult": v.get("runs_mult"), "runs_pct": v.get("runs_pct"),
+                    "hr_amount": v.get("hr_amount"), "game_time": v.get("game_time"),
+                    "src": "bpp"})
+        else:
+            for g in games:
+                _pk = g.get("park")
+                _l = parks.park_factor(_pk, "L"); _r = parks.park_factor(_pk, "R")
+                _m = round((_l + _r) / 2.0, 3)
+                park_ranks.append({
+                    "away": g.get("away"), "home": g.get("home"), "park": _pk,
+                    "hr_mult": _m, "hr_pct": round((_m - 1.0) * 100, 1),
+                    "runs_mult": None, "runs_pct": None, "hr_amount": None,
+                    "game_time": g.get("time"), "src": "local"})
+            park_ranks.sort(key=lambda x: -(x.get("hr_mult") or 0))
+        print(f"[build] park ranks: {len(park_ranks)} ({'bpp' if BPP.get('ok') else 'local'})")
+    except Exception as e:
+        _hnote("park ranks", e); print(f"[build] park ranks skipped: {e}")
+
     # strip build-time helper fields that shouldn't ship in the JSON
     for _p in players:
         _p.pop("_ob", None)
@@ -1644,14 +1675,7 @@ def build(date_str: str | None = None) -> dict:
         "pitcher_edges": pitcher_edges,     # Edges tab: per-arm zone heatmap + ranked batters
         "bullpen_rankings": bullpen_rankings,   # slate-wide pen ranking, worst to best
         "park_source": ("ballparkpal" if BPP.get("ok") else "local"),
-        "park_ranks": (lambda: [
-            {"away": v.get("away"), "home": v.get("home"),
-             "hr_mult": v.get("hr_mult"), "hr_pct": v.get("hr_pct"),
-             "runs_mult": v.get("runs_mult"), "runs_pct": v.get("runs_pct"),
-             "hr_amount": v.get("hr_amount"), "game_time": v.get("game_time")}
-            for v in sorted((BPP.get("by_teams") or {}).values(),
-                            key=lambda x: -(x.get("hr_mult") or 0))
-        ] if BPP.get("ok") else [])(),
+        "park_ranks": park_ranks,           # best/worst HR park tonight (BPP live, local fallback)
         "grand_slam": board_gs,             # top GS-jackpot candidates (traffic x punish)
         "longball": board_longball,         # top 10 by distance ceiling — the longest-HR jackpot
         "top_plays": top_plays,
