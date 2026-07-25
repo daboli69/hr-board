@@ -710,7 +710,9 @@
   .pen-main{flex:1;min-width:0}
   .pen-team{font-size:14px;color:var(--ink);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
   .pen-meta{font-size:10.5px;color:var(--muted);font-weight:400;font-family:"IBM Plex Mono"}
-  .pen-why{font-size:11px;color:var(--muted);line-height:1.5;margin-top:3px}
+  .pen-why{font-size:11px;color:var(--muted);line-height:1.5;margin-top:5px}
+  .pen-stats{font-size:11.5px;color:var(--muted);font-family:"IBM Plex Mono";margin-top:3px;line-height:1.6}
+  .pen-stats b{color:var(--ink);font-weight:700}
   .pen-val{font-family:Archivo;font-weight:800;font-size:20px;min-width:30px;text-align:right}
   /* grand slam card */
   .pl-leg-why{font-size:10.5px;color:var(--muted);margin-top:2px;font-family:"IBM Plex Mono"}
@@ -1625,7 +1627,7 @@
       <h3>Edges tab <span class="beta-pill">BETA</span></h3>
       <p>The experimental signals — spatial and situational matchups the market doesn't price directly. Four sub-views:</p>
       <p><b>Arms</b> — today's starters ranked by <b>zone-matchup exploitability</b>: the average xwOBA the top opposing hitters post in exactly the cells this arm throws to most (only hitters with real sample count). <i>This is a different lens than "Arms Today" on the board</i>, which ranks by the season HR-vulnerability model — they measure different things and won't match. <b>Tap an arm</b> for its interactive zone map: cells 1–9 colored by where he lives. <b>Tap a hitter below</b> and the map repaints to show <i>that hitter's</i> xwOBA in each zone vs this arm, with barrel% and distance, and the pitcher's usage % in the corner of each box. ◆ = he crushes it and the pitcher throws there (the danger overlap); ● = he crushes it elsewhere. A number badge by each hitter's name = how many zones he crushes.</p>
-      <p><b>Pens</b> — every bullpen on the slate ranked worst-to-best, blending HR-vulnerability and fatigue. <b>Micro</b> — hitters flagged by tonight's temperature vs their personal temperature sensitivity, ordered by <i>actual impact tonight</i> (sensitivity × how far tonight's temp is from their median). <b>Late</b> — games where a short starter meets a gassed pen, raising late-inning HR expectancy.</p>
+      <p><b>Pens</b> — every bullpen on the slate ranked most-exploitable to toughest, built on <b>pen ERA</b>, <b>season HRs allowed</b> (HR/9), how <b>worn down</b> the pen is (recent pitches thrown + arms unavailable) and its <b>platoon split</b> (which hand it gets crushed by), plus a supporting statcast contact-quality read. Each row shows those numbers and a bar of the five components with the biggest weakness highlighted. <b>Micro</b> — hitters flagged by tonight's temperature vs their personal temperature sensitivity, ordered by <i>actual impact tonight</i> (sensitivity × how far tonight's temp is from their median). <b>Late</b> — games where a short starter meets a gassed pen, raising late-inning HR expectancy.</p>
 
       <h3>Zone profile &amp; HR power (on the card)</h3>
       <p>Every hitter's card now carries two HR-specific lenses, both <b>separate from Heat</b>. <b>Zone profile</b> — a mini 9-cell grid lighting up the zones he crushes (xwOBA ≥ .400) vs today's arm, so you see his damage zones without opening Edges. <b>HR power profile</b> — his raw over-the-fence contact: barrel%, HR-swing% (how often he takes a home-run-shaped swing), average fly-ball distance, and max distance. Flagged PLUS when the power is strong. Barrel rate and carry are the leading HR indicators, shown plainly.</p>
@@ -3609,27 +3611,41 @@ function renderEdges(){
 
   if(edgesView==="pens"){
     const pens=(BOARD&&BOARD.bullpen_rankings)||[];
+    const PP=[["era","ERA"],["hr","HR"],["wear","WEAR"],["platoon","PLAT"],["contact","CT"]];
     const rows=pens.map((p,i)=>{
       // worst (most exploitable) at top get hot color; best get cool
       const worst=i<Math.ceil(pens.length/3), best=i>=Math.floor(pens.length*2/3);
       const col=worst?"var(--hot)":best?"var(--good)":"var(--muted)";
       const labelChip=p.label&&p.label!=="RESTED"&&p.label!=="NORMAL"
         ? `<span class="edge-fat ${p.label.toLowerCase()}">${p.label}</span>` : "";
-      const hrTxt=p.hr_score!=null?`HR-vuln ${Math.round(p.hr_score)}`:"";
-      const availTxt=p.n_available!=null?`${p.n_available} fresh${p.n_unavailable?` · ${p.n_unavailable} down`:""}`:"";
+      // key stat line — the renovated basis, scannable
+      const stats=[];
+      if(p.bp_era!=null) stats.push(`<b style="color:${p.bp_era>=4.5?'var(--hot)':p.bp_era<=3.5?'var(--good)':'var(--ink)'}">${(+p.bp_era).toFixed(2)}</b> ERA`);
+      if(p.hr9!=null) stats.push(`<b style="color:${p.hr9>=1.4?'var(--hot)':p.hr9<=1.0?'var(--good)':'var(--ink)'}">${(+p.hr9).toFixed(2)}</b> HR/9${p.season_hr!=null?` (${p.season_hr} HR)`:""}`);
+      if(p.n_available!=null) stats.push(`${p.n_available} fresh${p.n_unavailable?` / ${p.n_unavailable} down`:""}`);
+      const pl=p.platoon;
+      if(pl&&pl.worse&&pl.gap!=null&&pl.gap>=8) stats.push(`vs ${pl.worse==="R"?"RHB":"LHB"} <b style="color:var(--seam)">+${pl.gap}</b>`);
+      // component breakdown (biggest driver highlighted)
+      const parts=p.parts||{};
+      const present=PP.filter(([k])=>parts[k]!=null);
+      const top=Object.entries(parts).sort((a,b)=>b[1]-a[1])[0];
+      const grid=present.map(([k,lab])=>
+        `<div class="mg-f ${top&&top[0]===k?'on':''}"><span class="mg-dot">${lab}</span><span class="mg-v">${Math.round(parts[k])}</span></div>`).join("");
       return `<div class="pen-rank">
         <div class="pen-rk" style="color:${col}">${i+1}</div>
         <div class="pen-main">
-          <div class="pen-team"><b>${p.team}</b> ${labelChip} <span class="pen-meta">${[hrTxt,availTxt].filter(Boolean).join(" · ")}</span></div>
+          <div class="pen-team"><b>${p.team}</b> ${labelChip}</div>
+          ${stats.length?`<div class="pen-stats">${stats.join(" · ")}</div>`:""}
+          ${grid?`<div class="mg-grid" style="grid-template-columns:repeat(${present.length},1fr);margin-top:6px">${grid}</div>`:""}
           <div class="pen-why">${(p.reasons||[]).join(" · ")}</div>
         </div>
-        <div class="pen-val" style="color:${col}">${p.rank_val!=null?p.rank_val.toFixed(0):"–"}</div>
+        <div class="pen-val" style="color:${col}">${p.rank_val!=null?(+p.rank_val).toFixed(0):"–"}</div>
       </div>`;
     }).join("");
     main.innerHTML=`<div class="edges-wrap">${hd}${subTabs}
-      <div class="edges-intro">Every bullpen on tonight's slate ranked <b>most exploitable to toughest</b> — a blend of HR-vulnerability and how gassed the pen is. The pens at the top are the ones to attack late; the ones at the bottom shut it down.</div>
+      <div class="edges-intro">Every bullpen ranked <b>most exploitable to toughest</b>, built on the stats that decide it: <b>pen ERA</b>, <b>season HRs allowed</b> (HR/9), how <b>worn down</b> it is (recent workload + arms unavailable) and its <b>platoon split</b>, with a supporting contact-quality read. The bar shows each pen's biggest weakness. Attack the top; the bottom shut it down.</div>
       ${note}
-      ${rows||'<div class="empty">No bullpen rankings yet — needs the updated build with bullpen ranking deployed and the board re-run.</div>'}
+      ${rows||'<div class="empty">No bullpen rankings yet — needs the updated build deployed and the board re-run.</div>'}
     </div>`;
     return;
   }
