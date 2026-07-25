@@ -1383,6 +1383,70 @@
   .bd span{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--muted);
     background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:3px 7px}
 
+  /* ===== additions ===== */
+  .ptag{display:inline-block;font-family:"IBM Plex Mono";font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-right:4px;vertical-align:middle}
+  .ptag.plat{color:var(--seam);background:rgba(215,120,60,.13)}
+  .ptag.boom{color:var(--hot);background:rgba(214,110,90,.13)}
+  .ptag.steady{color:var(--good);background:rgba(120,178,145,.14)}
+  .bvp-box{border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin:8px 0}
+  .bvp-h{font-family:Archivo;font-weight:800;font-size:12px;margin-bottom:5px}
+  .bvp-row{display:flex;justify-content:space-between;gap:10px;font-size:11.5px;color:var(--muted);padding:2px 0}
+  .bvp-lab{color:var(--faint)}
+  .mu-src{font-size:9px;color:var(--faint)}
+  .drives-box{margin:8px 0}
+  .drives-h{font-family:Archivo;font-weight:800;font-size:12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:baseline}
+  .drives-h span{font-family:inherit;font-weight:400;font-size:10px;color:var(--faint)}
+  .drives-strip{display:flex;gap:6px;align-items:flex-end;height:64px;padding:0 2px}
+  .dr-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px}
+  .dr-bar{width:100%;max-width:34px;border-radius:3px 3px 0 0}
+  .dr-d{font-family:"IBM Plex Mono";font-size:8.5px;color:var(--muted);text-align:center;line-height:1.1}
+  .dr-d i{display:block;font-style:normal;color:var(--hot);font-weight:800}
+  .pct-wrap{padding:8px 2px 4px}
+  .pct-row{display:flex;align-items:center;gap:8px;padding:3px 0}
+  .pct-lab{flex:0 0 78px;font-size:10.5px;color:var(--muted)}
+  .pct-track{flex:1;height:6px;background:var(--panel-2);border-radius:3px;position:relative;overflow:hidden}
+  .pct-fill{position:absolute;left:0;top:0;bottom:0;border-radius:3px}
+  .pct-v{flex:0 0 22px;text-align:right;font-family:"IBM Plex Mono";font-size:11px;font-weight:700}
+  .pct-note{font-size:10px;color:var(--faint);margin-top:6px;line-height:1.4}
+  .zd-wrap{padding:8px 2px 4px}
+  .zd-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;max-width:180px;margin:0 auto}
+  .zd-cell{aspect-ratio:1;border-radius:5px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid var(--line);position:relative}
+  .zd-cell.crushed{border-color:var(--hot)}
+  .zd-empty{background:var(--panel-2);opacity:.4}
+  .zd-xw{font-family:"IBM Plex Mono";font-size:10px;font-weight:700;color:var(--ink)}
+  .zd-star{position:absolute;top:2px;right:3px;font-size:8px;color:var(--hot)}
+  .zd-note{font-size:10px;color:var(--faint);margin-top:8px;line-height:1.4;text-align:center}
+  /* top plays strip */
+  .tp-card{max-width:760px;margin:0 auto 12px;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--panel)}
+  .tp-h{display:flex;align-items:center;justify-content:space-between;font-family:Archivo;font-weight:800;font-size:14px;margin-bottom:8px;cursor:pointer;list-style:none}
+  .tp-card summary::-webkit-details-marker{display:none}
+  .tp-h .beta-pill{font-size:9px}
+  .tp-row{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--line);cursor:pointer}
+  .tp-row:first-of-type{border-top:none}
+  .tp-heat{flex:0 0 30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:"IBM Plex Mono";font-weight:800;font-size:13px;color:#0d0f13}
+  .tp-body{flex:1;min-width:0}
+  .tp-nm{font-weight:700;font-size:13px}
+  .tp-nm .tp-tier{font-family:"IBM Plex Mono";font-size:9px;font-weight:700;color:var(--seam);margin-left:6px}
+  .tp-why{font-size:11px;color:var(--muted);line-height:1.45;margin-top:2px}
+  .tp-tags{margin-top:4px}
+  /* suggested slips */
+  .slip-legs{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+  .slip-leg{font-size:11px;background:var(--panel-2);border-radius:6px;padding:3px 7px}
+  .slip-leg b{font-family:"IBM Plex Mono"}
+  /* build health chip */
+  .bh-chip{display:inline-flex;align-items:center;gap:5px;font-family:"IBM Plex Mono";font-size:9.5px;color:var(--muted);cursor:default}
+  .bh-dot{width:7px;height:7px;border-radius:50%}
+  /* legend modal */
+  .legend-wrap{padding:4px 2px}
+  .legend-row{display:flex;gap:9px;align-items:baseline;padding:5px 0;border-top:1px solid var(--line)}
+  .legend-row:first-child{border-top:none}
+  .legend-k{flex:0 0 86px}
+  .legend-d{font-size:11.5px;color:var(--muted);line-height:1.4}
+  /* sort chips */
+  .sortchips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 8px;-webkit-overflow-scrolling:touch}
+  .sortchip{flex:0 0 auto;font-family:"IBM Plex Mono";font-size:11px;font-weight:700;padding:5px 11px;border-radius:16px;border:1px solid var(--line);background:var(--panel);color:var(--muted);cursor:pointer}
+  .sortchip.on{color:#0d0f13;background:var(--seam);border-color:var(--seam)}
+
   .empty{color:var(--muted);text-align:center;padding:48px 24px;font-size:14px;line-height:1.6;
     max-width:420px;margin:0 auto}
   footer{max-width:760px;margin:18px auto 0;padding:0 14px;color:var(--faint);font-size:11px;line-height:1.6}
@@ -1755,6 +1819,7 @@
     <div class="drawer-scroll">
       <div class="nav-sec">DAILY</div>
       <button class="nav-item" data-nav="board" onclick="drawerGo('board')">Board<i>every hitter, ranked by Heat</i></button>
+      <button class="nav-item" onclick="goMyList()">My List<i>just the hitters you starred</i></button>
       <button class="nav-item" data-nav="scan" onclick="drawerGo('scan')">Scan<i>slate by game — arms, weather, stacks</i></button>
       <button class="nav-item" data-nav="props" onclick="drawerGo('props')">Props<i>hits · HRR · pitcher Ks · +EV</i></button>
       <button class="nav-item" data-nav="bets" onclick="drawerGo('bets')">Bets<i>Edge Finder · my bets · jackpots</i></button>
@@ -1772,6 +1837,7 @@
 
       <div class="nav-sec">RESULTS</div>
       <button class="nav-item" data-nav="tracker" onclick="drawerGo('tracker')">Tracker<i>model vs reality, by tier</i></button>
+      <button class="nav-item" onclick="openLegend()">Legend<i>what every badge &amp; chip means</i></button>
       <button class="nav-item" onclick="document.getElementById('moreSheet').classList.remove('show');openFaq()">How it works<i>every signal explained</i></button>
     </div>
   </div>
@@ -2595,6 +2661,119 @@ function slateStrip(){
   </div>`;
 }
 
+// ===== ADDITIONS: surfacing already-built data (no model change) =====
+
+// A4 — batter vs today's arm (career/season HR & PA) + pen history. Re-homed into the card.
+function bvpBlock(p){
+  const b=p.bvp; if(!b) return "";
+  const sp=b.sp_career||b.sp||{};
+  const spHot=(sp.hr||0)>0;
+  const bpHr=(b.bp||[]).filter(a=>a.hr>0);
+  const spLine=(sp.pa||0)>0
+    ? `<b style="color:${spHot?'var(--hot)':'var(--ink)'}">${spHot?'● ':''}${sp.hr} HR</b> in ${sp.pa} PA <span class="mu-src">${b.sp_career?'career':'season'}</span>`
+    : `<span style="color:var(--faint)">not faced ${b.sp_career?'in career':'this year'}</span>`;
+  const bpLine=bpHr.length
+    ? bpHr.map(a=>`<b style="color:var(--hot)">● ${a.name} ${a.hr}HR/${a.pa}PA</b>`).join(" · ")
+    : ((b.bp||[]).length?`faced ${b.bp.length} of their pen · 0 HR`:"no pen history");
+  return `<div class="bvp-box">
+    <div class="bvp-h">History vs today's arms</div>
+    <div class="bvp-row"><span class="bvp-lab">vs ${sp.name||'SP'}</span><span>${spLine}</span></div>
+    <div class="bvp-row"><span class="bvp-lab">vs their pen</span><span>${bpLine}</span></div>
+  </div>`;
+}
+
+// B1 — recent contact: the hitter's last few batted balls by distance, HRs highlighted.
+function drivesStrip(p){
+  const d=p.drives; if(!d||!d.length) return "";
+  const max=Math.max(430,...d.map(x=>x[1]||0));
+  const bars=d.map(([ang,dist,hr])=>{
+    const h=Math.max(6,Math.round(((dist||0)/max)*46));
+    const col=hr?'var(--hot)':(dist||0)>=380?'var(--seam)':'var(--muted)';
+    return `<div class="dr-col"><div class="dr-bar" style="height:${h}px;background:${col}"></div><div class="dr-d">${dist||0}${hr?'<i>HR</i>':''}</div></div>`;
+  }).join("");
+  return `<div class="drives-box"><div class="drives-h">Last ${d.length} batted balls<span>distance ft · HRs in orange</span></div><div class="drives-strip">${bars}</div></div>`;
+}
+
+// B3 — MLB percentile bars (Savant-style) for the hitter's contact/discipline profile.
+function percentileBars(p){
+  const pc=(p.features||{}).percentiles; if(!pc) return "";
+  const order=['xwoba','avg_ev','barrel_pct','hard_pct','bb_pct','chase_pct','whiff_pct'];
+  const rows=order.filter(k=>pc[k]&&pc[k].pctl!=null).map(k=>{
+    const e=pc[k], v=e.pctl;
+    const col=v>=80?'var(--hot)':v>=60?'var(--seam)':v>=40?'var(--muted)':'var(--cold)';
+    return `<div class="pct-row"><span class="pct-lab">${e.label||k}</span><div class="pct-track"><div class="pct-fill" style="width:${v}%;background:${col}"></div></div><span class="pct-v" style="color:${col}">${v}</span></div>`;
+  }).join("");
+  return rows?`<details class="sec"><summary>MLB percentiles</summary><div class="pct-wrap">${rows}<div class="pct-note">Percentile rank vs MLB this season. Right = better; blue = below average.</div></div></details>`:"";
+}
+
+// B2 — strike-zone damage grid: xwOBA-tinted 3×3, the hitter's crushed cells flagged.
+function zoneDamageGrid(p){
+  const zp=(p.features||{}).zone_profile; if(!zp||!zp.zone_dmg) return "";
+  const dmg=zp.zone_dmg, crushed=new Set(zp.crushed||[]);
+  const cell=z=>{
+    const d=dmg[z]||dmg[String(z)];
+    if(!d) return `<div class="zd-cell zd-empty"></div>`;
+    const xw=d.xw||0, t=Math.max(0,Math.min(1,(xw-0.250)/0.400));
+    const bg=`rgba(214,110,90,${(0.08+t*0.55).toFixed(2)})`;
+    return `<div class="zd-cell${crushed.has(z)?' crushed':''}" style="background:${bg}" title="xwOBA ${xw} · ${d.brl||0}% brl · ${d.dist||0}ft · ${d.n||0} BBE"><span class="zd-xw">${xw.toFixed(3).replace(/^0/,'')}</span>${crushed.has(z)?'<span class="zd-star">●</span>':''}</div>`;
+  };
+  const grid=[1,2,3,4,5,6,7,8,9].map(cell).join("");
+  return `<details class="sec"><summary>Zone damage — where he crushes it</summary><div class="zd-wrap"><div class="zd-grid">${grid}</div><div class="zd-note">Catcher's view · tint = xwOBA on contact · ● = a crushed zone. Pairs with the arm's meatball zones.</div></div></details>`;
+}
+
+// D2 — contact-consistency read from recent batted-ball spread.
+function consistencyTag(p){
+  const d=(p.drives||[]).map(x=>x[1]).filter(x=>x!=null);
+  if(d.length<4) return "";
+  const mean=d.reduce((a,b)=>a+b,0)/d.length;
+  const sd=Math.sqrt(d.reduce((a,b)=>a+(b-mean)**2,0)/d.length);
+  if(sd>=95) return `<span class="ptag boom" title="wide spread in recent contact — blasts mixed with weak contact; a longshot-HR temperament">boom/bust</span>`;
+  if(sd<=55&&mean>=300) return `<span class="ptag steady" title="consistently solid recent contact">steady</span>`;
+  return "";
+}
+
+// D3 — platoon-edge chip: does this hitter's hand have a real edge vs the opposing arm?
+function platoonChip(p){
+  const op=p.opp_pitcher; if(!op||op.vs_hand_score==null) return "";
+  if(op.vs_hand_score>=60) return `<span class="ptag plat" title="the arm gets hit hard by ${p.bats==='L'?'LHB':'RHB'} (vs-hand ${op.vs_hand_score})">plat+</span>`;
+  return "";
+}
+
+// A1 — Top Plays: the ETL's curated best-of-slate list, surfaced at the top of the Board.
+// Collapsible, and hidden while searching/filtering so it never fights a narrowed view.
+function topPlaysCard(){
+  const tp=(BOARD&&BOARD.top_plays)||[];
+  if(!tp.length || (q&&q.trim()) || listFilter) return "";
+  const tierCol={ELITE:"var(--hot)",STRONG:"var(--good)",SOLID:"var(--seam)"};
+  const rows=tp.slice(0,8).map(t=>{
+    const heatCol=chipColor(t.heat||0);
+    const tags=[];
+    if(t.grade) tags.push(`<span class="pl-tag up">${t.grade}</span>`);
+    if(t.bomb_tier==='high') tags.push(`<span class="pl-tag tg">bomb</span>`);
+    if(t.zone>=5) tags.push(`<span class="pl-tag lb">ZONE ${t.zone}</span>`);
+    if(t.vuln_tier&&/elite/.test(t.vuln_tier)) tags.push(`<span class="pl-tag up">vuln arm</span>`);
+    return `<div class="tp-row" onclick="scanToPlayer(${t.id})">
+      <div class="tp-heat" style="background:${heatCol}">${t.heat??'–'}</div>
+      <div class="tp-body">
+        <div class="tp-nm">${t.name}<span class="tp-tier" style="color:${tierCol[t.tier]||'var(--muted)'}">${t.tier||''}</span>
+          <span class="pl-meta" style="font-weight:400">${t.team}→${t.opp_team}${t.spot?` · #${t.spot}`:''}${t.arm?` · vs ${t.arm}`:''}</span></div>
+        <div class="tp-why">${t.why||''}</div>
+        ${tags.length?`<div class="tp-tags">${tags.join('')}</div>`:''}
+      </div>
+    </div>`;
+  }).join("");
+  return `<details class="tp-card" open><summary class="tp-h"><span>Top Plays — the model's best of the slate</span><span class="beta-pill">${tp.length}</span></summary>
+    ${rows}
+    <div class="pl-foot" style="margin-top:6px">Curated where the signals stack — heat, matchup grade, bomb ceiling, zone fit and a vulnerable arm all pointing the same way. Tap any name to open its card.</div>
+  </details>`;
+}
+
+// C1 — quick sort chips: the sorts you actually reach for, one tap instead of the dropdown.
+function sortChips(){
+  const opts=[["heat","Heat"],["bomb","Bomb"],["grade","Grade"],["park","Park"],["trend","Trend"],["bp","Bullpen"]];
+  return `<div class="sortchips">${opts.map(([k,l])=>`<button class="sortchip${sortKey===k?' on':''}" onclick="setSort('${k}')">${l}</button>`).join("")}</div>`;
+}
+
 function render(){
   const main=document.getElementById("main");
   if(!BOARD){return;}
@@ -3093,7 +3272,7 @@ function render(){
           <div class="cheat" style="background:${col}">${H(p)}</div>
           <div class="cwho">
             <div class="name"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span class="nm-txt">${p.name}</span><span class="liststar"${listHas(p.id)?"":" hidden"}>★</span></div>
-            ${(()=>{const sig=`${gradePill(p)}${zoneBadgeInline(p)}${eliteChip(p)}${disciplineIcons(p)}`;return sig.trim()?`<div class="csig">${sig}</div>`:"";})()}
+            ${(()=>{const sig=`${gradePill(p)}${zoneBadgeInline(p)}${eliteChip(p)}${platoonChip(p)}${consistencyTag(p)}${disciplineIcons(p)}`;return sig.trim()?`<div class="csig">${sig}</div>`:"";})()}
             <div class="cmini">${sm?'<span class="clearflag">SMASH</span> ':""}${hlabPill(p)}${p.robbed?robbedChip(p.robbed):""}${p.milestone?`<span class="mstone">${p.milestone.kind==="team"?`vs ${p.milestone.target.split(" ").pop()}: ${p.milestone.away===1?"1 HR":p.milestone.away+" HR"}`:`HR ${p.milestone.career_hr} → ${p.milestone.next}`}</span> `:""}${bpChip}${lbChip}${pkChip}${mdChip}${trendBadge(p.trend)?trendBadge(p.trend)+" ":""}${p.lineup_status==="projected"?`<span class="spot" style="color:var(--seam);border-color:var(--seam)">proj</span> `:""}${p.lineup_spot?`#${p.lineup_spot} · `:""}${p.team}→${p.opp_team} · ${timeStr(p.time)}${armSc!=null?` · arm <b style="color:${armCol}">${armSc}</b>`:""} · ${(p.windows&&p.windows.L14d&&p.windows.L14d.pa!=null)?`${p.windows.L14d.pa}PA`:"–"}</div>
           </div>
           <div class="cmetrics">${mini}</div>
@@ -3113,7 +3292,7 @@ function render(){
         ${tradedNote(p)}
         ${tierBlock(p)}
         ${badgeChipsLift(p)}
-        <div class="matchup" style="margin-bottom:10px">${p.team} vs ${p.opp_team} · ${timeStr(p.time)} · ${p.park||""} · park ${fmt(p.park_hr_factor,2)}×${parkSrcTag(p)} · ${armBadge}</div>
+        <div class="matchup" style="margin-bottom:10px">${p.team} vs ${p.opp_team} · ${timeStr(p.time)} · ${p.park||""} · park ${fmt(p.park_hr_factor,2)}×${parkSrcTag(p)}${p.xbh_factor!=null?` · XBH ${fmt(p.xbh_factor,2)}×`:""} · ${armBadge}</div>
         ${(p.max_ev&&p.max_ev.season!=null)?`<div class="arm" style="margin:-4px 0 8px"><b>${p.name.split(' ').slice(-1)[0]}'s max EV:</b> <b style="color:var(--hot)">${p.max_ev.season}</b> mph season${p.max_ev.recent!=null?` · ${p.max_ev.recent} last 2wk`:""}</div>`:""}
         ${p.park_hr?`<div class="parkbox">
           <div class="parkbox-h">Park &amp; weather model <span class="pk-boost ${p.park_hr.boost>=0?'pos':'neg'}">${p.park_hr.boost>=0?'+':''}${p.park_hr.boost}% HR</span></div>
@@ -3123,6 +3302,8 @@ function render(){
           ${parks30HTML(p)}
         </div>`:parks30Standalone(p)}
         ${spotBlock(p)}
+        ${bvpBlock(p)}
+        ${drivesStrip(p)}
         <h4>Four signals — recent · season · career</h4>
         <div class="strip" style="border:1px solid var(--line);border-radius:10px">${strip}</div>
         <details class="sec"><summary>Trend — last 2 wk vs game windows</summary>
@@ -3131,6 +3312,8 @@ function render(){
         <details class="sec"><summary>Context — recent · season · career</summary>
         <div class="strip" style="border:1px solid var(--line);border-radius:10px">${extra}</div></details>
         ${collapseWrap(pitchBlock(p))}
+        ${percentileBars(p)}
+        ${zoneDamageGrid(p)}
         ${collapseWrap(featureBlock(p))}
         ${collapseWrap(luckBlock(p))}
         ${flagChips?`<div class="bd" style="margin-top:12px">${flagChips}</div>`:""}
@@ -3139,7 +3322,7 @@ function render(){
       </div>
     </div>`;
   });
-  main.innerHTML=thead()+html;
+  main.innerHTML=topPlaysCard()+sortChips()+thead()+html;
   setHH();
 }
 function thead(){
@@ -3167,6 +3350,16 @@ function setFreshness(){
   const oldSlate = BOARD.slate_date && BOARD.slate_date < etToday;
   if(oldSlate) dot="bad";
   stamp.innerHTML=`<span class="fdot ${dot}"></span>updated ${gen.toLocaleTimeString([],{hour:"numeric",minute:"2-digit"})} · ${ago}`;
+  // A3 — build-health chip: at a glance, is today's board complete or did something fail?
+  const bh=BOARD.build_health;
+  if(bh){
+    const issues=(bh.issues||[]).length;
+    const okData = bh.arms_ok!==false && (bh.wx||0)>0 && issues===0;
+    const col = issues?"var(--bad)": okData?"var(--good)":"var(--warm)";
+    const parkOk = BOARD.park_source==="ballparkpal";
+    const title = `${bh.games||bh.wx||'?'} games · ${bh.players||'?'} hitters · arms ${bh.arms_ok===false?'FAILED':'ok'} · weather ${bh.wx||0} · park ${parkOk?'BallparkPal':'local'}${issues?` · issues: ${(bh.issues||[]).join(', ')}`:' · no issues'}`;
+    stamp.innerHTML += ` <span class="bh-chip" title="${title.replace(/"/g,'')}"><span class="bh-dot" style="background:${col}"></span>${issues?issues+' issue'+(issues>1?'s':''):(bh.wx||'?')+' games'+(parkOk?' · BPP':'')}</span>`;
+  }
   // stale banner — only when it genuinely warrants a heads-up
   let banner=document.getElementById("staleBanner");
   if(oldSlate || dot==="bad"){
@@ -4152,6 +4345,18 @@ function listClear(){
 function listHas(id){return listGet().some(x=>x.id===id);}
 function listCount(){return listGet().length;}
 function listToggle(id,name){const a=listGet();const i=a.findIndex(x=>x.id===id);if(i>=0)a.splice(i,1);else a.push({id,name});listSet(a);return i<0;}
+function addSlipToList(ids){
+  const a=listGet();
+  (ids||[]).forEach(id=>{
+    if(a.some(x=>x.id===id)) return;
+    const pl=(BOARD&&BOARD.players||[]).find(p=>p.id===id);
+    a.push({id, name:pl?pl.name:String(id)});
+  });
+  listSet(a);
+  const lb=document.getElementById("listBtn"); if(lb){lb.textContent=`★ My List${listCount()?` (${listCount()})`:""}`;}
+  const lc=document.getElementById("listClearBtn"); if(lc) lc.classList.toggle("hidden", !listCount());
+  if(typeof toast==="function") toast(`Added ${ (ids||[]).length } to your list`);
+}
 function toggleListBtn(btn,ev){
   if(ev) ev.stopPropagation();
   const id=+btn.dataset.pid, nm=decodeURIComponent(btn.dataset.nm||"");
@@ -5735,9 +5940,31 @@ function renderParlays(){
     </div>`;
   };
 
+  // A2 — the ETL's own pre-built slips (jackpot etc.), surfaced as a starting point.
+  const suggestedSlipsCard=()=>{
+    const picks=(BOARD&&BOARD.parlay_picks)||[];
+    if(!picks.length) return "";
+    const kindLabel={jackpot:"Jackpot slip",safe:"Safer slip",value:"Value slip",power:"Power slip"};
+    const cards=picks.map(pk=>{
+      const legs=(pk.legs||[]).map(l=>`<span class="slip-leg">${l.name} <b style="color:${chipColor(l.heat||0)}">${l.heat??''}</b></span>`).join("");
+      const ids=(pk.legs||[]).map(l=>l.id).filter(x=>x!=null);
+      return `<div style="padding:7px 0;border-top:1px solid var(--line)">
+        <div style="font-family:'IBM Plex Mono';font-size:10px;font-weight:800;color:var(--seam);text-transform:uppercase;letter-spacing:.04em">${kindLabel[pk.kind]||pk.kind||'slip'} · ${(pk.legs||[]).length} legs</div>
+        <div class="slip-legs">${legs}</div>
+        ${ids.length?`<button class="listbtn" style="margin-top:6px" onclick='addSlipToList(${JSON.stringify(ids)})'>☆ Add all to my list</button>`:''}
+      </div>`;
+    }).join("");
+    return `<div class="pl-card">
+      <div class="pl-card-h"><b>Model-suggested slips</b><span class="beta-pill">BUILT-IN</span></div>
+      <div class="pl-sub">Pre-assembled by the build from tonight's strongest names — a starting point, not a lock. Tweak in the builder above or add the legs to your list.</div>
+      ${cards}
+      <div class="pl-foot">These come straight from the board build. Treat them as seeds — your own filters and the +EV cross-check should still decide the final slip.</div>
+    </div>`;
+  };
+
   let cardsHTML="";
   try{
-    cardsHTML = genCard() + bestEVCard() + grandSlamCard() + jackpotCard() + best3Card() + rrCard();
+    cardsHTML = genCard() + bestEVCard() + grandSlamCard() + jackpotCard() + suggestedSlipsCard() + best3Card() + rrCard();
   }catch(e){ cardsHTML=`<div class="pl-card pl-card-thin"><div class="pl-foot">Couldn't build suggestions for this slate — check back once lineups post.</div></div>`; }
 
   main.innerHTML=`
@@ -7002,6 +7229,42 @@ function drawerGo(v, sub){
   goView(v);
 }
 function openFaq(){ document.getElementById('faq').classList.add('show'); }
+// C2 — My List as a first-class destination: filter the board to starred hitters.
+function goMyList(){
+  document.getElementById('moreSheet').classList.remove('show');
+  listFilter=true;
+  const lb=document.getElementById("listBtn"); if(lb) lb.setAttribute("aria-pressed","true");
+  savePrefs();
+  goView('board');
+  if(typeof render==="function") render();
+}
+// C3 — Legend: a plain-language key for the badges & chips, built on demand.
+const LEGEND_ROWS=[
+  ["HEAT","the core 0–100 score — the 4-signal model (pull-air, EV, barrel, ideal launch). 70+ hot, 55–69 warm."],
+  ["POWER / POW","a power badge with proven backtest lift — the hitter clears elite raw-power marks."],
+  ["ZONE n","how many of the hitter's crushed zones overlap the arm's meatball zones. 5+ is a premium fit."],
+  ["ELITE / STRONG","matchup grade — how many independent factors (ISO, zone, arm-vuln, park, form) converge."],
+  ["bomb","high Bomb Score — distance/ceiling read, the raw pop to leave any yard."],
+  ["vuln arm","the opposing starter grades as an elite HR-vulnerability target."],
+  ["plat+","the hitter's hand has a real platoon edge vs today's arm."],
+  ["boom/bust · steady","recent-contact temperament: wide spread (longshot-HR type) vs consistently solid."],
+  ["SMASH","everything's aligned — heat, matchup, park, form all pointing at this hitter."],
+  ["robbed ▲/▼","had a would-be HR robbed recently (▲ top of inning / ▼ bottom); tooltip lists distance."],
+  ["proj","in a projected (not yet official) lineup — fills in as teams post."],
+  ["park 1.10×","the park's HR factor tonight (BallparkPal when live). >1 helps HR, <1 suppresses."],
+  ["eye / crosshair","plate-discipline flags — strong strike-zone control (chase + contact percentiles)."],
+];
+function openLegend(){
+  document.getElementById('moreSheet').classList.remove('show');
+  let el=document.getElementById('legend');
+  if(!el){
+    el=document.createElement('div'); el.id='legend'; el.className='faq';
+    const rows=LEGEND_ROWS.map(([k,d])=>`<div class="legend-row"><b class="legend-k">${k}</b><span class="legend-d">${d}</span></div>`).join("");
+    el.innerHTML=`<div class="faq-box"><div class="faq-head"><h2>Legend — badges &amp; chips</h2><button onclick="document.getElementById('legend').classList.remove('show')" aria-label="Close">✕</button></div><div class="faq-body"><div class="legend-wrap">${rows}</div><p class="faq-lead" style="margin-top:12px">Tap any hitter to see these in context. The full method is under "How it works."</p></div></div>`;
+    document.body.appendChild(el);
+  }
+  el.classList.add('show');
+}
 async function goView(v){
   view=v;
   document.getElementById("moreSheet").classList.remove("show");
