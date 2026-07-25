@@ -1422,33 +1422,6 @@ def build(date_str: str | None = None) -> dict:
                         discipline_delta=_dd)
                     if mg:
                         _p["matchup_grade"] = mg
-
-                    # ---- LONGBALL: who hits the single longest HR on the slate? Pure distance
-                    # ceiling — no chalk logic, no HR-probability. The park term uses this
-                    # hitter's BPP park factor (already weather-inclusive), so game temperature
-                    # is intentionally NOT passed again here to avoid double-counting carry.
-                    _hp = _f.get("hr_power") or {}
-                    # Ceiling-anchored ONLY: a hitter with no measured distance ceiling must not
-                    # rank on a "farthest HR" board. Without this guard the scorer renormalizes
-                    # over the remaining terms and a no-power bat with a good park/zone could
-                    # score high off the environment alone — exactly wrong for this question.
-                    if _hp.get("max_dist") is not None:
-                        _pm = _p.get("pitch_matchup") or {}
-                        _wb = _pm.get("weighted_barrel")
-                        _pm_score = (max(0.0, min(100.0, (float(_wb) - 3.0) / 15.0 * 100.0))
-                                     if _wb is not None else None)
-                        lb = features.longball_score(
-                            max_dist=_hp.get("max_dist"),
-                            avg_fb_dist=_hp.get("avg_fb_dist"),
-                            career_max=_hp.get("max_dist"),     # window max = 2yr ceiling proxy
-                            barrel_pct=_hp.get("barrel_pct"),
-                            avg_ev=_p.get("ev_overall"),
-                            park_factor=_p.get("park_hr_factor"),           # BPP-resolved
-                            park_dist_boost=(_p.get("park_hr") or {}).get("boost"),
-                            zone_overlap=_ov,
-                            pitch_matchup=_pm_score)
-                        if lb:
-                            _p["longball"] = lb
                 _n_bs = sum(1 for _p in players if _p.get("bomb_score"))
                 _n_mg = sum(1 for _p in players if _p.get("matchup_grade"))
                 _elite = sum(1 for _p in players if (_p.get("matchup_grade") or {}).get("grade") == "ELITE")
@@ -1532,11 +1505,37 @@ def build(date_str: str | None = None) -> dict:
             ids = [int(x) for x in (av.get("available", []) + av.get("unavailable", [])) if x]
             team_arm_ids[team] = ids
             pen_arm_ids.update(ids)
+        # Cache season stats per date so we don't re-fetch ~200 relievers every build.
+        # Mirrors the hand2yr.json cache pattern: entries are stamped with today's date and
+        # only arms missing/stale for today are pulled. Season stats barely move intraday.
+        _PEN_STATS_PATH = os.path.join(os.path.dirname(OUT_PATH) or ".", "pen_season.json")
         try:
-            pen_stats = statsapi.get_pitcher_stats(sorted(pen_arm_ids)) if pen_arm_ids else {}
-            print(f"[build] bullpen season stats: {len(pen_stats)}/{len(pen_arm_ids)} relievers (ERA/HR/IP)")
+            with open(_PEN_STATS_PATH) as _f:
+                _pen_cache = json.load(_f) or {}
+        except Exception:
+            _pen_cache = {}
+        pen_stats = {}
+        _need = []
+        for _pid in pen_arm_ids:
+            ent = _pen_cache.get(str(_pid))
+            if ent and ent.get("asof") == date_str and ent.get("data") is not None:
+                pen_stats[_pid] = ent["data"]
+            else:
+                _need.append(_pid)
+        try:
+            fetched = statsapi.get_pitcher_stats(sorted(_need)) if _need else {}
+            for _pid, _st in fetched.items():
+                pen_stats[int(_pid)] = _st
+                _pen_cache[str(int(_pid))] = {"asof": date_str, "data": _st}
+            print(f"[build] bullpen season stats: {len(pen_stats)}/{len(pen_arm_ids)} relievers "
+                  f"({len(pen_stats) - len(fetched)} cached, {len(fetched)} fetched)")
+            try:
+                with open(_PEN_STATS_PATH, "w") as _f:
+                    json.dump(_pen_cache, _f, separators=(",", ":"))
+            except Exception as _e:
+                print(f"[build] pen_season cache write skipped: {_e}")
         except Exception as e:
-            pen_stats = {}; _hnote("bullpen season stats", e); print(f"[build] bullpen season stats skipped: {e}")
+            _hnote("bullpen season stats", e); print(f"[build] bullpen season stats fetch skipped: {e}")
 
         def _clamp01(x): return max(0.0, min(1.0, x))
 
@@ -1631,40 +1630,6 @@ def build(date_str: str | None = None) -> dict:
     except Exception as e:
         _hnote("bullpen rankings", e); print(f"[build] bullpen rankings skipped: {e}")
 
-    # ---- LONGBALL BOARD: the slate's top 10 by "who hits it FARTHEST", ranked purely by the
-    # longball score (distance ceiling), with no chalk / heat / probability filter. A hitter
-    # back from injury with a real 470ft ceiling belongs here over a hot contact bat. Each entry
-    # carries the "why they're here" breakdown so the card can explain the ranking. ----
-    board_longball = []
-    try:
-        _lb_pool = [p for p in players if (p.get("longball") or {}).get("score") is not None]
-        _lb_pool.sort(key=lambda p: -p["longball"]["score"])
-        for p in _lb_pool[:10]:
-            lb = p["longball"]
-            _hp = (p.get("features") or {}).get("hr_power") or {}
-            _opp = p.get("opp_pitcher") or {}
-            board_longball.append({
-                "id": p.get("id"),
-                "name": p.get("name"),
-                "team": p.get("team"),
-                "opp_team": p.get("opp_team"),
-                "opp_pitcher": _opp.get("name"),
-                "park": p.get("park"),
-                "score": lb["score"],
-                "tier": lb["tier"],
-                "parts": lb["parts"],           # ceiling / carry / barrel / ev / env / opportunity
-                "drivers": lb["drivers"],        # short "why they're here" bullets
-                "max_dist": _hp.get("max_dist"),
-                "avg_fb_dist": _hp.get("avg_fb_dist"),
-                "barrel_pct": _hp.get("barrel_pct"),
-                "park_hr_factor": p.get("park_hr_factor"),
-                "park_src": p.get("park_src"),   # bpp_hitter | bpp_game | local
-                "lineup_status": p.get("lineup_status"),
-            })
-        print(f"[build] longball board: {len(board_longball)} (top by distance ceiling)")
-    except Exception as e:
-        _hnote("longball board", e); print(f"[build] longball board skipped: {e}")
-
     # ---- PARK RANKS: best/worst HR park on tonight's slate, for the Weather view's ranking.
     # Prefer Ballpark Pal's per-game HR factor (the authoritative park+weather model); fall back
     # to the local park model so the ranking ALWAYS renders even when the BPP key isn't set.
@@ -1731,7 +1696,6 @@ def build(date_str: str | None = None) -> dict:
         "park_source": ("ballparkpal" if BPP.get("ok") else "local"),
         "park_ranks": park_ranks,           # best/worst HR park tonight (BPP live, local fallback)
         "grand_slam": board_gs,             # top GS-jackpot candidates (traffic x punish)
-        "longball": board_longball,         # top 10 by distance ceiling — the longest-HR jackpot
         "top_plays": top_plays,
         "stacks": stacks,
         "wx": wx_list,
@@ -2024,7 +1988,8 @@ def main():
         return
     os.makedirs(os.path.dirname(OUT_PATH) or ".", exist_ok=True)
     with open(OUT_PATH, "w") as f:
-        json.dump(board, f, indent=2, default=str)
+        # compact: the client parses/holds this in mobile memory, so drop pretty-print whitespace
+        json.dump(board, f, separators=(",", ":"), default=str)
 
     # slate-level SMASH selection, mirrored from the UI's convergence scorer so the
     # grader can measure the flag's real conversion rate (the whole point of the flag).
@@ -2263,7 +2228,7 @@ def main():
     # Ks tab actually get its data.
     try:
         with open(OUT_PATH, "w") as f:
-            json.dump(board, f, indent=2, default=str)
+            json.dump(board, f, separators=(",", ":"), default=str)
         print(f"[build] re-wrote {OUT_PATH} with pitcher_props ({len(board.get('pitcher_props',[]))} arms), "
               f"parlay_picks ({len(board.get('parlay_picks',[]))} strategies)")
     except Exception as e:
