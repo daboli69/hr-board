@@ -1678,7 +1678,6 @@ def build(date_str: str | None = None) -> dict:
         "generated_at": now.isoformat(timespec="seconds"),
         "slate_date": date_str,
         "model_version": compute.MODEL_VERSION,
-        "league_avg": compute.LEAGUE_AVG,
         "games": [{
             "game_pk": g["game_pk"], "away": g["away"], "home": g["home"],
             "park": g["park"], "time": g["time"],
@@ -1705,11 +1704,9 @@ def build(date_str: str | None = None) -> dict:
         "park_ranks": park_ranks,           # best/worst HR park tonight (BPP live, local fallback)
         "grand_slam": board_gs,             # top GS-jackpot candidates (traffic x punish)
         "top_plays": top_plays,
-        "stacks": stacks,
         "wx": wx_list,
         "fences": fences,
         "briefing": briefing,
-        "label_diag": getattr(statcast_data, "LAST_LABEL_DIAG", {}),
         "build_health": {
             "df_rows": int(len(df)) if df is not None else 0,
             "players": len(players), "arms_ok": True,
