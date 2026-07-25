@@ -833,6 +833,8 @@
   .lb-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
   .lb-score{font-family:"IBM Plex Mono";font-weight:800;font-size:15px;white-space:nowrap}
   .lb-score i{font-style:normal;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-left:5px;opacity:.85}
+  .lb-split{display:flex;gap:14px;margin-top:5px;font-size:10px;color:var(--muted)}
+  .lb-split b{font-family:"IBM Plex Mono";color:var(--ink);font-weight:700}
   .pl-sub{font-size:10.5px;color:var(--muted);margin:-2px 0 6px}
   .mu-wrap{padding:4px 0 20px}
   .mu-head{font-family:Archivo;font-weight:800;font-size:14px;display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:12px}
@@ -1657,7 +1659,7 @@
       <p>In the Parlays view (More → Parlays). The 3 hitters most likely to hit a grand slam tonight, ranked by <b>traffic × punish</b>: traffic = how likely the bases are loaded when he bats (the on-base bats ahead of him + the opposing starter's wildness), punish = can he golf a grooved in-zone fastball (barrel/EV/pull + the elite gate). A slam needs both — a masher batting leadoff scores near zero. This is the highest-variance thing in the app: it ranks <i>relative</i> likelihood, not a real probability. A lottery ticket, sized accordingly.</p>
 
       <h3>Longest HR Jackpot</h3>
-      <p>In Bets. The slate's <b>top 10 by distance ceiling</b> — who hits the single longest home run if it leaves the yard. It answers only that question, so it does <b>not</b> use HR odds, probability, or chalk: the ranking is driven above all by <b>career-max distance</b> (last two seasons), then repeatable fly-ball carry, barrel rate, exit velo, environment (the hitter's <b>BallparkPal per-hitter park factor</b>), and how well the arm's zones fit his power. Because ceiling rules, a slugger just back from injury with a real 470ft ceiling can outrank a hotter contact bat — that's intended. Each row shows its score, tier, the "why they're here" drivers, and a factor breakdown with the biggest driver highlighted. The park-source tag (<b>BPP·hitter</b> / <b>BPP·park</b> / <b>local pf</b>) tells you where the environment number came from.</p>
+      <p>In Bets. The slate ranked for the <b>single longest home run</b> — but not on raw distance alone. Each hitter gets two scores that are blended: <b>distance</b> (how far if he connects — career-max ceiling over the last two seasons, plus fly-ball carry, barrel and exit velo) and <b>convergence</b> (how many <i>proven-lift</i> signals agree tonight). Convergence rewards signals that actually moved HR outcomes in the backtest and your tracker — power badges, zone-fit edges, heat band, barrel band, matchup grade and park factor — each weighted by its measured lift. So a 470ft ceiling with a POW badge (real +76% lift), a zone edge and a hot park outranks a 470ft ceiling with nothing corroborating it. Each row shows the final score, the distance/convergence split, and the converging signals with their measured lift %. A row tagged “ceiling only — no signals converge” has the raw pop but nothing backing it up tonight.</p>
 
       <h3>Matchup Grade — ELITE / STRONG / MOD / WEAK</h3>
       <p>The per-hitter grade for <b>today's specific matchup</b>, by <b>factor convergence</b> rather than a weighted average. Five factors either align or they don't: <b>Power</b> (ISO — HIGH at .200, ELITE at .250), <b>Zone</b> (3+ overlap dots viable, 5+ premium), <b>Arm</b> (the opposing pitcher's HR Vulnerability tier), <b>Park</b> (1.05+ boost, 1.10+ premium), and <b>Form</b> (bat trending up). <b>4+ aligned = STRONG · all five with premium levels = ELITE.</b> The card shows a five-cell grid of exactly which factors hit. Plate discipline nudges the grade one step (elite eye up, chaser down) but never inflates a spot with nothing else going for it. Sort the board by Grade, or use the 🎯 Graded filter for ELITE/STRONG only.</p>
@@ -3236,6 +3238,63 @@ function btZoneLift(cnt){ const be=(BACKTEST&&BACKTEST.by_edge&&BACKTEST.by_edge
   const key=cnt>=5?"5+ premium":cnt>=3?"3-4 viable":cnt>=1?"1-2 thin":"0 none";
   const v=be[key]; return (v&&v.n&&base)?(v.hr/v.n)/base:null; }
 function liftPct(l){ return l==null?"":`${l>=1?"+":""}${Math.round((l-1)*100)}%`; }
+// Barrel/power band lift from the backtest by_edge.hr_power buckets.
+function btPowerLift(brl){ if(brl==null) return null; const be=(BACKTEST&&BACKTEST.by_edge&&BACKTEST.by_edge.hr_power)||{}, base=btBase();
+  const key=brl>=12?"12%+ barrel":brl>=8?"8-11%":"<8%"; const v=be[key]; return (v&&v.n&&base)?(v.hr/v.n)/base:null; }
+// Tracker-measured badge lift (forward-graded), sampled. Falls back to null when thin.
+function trackerBadgeLift(k){ const m=(typeof badgeLiftMap==="function")?badgeLiftMap():{}; return (m[k]&&m[k].lift!=null&&m[k].n>=15)?m[k].lift:null; }
+// Best available measured lift for a badge — backtest or tracker, whichever is stronger.
+function bestBadgeLift(k){ const a=btBadgeLift(k), b=trackerBadgeLift(k); if(a==null&&b==null) return null; return Math.max(a==null?0:a, b==null?0:b); }
+
+// ---- LONGBALL convergence: distance ceiling (how far if he connects) blended with the
+// convergence of PROVEN-LIFT signals (badges, zones, heat band, barrel band, park, grade) that
+// actually moved outcomes in the backtest/tracker. This is what makes the board "biggest ceiling
+// AND the signals agree" instead of raw physics or a lone park number. ----
+function longballConverge(p){
+  const hp=(p.features||{}).hr_power||{};
+  const cl=v=>Math.max(0,Math.min(1,v));
+  // Distance base D (0-100): pure raw-power ceiling.
+  const ceil = hp.max_dist!=null? cl((hp.max_dist-380)/100) : 0;
+  const carry= hp.avg_fb_dist!=null? cl((hp.avg_fb_dist-290)/60) : 0;
+  const brl  = hp.barrel_pct!=null? cl((hp.barrel_pct-3)/15) : 0;
+  const evS  = ((p.max_ev||{}).season!=null?(p.max_ev||{}).season:(p.max_ev||{}).recent);
+  const ev   = evS!=null? cl((evS-105)/13) : 0;
+  const D = (ceil*0.50 + carry*0.22 + brl*0.18 + ev*0.10)*100;
+
+  // Convergence C (0-100): sum of proven-lift signals this hitter carries today.
+  const contrib=(L,cap)=>L==null?0:Math.max(0,Math.min(1,(L-1)/(cap-1)));
+  let C=0; const signals=[];
+  new Set((p.badges||[]).map(b=>b.k)).forEach(k=>{
+    const L=bestBadgeLift(k); if(L!=null&&L>=1.15){ const bt=(p.badges||[]).find(b=>b.k===k);
+      C+=contrib(L,2.0)*22; signals.push({label:(bt&&bt.t)||k.toUpperCase(), lift:L, kind:"badge"}); }
+  });
+  const zc=(((p.features||{}).zone_profile||{}).overlap||{}).count||0;
+  if(zc>=3){ const L=btZoneLift(zc); if(L!=null){ C+=contrib(L,1.6)*16; signals.push({label:`ZONE ${zc}`, lift:L, kind:"zone"}); } }
+  const hb=heatBand(p.heat), Lh=btTierLift(hb);
+  if(Lh!=null&&Lh>=1.1){ C+=contrib(Lh,1.7)*16; signals.push({label:`heat ${hb}`, lift:Lh, kind:"heat"}); }
+  const Lp=btPowerLift(hp.barrel_pct);
+  if(Lp!=null&&Lp>=1.2){ C+=contrib(Lp,1.85)*14; signals.push({label:`${hp.barrel_pct>=12?"12%+":"8-11%"} brl`, lift:Lp, kind:"power"}); }
+  const gd=(p.matchup_grade||{}).grade;
+  if(gd==="ELITE"){ C+=14; signals.push({label:"ELITE grade", kind:"grade"}); }
+  else if(gd==="STRONG"){ C+=8; signals.push({label:"STRONG grade", kind:"grade"}); }
+  const pf=p.park_hr_factor;
+  if(pf!=null&&pf>=1.05){ C+=Math.min(10,(pf-1)*80); signals.push({label:`park ${(+pf).toFixed(2)}×`, lift:pf, kind:"park"}); }
+  else if(pf!=null&&pf<=0.93){ C-=6; }   // a suppressive park drags convergence down
+  C=Math.max(0,Math.min(100,C));
+
+  const final = D*0.55 + C*0.45;
+  const tier = final>=62?"moonshot": final>=50?"strong": final>=38?"live":"fringe";
+  signals.sort((a,b)=>(b.lift||1.35)-(a.lift||1.35));   // strongest-lift signal first
+  return {D:Math.round(D), C:Math.round(C), final:Math.round(final), tier, ceiling:hp.max_dist, signals};
+}
+// Slate longball board: every hitter with a real distance ceiling, ranked by ceiling×convergence.
+function longballRanked(n){
+  const players=((BOARD&&BOARD.players)||[]).filter(p=>p.lineup_status!=="out" && ((p.features||{}).hr_power||{}).max_dist!=null);
+  const scored=players.map(p=>({p, lb:longballConverge(p)}));
+  scored.sort((a,b)=>b.lb.final-a.lb.final);
+  return scored.slice(0, n||10);
+}
+
 
 // Cross-check a +EV play against the model: the book says +EV — does OUR model independently
 // like it, and what's the measured backtest lift behind the corroborating signal? This is the
@@ -3289,8 +3348,8 @@ function scanGameData(g){
   const strongN=hitters.filter(p=>{const gd=(p.matchup_grade||{}).grade;return gd==="ELITE"||gd==="STRONG";}).length;
   const zoneN=hitters.filter(p=>(((p.features||{}).zone_profile||{}).overlap||{}).count>=3).length;
   const bombN=hitters.filter(p=>(p.bomb_score||{}).score>=60).length;
-  // longball ceiling names on the slate that belong to THIS game
-  const lbIds=new Set(((BOARD&&BOARD.longball)||[]).map(x=>x.id));
+  // longball ceiling names on the slate (frontend convergence ranking) that belong to THIS game
+  const lbIds=new Set((typeof longballRanked==="function"?longballRanked(10):[]).map(o=>o.p&&o.p.id));
   const lbN=hitters.filter(p=>lbIds.has(p.id)).length;
   const vulnArm=gArms.slice().sort((a,b)=>(b.exploit_score||0)-(a.exploit_score||0))[0];
   const gassedPen=gArms.some(a=>a.fatigue&&a.fatigue.state==="GASSED");
@@ -5486,45 +5545,42 @@ function renderParlays(){
     </div>`;
   const thinCard=(title,msg)=>`<div class="pl-card pl-card-thin"><div class="pl-card-h"><b>${title}</b></div><div class="pl-foot">${msg}</div></div>`;
 
-  // ---- Bet 1 · Longest HR Jackpot: the slate's top 10 by DISTANCE CEILING ----
-  // Rebuilt off the ETL longball model (BOARD.longball). This answers ONE question: given a ball
-  // leaves the yard, whose leaves it farthest. Career-max ceiling is weighted above everything,
-  // then repeatable carry, barrel, EV, environment (BallparkPal per-hitter park factor) and zone
-  // opportunity. There is deliberately NO chalk/odds/probability filter — a slugger back from
-  // injury with a real 470ft ceiling belongs over a hot contact bat. Each row explains its rank.
+  // ---- Bet 1 · Longest HR Jackpot: biggest ceiling WHERE THE SIGNALS CONVERGE ----
+  // Not raw physics and not a lone park number. Each hitter is scored on distance ceiling (how far
+  // if he connects) blended with the convergence of PROVEN-LIFT signals — badges, zone fit, heat
+  // band, barrel band, matchup grade and park — each weighted by how much it actually moved HR
+  // outcomes in the backtest/tracker. A 470ft ceiling with a POW badge (+76% real lift), a zone
+  // edge and a hot park beats a 470ft ceiling with nothing corroborating it.
   const jackpotCard=()=>{
-    const rows=(BOARD&&BOARD.longball)||[];
-    if(!rows.length) return thinCard("Longest HR Jackpot — top 10 by distance",
-      "Fills once lineups and power profiles post. This ranks the slate purely by distance ceiling (career max, carry, barrel, park) — not HR odds — so a returning slugger with a real 470ft ceiling can top it.");
+    const ranked=longballRanked(10);
+    if(!ranked.length) return thinCard("Longest HR Jackpot — ceiling × converging signals",
+      "Fills once lineups and power profiles post. This ranks the slate by distance ceiling blended with the proven-lift signals that agree — badges, zones, heat, barrel, park — so the names that top it have both the raw ceiling and the corroboration.");
     const tierColor={moonshot:"var(--hot)",strong:"var(--good)",live:"var(--seam)",fringe:"var(--faint)"};
-    const srcTag=s=>s==="bpp_hitter"?'<span class="pl-tag lb">BPP·hitter</span>'
-                  :s==="bpp_game"?'<span class="pl-tag tg">BPP·park</span>'
-                  :s==="local"?'<span class="pl-tag tg">local pf</span>':"";
-    const PARTS=[["ceiling","CEIL"],["carry","CARRY"],["barrel","BRL"],["ev","EV"],["env","ENV"],["opportunity","ZONE"]];
-    const rowHTML=(r,i)=>{
-      const col=tierColor[r.tier]||"var(--faint)";
-      const drivers=(r.drivers||[]).map(d=>`<span class="pl-tag up">${d}</span>`).join("");
-      const parts=r.parts||{};
-      const present=PARTS.filter(([k])=>parts[k]!=null);
-      const top=Object.entries(parts).sort((a,b)=>b[1]-a[1])[0];
-      const grid=present.map(([k,lab])=>
-        `<div class="mg-f ${top&&top[0]===k?'on':''}"><span class="mg-dot">${lab}</span><span class="mg-v">${parts[k]}</span></div>`).join("");
-      const pf=r.park_hr_factor!=null?`${(+r.park_hr_factor).toFixed(2)}x park`:"";
+    const kindCls={badge:"up",zone:"lb",heat:"hot",power:"tg",grade:"up",park:"tg"};
+    const rowHTML=(o,i)=>{
+      const p=o.p, lb=o.lb, col=tierColor[lb.tier]||"var(--faint)";
+      const opp=(p.opp_pitcher||{}).name||p.opp_team;
+      // converging signals with their measured lift — this is the "why they're here"
+      const sigs=lb.signals.slice(0,4).map(s=>{
+        const lift=(s.kind!=="grade"&&s.kind!=="park"&&s.lift!=null)?` ${liftPct(s.lift)}`:"";
+        return `<span class="pl-tag ${kindCls[s.kind]||"up"}">${s.label}${lift}</span>`;
+      }).join("");
+      const noConv=lb.signals.length===0?`<span class="pl-tag tg">ceiling only — no signals converge</span>`:"";
       return `<div class="lb-row">
         <div class="lb-rank" style="color:${col}">${i+1}</div>
         <div class="lb-body">
-          <div class="lb-top"><b>${r.name}</b><span class="lb-score" style="color:${col}">${(+r.score).toFixed(0)}<i>${r.tier}</i></span></div>
-          <div class="pl-meta">${r.team}→${r.opp_team}${r.opp_pitcher?` · vs ${r.opp_pitcher}`:""}${r.max_dist?` · ${r.max_dist}ft ceiling`:""}${pf?` · ${pf}`:""}</div>
-          ${(drivers||srcTag(r.park_src))?`<div class="pl-tags">${drivers}${srcTag(r.park_src)}</div>`:""}
-          ${grid?`<div class="mg-grid" style="grid-template-columns:repeat(${present.length},1fr)">${grid}</div>`:""}
+          <div class="lb-top"><b>${p.name}</b><span class="lb-score" style="color:${col}">${lb.final}<i>${lb.tier}</i></span></div>
+          <div class="pl-meta">${p.team}→${p.opp_team}${opp?` · vs ${opp}`:""}${lb.ceiling?` · ${lb.ceiling}ft ceiling`:""}</div>
+          <div class="pl-tags">${sigs}${noConv}</div>
+          <div class="lb-split"><span>distance <b>${lb.D}</b></span><span>convergence <b>${lb.C}</b></span></div>
         </div>
       </div>`;
     };
     return `<div class="pl-card">
-      <div class="pl-card-h"><b>Longest HR Jackpot — top 10 by distance</b><span class="beta-pill">FARTHEST</span></div>
-      <div class="pl-sub">Ranked purely by <b>who hits it farthest if it leaves</b> — career-max ceiling above all, then carry, barrel, EV, park (BallparkPal per-hitter) and zone fit. No chalk filter: a returning slugger with a real ceiling outranks a hot contact bat.</div>
-      ${rows.map(rowHTML).join("")}
-      <div class="pl-foot">single entries, not a parlay — the jackpot pays for the one longest HR, so this finds ceiling, not probability. Highlighted cell is the biggest driver of the rank.</div>
+      <div class="pl-card-h"><b>Longest HR Jackpot — ceiling × converging signals</b><span class="beta-pill">FARTHEST</span></div>
+      <div class="pl-sub">Distance ceiling (how far if he connects) blended with the <b>proven-lift signals that agree</b> — badges, zone fit, heat band, barrel band, grade and park, each weighted by how much it actually moved HR outcomes. Chips show the converging signals and their measured lift.</div>
+      ${ranked.map(rowHTML).join("")}
+      <div class="pl-foot">single entries, not a parlay — the jackpot pays for the one longest HR. Ceiling says how far; convergence says how many proven signals back it up tonight. "%": that signal's real HR-rate lift over the base in the backtest/tracker.</div>
     </div>`;
   };
 
