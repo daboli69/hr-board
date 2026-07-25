@@ -1514,66 +1514,120 @@ def build(date_str: str | None = None) -> dict:
     except Exception as e:
         _hnote("top plays v2", e); print(f"[build] top plays v2 skipped: {e}")
 
-    # ---- BULLPEN RANKINGS: one ranked list of every pen on the slate, worst (most
-    # HR-vulnerable + most gassed) to best, each with the reasons why. Combines HR-vulnerability
-    # (bullpen_vuln) with availability/fatigue (bullpen_availability). ----
+    # ---- BULLPEN RANKINGS (renovated): rank every pen on the slate from most exploitable to
+    # toughest on the stats that actually decide it — bullpen ERA, season HRs allowed (as a rate),
+    # how worn down the pen is (recent workload + arms unavailable), and its platoon split. The
+    # statcast HR-vulnerability read is kept as a smaller supporting term. Degrades gracefully to
+    # the statcast/fatigue terms when the traditional season stats can't be fetched. ----
     bullpen_rankings = []
     try:
         slate_teams = set()
         for g in games:
             slate_teams.add(g["away"]); slate_teams.add(g["home"])
+
+        # season ERA/HR/IP for every reliever who's pitched recently, per team
+        pen_arm_ids, team_arm_ids = set(), {}
+        for team in slate_teams:
+            av = (pen_avail or {}).get(team) or (pen_avail or {}).get(_TEAM_ALIAS.get(team)) or {}
+            ids = [int(x) for x in (av.get("available", []) + av.get("unavailable", [])) if x]
+            team_arm_ids[team] = ids
+            pen_arm_ids.update(ids)
+        try:
+            pen_stats = statsapi.get_pitcher_stats(sorted(pen_arm_ids)) if pen_arm_ids else {}
+            print(f"[build] bullpen season stats: {len(pen_stats)}/{len(pen_arm_ids)} relievers (ERA/HR/IP)")
+        except Exception as e:
+            pen_stats = {}; _hnote("bullpen season stats", e); print(f"[build] bullpen season stats skipped: {e}")
+
+        def _clamp01(x): return max(0.0, min(1.0, x))
+
         for team in slate_teams:
             pen = _bullpen_for(team)
-            if not pen:
-                continue
-            vuln = compute.bullpen_vuln(pen)
-            avail = (pen_avail or {}).get(team, {})
-            hr_score = (vuln or {}).get("score")          # higher = more HR-prone
+            avail = (pen_avail or {}).get(team) or (pen_avail or {}).get(_TEAM_ALIAS.get(team)) or {}
+            vuln = compute.bullpen_vuln(pen) if pen else None
+            hr_score = (vuln or {}).get("score")          # statcast HR-vulnerability (contact quality)
             fatigue = avail.get("fatigue")                # 0-100, higher = more gassed
             n_avail = len(avail.get("available", [])) if avail else None
             n_out = len(avail.get("unavailable", [])) if avail else None
             label = avail.get("label")
-            # combined "exploitability" of this pen tonight: HR-vulnerability + fatigue penalty.
-            # Both push the same way (a hittable, tired pen is the one you attack).
-            parts = []
+            platoon = (vuln or {}).get("platoon") or {}
+
+            # aggregate traditional season stats across this pen's arms (IP-weighted ERA, HR rate)
+            arms = [pen_stats[i] for i in team_arm_ids.get(team, []) if i in pen_stats]
+            bp_era = season_hr = total_ip = hr9 = None
+            if arms:
+                ip_sum = sum((a.get("ip") or 0) for a in arms)
+                era_ip = [(a.get("era"), a.get("ip")) for a in arms if a.get("era") is not None and a.get("ip")]
+                if era_ip:
+                    _w = sum(ip for _, ip in era_ip)
+                    if _w > 0:
+                        bp_era = round(sum(e * ip for e, ip in era_ip) / _w, 2)
+                _hr = sum((a.get("hr") or 0) for a in arms)
+                season_hr = _hr if _hr else None
+                total_ip = round(ip_sum, 1) if ip_sum else None
+                if season_hr is not None and total_ip and total_ip > 0:
+                    hr9 = round(season_hr / (total_ip / 9.0), 2)
+
+            # score components (higher = more exploitable)
+            parts = {}
             rank_val = 0.0
-            if hr_score is not None:
-                rank_val += hr_score
-                parts.append(hr_score)
+            if bp_era is not None:
+                era_pts = _clamp01((bp_era - 3.2) / 2.0) * 30       # 3.2 ERA -> 0, 5.2+ -> 30
+                rank_val += era_pts; parts["era"] = round(era_pts, 1)
+            if hr9 is not None:
+                hr_pts = _clamp01((hr9 - 0.9) / 0.8) * 30           # 0.9 HR/9 -> 0, 1.7+ -> 30
+                rank_val += hr_pts; parts["hr"] = round(hr_pts, 1)
             if fatigue is not None:
-                rank_val += fatigue * 0.4                  # fatigue matters but weight below raw vuln
-                parts.append(fatigue * 0.4)
+                wear_pts = _clamp01(fatigue / 100.0) * 16 + min(6, (n_out or 0) * 3)
+                rank_val += wear_pts; parts["wear"] = round(wear_pts, 1)
+            gap = platoon.get("gap")
+            if gap is not None:
+                plat_pts = _clamp01(gap / 25.0) * 10
+                rank_val += plat_pts; parts["platoon"] = round(plat_pts, 1)
+            if hr_score is not None:
+                sc_pts = _clamp01((hr_score - 35) / 40.0) * 12       # supporting contact-quality term
+                rank_val += sc_pts; parts["contact"] = round(sc_pts, 1)
             if not parts:
                 continue
+
             # human-readable reasons
             reasons = []
+            if bp_era is not None:
+                reasons.append(f"{bp_era} pen ERA")
+            if hr9 is not None and season_hr is not None:
+                reasons.append(f"{hr9} HR/9 ({season_hr} HR)")
             if label == "GASSED":
-                reasons.append(f"pen gassed — {n_out or '?'} arms down, {avail.get('pen_pitches_l1','?')} pitches yesterday")
+                reasons.append(f"gassed — {n_out or '?'} down, {avail.get('pen_pitches_l1','?')} pitches yesterday")
             elif label == "WORN":
-                reasons.append(f"worn — {n_out or 0} key arms unavailable")
-            if hr_score is not None and hr_score >= 60:
-                reasons.append("HR-prone even at full strength")
-            elif hr_score is not None and hr_score <= 40:
-                reasons.append("suppresses HR when rested")
-            for fl in (vuln or {}).get("flags", [])[:2]:
+                reasons.append(f"worn — {n_out or 0} arm{'s' if (n_out or 0) != 1 else ''} down, {avail.get('pen_pitches_l2','?')} pitches over 2 days")
+            if gap is not None and gap >= 8 and platoon.get("worse"):
+                reasons.append(f"crushed by {'RHB' if platoon['worse'] == 'R' else 'LHB'} (gap {gap})")
+            for fl in (vuln or {}).get("flags", [])[:1]:
                 reasons.append(fl)
             if n_avail is not None and n_avail <= 4:
                 reasons.append(f"only {n_avail} fresh arms")
+
             form = (vuln or {}).get("form") or {}
             bullpen_rankings.append({
                 "team": team,
                 "rank_val": round(rank_val, 1),
+                "bp_era": bp_era,
+                "hr9": hr9,
+                "season_hr": season_hr,
+                "total_ip": total_ip,
                 "hr_score": hr_score,
                 "fatigue": fatigue,
                 "label": label,
                 "n_available": n_avail,
                 "n_unavailable": n_out,
+                "platoon": ({"worse": platoon.get("worse"), "gap": platoon.get("gap"),
+                             "R": platoon.get("R"), "L": platoon.get("L")} if platoon else None),
                 "form": form.get("label") if isinstance(form, dict) else form,
+                "parts": parts,
                 "reasons": reasons or ["about average tonight"],
             })
         # sort worst (highest rank_val = most exploitable) first
         bullpen_rankings.sort(key=lambda x: -x["rank_val"])
-        print(f"[build] bullpen rankings: {len(bullpen_rankings)} pens ranked")
+        print(f"[build] bullpen rankings: {len(bullpen_rankings)} pens ranked (renovated: ERA/HR/wear/platoon)")
     except Exception as e:
         _hnote("bullpen rankings", e); print(f"[build] bullpen rankings skipped: {e}")
 
