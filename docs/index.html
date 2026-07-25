@@ -838,24 +838,6 @@
   .lb-split{display:flex;gap:14px;margin-top:5px;font-size:10px;color:var(--muted)}
   .lb-split b{font-family:"IBM Plex Mono";color:var(--ink);font-weight:700}
   .pl-sub{font-size:10.5px;color:var(--muted);margin:-2px 0 6px}
-  .mu-wrap{padding:4px 0 20px}
-  .mu-head{font-family:Archivo;font-weight:800;font-size:14px;display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:12px}
-  .mu-head span{font-family:"IBM Plex Mono";font-size:10.5px;font-weight:600;color:var(--muted)}
-  .mu-card{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-bottom:8px}
-  .mu-card.mu-on{border-color:var(--hot)}
-  .mu-top{display:flex;align-items:baseline;gap:7px;margin-bottom:6px;flex-wrap:wrap}
-  .mu-top b{font-family:Archivo;font-weight:800;font-size:14px}
-  .mu-meta{font-size:10.5px;color:var(--muted)}
-  .mu-row{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:3px 0;border-top:1px solid var(--line)}
-  .mu-lab{color:var(--muted);font-size:11px}
-  .mu-hr{color:var(--proof);font-weight:700;font-family:"IBM Plex Mono";font-size:11px}
-  .mu-faced{color:var(--ink);font-family:"IBM Plex Mono";font-size:11px}
-  .mu-none{color:var(--faint);font-size:11px}
-  .mu-heat{font-family:"IBM Plex Mono";font-weight:800;font-size:12px;color:#0c1116;padding:2px 6px;border-radius:6px;min-width:24px;text-align:center}
-  .mu-src{font-size:9.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.03em}
-  .mu-yr{font-size:9.5px;color:var(--muted);margin-left:4px}
-  .mu-sort{margin-bottom:12px}
-  .mu-sort button[aria-pressed="true"]{background:var(--panel-2);color:var(--ink)}
   .pl-note{font-size:11.5px;color:var(--muted);line-height:1.55;margin-top:6px;padding:0 2px}
   .arm-nm .badges{margin-top:4px}
   .cmini{font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.55;
@@ -1196,10 +1178,7 @@
   .btg-s{font-family:"IBM Plex Mono";font-size:10px;color:var(--muted);white-space:nowrap}
   .btg-s i{display:block;font-style:normal;font-size:8.5px;color:var(--faint)}
   .spot{font-size:9px;color:var(--faint);border:1px solid var(--line);border-radius:4px;padding:1px 4px;font-family:"IBM Plex Mono",monospace}
-  /* stacks */
-  .stack{background:var(--panel);border:1px solid var(--line);border-radius:14px;margin:9px 0;overflow:hidden;transition:border-color .15s ease;content-visibility:auto;contain-intrinsic-size:auto 220px}
-  @media (hover:hover){.stack:hover{border-color:#303a47}}
-  .stacks-intro{font-size:12px;color:var(--muted);line-height:1.55;padding:6px 4px 10px}
+
 
   /* ===== Bet log ===== */
   .betswrap{max-width:760px;margin:0 auto;padding-top:4px}
@@ -1334,18 +1313,6 @@
   .bl-pay{font-size:11px;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
   .bl-pay input{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;color:var(--ink);
     font:inherit;font-size:13px;padding:6px 9px;width:90px}
-  .stack-head{display:flex;align-items:flex-start;gap:11px;padding:12px 13px;border-bottom:1px solid var(--line);background:var(--panel-2)}
-  .stack-head .sc{font-family:Archivo;font-weight:900;font-size:16px;width:40px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex:none}
-  .stack-head .nm{font-family:Archivo;font-weight:700;font-size:15px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
-  .stack-head .sub{font-size:11px;color:var(--muted);margin-top:2px}
-  .stack-head .badges{margin-top:6px}
-  .stack-h{display:grid;grid-template-columns:36px 1fr;gap:11px;align-items:start;padding:9px 13px;border-bottom:1px solid var(--line)}
-  .stack-h:last-child{border-bottom:none}
-  .stack-h .hh{font-family:Archivo;font-weight:800;height:30px;text-align:center;border-radius:7px;
-    display:flex;align-items:center;justify-content:center;font-size:14px}
-  .stack-who{min-width:0}
-  .stack-nm{font-family:Archivo;font-weight:700;font-size:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;line-height:1.2}
-  .stack-who .badges{margin-top:5px}
   .caret{color:var(--faint);font-size:13px;transition:transform .18s ease}
   .row.open .caret{transform:rotate(90deg)}
   .row.thin{opacity:.5}
@@ -1444,8 +1411,16 @@
   .legend-d{font-size:11.5px;color:var(--muted);line-height:1.4}
   /* sort chips */
   .sortchips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 8px;-webkit-overflow-scrolling:touch}
-  .sortchip{flex:0 0 auto;font-family:"IBM Plex Mono";font-size:11px;font-weight:700;padding:5px 11px;border-radius:16px;border:1px solid var(--line);background:var(--panel);color:var(--muted);cursor:pointer}
+  .sortchip{flex:0 0 auto;font-family:"IBM Plex Mono";font-size:11.5px;font-weight:700;padding:8px 13px;border-radius:18px;border:1px solid var(--line);background:var(--panel);color:var(--muted);cursor:pointer;min-height:34px}
   .sortchip.on{color:#0d0f13;background:var(--seam);border-color:var(--seam)}
+  .preset-row{padding-bottom:6px}
+  .sortchip.preset{background:transparent;color:var(--ink);border-style:dashed}
+  .sortchip.preset:active{background:var(--panel-2)}
+  .filterbar{display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(215,120,60,.10);border:1px solid var(--seam);border-radius:10px;padding:8px 12px;margin:2px 0 8px;font-size:12px;color:var(--ink)}
+  .filterbar b{font-family:"IBM Plex Mono";color:var(--seam)}
+  .filterbar button{background:var(--seam);color:#0d0f13;border:none;border-radius:8px;padding:6px 12px;font-weight:700;font-size:11.5px;cursor:pointer;min-height:34px}
+  #toTop{position:fixed;right:16px;bottom:calc(64px + env(safe-area-inset-bottom));width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-size:18px;box-shadow:0 3px 12px rgba(0,0,0,.3);cursor:pointer;opacity:0;pointer-events:none;transition:opacity .2s ease;z-index:40}
+  #toTop.show{opacity:.94;pointer-events:auto}
 
   .empty{color:var(--muted);text-align:center;padding:48px 24px;font-size:14px;line-height:1.6;
     max-width:420px;margin:0 auto}
@@ -1453,7 +1428,7 @@
 </style>
 </head>
 <body>
-<header>
+<header role="banner">
   <div class="brand">
     <h1>Going <span class="yard">Yard</span></h1>
     <span class="stamp mono" id="stamp" title="Tap to refresh the board" style="cursor:pointer">—</span>
@@ -1798,13 +1773,14 @@
   </div>
 </div>
 
-<main id="main"><div style="max-width:760px;margin:0 auto;padding-top:6px">
+<main id="main" role="main"><div style="max-width:760px;margin:0 auto;padding-top:6px">
   <div class="skel"></div><div class="skel"></div><div class="skel"></div>
   <div class="skel"></div><div class="skel"></div><div class="skel"></div>
 </div></main>
 <footer id="foot"></footer>
+<button id="toTop" aria-label="Back to top" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
 
-<nav id="tabbar" aria-label="Primary navigation">
+<nav id="tabbar" role="navigation" aria-label="Primary navigation">
   <button data-view="board" aria-pressed="true"><svg viewBox="0 0 20 20"><circle cx="4" cy="5.5" r="1"/><circle cx="4" cy="10" r="1"/><circle cx="4" cy="14.5" r="1"/><line x1="7.5" y1="5.5" x2="16" y2="5.5"/><line x1="7.5" y1="10" x2="16" y2="10"/><line x1="7.5" y1="14.5" x2="16" y2="14.5"/></svg><span>Board</span></button>
   <button data-view="scan" aria-pressed="false"><svg viewBox="0 0 20 20"><rect x="3" y="3" width="6" height="6" rx="1"/><rect x="11" y="3" width="6" height="6" rx="1"/><rect x="3" y="11" width="6" height="6" rx="1"/><rect x="11" y="11" width="6" height="6" rx="1"/></svg><span>Scan</span></button>
   <button data-view="edges" aria-pressed="false"><svg viewBox="0 0 20 20"><path d="M10 2l2.4 5.2 5.6.7-4.2 3.9 1.1 5.5-4.9-2.8-4.9 2.8 1.1-5.5L2 7.9l5.6-.7z"/></svg><span>Edges</span></button>
@@ -2773,6 +2749,148 @@ function sortChips(){
   const opts=[["heat","Heat"],["bomb","Bomb"],["grade","Grade"],["park","Park"],["trend","Trend"],["bp","Bullpen"]];
   return `<div class="sortchips">${opts.map(([k,l])=>`<button class="sortchip${sortKey===k?' on':''}" onclick="setSort('${k}')">${l}</button>`).join("")}</div>`;
 }
+// U2 — one-tap filter presets. Each sets a whole combo and keeps the filter sheet in sync.
+const PRESETS={
+  hot:{label:"🔥 Hot 70+", set:()=>{minHeat=70;}},
+  elite:{label:"⭐ ELITE", set:()=>{gradeMin="ELITE";}},
+  zone:{label:"◆ Zone 5+", set:()=>{zoneMin=5;}},
+  bomb:{label:"💣 Bomb 65+", set:()=>{bombMin=65;}},
+  combo:{label:"Hot + ELITE", set:()=>{minHeat=55;gradeMin="ELITE";}},
+};
+function presetChips(){
+  return `<div class="sortchips preset-row">${Object.entries(PRESETS).map(([k,pr])=>`<button class="sortchip preset" onclick="applyPreset('${k}')">${pr.label}</button>`).join("")}</div>`;
+}
+function applyPreset(k){
+  const pr=PRESETS[k]; if(!pr) return;
+  pr.set(); syncFilterButtons(); updateFiltCount(); savePrefs(); render();
+}
+function syncFilterButtons(){
+  const qa=(sel)=>[...document.querySelectorAll(sel)];
+  qa('#floor button').forEach(b=>b.setAttribute('aria-pressed', (+b.dataset.min===minHeat)));
+  qa('#zoneMinRow button').forEach(b=>b.classList.toggle('on', (+b.dataset.zmin===zoneMin)));
+  qa('#gradeRow button').forEach(b=>b.classList.toggle('on', ((b.dataset.grd||"")===gradeMin)));
+  qa('#bombRow button').forEach(b=>b.classList.toggle('on', (+b.dataset.bmin===bombMin)));
+  qa('#vulnRow button').forEach(b=>b.classList.toggle('on', ((b.dataset.vln||"")===vulnMin)));
+}
+// U1 — visible active-filter bar with one-tap clear, so you're never stranded on a sparse board.
+function activeFilterBar(){
+  const n=activeFilterCount();
+  if(!n) return "";
+  return `<div class="filterbar"><span><b>${n}</b> filter${n>1?'s':''} active</span><button onclick="clearFilters()">Clear all</button></div>`;
+}
+
+// O1 — lazy card detail: the heavy expanded content is built on first expand, not for all 270
+// rows up front. These are cached per render (player-independent) so buildDetail is self-contained.
+let _smashSet=null, _RR=null, _BRR=null;
+function buildDetail(p){
+  const op=p.opp_pitcher||{};
+  const form=op.form||null;
+  const sm=(_smashSet&&_smashSet.get)?_smashSet.get(p.id):null;
+  const armBadge = (op.hr_score!=null)
+    ? `<span class="armbadge" style="border-color:${form?form.color:'var(--line)'};color:${form?form.color:'var(--muted)'}">`
+      +`${throwBadge(op.throws)} ${op.name||'arm'} · HR ${op.hr_score}${form?` · ${form.label}`:''}</span>${op.opener?` <span class="opener-tag">OPENER${op.start_len?` · ~${op.start_len} IP`:''}</span>`:''}`
+    : (op.name?`<span class="armbadge">${throwBadge(op.throws)} ${op.name}</span>${op.opener?` <span class="opener-tag">OPENER</span>`:''}`:'');
+  let strip="";
+  CORE.forEach(m=>{
+    const cell=p.metrics[m.k]||{};
+    strip+=`<div class="mcell">
+      <div class="k">${m.label} ${pctlChip(m.k, cell.recent)}</div>
+      <div class="r" style="background:${threshTint(cell.recent,m)}">${m.fmt(cell.recent)}</div>
+      <div class="sc">${m.fmt(cell.season)} · ${m.fmt(cell.career)}</div>
+    </div>`;
+  });
+  let extra="";
+  EXTRA.forEach(m=>{
+    const cell=p.metrics[m.k]||{};
+    extra+=`<div class="mcell">
+      <div class="k">${m.label}</div>
+      <div class="r">${m.fmt(cell.recent)}</div>
+      <div class="sc">${m.fmt(cell.season)} · ${m.fmt(cell.career)}</div>
+    </div>`;
+  });
+  const W=["L5","L14d","L30"];
+  let wrows="";
+  [["Pull%","pull_air_pct",1],["EV","avg_ev",1],["Brl%","barrel_pct",1],["IdealAA%","ideal_aa_pct",1],["HR","hr",0],["BBE","bb_count",0]].forEach(([lab,key,dec])=>{
+    let tds="";
+    W.forEach(w=>{const val=(p.windows[w]||{})[key];
+      tds+=`<td>${(key==="hr"||key==="bb_count")?(val??"–"):fmt(val,dec)}</td>`;});
+    wrows+=`<tr><td>${lab}</td>${tds}</tr>`;
+  });
+  const bd=p.score_breakdown||{};
+  const flags=(bd.flags||[]);
+  const _bdSkip=new Set(["note","flags","signals","tier","cleared"]);
+  const bdChips=Object.entries(bd).filter(([k,v])=>!_bdSkip.has(k)&&typeof v!=="object")
+    .map(([k,v])=>`<span>${k.replace(/_/g," ")}: ${v}</span>`).join("");
+  const flagChips=flags.map(f=>`<span style="color:var(--ink);border-color:var(--seam)">${f}</span>`).join("");
+  const PR=op.recent||{}, PS=op.season||{};
+  const prow=(lab,key,dec)=>`<tr><td>${lab}</td><td>${fmt(PR[key],dec)}</td><td>${fmt(PS[key],dec)}</td></tr>`;
+  const armFlags=(op.flags||[]).map(f=>`<span style="color:var(--ink);border-color:${form?form.color:'var(--seam)'}">${f}</span>`).join("");
+  const armBlock = (op.hr_score!=null) ? `
+      <h4 style="margin-top:16px">Opposing arm — HR vulnerability
+        <span style="color:${form?form.color:'var(--muted)'}">${op.hr_score}/100${form?` · ${form.label}`:''}</span></h4>
+      ${op.opener?`<div class="opener-note">Opener — his starts run ${op.start_len?`~${op.start_len} inning${op.start_len>1.5?'s':''}`:'short (usually relieves)'}. This hitter likely sees him once, then it's a bullpen game: weigh the pen section below over the starter matchup.</div>`:''}
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px">recent ${op.recent_score??'–'} · season ${op.season_score??'–'} (2wk vs season)</div>
+      <table class="win"><thead><tr><th>${op.name||'arm'} (${op.throws||'?'}HP)</th><th>2wk</th><th>Szn</th></tr></thead><tbody>
+        ${prow('Barrel% allowed','barrel_pct_allowed',1)}
+        ${prow('HardHit% allowed','hardhit_pct_allowed',1)}
+        ${prow('EV allowed','avg_ev_allowed',1)}
+        ${prow('HR/PA%','hr_per_pa',1)}
+        ${prow('Ideal AA allowed','ideal_aa_allowed',1)}
+        ${prow('Pull-air allowed','pull_air_allowed',1)}
+        ${prow('SwStr% (whiff)','swstr_pct_allowed',1)}
+        ${prow('FB velo','fb_velo',1)}
+      </tbody></table>
+      ${op.recent&&op.recent.velo_trend!=null?`<div class="arm">Velo trend (2wk vs szn): <b style="color:${op.recent.velo_trend<=-0.8?'var(--seam)':'var(--ink)'}">${op.recent.velo_trend>0?'+':''}${op.recent.velo_trend} mph</b></div>`:''}
+      ${hrByHandBlock(op)}
+      ${armFlags?`<div class="bd" style="margin-top:10px">${armFlags}</div>`:'<div class="arm">No red flags.</div>'}
+      ${p.opp_bullpen?`
+        <h4 style="margin-top:16px">Opposing bullpen — HR vulnerability
+          <span style="color:${p.opp_bullpen.form?p.opp_bullpen.form.color:'var(--muted)'}">${p.opp_bullpen.score}/100${p.opp_bullpen.form?` · ${p.opp_bullpen.form.label}`:''}</span></h4>
+        <div style="font-size:11px;color:var(--muted)">${p.opp_bullpen.arms||'?'} relievers${p.opp_bullpen.vs_hand!=null?` · <b style="color:var(--seam)">vs ${op.vs_hand||p.bats}HB (this hitter): ${p.opp_bullpen.vs_hand}</b>`:''}${p.opp_bullpen.platoon&&p.opp_bullpen.platoon.worse?` · pen mashed by ${p.opp_bullpen.platoon.worse==='R'?'RHB':'LHB'} (R ${p.opp_bullpen.platoon.R??'–'} / L ${p.opp_bullpen.platoon.L??'–'})`:''}</div>
+        ${penLive(p)}
+        ${p.opp_bullpen.flags&&p.opp_bullpen.flags.length?`<div class="arm" style="margin-top:6px">pen flags: ${p.opp_bullpen.flags.join(' · ')}</div>`:''}`:''}
+  ` : `<div class="arm"><b>Opposing arm:</b> ${op.name||'—'}</div>`;
+  return `
+      <div class="dname"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span>${p.name}</span>${p.lineup_spot?`<span class="dspot">#${p.lineup_spot}</span>`:""}</div>
+      <button class="listbtn${listHas(p.id)?" on":""}" data-pid="${p.id}" data-nm="${encodeURIComponent(p.name)}" onclick="toggleListBtn(this,event)">${listHas(p.id)?"★ On your list — tap to remove":"☆ Add to my list"}</button>
+      ${sm?`<div class="clearnote"><b>Everything's pointing here.</b> ${sm.reasons.length?sm.reasons.slice(0,5).join(" · ")+". ":""}The matchup's already priced into this number — trust it, don't talk yourself out of it over one cold reading.</div>`:""}
+      ${(function(){const h=HLAB[p.hit_label];return h?`<div class="hlab-note"><span class="hlab ${h[1]}">${h[0]}</span> ${h[2]} over the trailing 2 weeks — same window as the model. One label max, FB outranks LD, none if any threshold missed.</div>`:"";})()}
+      ${heatSpark(p)}
+      ${sprayChart(p)}
+      ${bullBear(p)}
+      ${(function(){try{const ms=hitterScore(p,_RR,_BRR);return `<div class="odds-line">Model odds <b>${(ms.prob*100).toFixed(0)}%</b> · <b>${americanFair(ms.prob)}</b><span>this model only — heat · trend · pitch mix · park+weather · contact luck · your tag history. Fair value, independent of any book; compare it to the posted line to find where they disagree.</span></div>`;}catch(e){return "";}})()}
+      ${p.angle?`<div class="angle">${p.angle}</div>`:""}
+      ${tradedNote(p)}
+      ${tierBlock(p)}
+      ${badgeChipsLift(p)}
+      <div class="matchup" style="margin-bottom:10px">${p.team} vs ${p.opp_team} · ${timeStr(p.time)} · ${p.park||""} · park ${fmt(p.park_hr_factor,2)}×${parkSrcTag(p)}${p.xbh_factor!=null?` · XBH ${fmt(p.xbh_factor,2)}×`:""} · ${armBadge}</div>
+      ${(p.max_ev&&p.max_ev.season!=null)?`<div class="arm" style="margin:-4px 0 8px"><b>${p.name.split(' ').slice(-1)[0]}'s max EV:</b> <b style="color:var(--hot)">${p.max_ev.season}</b> mph season${p.max_ev.recent!=null?` · ${p.max_ev.recent} last 2wk`:""}</div>`:""}
+      ${p.park_hr?`<div class="parkbox">
+        <div class="parkbox-h">Park &amp; weather model <span class="pk-boost ${p.park_hr.boost>=0?'pos':'neg'}">${p.park_hr.boost>=0?'+':''}${p.park_hr.boost}% HR</span></div>
+        <div class="parkbox-sub"><b style="color:var(--ink)">${p.park_hr.exp100}</b> expected HR per 100 batted balls here vs <b style="color:var(--ink)">${p.park_hr.neutral100}</b> in a neutral park · ${p.park_hr.n} batted balls modeled</div>
+        <div class="parkbox-cond">${p.park_hr.indoor?"indoor — roof / climate controlled":(p.park_hr.weather?`${p.park_hr.temp_f!=null?p.park_hr.temp_f+"°F":""}${p.park_hr.wind_mph!=null?` · wind ${p.park_hr.wind_mph} mph`:""}`:"park geometry only · live weather unavailable")}${p.park_hr.savant_pf!=null?` · park ${p.park_hr.savant_pf}×`:""}</div>
+        <div class="parkbox-note">${p.park_hr.savant_pf!=null?"Anchored to this season's empirical HR park factor (computed from Statcast batted balls); physics adds this hitter's spray + today's weather on top. ":""}His real batted balls flown through this park's walls. Secondary read — separate from Heat.</div>
+        ${parks30HTML(p)}
+      </div>`:parks30Standalone(p)}
+      ${spotBlock(p)}
+      ${bvpBlock(p)}
+      ${drivesStrip(p)}
+      <h4>Four signals — recent · season · career</h4>
+      <div class="strip" style="border:1px solid var(--line);border-radius:10px">${strip}</div>
+      <details class="sec"><summary>Trend — last 2 wk vs game windows</summary>
+      <table class="win"><thead><tr><th></th><th>L5</th><th>2wk</th><th>L30</th></tr></thead>
+      <tbody>${wrows}</tbody></table></details>
+      <details class="sec"><summary>Context — recent · season · career</summary>
+      <div class="strip" style="border:1px solid var(--line);border-radius:10px">${extra}</div></details>
+      ${collapseWrap(pitchBlock(p))}
+      ${percentileBars(p)}
+      ${zoneDamageGrid(p)}
+      ${collapseWrap(featureBlock(p))}
+      ${collapseWrap(luckBlock(p))}
+      ${flagChips?`<div class="bd" style="margin-top:12px">${flagChips}</div>`:""}
+      ${armBlock}
+      <div class="bd">${bdChips}</div>`;
+}
 
 function render(){
   const main=document.getElementById("main");
@@ -2902,6 +3020,7 @@ function render(){
   // hitters carrying it convert at a rate the rest of the board can't match.
   const smashSet=slateSmash();
   const _R=trackerRates(), _BR=betRates();   // for the model-odds line on each card
+  _smashSet=smashSet; _RR=_R; _BRR=_BR;      // cache for lazy buildDetail()
 
   let html="";
   // At-a-glance strip: the shape of the slate before you scroll. Games, how many hitters
@@ -3173,8 +3292,6 @@ function render(){
 
   players.forEach((p,i)=>{
     const col=chipColor(H(p));
-    const op=p.opp_pitcher||{};
-    const form=op.form||null;
     const md=mixView?(mixDelta[p.id]||0):null;
     const mdChip=(md!=null)?`<span class="mixd ${md>0?'up':md<0?'down':'flat'}">${md>0?'▲':md<0?'▼':'='}${md?Math.abs(md):''}</span>`:"";
     const bpv=(sortKey==="bp")?bpVal(p):null;
@@ -3183,78 +3300,6 @@ function render(){
     const lbChip=(lbc!=null)?`<span class="bpchip" style="background:${evColor(lbc)}">${lbc.toFixed(0)} EV</span> `:"";
     const pk=(sortKey==="park")?p.park_hr:null;
     const pkChip=(pk&&pk.exp100!=null)?`<span class="bpchip" style="background:${chipColor(pk.score)}">${pk.boost>=0?"+":""}${pk.boost}%${pk.wind_mph?` · ${pk.wind_mph}mph`:""}</span> `:"";
-    const armBadge = (op.hr_score!=null)
-      ? `<span class="armbadge" style="border-color:${form?form.color:'var(--line)'};color:${form?form.color:'var(--muted)'}">`
-        +`${throwBadge(op.throws)} ${op.name||'arm'} · HR ${op.hr_score}${form?` · ${form.label}`:''}</span>${op.opener?` <span class="opener-tag">OPENER${op.start_len?` · ~${op.start_len} IP`:''}</span>`:''}`
-      : (op.name?`<span class="armbadge">${throwBadge(op.throws)} ${op.name}</span>${op.opener?` <span class="opener-tag">OPENER</span>`:''}`:'');
-
-    let strip="";
-    CORE.forEach(m=>{
-      const cell=p.metrics[m.k]||{};
-      strip+=`<div class="mcell">
-        <div class="k">${m.label} ${pctlChip(m.k, cell.recent)}</div>
-        <div class="r" style="background:${threshTint(cell.recent,m)}">${m.fmt(cell.recent)}</div>
-        <div class="sc">${m.fmt(cell.season)} · ${m.fmt(cell.career)}</div>
-      </div>`;
-    });
-
-    // extra context metrics (recent · season · career)
-    let extra="";
-    EXTRA.forEach(m=>{
-      const cell=p.metrics[m.k]||{};
-      extra+=`<div class="mcell">
-        <div class="k">${m.label}</div>
-        <div class="r">${m.fmt(cell.recent)}</div>
-        <div class="sc">${m.fmt(cell.season)} · ${m.fmt(cell.career)}</div>
-      </div>`;
-    });
-
-    // detail: trend across windows for the four signals
-    const W=["L5","L14d","L30"];
-    let wrows="";
-    [["Pull%","pull_air_pct",1],["EV","avg_ev",1],["Brl%","barrel_pct",1],["IdealAA%","ideal_aa_pct",1],["HR","hr",0],["BBE","bb_count",0]].forEach(([lab,key,dec])=>{
-      let tds="";
-      W.forEach(w=>{const val=(p.windows[w]||{})[key];
-        tds+=`<td>${(key==="hr"||key==="bb_count")?(val??"–"):fmt(val,dec)}</td>`;});
-      wrows+=`<tr><td>${lab}</td>${tds}</tr>`;
-    });
-    const bd=p.score_breakdown||{};
-    const flags=(bd.flags||[]);
-    const _bdSkip=new Set(["note","flags","signals","tier","cleared"]);
-    const bdChips=Object.entries(bd).filter(([k,v])=>!_bdSkip.has(k)&&typeof v!=="object")
-      .map(([k,v])=>`<span>${k.replace(/_/g," ")}: ${v}</span>`).join("");
-    const flagChips=flags.map(f=>`<span style="color:var(--ink);border-color:var(--seam)">${f}</span>`).join("");
-
-    // opposing-arm block: recent vs season HR-vulnerability + red flags
-    const PR=op.recent||{}, PS=op.season||{};
-    const prow=(lab,key,dec)=>`<tr><td>${lab}</td><td>${fmt(PR[key],dec)}</td><td>${fmt(PS[key],dec)}</td></tr>`;
-    const armFlags=(op.flags||[]).map(f=>`<span style="color:var(--ink);border-color:${form?form.color:'var(--seam)'}">${f}</span>`).join("");
-    const armBlock = (op.hr_score!=null) ? `
-        <h4 style="margin-top:16px">Opposing arm — HR vulnerability
-          <span style="color:${form?form.color:'var(--muted)'}">${op.hr_score}/100${form?` · ${form.label}`:''}</span></h4>
-        ${op.opener?`<div class="opener-note">Opener — his starts run ${op.start_len?`~${op.start_len} inning${op.start_len>1.5?'s':''}`:'short (usually relieves)'}. This hitter likely sees him once, then it's a bullpen game: weigh the pen section below over the starter matchup.</div>`:''}
-        <div style="font-size:11px;color:var(--muted);margin-bottom:6px">recent ${op.recent_score??'–'} · season ${op.season_score??'–'} (2wk vs season)</div>
-        <table class="win"><thead><tr><th>${op.name||'arm'} (${op.throws||'?'}HP)</th><th>2wk</th><th>Szn</th></tr></thead><tbody>
-          ${prow('Barrel% allowed','barrel_pct_allowed',1)}
-          ${prow('HardHit% allowed','hardhit_pct_allowed',1)}
-          ${prow('EV allowed','avg_ev_allowed',1)}
-          ${prow('HR/PA%','hr_per_pa',1)}
-          ${prow('Ideal AA allowed','ideal_aa_allowed',1)}
-          ${prow('Pull-air allowed','pull_air_allowed',1)}
-          ${prow('SwStr% (whiff)','swstr_pct_allowed',1)}
-          ${prow('FB velo','fb_velo',1)}
-        </tbody></table>
-        ${op.recent&&op.recent.velo_trend!=null?`<div class="arm">Velo trend (2wk vs szn): <b style="color:${op.recent.velo_trend<=-0.8?'var(--seam)':'var(--ink)'}">${op.recent.velo_trend>0?'+':''}${op.recent.velo_trend} mph</b></div>`:''}
-        ${hrByHandBlock(op)}
-        ${armFlags?`<div class="bd" style="margin-top:10px">${armFlags}</div>`:'<div class="arm">No red flags.</div>'}
-        ${p.opp_bullpen?`
-          <h4 style="margin-top:16px">Opposing bullpen — HR vulnerability
-            <span style="color:${p.opp_bullpen.form?p.opp_bullpen.form.color:'var(--muted)'}">${p.opp_bullpen.score}/100${p.opp_bullpen.form?` · ${p.opp_bullpen.form.label}`:''}</span></h4>
-          <div style="font-size:11px;color:var(--muted)">${p.opp_bullpen.arms||'?'} relievers${p.opp_bullpen.vs_hand!=null?` · <b style="color:var(--seam)">vs ${op.vs_hand||p.bats}HB (this hitter): ${p.opp_bullpen.vs_hand}</b>`:''}${p.opp_bullpen.platoon&&p.opp_bullpen.platoon.worse?` · pen mashed by ${p.opp_bullpen.platoon.worse==='R'?'RHB':'LHB'} (R ${p.opp_bullpen.platoon.R??'–'} / L ${p.opp_bullpen.platoon.L??'–'})`:''}</div>
-          ${penLive(p)}
-          ${p.opp_bullpen.flags&&p.opp_bullpen.flags.length?`<div class="arm" style="margin-top:6px">pen flags: ${p.opp_bullpen.flags.join(' · ')}</div>`:''}`:''}
-    ` : `<div class="arm"><b>Opposing arm:</b> ${op.name||'—'}</div>`;
-
     // compact mini-cells for the four signals (threshold-colored)
     let mini="";
     CORE.forEach(m=>{
@@ -3279,50 +3324,10 @@ function render(){
         </div>
         ${badgeChips(p,4)}
       </div>
-      <div class="detail">
-        <div class="dname"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span>${p.name}</span>${p.lineup_spot?`<span class="dspot">#${p.lineup_spot}</span>`:""}</div>
-        <button class="listbtn${listHas(p.id)?" on":""}" data-pid="${p.id}" data-nm="${encodeURIComponent(p.name)}" onclick="toggleListBtn(this,event)">${listHas(p.id)?"★ On your list — tap to remove":"☆ Add to my list"}</button>
-        ${sm?`<div class="clearnote"><b>Everything's pointing here.</b> ${sm.reasons.length?sm.reasons.slice(0,5).join(" · ")+". ":""}The matchup's already priced into this number — trust it, don't talk yourself out of it over one cold reading.</div>`:""}
-        ${(function(){const h=HLAB[p.hit_label];return h?`<div class="hlab-note"><span class="hlab ${h[1]}">${h[0]}</span> ${h[2]} over the trailing 2 weeks — same window as the model. One label max, FB outranks LD, none if any threshold missed.</div>`:"";})()}
-        ${heatSpark(p)}
-        ${sprayChart(p)}
-        ${bullBear(p)}
-        ${(function(){try{const ms=hitterScore(p,_R,_BR);return `<div class="odds-line">Model odds <b>${(ms.prob*100).toFixed(0)}%</b> · <b>${americanFair(ms.prob)}</b><span>this model only — heat · trend · pitch mix · park+weather · contact luck · your tag history. Fair value, independent of any book; compare it to the posted line to find where they disagree.</span></div>`;}catch(e){return "";}})()}
-        ${p.angle?`<div class="angle">${p.angle}</div>`:""}
-        ${tradedNote(p)}
-        ${tierBlock(p)}
-        ${badgeChipsLift(p)}
-        <div class="matchup" style="margin-bottom:10px">${p.team} vs ${p.opp_team} · ${timeStr(p.time)} · ${p.park||""} · park ${fmt(p.park_hr_factor,2)}×${parkSrcTag(p)}${p.xbh_factor!=null?` · XBH ${fmt(p.xbh_factor,2)}×`:""} · ${armBadge}</div>
-        ${(p.max_ev&&p.max_ev.season!=null)?`<div class="arm" style="margin:-4px 0 8px"><b>${p.name.split(' ').slice(-1)[0]}'s max EV:</b> <b style="color:var(--hot)">${p.max_ev.season}</b> mph season${p.max_ev.recent!=null?` · ${p.max_ev.recent} last 2wk`:""}</div>`:""}
-        ${p.park_hr?`<div class="parkbox">
-          <div class="parkbox-h">Park &amp; weather model <span class="pk-boost ${p.park_hr.boost>=0?'pos':'neg'}">${p.park_hr.boost>=0?'+':''}${p.park_hr.boost}% HR</span></div>
-          <div class="parkbox-sub"><b style="color:var(--ink)">${p.park_hr.exp100}</b> expected HR per 100 batted balls here vs <b style="color:var(--ink)">${p.park_hr.neutral100}</b> in a neutral park · ${p.park_hr.n} batted balls modeled</div>
-          <div class="parkbox-cond">${p.park_hr.indoor?"indoor — roof / climate controlled":(p.park_hr.weather?`${p.park_hr.temp_f!=null?p.park_hr.temp_f+"°F":""}${p.park_hr.wind_mph!=null?` · wind ${p.park_hr.wind_mph} mph`:""}`:"park geometry only · live weather unavailable")}${p.park_hr.savant_pf!=null?` · park ${p.park_hr.savant_pf}×`:""}</div>
-          <div class="parkbox-note">${p.park_hr.savant_pf!=null?"Anchored to this season's empirical HR park factor (computed from Statcast batted balls); physics adds this hitter's spray + today's weather on top. ":""}His real batted balls flown through this park's walls. Secondary read — separate from Heat.</div>
-          ${parks30HTML(p)}
-        </div>`:parks30Standalone(p)}
-        ${spotBlock(p)}
-        ${bvpBlock(p)}
-        ${drivesStrip(p)}
-        <h4>Four signals — recent · season · career</h4>
-        <div class="strip" style="border:1px solid var(--line);border-radius:10px">${strip}</div>
-        <details class="sec"><summary>Trend — last 2 wk vs game windows</summary>
-        <table class="win"><thead><tr><th></th><th>L5</th><th>2wk</th><th>L30</th></tr></thead>
-        <tbody>${wrows}</tbody></table></details>
-        <details class="sec"><summary>Context — recent · season · career</summary>
-        <div class="strip" style="border:1px solid var(--line);border-radius:10px">${extra}</div></details>
-        ${collapseWrap(pitchBlock(p))}
-        ${percentileBars(p)}
-        ${zoneDamageGrid(p)}
-        ${collapseWrap(featureBlock(p))}
-        ${collapseWrap(luckBlock(p))}
-        ${flagChips?`<div class="bd" style="margin-top:12px">${flagChips}</div>`:""}
-        ${armBlock}
-        <div class="bd">${bdChips}</div>
-      </div>
+      <div class="detail"></div>
     </div>`;
   });
-  main.innerHTML=topPlaysCard()+sortChips()+thead()+html;
+  main.innerHTML=topPlaysCard()+activeFilterBar()+presetChips()+sortChips()+thead()+html;
   setHH();
 }
 function thead(){
@@ -3738,7 +3743,7 @@ function scanToPlayer(id){
   goView("board");
   setTimeout(()=>{
     const row=document.querySelector(`.row[data-id="${id}"]`);
-    if(row){ row.classList.add("open"); row.scrollIntoView({block:"center",behavior:"smooth"}); }
+    if(row){ ensureDetail(row); row.classList.add("open"); row.scrollIntoView({block:"center",behavior:"smooth"}); }
   }, 120);
 }
 
@@ -4192,7 +4197,7 @@ function edgesToPlayer(id){
   goView("board");
   setTimeout(()=>{
     const row=document.querySelector(`.row[data-id="${id}"]`);
-    if(row){ row.classList.add("open"); row.scrollIntoView({block:"center",behavior:"smooth"}); }
+    if(row){ ensureDetail(row); row.classList.add("open"); row.scrollIntoView({block:"center",behavior:"smooth"}); }
   }, 120);
 }
 function renderWeather(){
@@ -4266,7 +4271,21 @@ function parkRankBlock(){
   </div>`;
 }
 
-function toggle(el){ el.closest(".row").classList.toggle("open"); }
+function toggle(el){
+  const row=el.closest(".row");
+  ensureDetail(row);
+  row.classList.toggle("open");
+}
+// build the lazy detail into a row if not already built (used by toggle + programmatic opens)
+function ensureDetail(row){
+  if(!row) return;
+  const det=row.querySelector(".detail");
+  if(det && !det.dataset.built){
+    const id=+row.dataset.id;
+    const p=(BOARD&&BOARD.players||[]).find(x=>x.id===id);
+    if(p){ try{ det.innerHTML=buildDetail(p); }catch(e){ det.innerHTML=`<div class="arm">Couldn't render this card.</div>`; } det.dataset.built="1"; }
+  }
+}
 // tap an arm (Arms Today or a Stack header) -> board filters to the bats facing him
 function toggleArmExpand(id){
   const el=document.getElementById(id);
@@ -7064,6 +7083,15 @@ document.getElementById("search").addEventListener("input",e=>{
   clearTimeout(_qT); _qT=setTimeout(()=>{ q=e.target.value; render(); },140);
 });
 document.getElementById("stamp").addEventListener("click",()=>{ load(); });
+// U3 — back-to-top appears after scrolling down the long board
+(function(){
+  const bt=document.getElementById("toTop"); if(!bt) return;
+  let tick=false;
+  window.addEventListener("scroll",()=>{
+    if(tick) return; tick=true;
+    requestAnimationFrame(()=>{ bt.classList.toggle("show", window.scrollY>800 && view==="board"); tick=false; });
+  }, {passive:true});
+})();
 document.getElementById("thinBtn").addEventListener("click",e=>{
   hideThin=!hideThin; e.target.setAttribute("aria-pressed",hideThin); savePrefs(); render();
 });
@@ -7122,10 +7150,16 @@ document.getElementById("teamList").addEventListener("click",e=>{
   populateTeams(); updateFiltCount(); render();
 });
 function updateFiltCount(){
-  const n=gameSel.size+teamSel.size+traitSel.size+labSel.size+drySel.size+tierSel.size+(batFilter?1:0)+(minHeat>0?1:0)+(spFloor>0?1:0)+(hideThin?1:0)+(mixView?1:0);
+  const n=activeFilterCount();
   const el=document.getElementById("filtCount");
   if(!el)return;
   if(n>0){el.textContent=n;el.hidden=false;}else{el.hidden=true;}
+}
+// count every active filter (the old count missed zone/grade/bomb/vuln/edge)
+function activeFilterCount(){
+  return gameSel.size+teamSel.size+traitSel.size+labSel.size+drySel.size+tierSel.size+edgeSel.size
+    +(batFilter?1:0)+(minHeat>0?1:0)+(spFloor>0?1:0)+(hideThin?1:0)+(mixView?1:0)
+    +(zoneMin>0?1:0)+(gradeMin?1:0)+(bombMin>0?1:0)+(vulnMin?1:0);
 }
 function clearFilters(){
   gameSel.clear(); teamSel.clear(); batFilter=""; traitSel.clear(); labSel.clear(); drySel.clear(); tierSel.clear(); minHeat=0; spFloor=0; hideThin=false; mixView=false; edgeSel.clear();
