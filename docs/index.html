@@ -3290,11 +3290,15 @@ function longballConverge(p){
   return {D:Math.round(D), C:Math.round(C), final:Math.round(final), tier, ceiling:hp.max_dist, signals};
 }
 // Slate longball board: every hitter with a real distance ceiling, ranked by ceiling×convergence.
+let _lbRankCache=null, _lbRankFor=null;
 function longballRanked(n){
-  const players=((BOARD&&BOARD.players)||[]).filter(p=>p.lineup_status!=="out" && ((p.features||{}).hr_power||{}).max_dist!=null);
-  const scored=players.map(p=>({p, lb:longballConverge(p)}));
-  scored.sort((a,b)=>b.lb.final-a.lb.final);
-  return scored.slice(0, n||10);
+  // Recompute only when BOARD changes; slicing top-N is cheap, the scoring loop isn't.
+  if(_lbRankFor!==BOARD){
+    const players=((BOARD&&BOARD.players)||[]).filter(p=>p.lineup_status!=="out" && ((p.features||{}).hr_power||{}).max_dist!=null);
+    _lbRankCache=players.map(p=>({p, lb:longballConverge(p)})).sort((a,b)=>b.lb.final-a.lb.final);
+    _lbRankFor=BOARD;
+  }
+  return _lbRankCache.slice(0, n||10);
 }
 
 
@@ -4067,56 +4071,6 @@ function parkRankBlock(){
     ${ranks.map(row).join("")}
     <div class="pl-note">This is the park's effect on HR rate for tonight — orientation, dimensions, altitude and today's air, combined. It's the same park number feeding every hitter card's environment term, so a bat in a top park here is already getting that credit in Heat's park lens and in the longball board.</div>
   </div>`;
-}
-
-function renderStacks(){
-  const main=document.getElementById("main");
-  const stacks=(BOARD&&BOARD.stacks)||[];
-  if(!stacks.length){
-    main.innerHTML=`<div class="empty">No stacks yet.<br>A stack is a whole lineup worth attacking — a vulnerable starter (or a bullpen game) with two or more Heat-55+ bats facing him. They fill in as lineups post.</div>`;
-    return;
-  }
-  const pmap={}; (BOARD.players||[]).forEach(p=>{pmap[p.id]=p;pmap[p.name]=p;});
-  const armap={}; (BOARD.arms||[]).forEach(a=>{armap[a.name]=a;});
-  const smash=slateSmash();
-  let html=`<div style="max-width:760px;margin:0 auto">
-    <div class="stacks-intro">Lineups worth attacking — a vulnerable arm (or a bullpen game) with a cluster of in-form bats. Your "pitcher gives it up → take multiple players" spots. ● = has homered off today's arms. Tap a header to see all his bats on the board.</div>`;
-  stacks.forEach(s=>{
-    const f=s.form||{label:"",color:"#8A95A3"};
-    const arm=armap[s.arm];
-    const armBadges=arm?badgeChips(arm,4):"";
-    const rows=s.hitters.map(h=>{
-      const pl=(h.id!=null&&pmap[h.id])||pmap[h.name];
-      const bdg=pl?badgeChips(pl,3):"";
-      const sm=h.id!=null&&smash.has(h.id);
-      return `<div class="stack-h">
-        <div class="hh" style="background:${chipColor(h.heat)}">${h.heat}</div>
-        <div class="stack-who">
-          <div class="stack-nm"><span class="bats b-${(pl&&pl.bats)||(h.bats||'R')}">${h.bats||"?"}</span><span class="nm-txt">${h.owns?'<span style="color:var(--proof)">●</span> ':''}${h.name}</span>${sm?' <span class="clearflag">SMASH</span>':''}${h.b2b?' <span class="pl-tag warn">B2B</span>':''}${h.spot?`<span class="spot">#${h.spot}</span>`:""}</div>
-          ${bdg}
-        </div>
-      </div>`;
-    }).join("");
-    const envBits=[];
-    if(s.pen_game) envBits.push('<b style="color:var(--seam)">bullpen game</b>');
-    if(s.arm_score!=null) envBits.push(`arm <b style="color:${chipColor(s.arm_score)}">${s.arm_score}</b>`);
-    if(s.pen_score!=null) envBits.push(`pen <b style="color:${chipColor(s.pen_score)}">${s.pen_score}</b>`);
-    if(s.park_factor!=null) envBits.push(`park ${fmt(s.park_factor,2)}×`);
-    html+=`<div class="stack">
-      <div class="stack-head arm-tap" onclick="armFilter('${(s.team||"").replace(/'/g,"")}')" title="Show all his bats on the board">
-        <div class="sc" style="background:${chipColor(s.stack_score??s.arm_score)}">${s.stack_score??s.arm_score??"–"}</div>
-        <div style="flex:1;min-width:0">
-          <div class="nm">${s.arm} ${throwBadge(arm&&arm.throws)}${s.opener?' <span class="opener-tag">OPENER</span>':''} <span class="arm-tag" style="color:${f.color};border:1px solid ${f.color}">${f.label}</span></div>
-          <div class="sub">${envBits.join(" · ")}</div>
-          <div class="sub">${s.opp_team} bats · ${timeStr(s.time)} · ${s.hitters.length} in-form facing him</div>
-          ${armBadges}
-        </div>
-      </div>
-      ${rows}
-    </div>`;
-  });
-  html+=`<div class="pl-note">Stack score blends the arm's HR-vulnerability (or the pen's, in a bullpen game) with the strength of the top bats facing it — so a decent arm facing five monsters can outrank a terrible arm facing two.</div></div>`;
-  main.innerHTML=html;
 }
 
 function toggle(el){ el.closest(".row").classList.toggle("open"); }
@@ -5269,51 +5223,6 @@ function buildSlots(ranked, slots, opts){
     if(pick) take(pick);
   }
   return out;
-}
-
-// ---------- Matchup tab: historical batter-vs-pitcher ----------
-function setMuSort(k){ muSort=k; renderMatchup(); }
-function renderMatchup(){
-  const main=document.getElementById("main");
-  if(!BOARD||!BOARD.players){ main.innerHTML=`<div class="empty">Board not loaded.</div>`; return; }
-  const ps=BOARD.players.filter(p=>p.lineup_status!=="out" && p.bvp);
-  if(!ps.length){ main.innerHTML=`<div class="empty">No matchup data yet — rebuild the board to populate batter-vs-pitcher history.</div>`; return; }
-  const spRec=p=>p.bvp.sp_career||p.bvp.sp;                 // prefer career, fall back to season
-  const bpHrN=p=>p.bvp.bp.filter(a=>a.hr>0).length;
-  const histScore=p=>spRec(p).hr*1000 + (bpHrN(p)?500:0) + spRec(p).pa*5 + (p.heat||0)/100;
-  const sorters={
-    hist:(a,b)=>histScore(b)-histScore(a),
-    sphr:(a,b)=>(spRec(b).hr-spRec(a).hr)||(spRec(b).pa-spRec(a).pa),
-    sppa:(a,b)=>(spRec(b).pa-spRec(a).pa)||(spRec(b).hr-spRec(a).hr),
-    bphr:(a,b)=>(bpHrN(b)-bpHrN(a))||(b.bvp.bp.length-a.bvp.bp.length),
-    heat:(a,b)=>(b.heat||0)-(a.heat||0),
-  };
-  const withHist=ps.filter(p=>spRec(p).pa>0 || p.bvp.bp.length).sort(sorters[muSort]||sorters.hist);
-  const none=ps.length-withHist.length;
-  const sbtn=(k,lab)=>`<button onclick="setMuSort('${k}')" aria-pressed="${muSort===k}">${lab}</button>`;
-  const card=p=>{
-    const b=p.bvp, sp=spRec(p), career=!!b.sp_career, spHot=sp.hr>0;
-    const opnr=!!(p.opp_pitcher&&p.opp_pitcher.opener);
-    const seasonTag=(career && b.sp && (b.sp.pa>0) ) ? `<span class="mu-yr">${b.sp.hr}/${b.sp.pa} this yr</span>` : "";
-    const spLine = sp.pa>0
-      ? `<span class="${spHot?'mu-hr':'mu-faced'}">${spHot?`● ${sp.hr} HR`:`${sp.hr} HR`} · ${sp.pa} PA</span> <span class="mu-src">${career?"career":"season"}</span>${seasonTag}`
-      : `<span class="mu-none">not faced${career?" (career)":" this year"}</span>`;
-    const bpHr=b.bp.filter(a=>a.hr>0);
-    const bpLine = bpHr.length
-      ? bpHr.map(a=>`<span class="mu-hr">● ${a.name} <b>${a.hr}</b>HR/${a.pa}PA</span>`).join(" ")
-      : (b.bp.length? `<span class="mu-faced">faced ${b.bp.length} of their pen · 0 HR</span>` : `<span class="mu-none">no pen history</span>`);
-    return `<div class="mu-card${(spHot||bpHr.length)?' mu-on':''}">
-      <div class="mu-top"><span class="mu-heat" style="background:${chipColor(p.heat||0)}">${p.heat??"–"}</span><b>${p.name}</b> ${listHas(p.id)?'<span class="liststar">★</span>':''}<span class="mu-meta">${p.team}→${p.opp_team} · ${timeStr(p.time)}</span></div>
-      <div class="mu-row"><span class="mu-lab">vs ${opnr?'opener':'SP'} ${sp.name||b.sp.name||"—"}${opnr?' <span class="opener-tag">1x look</span>':''}</span><span>${spLine}</span></div>
-      <div class="mu-row"><span class="mu-lab">vs their pen${opnr?' <b style="color:var(--ink)">← bulk of the game</b>':''}</span><span>${bpLine}</span></div>
-    </div>`;
-  };
-  main.innerHTML=`<div class="mu-wrap">
-    <div class="mu-head">Historical matchups<span>${withHist.length} with history${none?` · ${none} not faced`:""}</span></div>
-    <div class="seg mu-sort" id="muSort">${sbtn("hist","Best")}${sbtn("sphr","SP HR")}${sbtn("sppa","SP PA")}${sbtn("bphr","Pen HR")}${sbtn("heat","Heat")}</div>
-    ${withHist.map(card).join("")}
-    <div class="pl-note">Batter-vs-pitcher: HR &amp; PA off today's starter (career when available, season otherwise) and off active arms in the opponent's bullpen. ● = has gone deep off him. Heat chip on the left. Hitters with no history vs today's arms are hidden.</div>
-  </div>`;
 }
 
 // Trust table — which tags actually convert to HRs in YOUR data (tracker + bet log), so you
@@ -7085,7 +6994,7 @@ document.getElementById("tabbar").addEventListener("click",async e=>{
 // Navigate to a view that lives in the "More" sheet (parlays/stacks/matchup/weather).
 // The More button in the tab bar lights up to show you're in a secondary view, since
 // none of the primary tabs own it.
-const MORE_VIEWS=new Set(["parlays","stacks","matchup","weather"]);
+const MORE_VIEWS=new Set(["parlays","weather"]);
 // Drawer navigation — jumps to a view and optionally a sub-view, then closes the drawer.
 function drawerGo(v, sub){
   document.getElementById('moreSheet').classList.remove('show');
@@ -7323,7 +7232,10 @@ async function loadBacktestEager(){
 
 async function load(){
   try{
-    const res=await fetch("./board.json?t="+Date.now(),{cache:"no-store"});
+    // Let the browser cache board.json and revalidate conditionally (GitHub Pages sends
+    // ETag/Last-Modified): unchanged boards return a tiny 304 and load from cache instead of
+    // re-pulling megabytes on every open. A new build invalidates it automatically.
+    const res=await fetch("./board.json",{cache:"default"});
     if(!res.ok) throw new Error("HTTP "+res.status);
     BOARD=await res.json();
     // resolve each hitter's opposing-arm vulnerability tier once, so filters/sorts can use it
