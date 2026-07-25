@@ -210,11 +210,15 @@ def hitter_park_factors(date_str: str) -> dict:
             hr_pct = _pick(r, "homeRunsPercent", "hrPercent", "homeRunPercent")
             hr_mult = _pct_to_mult(hr_pct)
             hr_pct_val = _num(hr_pct)
+        # doubles/triples (XBH) factor — also a direct multiplier on the hitter endpoint
+        xbh_direct = _num(_pick(r, "doublesTriples", "doublesTriplesFactor", "xbh"))
+        xbh_mult = round(xbh_direct, 4) if xbh_direct is not None else _pct_to_mult(_pick(r, "doublesTriplesPercent"))
         ent = {
             "hr_mult": hr_mult,
             "hr_pct": hr_pct_val,
             "hr_stadium": _num(_pick(r, "homeRunsStadium")),   # park-only component
             "hr_weather": _num(_pick(r, "homeRunsWeather")),   # weather add-on (carry)
+            "xbh_mult": xbh_mult,                              # doubles/triples park factor
             "name": name,
             "team": _pick(r, "team", "teamAbbr", "teamAbbrev"),
             "game_id": _pick(r, "gameId", "game_id"),

@@ -444,7 +444,14 @@ def build(date_str: str | None = None) -> dict:
         except Exception:
             pf, pf_src = _pf_local, "local"
 
-        # hitter ranking = four signals, modulated by opposing-arm vulnerability
+        # doubles/triples (XBH) park factor for this hitter, if BallparkPal supplies it
+        _xbh = None
+        try:
+            _h = (BPP.get("hitters") or {}).get(bid) or (BPP.get("hitters") or {}).get(str(bid))
+            if _h and _h.get("xbh_mult") is not None:
+                _xbh = round(_h["xbh_mult"], 2)
+        except Exception:
+            _xbh = None
         score, breakdown = compute.heat_score(recent, phr.get("score"))
 
         # vs-pitch-mix variant: re-weight the two pitch-dependent power signals —
@@ -774,6 +781,7 @@ def build(date_str: str | None = None) -> dict:
             "time": g["time"],
             "park": g["park"],
             "park_hr_factor": round(pf, 2),
+            "xbh_factor": _xbh,             # BallparkPal doubles/triples park factor (or None)
             "park_src": pf_src,          # 'bpp_hitter' | 'bpp_game' | 'local'
             "why": why,
             "tier": breakdown.get("tier"),
