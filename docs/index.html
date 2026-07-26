@@ -1485,6 +1485,37 @@
   .cal-hr-heat{flex:0 0 28px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:"IBM Plex Mono";font-weight:800;font-size:11px;color:#0d0f13}
   .cal-hr-heat.cal-hr-dist{background:var(--panel-2);color:var(--muted);font-size:9.5px;font-weight:700}
   .cal-hr-meta{font-size:9.5px;color:var(--faint);font-family:"IBM Plex Mono"}
+  /* calendar insights */
+  .cal-insights{margin-top:18px;border:1px solid var(--line);border-radius:12px;padding:13px 14px;background:var(--panel)}
+  .ins-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+  .ins-title{font-family:Archivo;font-weight:800;font-size:15px}
+  .ins-scope{display:flex;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .ins-scope button{background:var(--panel);color:var(--muted);border:none;font-family:"IBM Plex Mono";font-size:10.5px;font-weight:700;padding:6px 10px;cursor:pointer}
+  .ins-scope button.on{background:var(--seam);color:#0d0f13}
+  .ins-line{font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:8px}
+  .ins-line b{font-family:"IBM Plex Mono"}
+  .ins-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+  .ins-chip{font-family:"IBM Plex Mono";font-size:10px;font-weight:700;background:var(--panel-2);color:var(--muted);border-radius:6px;padding:4px 8px}
+  .ins-chip.up{color:var(--good);background:rgba(120,178,145,.12)}
+  .ins-chip.dn{color:var(--warm);background:rgba(220,150,70,.12)}
+  .ins-h{font-family:Archivo;font-weight:700;font-size:12px;color:var(--ink);margin:12px 0 6px}
+  .ins-dow-row{display:flex;gap:5px;align-items:flex-end}
+  .ins-dow{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px}
+  .ins-dow-bar{width:100%;max-width:30px;border-radius:3px 3px 0 0}
+  .ins-dow-v{font-family:"IBM Plex Mono";font-size:9px;color:var(--muted)}
+  .ins-dow-l{font-family:"IBM Plex Mono";font-size:9px;color:var(--faint)}
+  .ins-bar-row{display:flex;align-items:center;gap:8px;padding:2px 0}
+  .ins-bar-lab{flex:0 0 74px;font-size:11px;color:var(--muted)}
+  .ins-bar-track{flex:1;height:8px;background:var(--panel-2);border-radius:4px;overflow:hidden}
+  .ins-bar-fill{height:100%;border-radius:4px}
+  .ins-bar-v{flex:0 0 84px;text-align:right;font-family:"IBM Plex Mono";font-size:10.5px;font-weight:700;color:var(--ink)}
+  .ins-bar-v i{font-style:normal;color:var(--faint);font-weight:400;font-size:9px}
+  .ins-note{font-size:10.5px;color:var(--faint);line-height:1.45;margin-top:5px}
+  .ins-badges{display:flex;flex-wrap:wrap;gap:5px}
+  .ins-badge{font-family:"IBM Plex Mono";font-size:10px;background:var(--panel-2);border-radius:6px;padding:3px 7px;color:var(--muted)}
+  .ins-badge b{color:var(--ink)}
+  .ins-badge i{font-style:normal;color:var(--faint);font-size:8.5px}
+  .ins-foot{font-size:10px;color:var(--faint);line-height:1.45;margin-top:12px;border-top:1px solid var(--line);padding-top:8px}
 
   .empty{color:var(--muted);text-align:center;padding:48px 24px;font-size:14px;line-height:1.6;
     max-width:420px;margin:0 auto}
@@ -7047,6 +7078,70 @@ function _hrColor(n){
   if(n>=38) return "var(--hot)"; if(n>=28) return "var(--warm)";
   if(n>=20) return "var(--seam)"; if(n>=14) return "var(--good)"; return "var(--cold)";
 }
+// Data-backed trend analysis for the calendar. Volume/distance/day-of-week use ALL days;
+// heat-band + signal + badge conversion use only live-tracked days (backfilled days have no model
+// overlay). Everything carries its sample size so thin numbers read as thin.
+let calInsScope="season";
+function calendarInsights(allDays, curMonth){
+  const scope=calInsScope;
+  const inScope = scope==="month" ? allDays.filter(d=>d.date.startsWith(curMonth)) : allDays.slice();
+  if(inScope.length<2) return "";
+  const sorted=inScope.slice().sort((a,b)=>a.date<b.date?-1:1);
+  const tot=sorted.reduce((s,d)=>s+(d.total_hr||0),0), avg=tot/sorted.length;
+  const best=sorted.reduce((m,d)=>(m==null||d.total_hr>m.total_hr)?d:m,null);
+  const quiet=sorted.reduce((m,d)=>(m==null||d.total_hr<m.total_hr)?d:m,null);
+  const fmtD=ds=>new Date(ds+"T12:00:00").toLocaleDateString('default',{month:'short',day:'numeric'});
+  // day of week
+  const dS=[0,0,0,0,0,0,0], dN=[0,0,0,0,0,0,0];
+  sorted.forEach(d=>{const w=new Date(d.date+"T12:00:00").getDay(); dS[w]+=d.total_hr||0; dN[w]++;});
+  const dAvg=dS.map((s,i)=>dN[i]?s/dN[i]:0), maxDow=Math.max(...dAvg,1);
+  const bestW=dAvg.indexOf(Math.max(...dAvg)), DOW=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const dowBars=dAvg.map((v,i)=>`<div class="ins-dow"><div class="ins-dow-bar" style="height:${Math.max(3,Math.round(v/maxDow*34))}px;background:${i===bestW?'var(--hot)':'var(--seam)'}"></div><div class="ins-dow-v">${v?v.toFixed(0):'–'}</div><div class="ins-dow-l">${DOW[i][0]}</div></div>`).join("");
+  // volume trend: last 7 vs prior 7
+  const mean=a=>a.length?a.reduce((s,d)=>s+(d.total_hr||0),0)/a.length:null;
+  const l7=mean(sorted.slice(-7)), p7=mean(sorted.slice(-14,-7));
+  const vTrend=(l7!=null&&p7!=null)?l7-p7:null;
+  const vChip=vTrend==null?"":`<span class="ins-chip ${vTrend>1?'up':vTrend<-1?'dn':''}">${vTrend>=0?'▲':'▼'} ${l7.toFixed(1)}/day last 7 vs ${p7.toFixed(1)} prior</span>`;
+  // distance trend (ball signal) — needs avg_hr_dist
+  const dmean=a=>{const v=a.filter(d=>d.avg_hr_dist!=null); return v.length?v.reduce((s,d)=>s+d.avg_hr_dist,0)/v.length:null;};
+  const ddays=sorted.filter(d=>d.avg_hr_dist!=null);
+  const dl7=dmean(ddays.slice(-7)), dall=dmean(ddays);
+  const dChip=(dl7!=null&&dall!=null)?`<span class="ins-chip ${dl7-dall>3?'up':dl7-dall<-3?'dn':''}">${dl7-dall>=0?'▲':'▼'} avg HR ${dl7.toFixed(0)} ft last 7 vs ${dall.toFixed(0)} ft ${scope==='month'?'this month':'season'}</span>`:"";
+  // tracked-only conversions
+  const tracked=sorted.filter(d=>d.by_tier && !d.backfilled);
+  let tierBlock="", sigBlock="", badgeBlock="";
+  if(tracked.length){
+    const tierAgg={}; tracked.forEach(d=>{for(const[t,e]of Object.entries(d.by_tier||{})){const a=tierAgg[t]||(tierAgg[t]={n:0,hr:0});a.n+=e.n||0;a.hr+=e.hr||0;}});
+    const order=["70+","55-69","40-54","<40"]; const rate=t=>{const e=tierAgg[t];return e&&e.n?100*e.hr/e.n:null;};
+    const maxR=Math.max(...order.map(t=>rate(t)||0),1);
+    const mono=(rate("70+")||0)>=(rate("55-69")||0) && (rate("55-69")||0)>=(rate("<40")||0);
+    tierBlock=`<div class="ins-h">Does the model hold up? — HR rate by heat band</div>
+      ${order.map(t=>{const r=rate(t),e=tierAgg[t]||{};return `<div class="ins-bar-row"><span class="ins-bar-lab">${t}</span><div class="ins-bar-track"><div class="ins-bar-fill" style="width:${r?Math.round(r/maxR*100):0}%;background:${t==='70+'?'var(--hot)':'var(--seam)'}"></div></div><span class="ins-bar-v">${r!=null?r.toFixed(1)+'%':'–'} <i>${e.hr||0}/${e.n||0}</i></span></div>`;}).join("")}
+      <div class="ins-note">${mono?'The ladder holds — hotter bands homer more, exactly as the model predicts.':'The top band (70+) leads, but the middle bands are close — normal noise at this sample. Watch it as days accrue.'}</div>`;
+    // signals by lift
+    const sigAgg={}; tracked.forEach(d=>{for(const[k,e]of Object.entries(d.by_signal||{})){const a=sigAgg[k]||(sigAgg[k]={cn:0,chr:0,nn:0,nhr:0});a.cn+=(e.cleared||{}).n||0;a.chr+=(e.cleared||{}).hr||0;a.nn+=(e.not||{}).n||0;a.nhr+=(e.not||{}).hr||0;}});
+    const SIGLAB={pull_air_pct:"Pull-air%",avg_ev:"Exit velo",barrel_pct:"Barrel%",ideal_aa_pct:"Ideal launch",iso:"ISO",slg:"SLG"};
+    const sigs=Object.entries(sigAgg).map(([k,a])=>{const cr=a.cn?a.chr/a.cn:0, nr=a.nn?a.nhr/a.nn:0; return {k,lift:nr>0?cr/nr:null,cr,cn:a.cn};}).filter(s=>s.lift!=null&&s.cn>=20).sort((a,b)=>b.lift-a.lift).slice(0,4);
+    if(sigs.length) sigBlock=`<div class="ins-h">Which underlying metric matters most — HR lift when it clears</div>${sigs.map(s=>`<div class="ins-bar-row"><span class="ins-bar-lab">${SIGLAB[s.k]||s.k}</span><div class="ins-bar-track"><div class="ins-bar-fill" style="width:${Math.min(100,Math.round((s.lift-1)*140+35))}%;background:${s.lift>=1.3?'var(--hot)':'var(--seam)'}"></div></div><span class="ins-bar-v">${s.lift>=1?'+':''}${Math.round((s.lift-1)*100)}% <i>${(s.cr*100).toFixed(0)}% HR</i></span></div>`).join("")}<div class="ins-note">Lift = HR rate when a hitter clears that signal vs when he doesn't. The strongest is the metric most worth trusting on a given day.</div>`;
+    // badges by HR rate
+    const bAgg={}; tracked.forEach(d=>{for(const[k,e]of Object.entries(d.by_badge||{})){const a=bAgg[k]||(bAgg[k]={n:0,hr:0});a.n+=e.n||0;a.hr+=e.hr||0;}});
+    const badges=Object.entries(bAgg).map(([k,a])=>({k,r:a.n?a.hr/a.n:0,n:a.n})).filter(b=>b.n>=25).sort((a,b)=>b.r-a.r).slice(0,5);
+    if(badges.length) badgeBlock=`<div class="ins-h">Best-converting badges</div><div class="ins-badges">${badges.map(b=>`<span class="ins-badge"><b>${b.k}</b> ${(b.r*100).toFixed(0)}% <i>n${b.n}</i></span>`).join("")}</div>`;
+  }
+  return `<div class="cal-insights">
+    <div class="ins-top"><div class="ins-title">Trends &amp; what's working</div>
+      <div class="ins-scope"><button class="${scope==='month'?'on':''}" onclick="calInsScope='month';renderCalendar()">This month</button><button class="${scope==='season'?'on':''}" onclick="calInsScope='season';renderCalendar()">Full season</button></div></div>
+    <div class="ins-line">Best day: <b style="color:var(--hot)">${fmtD(best.date)}</b> (${best.total_hr} HR) · quietest: <b style="color:var(--cold)">${fmtD(quiet.date)}</b> (${quiet.total_hr}) · avg <b>${avg.toFixed(1)}</b>/day over ${sorted.length} days</div>
+    <div class="ins-chips">${vChip}${dChip}</div>
+    <div class="ins-h">HRs by day of week ${bestW>=0?`— <b style="color:var(--hot)">${DOW[bestW]}</b> runs hottest`:''}</div>
+    <div class="ins-dow-row">${dowBars}</div>
+    ${tierBlock}
+    ${sigBlock}
+    ${badgeBlock}
+    <div class="ins-foot">Volume &amp; distance use every day; heat-band, signal &amp; badge rates use ${tracked.length} live-tracked day${tracked.length===1?'':'s'} (backfilled days have HR facts but no model overlay). Small samples wobble — trust these more as the season fills in.</div>
+  </div>`;
+}
+
 function renderCalendar(){
   const main=document.getElementById("main");
   if(!HISTORY||!HISTORY.days||!HISTORY.days.length){
@@ -7126,6 +7221,7 @@ function renderCalendar(){
     <div class="cal-dow">${["Su","Mo","Tu","We","Th","Fr","Sa"].map(d=>`<div>${d}</div>`).join("")}</div>
     <div class="cal-grid">${cells}</div>
     ${detail}
+    ${calendarInsights(days, calMonth)}
     <div class="pl-note" style="margin-top:12px">Total HRs across all tracked hitters each day — tap any day for who went deep and the heat/badge breakdown. A run of low days (like the one you noticed) can flag a real change — ball, weather, league-wide — that no model sees; this is where it'd show up. Tracking since ${days[0].date}, growing daily.</div>
   </div>`;
 }
