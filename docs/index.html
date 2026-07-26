@@ -1385,19 +1385,19 @@
   .zd-xw{font-family:"IBM Plex Mono";font-size:10px;font-weight:700;color:var(--ink)}
   .zd-star{position:absolute;top:2px;right:3px;font-size:8px;color:var(--hot)}
   .zd-note{font-size:10px;color:var(--faint);margin-top:8px;line-height:1.4;text-align:center}
-  /* top plays strip */
-  .tp-card{max-width:760px;margin:0 auto 12px;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--panel)}
-  .tp-h{display:flex;align-items:center;justify-content:space-between;font-family:Archivo;font-weight:800;font-size:14px;margin-bottom:8px;cursor:pointer;list-style:none}
-  .tp-card summary::-webkit-details-marker{display:none}
-  .tp-h .beta-pill{font-size:9px}
-  .tp-row{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--line);cursor:pointer}
-  .tp-row:first-of-type{border-top:none}
-  .tp-heat{flex:0 0 30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:"IBM Plex Mono";font-weight:800;font-size:13px;color:#0d0f13}
-  .tp-body{flex:1;min-width:0}
-  .tp-nm{font-weight:700;font-size:13px}
-  .tp-nm .tp-tier{font-family:"IBM Plex Mono";font-size:9px;font-weight:700;color:var(--seam);margin-left:6px}
-  .tp-why{font-size:11px;color:var(--muted);line-height:1.45;margin-top:2px}
-  .tp-tags{margin-top:4px}
+  /* top plays strip (tpc- namespace: avoids collision with the #tpPanel .tp- component) */
+  .tpc-card{max-width:760px;margin:0 auto 12px;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--panel)}
+  .tpc-h{display:flex;align-items:center;justify-content:space-between;font-family:Archivo;font-weight:800;font-size:14px;margin-bottom:8px;cursor:pointer;list-style:none}
+  .tpc-card summary::-webkit-details-marker{display:none}
+  .tpc-h .beta-pill{font-size:9px}
+  .tpc-row{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--line);cursor:pointer}
+  .tpc-row:first-of-type{border-top:none}
+  .tpc-heat{flex:0 0 30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:"IBM Plex Mono";font-weight:800;font-size:13px;color:#0d0f13}
+  .tpc-body{flex:1;min-width:0;display:block}
+  .tpc-nm{font-weight:700;font-size:13px}
+  .tpc-nm .tpc-tier{font-family:"IBM Plex Mono";font-size:9px;font-weight:700;color:var(--seam);margin-left:6px}
+  .tpc-why{font-size:11px;color:var(--muted);line-height:1.45;margin-top:2px}
+  .tpc-tags{margin-top:4px}
   /* suggested slips */
   .slip-legs{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
   .slip-leg{font-size:11px;background:var(--panel-2);border-radius:6px;padding:3px 7px}
@@ -2797,17 +2797,17 @@ function topPlaysCard(){
     if(t.bomb_tier==='high') tags.push(`<span class="pl-tag tg">bomb</span>`);
     if(t.zone>=5) tags.push(`<span class="pl-tag lb">ZONE ${t.zone}</span>`);
     if(t.vuln_tier&&/elite/.test(t.vuln_tier)) tags.push(`<span class="pl-tag up">vuln arm</span>`);
-    return `<div class="tp-row" onclick="scanToPlayer(${t.id})">
-      <div class="tp-heat" style="background:${heatCol}">${t.heat??'–'}</div>
-      <div class="tp-body">
-        <div class="tp-nm">${t.name}<span class="tp-tier" style="color:${tierCol[t.tier]||'var(--muted)'}">${t.tier||''}</span>
+    return `<div class="tpc-row" onclick="scanToPlayer(${t.id})">
+      <div class="tpc-heat" style="background:${heatCol}">${t.heat??'–'}</div>
+      <div class="tpc-body">
+        <div class="tpc-nm">${t.name}<span class="tpc-tier" style="color:${tierCol[t.tier]||'var(--muted)'}">${t.tier||''}</span>
           <span class="pl-meta" style="font-weight:400">${t.team}→${t.opp_team}${t.spot?` · #${t.spot}`:''}${t.arm?` · vs ${t.arm}`:''}</span></div>
-        <div class="tp-why">${t.why||''}</div>
-        ${tags.length?`<div class="tp-tags">${tags.join('')}</div>`:''}
+        <div class="tpc-why">${t.why||''}</div>
+        ${tags.length?`<div class="tpc-tags">${tags.join('')}</div>`:''}
       </div>
     </div>`;
   }).join("");
-  return `<details class="tp-card" open><summary class="tp-h"><span>Top Plays — the model's best of the slate</span><span class="beta-pill">${tp.length}</span></summary>
+  return `<details class="tpc-card" open><summary class="tpc-h"><span>Top Plays — the model's best of the slate</span><span class="beta-pill">${tp.length}</span></summary>
     ${rows}
     <div class="pl-foot" style="margin-top:6px">Curated where the signals stack — heat, matchup grade, bomb ceiling, zone fit and a vulnerable arm all pointing the same way. Tap any name to open its card.</div>
   </details>`;
