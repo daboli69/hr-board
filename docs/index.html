@@ -1483,6 +1483,7 @@
   .cal-hr-list{display:flex;flex-direction:column;gap:5px;max-height:340px;overflow-y:auto}
   .cal-hr-row{display:flex;align-items:center;gap:8px;font-size:12.5px}
   .cal-hr-heat{flex:0 0 28px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:"IBM Plex Mono";font-weight:800;font-size:11px;color:#0d0f13}
+  .cal-hr-heat.cal-hr-dist{background:var(--panel-2);color:var(--muted);font-size:9.5px;font-weight:700}
   .cal-hr-meta{font-size:9.5px;color:var(--faint);font-family:"IBM Plex Mono"}
 
   .empty{color:var(--muted);text-align:center;padding:48px 24px;font-size:14px;line-height:1.6;
@@ -7020,17 +7021,32 @@ function renderCalendar(){
   const selRec=calSelDate?byDate[calSelDate]:(hi||mDays[mDays.length-1]);
   let detail="";
   if(selRec){
-    const log=(selRec.hr_log||[]).slice().sort((a,b)=>((b.hr||0)-(a.hr||0))||((b.heat||0)-(a.heat||0)));
-    const bt=selRec.by_tier||{};
-    const tierLine=["70+","55-69","40-54","<40"].map(t=>{const e=bt[t]||{};return `${t} <b>${e.hr||0}</b>/${e.n||0}`;}).join(" · ");
-    const bc={}; log.forEach(x=>(x.badges||[]).forEach(b=>bc[b]=(bc[b]||0)+1));
-    const topBadges=Object.entries(bc).sort((a,b)=>b[1]-a[1]).slice(0,7).map(([b,c])=>`<span class="cal-badge">${b} ×${c}</span>`).join("");
-    const names=log.map(x=>`<div class="cal-hr-row"><span class="cal-hr-heat" style="background:${chipColor(x.heat||0)}">${x.heat??'–'}</span><b>${x.name}</b>${(x.hr||0)>1?` <span style="color:var(--hot)">×${x.hr}</span>`:''}<span class="cal-hr-meta">${x.tier||''}${x.off?' · off '+x.off:''}${(x.badges||[]).length?' · '+x.badges.join(' '):''}</span></div>`).join("");
+    const backfilled=!!selRec.backfilled;
+    const log=(selRec.hr_log||[]).slice().sort((a,b)=>((b.hr||0)-(a.hr||0))||((b.heat||0)-(a.heat||0))||((b.dist||0)-(a.dist||0)));
     const dObj=new Date(selRec.date+"T12:00:00");
+    const distBit=selRec.avg_hr_dist!=null?` · avg <b style="color:var(--ink)">${selRec.avg_hr_dist} ft</b>${selRec.avg_hr_ev!=null?` / ${selRec.avg_hr_ev} mph`:""}`:"";
+    let midBlock;
+    if(backfilled){
+      midBlock=`<div class="cal-det-tiers" style="color:var(--faint)">pre-tracking day — HR facts from Statcast, no model overlay (heat/badges weren't computed live back then)</div>`;
+    } else {
+      const bt=selRec.by_tier||{};
+      const tierLine=["70+","55-69","40-54","<40"].map(t=>{const e=bt[t]||{};return `${t} <b>${e.hr||0}</b>/${e.n||0}`;}).join(" · ");
+      const bc={}; log.forEach(x=>(x.badges||[]).forEach(b=>bc[b]=(bc[b]||0)+1));
+      const topBadges=Object.entries(bc).sort((a,b)=>b[1]-a[1]).slice(0,7).map(([b,c])=>`<span class="cal-badge">${b} ×${c}</span>`).join("");
+      midBlock=`<div class="cal-det-tiers">by heat band — ${tierLine}</div>${topBadges?`<div class="cal-det-badges">${topBadges}</div>`:""}`;
+    }
+    const names=log.map(x=>{
+      const left = (!backfilled && x.heat!=null)
+        ? `<span class="cal-hr-heat" style="background:${chipColor(x.heat||0)}">${x.heat}</span>`
+        : `<span class="cal-hr-heat cal-hr-dist">${x.dist!=null?x.dist:"·"}</span>`;
+      const meta = backfilled
+        ? `${x.dist!=null?x.dist+" ft":""}${x.ev!=null?" · "+x.ev+" mph":""}`
+        : `${x.tier||''}${x.off?' · off '+x.off:''}${(x.badges||[]).length?' · '+x.badges.join(' '):''}`;
+      return `<div class="cal-hr-row">${left}<b>${x.name}</b>${(x.hr||0)>1?` <span style="color:var(--hot)">×${x.hr}</span>`:''}<span class="cal-hr-meta">${meta}</span></div>`;
+    }).join("");
     detail=`<div class="cal-detail">
-      <div class="cal-det-h">${dObj.toLocaleDateString('default',{weekday:'long',month:'short',day:'numeric'})} — <b style="color:${_hrColor(selRec.total_hr)}">${selRec.total_hr} HR</b> <span class="cal-det-sub">· ${selRec.players||'?'} tracked · ${selRec.sp_hr||0} off SP / ${selRec.bp_hr||0} off pen</span></div>
-      <div class="cal-det-tiers">by heat band — ${tierLine}</div>
-      ${topBadges?`<div class="cal-det-badges">${topBadges}</div>`:''}
+      <div class="cal-det-h">${dObj.toLocaleDateString('default',{weekday:'long',month:'short',day:'numeric'})} — <b style="color:${_hrColor(selRec.total_hr)}">${selRec.total_hr} HR</b> <span class="cal-det-sub">· ${selRec.hitters_homered||log.length} hitters · ${selRec.sp_hr||0} off SP / ${selRec.bp_hr||0} off pen${distBit}</span></div>
+      ${midBlock}
       <div class="cal-hr-list">${names||'<div style="color:var(--muted);font-size:12px;padding:6px 0">No HRs logged.</div>'}</div>
     </div>`;
   }
