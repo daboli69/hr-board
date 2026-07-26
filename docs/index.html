@@ -1451,6 +1451,39 @@
   .q-corr{font-family:"IBM Plex Mono";font-size:9.5px;font-weight:700}
   .q-total{background:var(--panel-2);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--muted);margin-top:12px;text-align:center}
   .q-total b{font-family:"IBM Plex Mono";color:var(--ink)}
+  /* top picks */
+  .tp-rank{flex:0 0 20px;display:flex;align-items:center;justify-content:center;font-family:"IBM Plex Mono";font-size:12px;font-weight:700;color:var(--faint)}
+  .q-edge i{font-style:normal}
+  .tp-dots{font-size:9px;letter-spacing:1px;color:var(--seam)}
+  /* HR calendar */
+  .cal-top{display:flex;align-items:center;justify-content:space-between;margin:4px 0 10px}
+  .cal-month{font-family:Archivo;font-weight:800;font-size:18px}
+  .cal-nav{width:38px;height:38px;border-radius:9px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-size:20px;cursor:pointer}
+  .cal-nav:disabled{opacity:.3;cursor:default}
+  .cal-stats{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin-bottom:8px}
+  .cal-stats b{font-family:"IBM Plex Mono";color:var(--ink)}
+  .cal-spark{width:100%;height:44px;display:block;margin-bottom:10px}
+  .cal-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px}
+  .cal-dow div{text-align:center;font-size:9.5px;font-weight:700;color:var(--faint);font-family:"IBM Plex Mono"}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+  .cal-cell{aspect-ratio:1;border:1px solid var(--line);border-radius:8px;padding:3px 0 0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;cursor:pointer;position:relative;transition:transform .1s ease}
+  .cal-cell.sel{border-width:2px}
+  .cal-cell:active{transform:scale(.95)}
+  .cal-empty{border:none;background:none;cursor:default}
+  .cal-nodata{opacity:.35;cursor:default;background:var(--panel)}
+  .cal-dd{font-size:9.5px;color:var(--faint);font-family:"IBM Plex Mono"}
+  .cal-n{font-family:Archivo;font-weight:900;font-size:17px;line-height:1;margin-top:1px}
+  .cal-detail{margin-top:16px;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--panel)}
+  .cal-det-h{font-size:14px;font-family:Archivo;font-weight:700;margin-bottom:6px}
+  .cal-det-sub{font-family:inherit;font-weight:400;font-size:11px;color:var(--muted)}
+  .cal-det-tiers{font-size:11.5px;color:var(--muted);font-family:"IBM Plex Mono";margin-bottom:6px}
+  .cal-det-tiers b{color:var(--ink)}
+  .cal-det-badges{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+  .cal-badge{font-family:"IBM Plex Mono";font-size:9px;font-weight:700;background:var(--panel-2);color:var(--muted);border-radius:5px;padding:2px 6px}
+  .cal-hr-list{display:flex;flex-direction:column;gap:5px;max-height:340px;overflow-y:auto}
+  .cal-hr-row{display:flex;align-items:center;gap:8px;font-size:12.5px}
+  .cal-hr-heat{flex:0 0 28px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:"IBM Plex Mono";font-weight:800;font-size:11px;color:#0d0f13}
+  .cal-hr-meta{font-size:9.5px;color:var(--faint);font-family:"IBM Plex Mono"}
 
   .empty{color:var(--muted);text-align:center;padding:48px 24px;font-size:14px;line-height:1.6;
     max-width:420px;margin:0 auto}
@@ -1832,6 +1865,7 @@
       <button class="nav-item" data-nav="bets" onclick="drawerGo('bets')">Bets<i>Edge Finder · my bets · jackpots</i></button>
 
       <div class="nav-sec">TARGETS</div>
+      <button class="nav-item" data-nav="toppicks" onclick="drawerGo('toppicks')">⚡ Top Picks<i>all props, most likely to hit first</i></button>
       <button class="nav-item" data-nav="qualified" onclick="drawerGo('qualified')">💰 Qualified Bets<i>every market, only where price beats fair · Kelly sized</i></button>
       <button class="nav-item" data-nav="edges" onclick="drawerGo('edges','arms')">Vulnerable Arms<i>HR Vuln score · zone maps</i></button>
       <button class="nav-item" data-nav="edges-qt" onclick="drawerGo('edges','qt')">Quick Target<i>dangerous lineup spots per arm</i></button>
@@ -1844,6 +1878,7 @@
       <button class="nav-item" data-nav="edges-late" onclick="drawerGo('edges','late')">Late-HR Spots<i>short starter + gassed pen</i></button>
 
       <div class="nav-sec">RESULTS</div>
+      <button class="nav-item" data-nav="calendar" onclick="drawerGo('calendar')">📅 HR Calendar<i>HRs per day · trends · who went deep</i></button>
       <button class="nav-item" data-nav="tracker" onclick="drawerGo('tracker')">Tracker<i>model vs reality, by tier</i></button>
       <button class="nav-item" onclick="openLegend()">Legend<i>what every badge &amp; chip means</i></button>
       <button class="nav-item" onclick="document.getElementById('moreSheet').classList.remove('show');openFaq()">How it works<i>every signal explained</i></button>
@@ -3421,7 +3456,7 @@ function renderView(){
   // Weather is a live standalone view again (park + wind arrow, plus slate park ranking).
   if(view==="stacks"){ view="scan"; }
   else if(view==="matchup"){ view="edges"; }
-  if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else if(view==="weather") safe(renderWeather); else if(view==="qualified") safe(renderQualified); else safe(render);
+  if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else if(view==="weather") safe(renderWeather); else if(view==="qualified") safe(renderQualified); else if(view==="toppicks") safe(renderTopPicks); else if(view==="calendar") safe(renderCalendar); else safe(render);
 }
 
 // Weather dashboard: today's slate, one card per game — conditions, roof call,
@@ -5370,6 +5405,84 @@ function renderQualified(){
   </div>`;
 }
 
+// ===== TOP PICKS: one confidence-ranked list across every prop type =====
+// Per-hitter conviction from the same signals evCrossCheck uses (heat-band measured lift, matchup
+// grade, zone overlap, measured badge lift, park, arm vuln) — computed straight from the player so
+// we can score 270 hitters x 3 props + every arm cheaply.
+function hitterConv(p){
+  let lean=0, bestLift=null, bestLabel="", bits=[];
+  const consider=(l,lab)=>{ if(l!=null&&(bestLift==null||l>bestLift)){bestLift=l;bestLabel=lab;} };
+  const band=heatBand(p.heat), tl=btTierLift(band);
+  if(band==="70+"){lean+=2;bits.push("heat "+p.heat);} else if(band==="55-69"){lean+=1;bits.push("heat "+p.heat);} else if(band==="<40"){lean-=2;}
+  consider(tl, "heat "+band);
+  const mg=p.matchup_grade;
+  if(mg&&mg.grade){ if(mg.grade==="ELITE"){lean+=2;bits.push("ELITE grade");} else if(mg.grade==="STRONG"){lean+=1;bits.push("STRONG grade");} else if(mg.grade==="WEAK"){lean-=1;} }
+  const ov=((p.features||{}).zone_profile||{}).overlap;
+  if(ov&&ov.count>=3){ lean+=1; bits.push("zone "+ov.count); consider(btZoneLift(ov.count), "zone "+ov.count); }
+  (p.badges||[]).forEach(b=>{ const k=(typeof b==="string")?b:b.k; const bl=btBadgeLift(k); if(bl!=null&&bl>=1.2){ lean+=1; bits.push((b.t||k)); consider(bl,(b.t||k)); } });
+  if((p.park_hr_factor||0)>=1.08){ lean+=1; bits.push("park "+Number(p.park_hr_factor).toFixed(2)+"x"); }
+  if(((p.opp_pitcher||{}).hr_score||0)>=60){ lean+=1; bits.push("vuln arm"); }
+  return {conv:Math.max(0,Math.min(1,(lean+2)/8)), lean, bestLift, bestLabel, bits};
+}
+function armConv(a){
+  let s=0, bits=[]; const kh=a.k_heat||0;
+  s += Math.max(0,Math.min(1,(kh-45)/35))*0.5; if(kh>=60) bits.push("K-heat "+Math.round(kh));
+  if(a.opp_lineup_k_pct!=null){ s += Math.max(0,Math.min(1,(a.opp_lineup_k_pct-19)/11))*0.3; if(a.opp_lineup_k_pct>=24) bits.push("opp K% "+a.opp_lineup_k_pct.toFixed(0)); }
+  if(a.swstr_pct!=null){ s += Math.max(0,Math.min(1,(a.swstr_pct-9)/8))*0.2; if(a.swstr_pct>=13) bits.push("SwStr "+a.swstr_pct.toFixed(0)+"%"); }
+  return {conv:Math.max(0,Math.min(1,s)), bits};
+}
+function unifiedPicks(filter){
+  const out=[];
+  (BOARD.players||[]).filter(p=>p.lineup_status!=="out").forEach(p=>{
+    const c=hitterConv(p);
+    const add=(typeKey,label,prob)=>{ if(prob==null) return;
+      out.push({id:p.id, name:p.name, team:p.team, opp:p.opp_team, typeKey, label, prob,
+        conf:prob*(0.82+0.30*c.conv), conv:c.conv, bits:c.bits, bestLift:c.bestLift, bestLabel:c.bestLabel, isArm:false}); };
+    add("HR","Home Run", calibratedHRprob(p.heat));
+    add("Hit","1+ Hits", smoothPropProb("hit1", p.hit_heat));
+    add("HRR","HRR 1.5", smoothPropProb("hrr", p.hrr_heat));
+  });
+  (BOARD.pitcher_props||[]).forEach(a=>{
+    if(a.est_ks==null) return;
+    const ac=armConv(a), prob=kOverProb(a.est_ks); if(prob==null) return;
+    out.push({id:null, name:a.name, team:a.team, opp:a.opp_team, typeKey:"Ks",
+      label:`Over ${(Math.floor(a.est_ks)+0.5).toFixed(1)} Ks`, prob, conf:prob*(0.82+0.30*ac.conv),
+      conv:ac.conv, bits:ac.bits, est:a.est_ks, isArm:true});
+  });
+  let list=out;
+  if(filter&&filter!=="all") list=list.filter(x=>x.typeKey===filter);
+  return list.sort((a,b)=>b.conf-a.conf);
+}
+let topPicksFilter="all";
+function renderTopPicks(){
+  const main=document.getElementById("main");
+  if(!BOARD||!BOARD.players){ main.innerHTML=`<div class="empty">Board not loaded.</div>`; return; }
+  const picks=unifiedPicks(topPicksFilter);
+  const typeCol={HR:"hr",Hit:"hit",HRR:"hr",Ks:"k"};
+  const filters=[["all","All"],["Hit","Hits"],["HR","HR"],["HRR","HRR"],["Ks","Ks"]];
+  const chips=`<div class="sortchips">${filters.map(([k,l])=>`<button class="sortchip${topPicksFilter===k?' on':''}" onclick="topPicksFilter='${k}';renderTopPicks()">${l}</button>`).join("")}</div>`;
+  const dots=c=>{ const n=c>=0.66?3:c>=0.4?2:1; return `<span class="tp-dots" title="data conviction">${"●".repeat(n)}${"○".repeat(3-n)}</span>`; };
+  const row=(x,i)=>{
+    const sig=(x.bits||[]).slice(0,3).join(" · ")||"thin support";
+    const lift=(x.bestLift!=null&&x.bestLift>=1.1)?` · <span style="color:var(--good)">${x.bestLabel} ${liftPct(x.bestLift)} tracked</span>`:"";
+    return `<div class="q-row"${x.id?` onclick="scanToPlayer(${x.id})"`:""}>
+      <div class="tp-rank">${i+1}</div>
+      <div class="q-edge" style="color:var(--seam);background:rgba(215,120,60,.10)">${Math.round(x.prob*100)}<i>% hit</i></div>
+      <div class="q-body">
+        <div class="q-nm"><b>${x.name}</b> <span class="q-type ${typeCol[x.typeKey]}">${x.label}</span> ${dots(x.conv)}</div>
+        <div class="q-line">${x.team}→${x.opp}${x.isArm?` · est ${x.est.toFixed(1)} Ks`:""} · ${sig}${lift}</div>
+      </div>
+    </div>`;
+  };
+  main.innerHTML=`<div style="max-width:760px;margin:0 auto">
+    <div class="q-head"><b>⚡ Top Picks</b><span class="beta-pill">${picks.length}</span></div>
+    <div class="q-sub">Every prop — HR, hits, HRR, strikeouts — in <b>one list, most likely to hit first</b>. The number is the model's calibrated chance the bet cashes; the ●●● dots are how much of everything else (backtested lift, matchup grade, zone, park, heat, arm) backs it up. Short on time? Start at the top. Hits and K-overs naturally rank highest because they hit most often — tap a type to see the best of just that market.</div>
+    ${chips}
+    ${picks.slice(0,60).map(row).join("")}
+    <div class="pl-note" style="margin-top:12px">Ranked by likelihood, weighted by data-backed conviction — <b>not</b> by price. A high chance isn't automatically a good <i>bet</i>; check Qualified Bets to see which of these also beat their price. Separate model from HR heat; trust it as your tracker validates it.</div>
+  </div>`;
+}
+
 // Fetched two-sided prop odds for a player, by prop key and name. Accepts either the ETL
 // bucket key (hits/hrr/pk) or the view key (hit/hrr/k) and normalizes.
 function fetchedPropFor(prop, name){
@@ -6861,6 +6974,81 @@ function propParlayHTML(){
     ${cards||'<div class="empty">Couldn\'t assemble parlays from the current priced legs.</div>'}`;
 }
 
+// ===== HR CALENDAR: HRs per day, interactive month grid, trend spotting =====
+let calMonth=null, calSelDate=null;
+function _hrColor(n){
+  if(n==null) return "var(--muted)";
+  if(n>=38) return "var(--hot)"; if(n>=28) return "var(--warm)";
+  if(n>=20) return "var(--seam)"; if(n>=14) return "var(--good)"; return "var(--cold)";
+}
+function renderCalendar(){
+  const main=document.getElementById("main");
+  if(!HISTORY||!HISTORY.days||!HISTORY.days.length){
+    main.innerHTML=`<div class="empty">No graded days yet.<br>The HR calendar fills in each morning after games go final — check back once a few days are in the books.</div>`;
+    return;
+  }
+  const days=HISTORY.days.slice().sort((a,b)=>a.date<b.date?-1:1);
+  const byDate={}; days.forEach(d=>byDate[d.date]=d);
+  const months=[...new Set(days.map(d=>d.date.slice(0,7)))].sort();
+  if(!calMonth || !months.includes(calMonth)) calMonth=months[months.length-1];
+  const mi=months.indexOf(calMonth);
+  const [Y,M]=calMonth.split("-").map(Number);
+  const first=new Date(Y,M-1,1), startDow=first.getDay(), daysInMonth=new Date(Y,M,0).getDate();
+  const pad2=x=>String(x).padStart(2,'0');
+  const mDays=days.filter(d=>d.date.startsWith(calMonth));
+  const tot=mDays.reduce((s,d)=>s+(d.total_hr||0),0);
+  const avg=mDays.length?tot/mDays.length:0;
+  const hi=mDays.reduce((m,d)=>(m==null||d.total_hr>m.total_hr)?d:m,null);
+  const lo=mDays.reduce((m,d)=>(m==null||d.total_hr<m.total_hr)?d:m,null);
+  // month sparkline (day-of-month) to spot stretches
+  const w=320,h=44,pd=3, vals=[];
+  for(let dd=1;dd<=daysInMonth;dd++){ const ds=`${Y}-${pad2(M)}-${pad2(dd)}`; vals.push(byDate[ds]?byDate[ds].total_hr:null); }
+  const mx=Math.max(20,...vals.filter(v=>v!=null));
+  const pts=vals.map((v,i)=>v==null?null:[pd+i*(w-2*pd)/Math.max(1,daysInMonth-1), h-pd-(v/mx)*(h-2*pd)]);
+  let sp=""; pts.forEach(pt=>{ if(pt) sp+=(sp?" L":"M")+pt[0].toFixed(0)+" "+pt[1].toFixed(0); });
+  const dots=pts.map(pt=>pt?`<circle cx="${pt[0].toFixed(0)}" cy="${pt[1].toFixed(0)}" r="1.7" fill="var(--seam)"/>`:"").join("");
+  const spark=`<svg viewBox="0 0 ${w} ${h}" class="cal-spark" preserveAspectRatio="none"><path d="${sp}" fill="none" stroke="var(--seam)" stroke-width="1.5"/>${dots}</svg>`;
+  // grid cells
+  let cells="";
+  for(let i=0;i<startDow;i++) cells+=`<div class="cal-cell cal-empty"></div>`;
+  for(let dd=1;dd<=daysInMonth;dd++){
+    const ds=`${Y}-${pad2(M)}-${pad2(dd)}`, rec=byDate[ds], n=rec?rec.total_hr:null, sel=calSelDate===ds;
+    cells+=`<div class="cal-cell${rec?'':' cal-nodata'}${sel?' sel':''}" ${rec?`onclick="calSelDate='${ds}';renderCalendar()" style="background:${_hrColor(n)}1e;border-color:${sel?_hrColor(n):'var(--line)'}"`:''}>
+      <div class="cal-dd">${dd}</div>${rec?`<div class="cal-n" style="color:${_hrColor(n)}">${n}</div>`:''}</div>`;
+  }
+  // selected-day detail (default to the month's high day)
+  const selRec=calSelDate?byDate[calSelDate]:(hi||mDays[mDays.length-1]);
+  let detail="";
+  if(selRec){
+    const log=(selRec.hr_log||[]).slice().sort((a,b)=>((b.hr||0)-(a.hr||0))||((b.heat||0)-(a.heat||0)));
+    const bt=selRec.by_tier||{};
+    const tierLine=["70+","55-69","40-54","<40"].map(t=>{const e=bt[t]||{};return `${t} <b>${e.hr||0}</b>/${e.n||0}`;}).join(" · ");
+    const bc={}; log.forEach(x=>(x.badges||[]).forEach(b=>bc[b]=(bc[b]||0)+1));
+    const topBadges=Object.entries(bc).sort((a,b)=>b[1]-a[1]).slice(0,7).map(([b,c])=>`<span class="cal-badge">${b} ×${c}</span>`).join("");
+    const names=log.map(x=>`<div class="cal-hr-row"><span class="cal-hr-heat" style="background:${chipColor(x.heat||0)}">${x.heat??'–'}</span><b>${x.name}</b>${(x.hr||0)>1?` <span style="color:var(--hot)">×${x.hr}</span>`:''}<span class="cal-hr-meta">${x.tier||''}${x.off?' · off '+x.off:''}${(x.badges||[]).length?' · '+x.badges.join(' '):''}</span></div>`).join("");
+    const dObj=new Date(selRec.date+"T12:00:00");
+    detail=`<div class="cal-detail">
+      <div class="cal-det-h">${dObj.toLocaleDateString('default',{weekday:'long',month:'short',day:'numeric'})} — <b style="color:${_hrColor(selRec.total_hr)}">${selRec.total_hr} HR</b> <span class="cal-det-sub">· ${selRec.players||'?'} tracked · ${selRec.sp_hr||0} off SP / ${selRec.bp_hr||0} off pen</span></div>
+      <div class="cal-det-tiers">by heat band — ${tierLine}</div>
+      ${topBadges?`<div class="cal-det-badges">${topBadges}</div>`:''}
+      <div class="cal-hr-list">${names||'<div style="color:var(--muted);font-size:12px;padding:6px 0">No HRs logged.</div>'}</div>
+    </div>`;
+  }
+  main.innerHTML=`<div style="max-width:760px;margin:0 auto">
+    <div class="cal-top">
+      <button class="cal-nav" ${mi<=0?'disabled':''} onclick="calMonth='${months[Math.max(0,mi-1)]}';calSelDate=null;renderCalendar()">‹</button>
+      <div class="cal-month">${first.toLocaleString('default',{month:'long',year:'numeric'})}</div>
+      <button class="cal-nav" ${mi>=months.length-1?'disabled':''} onclick="calMonth='${months[Math.min(months.length-1,mi+1)]}';calSelDate=null;renderCalendar()">›</button>
+    </div>
+    <div class="cal-stats"><span><b>${tot}</b> HR</span><span><b>${avg.toFixed(1)}</b>/day</span>${hi?`<span>high <b style="color:var(--hot)">${hi.total_hr}</b></span>`:''}${lo?`<span>low <b style="color:var(--cold)">${lo.total_hr}</b></span>`:''}</div>
+    ${spark}
+    <div class="cal-dow">${["Su","Mo","Tu","We","Th","Fr","Sa"].map(d=>`<div>${d}</div>`).join("")}</div>
+    <div class="cal-grid">${cells}</div>
+    ${detail}
+    <div class="pl-note" style="margin-top:12px">Total HRs across all tracked hitters each day — tap any day for who went deep and the heat/badge breakdown. A run of low days (like the one you noticed) can flag a real change — ball, weather, league-wide — that no model sees; this is where it'd show up. Tracking since ${days[0].date}, growing daily.</div>
+  </div>`;
+}
+
 function renderTracker(){
   const main=document.getElementById("main");
   if(!HISTORY||!HISTORY.days||!HISTORY.days.length){
@@ -7403,7 +7591,7 @@ document.getElementById("tabbar").addEventListener("click",async e=>{
   [...document.querySelectorAll("#tabbar button")].forEach(x=>x.setAttribute("aria-pressed",x===b));
   document.getElementById("boardControls").style.display = view==="board"?"":"none";
   savePrefs();
-  if((view==="tracker"||view==="parlays") && !HISTORY){ await loadHistory(); }
+  if((view==="tracker"||view==="parlays"||view==="calendar") && !HISTORY){ await loadHistory(); }
   renderView();
   setHH();
   window.scrollTo({top:0,behavior:"instant"});
@@ -7412,7 +7600,7 @@ document.getElementById("tabbar").addEventListener("click",async e=>{
 // Navigate to a view that lives in the "More" sheet (parlays/stacks/matchup/weather).
 // The More button in the tab bar lights up to show you're in a secondary view, since
 // none of the primary tabs own it.
-const MORE_VIEWS=new Set(["parlays","weather","qualified"]);
+const MORE_VIEWS=new Set(["parlays","weather","qualified","toppicks","calendar"]);
 // Drawer navigation — jumps to a view and optionally a sub-view, then closes the drawer.
 function drawerGo(v, sub){
   document.getElementById('moreSheet').classList.remove('show');
@@ -7466,7 +7654,7 @@ async function goView(v){
   });
   document.getElementById("boardControls").style.display = v==="board"?"":"none";
   savePrefs();
-  if((v==="tracker"||v==="parlays") && !HISTORY){ await loadHistory(); }
+  if((v==="tracker"||v==="parlays"||v==="calendar") && !HISTORY){ await loadHistory(); }
   renderView();
   setHH();
   window.scrollTo({top:0,behavior:"instant"});
@@ -7745,7 +7933,7 @@ async function load(){
     });
     document.getElementById("boardControls").style.display="none";
   }
-  if((view==="tracker"||view==="parlays") && !HISTORY){ await loadHistory(); }
+  if((view==="tracker"||view==="parlays"||view==="calendar") && !HISTORY){ await loadHistory(); }
   renderView();
   setHH();
   startLivePolling();
