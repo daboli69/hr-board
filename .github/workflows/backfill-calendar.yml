@@ -1,0 +1,47 @@
+name: Backfill HR Calendar
+
+# Manual, on-demand backfill of the HR calendar's earlier months from Statcast.
+# Run it from the Actions tab → "Backfill HR Calendar" → Run workflow, and give a start/end date.
+# It only fills DATA (HR counts, who homered, distance/EV) for days you don't already track live;
+# it never overwrites a real graded day. Do one month at a time if a big range times out.
+
+on:
+  workflow_dispatch:
+    inputs:
+      start:
+        description: "Start date (YYYY-MM-DD)"
+        required: true
+        default: "2026-03-27"
+      end:
+        description: "End date (YYYY-MM-DD)"
+        required: true
+        default: "2026-06-25"
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: pip install pybaseball pandas
+
+      - name: Run backfill
+        run: python etl/backfill_calendar.py --start "${{ inputs.start }}" --end "${{ inputs.end }}"
+
+      - name: Commit updated history.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/history.json
+          if git diff --cached --quiet; then
+            echo "No calendar changes to commit."
+          else
+            git commit -m "Backfill HR calendar ${{ inputs.start }} → ${{ inputs.end }}"
+            git push
+          fi
