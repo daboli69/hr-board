@@ -571,6 +571,10 @@ def main() -> int:
         "props": prop_odds,
         "game_lines": game_lines,
     }
+    try:
+        _apply_movement(payload)
+    except Exception as e:
+        print(f"[odds] movement enrichment skipped (non-fatal): {e}", file=sys.stderr)
     _write(payload)
     for pk, pv in prop_odds.items():
         print(f"[odds] prop '{pk}': {len(pv)} players priced", file=sys.stderr)
@@ -578,6 +582,59 @@ def main() -> int:
     both = sum(1 for v in prices.values() if len(v["books"]) == 2)
     print(f"[odds] wrote {len(prices)} hitters with HR prices ({both} priced by both books)")
     return 0
+
+
+HIST_PATH = OUT_PATH.parent / "odds_history.json"
+
+
+def _implied(american):
+    """American odds -> implied win probability (0..1), or None."""
+    try:
+        a = float(american)
+    except Exception:
+        return None
+    if a == 0:
+        return None
+    return (100.0 / (a + 100.0)) if a > 0 else ((-a) / ((-a) + 100.0))
+
+
+def _apply_movement(payload: dict) -> None:
+    """Track each HR selection's opening price across builds and annotate it with `open` and `mv`
+    (movement as an implied-probability delta in points; + = the market is steaming TOWARD the HR,
+    - = drifting away). Uses a committed history cache that resets each slate. The 6-builds-a-day
+    cron gives an open, several intraday points, and a near-close read for free. Fully non-fatal:
+    any failure here leaves the payload's prices exactly as they were."""
+    slate = payload.get("slate_date")
+    try:
+        hist = json.load(open(HIST_PATH))
+    except Exception:
+        hist = {}
+    if hist.get("slate_date") != slate:
+        hist = {"slate_date": slate, "sel": {}}
+    sel = hist.setdefault("sel", {})
+    now = payload.get("updated")
+    prices = payload.get("prices") or {}
+    for key, ent in prices.items():
+        best = ent.get("best")
+        if best is None:
+            continue
+        s = sel.get(key)
+        if not s:
+            s = {"open": best, "open_ts": now, "latest": best, "latest_ts": now, "n": 1}
+            sel[key] = s
+        else:
+            s["latest"] = best
+            s["latest_ts"] = now
+            s["n"] = s.get("n", 1) + 1
+        io, il = _implied(s.get("open")), _implied(best)
+        ent["open"] = s.get("open")
+        ent["mv"] = round((il - io) * 100, 1) if (io is not None and il is not None) else None
+        ent["mv_n"] = s.get("n", 1)
+    try:
+        with open(HIST_PATH, "w") as f:
+            json.dump(hist, f, separators=(",", ":"))
+    except Exception as e:
+        print(f"[odds] history write skipped (non-fatal): {e}", file=sys.stderr)
 
 
 def _write(payload: dict) -> None:
