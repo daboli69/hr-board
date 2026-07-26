@@ -1867,6 +1867,7 @@
 
       <div class="nav-sec">TARGETS</div>
       <button class="nav-item" data-nav="toppicks" onclick="drawerGo('toppicks')">⚡ Top Picks<i>all props, most likely to hit first</i></button>
+      <button class="nav-item" data-nav="jackpot" onclick="drawerGo('jackpot')">🎯 Long Ball Jackpot<i>longest-HR contest — ceilings + leverage</i></button>
       <button class="nav-item" data-nav="qualified" onclick="drawerGo('qualified')">💰 Qualified Bets<i>every market, only where price beats fair · Kelly sized</i></button>
       <button class="nav-item" data-nav="edges" onclick="drawerGo('edges','arms')">Vulnerable Arms<i>HR Vuln score · zone maps</i></button>
       <button class="nav-item" data-nav="edges-qt" onclick="drawerGo('edges','qt')">Quick Target<i>dangerous lineup spots per arm</i></button>
@@ -3457,7 +3458,7 @@ function renderView(){
   // Weather is a live standalone view again (park + wind arrow, plus slate park ranking).
   if(view==="stacks"){ view="scan"; }
   else if(view==="matchup"){ view="edges"; }
-  if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else if(view==="weather") safe(renderWeather); else if(view==="qualified") safe(renderQualified); else if(view==="toppicks") safe(renderTopPicks); else if(view==="calendar") safe(renderCalendar); else safe(render);
+  if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else if(view==="weather") safe(renderWeather); else if(view==="qualified") safe(renderQualified); else if(view==="toppicks") safe(renderTopPicks); else if(view==="calendar") safe(renderCalendar); else if(view==="jackpot") safe(renderJackpot); else safe(render);
 }
 
 // Weather dashboard: today's slate, one card per game — conditions, roof call,
@@ -3565,6 +3566,70 @@ function longballRanked(n){
     _lbRankFor=BOARD;
   }
   return _lbRankCache.slice(0, n||10);
+}
+
+// ===== LONG BALL JACKPOT: win the "longest HR of the day" contest =====
+// Different game from HR betting. To win you need (a) your guy to homer, and (b) it to be the
+// LONGEST HR of the whole slate — so raw distance ceiling dominates. And because the pool is split
+// by entries, the huge payouts hide on high-ceiling bats that FEW people pick. This model finds the
+// ceilings (which the contest itself can't tell you in advance) and flags the likely-underpicked
+// ones; you glance at the live entry counts in the app to lock the leverage.
+function jackpotModel(p){
+  const hp=(p.features||{}).hr_power||{};
+  if(hp.max_dist==null) return null;
+  const cl=v=>Math.max(0,Math.min(1,v));
+  const md=hp.max_dist;
+  // (a) P(homers at all)
+  const pHR = (typeof calibratedHRprob==="function" ? calibratedHRprob(p.heat) : null) ?? cl((p.heat||0)/100*0.18);
+  // (b) longest-of-the-day strength — anchored to the real winning range (~440-475ft). A 415-ceiling
+  // bat essentially can't win; 470+ has a real shot. Deep average FBs = more shots at the top; a
+  // carry-friendly park/wind adds real feet to the ceiling.
+  const ceilWin = cl((md-435)/38);                              // 435->0, 473->1
+  const carry   = cl(((hp.avg_fb_dist||300)-305)/35);
+  const parkCarry = cl(((p.park_hr_factor||1)-1)/0.18)*0.6 + cl(((p.park_hr||{}).boost||0)/12)*0.4;
+  const longStrength = cl(ceilWin*0.68 + carry*0.20 + parkCarry*0.12);
+  const winScore = pHR * (0.30 + 0.70*longStrength);            // must homer AND go deep (rank score)
+  // LEVERAGE: payout = pool / entries. No live entry feed, so proxy "chalkiness" by heat/profile —
+  // the obvious mashers draw the crowd; a big ceiling on a lower-profile bat is the $50k-to-1 slot.
+  const popularity = cl(0.2 + (p.heat||0)/100*0.8);
+  const leverage = longStrength / popularity;
+  const value = winScore * leverage;
+  return {md, afb:hp.avg_fb_dist, brl:hp.barrel_pct, pHR, longStrength, winScore, leverage, value,
+          ceilWin, park:p.park_hr_factor, wxBoost:(p.park_hr||{}).boost};
+}
+let jackpotView="win";
+function renderJackpot(){
+  const main=document.getElementById("main");
+  if(!BOARD||!BOARD.players){ main.innerHTML=`<div class="empty">Board not loaded.</div>`; return; }
+  const cands=(BOARD.players||[]).filter(p=>p.lineup_status!=="out")
+    .map(p=>({p, j:jackpotModel(p)})).filter(x=>x.j && x.j.md>=430);   // must be able to reach the range
+  const sortKeyJ = jackpotView==="value" ? "value" : "winScore";
+  cands.sort((a,b)=>b.j[sortKeyJ]-a.j[sortKeyJ]);
+  const tabs=`<div class="sortchips"><button class="sortchip${jackpotView==='win'?' on':''}" onclick="jackpotView='win';renderJackpot()">Best shot to win</button><button class="sortchip${jackpotView==='value'?' on':''}" onclick="jackpotView='value';renderJackpot()">🎯 Best leverage</button></div>`;
+  const lev=j=> j.leverage>=1.9?["🎯🎯","var(--hot)","low-profile — big payout if he wins"]
+              : j.leverage>=1.3?["🎯","var(--seam)","moderately under-the-radar"]
+              : ["chalk","var(--muted)","obvious pick — small payout share"];
+  const row=(x,i)=>{
+    const j=x.j, p=x.p, [lg,lc,lt]=lev(j);
+    const conds=[]; if((j.park||1)>=1.05)conds.push(`park ${(+j.park).toFixed(2)}×`); if((j.wxBoost||0)>=4)conds.push(`+${j.wxBoost}% carry`);
+    return `<div class="q-row" onclick="scanToPlayer(${p.id})">
+      <div class="q-edge" style="color:var(--hot);background:rgba(214,110,90,.10)">${j.md}<i>ft ceil</i></div>
+      <div class="q-body">
+        <div class="q-nm"><b>${p.name}</b> <span class="q-type hr">${p.team}→${p.opp_team}</span> <span class="tp-dots" style="color:${lc}" title="${lt}">${lg}</span></div>
+        <div class="q-line">${Math.round(j.pHR*100)}% to homer · avg FB ${j.afb||'?'}ft · ${j.brl!=null?j.brl+'% brl':''}${conds.length?' · '+conds.join(' · '):''}</div>
+      </div>
+    </div>`;
+  };
+  const blurb = jackpotView==="value"
+    ? `Ranked by <b>leverage</b> — big distance ceiling on a bat the crowd is likely to overlook. If one of these hits the day's longest, you split the pool with far fewer people (the difference between $50,000 and $695 in the app). 🎯🎯 = the real long shots at a huge share.`
+    : `Ranked by <b>best shot to win</b> — most likely to actually hit the longest HR of the day (raw ceiling × chance he homers × carry conditions). These are the safest to be right; check the leverage tab for the ones that pay the most.`;
+  main.innerHTML=`<div style="max-width:760px;margin:0 auto">
+    <div class="q-head"><b>🎯 Long Ball Jackpot</b><span class="beta-pill">${cands.length} live ceilings</span></div>
+    <div class="q-sub">For the "longest HR of the day" pool. The number is each hitter's <b>distance ceiling</b> (his longest recent batted ball) — to win, you need the day's longest, so ceiling is almost everything. ${blurb}</div>
+    ${tabs}
+    ${cands.slice(0,40).map(row).join("")}
+    <div class="pl-note" style="margin-top:12px"><b>How to play it:</b> the app can't see live entry counts (no feed) — it finds the <b>ceilings</b>, which the contest hides until someone already homered. Pick a high-ceiling bat here, then glance at the entry counts in the Fanatics app: the sweet spot is a 460ft+ ceiling with few entries. Carry-friendly parks/wind and a high chance to homer break ties. Ceilings from recent Statcast max distance; a hot ceiling can outrank a chalky masher.</div>
+  </div>`;
 }
 
 
@@ -7616,7 +7681,7 @@ document.getElementById("tabbar").addEventListener("click",async e=>{
 // Navigate to a view that lives in the "More" sheet (parlays/stacks/matchup/weather).
 // The More button in the tab bar lights up to show you're in a secondary view, since
 // none of the primary tabs own it.
-const MORE_VIEWS=new Set(["parlays","weather","qualified","toppicks","calendar"]);
+const MORE_VIEWS=new Set(["parlays","weather","qualified","toppicks","calendar","jackpot"]);
 // Drawer navigation — jumps to a view and optionally a sub-view, then closes the drawer.
 function drawerGo(v, sub){
   document.getElementById('moreSheet').classList.remove('show');
