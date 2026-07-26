@@ -1421,6 +1421,34 @@
   .filterbar button{background:var(--seam);color:#0d0f13;border:none;border-radius:8px;padding:6px 12px;font-weight:700;font-size:11.5px;cursor:pointer;min-height:34px}
   #toTop{position:fixed;right:16px;bottom:calc(64px + env(safe-area-inset-bottom));width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-size:18px;box-shadow:0 3px 12px rgba(0,0,0,.3);cursor:pointer;opacity:0;pointer-events:none;transition:opacity .2s ease;z-index:40}
   #toTop.show{opacity:.94;pointer-events:auto}
+  /* qualified bets */
+  .q-head{display:flex;align-items:center;justify-content:space-between;font-family:Archivo;font-weight:800;font-size:18px;margin:4px 0 4px}
+  .q-sub{font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:10px}
+  .q-ctrl{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+  .q-ctrl label{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .q-ctrl input{width:120px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;color:var(--ink);font:inherit;font-size:13px;padding:7px 9px}
+  .q-ctrl select{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;color:var(--ink);font:inherit;font-size:13px;padding:7px 9px}
+  .q-row{display:flex;gap:11px;align-items:stretch;padding:11px 0;border-top:1px solid var(--line);cursor:pointer}
+  .q-row:first-of-type{border-top:none}
+  .q-edge{flex:0 0 58px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:"IBM Plex Mono";font-weight:800;font-size:17px;color:var(--good);background:rgba(120,178,145,.10);border-radius:9px}
+  .q-edge i{font-style:normal;font-size:8px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-top:1px}
+  .q-body{flex:1;min-width:0}
+  .q-nm{font-size:13.5px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .q-type{font-family:"IBM Plex Mono";font-size:9px;font-weight:700;padding:1px 6px;border-radius:5px;background:var(--panel-2);color:var(--muted)}
+  .q-type.hr{color:var(--hot);background:rgba(214,110,90,.13)}
+  .q-type.hit{color:var(--seam);background:rgba(215,120,60,.12)}
+  .q-type.ml,.q-type.tot{color:var(--ink)}
+  .q-ref{font-family:"IBM Plex Mono";font-size:8.5px;font-weight:700;color:var(--warm);border:1px solid var(--warm);border-radius:4px;padding:0 4px}
+  .q-mv{font-family:"IBM Plex Mono";font-size:8.5px;font-weight:800;border-radius:4px;padding:1px 5px}
+  .q-mv.up{color:var(--good);background:rgba(120,178,145,.14)}
+  .q-mv.dn{color:var(--warm);background:rgba(220,150,70,.14)}
+  .q-line{font-family:"IBM Plex Mono";font-size:11px;color:var(--muted);margin-top:3px}
+  .q-line b{color:var(--ink)}
+  .q-size{font-size:11px;color:var(--muted);margin-top:3px}
+  .q-size b{font-family:"IBM Plex Mono";color:var(--ink)}
+  .q-corr{font-family:"IBM Plex Mono";font-size:9.5px;font-weight:700}
+  .q-total{background:var(--panel-2);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--muted);margin-top:12px;text-align:center}
+  .q-total b{font-family:"IBM Plex Mono";color:var(--ink)}
 
   .empty{color:var(--muted);text-align:center;padding:48px 24px;font-size:14px;line-height:1.6;
     max-width:420px;margin:0 auto}
@@ -1745,6 +1773,7 @@
       <h3>Bets — Find Edge</h3>
       <p>The tab that turns the model into a decision. Every hitter shows the model's probability and the <b>worst price you can take and still break even</b>. Type in what your book is posting and it computes the expected value instantly, then sorts everything by it.</p>
       <p><b>Why this exists:</b> beating the base rate is not the same as making money. A hitter the model likes at 17% needs <b>+488 or longer</b> to break even. Books post home run props at +300 to +450. So a 17% hitter at +400 is a <b>losing bet</b> — you'd be paying 20 cents for something worth 17. Meanwhile a 12.5% hitter at +800 is <i>profitable</i>, because the book is paying you for 11% when the true odds are 12.5%.</p>
+      <p><b>Qualified Bets</b> (in Targets) is that idea turned into a list. It scans every market — home runs, hits, strikeouts, moneylines, totals — and shows only the spots where <b>the book price beats the model's fair price</b>, because that gap is the entire edge. For hitter props it also drops the ones the signal model disagrees with (usually book noise). Each play is sized by <b>half-Kelly</b> off its edge — bigger edge, bigger bet — capped at 4% of bankroll per play, because these probabilities are estimates and props swing hard. Set your bankroll to see dollar stakes. Most nights the list is short: that's the point — forcing action where there's no edge is how the vig grinds you down. It's model math, not betting advice, and real edges still lose plenty; the profit is in the price over hundreds of bets.</p>
       <p>That inversion is the entire game, and it's why the hottest hitter on the board is frequently the worst bet on the board. Prices you enter clear automatically each new slate.</p>
       <p><b>The caveat that matters:</b> a positive EV number is only as trustworthy as the model's calibration. Until the Tracker shows that a stated 17% actually converts near 17%, these are <i>candidates</i>, not green lights.</p>
 
@@ -1801,6 +1830,7 @@
       <button class="nav-item" data-nav="bets" onclick="drawerGo('bets')">Bets<i>Edge Finder · my bets · jackpots</i></button>
 
       <div class="nav-sec">TARGETS</div>
+      <button class="nav-item" data-nav="qualified" onclick="drawerGo('qualified')">💰 Qualified Bets<i>every market, only where price beats fair · Kelly sized</i></button>
       <button class="nav-item" data-nav="edges" onclick="drawerGo('edges','arms')">Vulnerable Arms<i>HR Vuln score · zone maps</i></button>
       <button class="nav-item" data-nav="edges-qt" onclick="drawerGo('edges','qt')">Quick Target<i>dangerous lineup spots per arm</i></button>
       <button class="nav-item" data-nav="edges-pens" onclick="drawerGo('edges','pens')">Bullpens<i>pen rankings + fatigue</i></button>
@@ -3389,7 +3419,7 @@ function renderView(){
   // Weather is a live standalone view again (park + wind arrow, plus slate park ranking).
   if(view==="stacks"){ view="scan"; }
   else if(view==="matchup"){ view="edges"; }
-  if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else if(view==="weather") safe(renderWeather); else safe(render);
+  if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else if(view==="weather") safe(renderWeather); else if(view==="qualified") safe(renderQualified); else safe(render);
 }
 
 // Weather dashboard: today's slate, one card per game — conditions, roof call,
@@ -5216,6 +5246,93 @@ function allPropEV(){
       side:tot.side, line:tot.line, price:tot.price, ev:tot.ev, prob:tot.prob, fallback:gl.fallback_only});
   });
   return out.sort((a,b)=>b.ev-a.ev);
+}
+
+// ===== PROFIT: qualified bets + Kelly sizing =====
+// Kelly fraction from model prob + American price = EV / (decimal-1). We show HALF-Kelly, capped,
+// because prop probabilities are estimates and props are high-variance — betting full Kelly on an
+// estimated edge is how you go broke being right.
+function kellyFrac(prob, price){
+  const dec=americanToDecimal(price), b=dec-1;
+  if(b<=0||!isFinite(b)) return 0;
+  return Math.max(0, (prob*dec-1)/b);
+}
+function edgePct(prob, price){ const dec=americanToDecimal(price); return prob*dec-1; }
+function getBankroll(){ const v=parseFloat(localStorage.getItem("gy_bankroll")||""); return isFinite(v)&&v>0?v:null; }
+function setBankroll(v){ const n=parseFloat(v); if(isFinite(n)&&n>0)localStorage.setItem("gy_bankroll",String(n)); else localStorage.removeItem("gy_bankroll"); renderView(); }
+function getMinEdge(){ const v=parseFloat(localStorage.getItem("gy_minedge")||""); return isFinite(v)?v:4; }
+function setMinEdge(v){ localStorage.setItem("gy_minedge", String(v)); renderView(); }
+const KELLY_FRACTION=0.5;      // half-Kelly
+const KELLY_CAP=0.04;          // never suggest >4% of bankroll on one prop, whatever the math says
+
+function renderQualified(){
+  const main=document.getElementById("main");
+  if(!BOARD||!BOARD.players){ main.innerHTML=`<div class="empty">Board not loaded.</div>`; return; }
+  const minEdge=getMinEdge()/100, bankroll=getBankroll();
+  const all=allPropEV();   // already ev>0 across HR/Hits/HRR/Ks/ML/Totals, sorted by ev
+  const typeChip={"Home Run":"hr","HRR 1.5":"hr","1+ Hits":"hit","Game Total":"tot","Moneyline":"ml"};
+  const isHitterProp=e=>/Home Run|HRR|Hits/.test(e.propLabel);
+  const rows=[]; let excludedFade=0, excludedRef=0;
+  all.forEach(e=>{
+    if(e.ev<minEdge) return;
+    // model corroboration: for hitter props, drop the ones the signal model disagrees with
+    let cc=null;
+    if(isHitterProp(e) && typeof evCrossCheck==="function"){
+      const pid=(BOARD.players.find(p=>p.name===e.name)||{}).id;
+      cc=evCrossCheck({name:e.name, propLabel:e.propLabel});
+      if(cc && cc.verdict==="fade"){ excludedFade++; return; }
+    }
+    const ref=!!e.fallback;
+    if(ref) excludedRef++;
+    const kf=Math.min(KELLY_CAP, kellyFrac(e.prob, e.price)*KELLY_FRACTION);
+    rows.push({e, cc, ref, kf, edge:e.ev});
+  });
+  // real prices first, then by edge
+  rows.sort((a,b)=>(a.ref-b.ref)||(b.edge-a.edge));
+  const real=rows.filter(r=>!r.ref);
+  const totalExposure=real.reduce((s,r)=>s+r.kf,0);
+
+  const row=r=>{
+    const e=r.e, pid=(BOARD.players.find(p=>p.name===e.name)||{}).id;
+    const stake=bankroll?` · <b>$${Math.round(bankroll*r.kf)}</b>`:"";
+    const corr = r.cc
+      ? `<span class="q-corr" style="color:${r.cc.color}">${r.cc.label}${r.cc.bestLift!=null?` · ${r.cc.bestLabel} ${liftPct(r.cc.bestLift)}`:""}</span>`
+      : `<span class="q-corr" style="color:var(--muted)">model-priced</span>`;
+    const tc=typeChip[e.propLabel]||"k";
+    // line movement (HR market only): + = market steaming toward, - = drifting away
+    let mvChip="";
+    if(pid!=null && /Home Run/.test(e.propLabel) && typeof fetchedOddsFor==="function"){
+      const oe=fetchedOddsFor(pid);
+      if(oe && oe.mv!=null && (oe.mv_n||0)>1 && Math.abs(oe.mv)>=1.5){
+        mvChip = oe.mv>0
+          ? `<span class="q-mv up" title="market steaming toward this — sharp money agrees; opened ${fmtAm(oe.open)}">steam ↑ ${oe.mv.toFixed(1)}pt</span>`
+          : `<span class="q-mv dn" title="market drifting away — the extra price may be a trap; opened ${fmtAm(oe.open)}">fading ↓ ${oe.mv.toFixed(1)}pt</span>`;
+      }
+    }
+    return `<div class="q-row"${pid?` onclick="scanToPlayer(${pid})"`:""}>
+      <div class="q-edge">+${(r.edge*100).toFixed(0)}%<i>edge</i></div>
+      <div class="q-body">
+        <div class="q-nm"><b>${e.name}</b> <span class="q-type ${tc}">${e.propLabel}${e.side&&e.propLabel.indexOf('O/U')<0&&e.propLabel!=='Moneyline'?' '+e.side.toUpperCase():''}</span>${mvChip}${r.ref?'<span class="q-ref" title="FanDuel reference price — verify before betting">ref price</span>':''}</div>
+        <div class="q-line">${fmtAm(e.price)} book · fair <b>${americanFair(e.prob)}</b> · model ${(e.prob*100).toFixed(0)}%</div>
+        <div class="q-size">½-Kelly <b>${(r.kf*100).toFixed(1)}%</b>${stake} &nbsp;·&nbsp; ${corr}</div>
+      </div>
+    </div>`;
+  };
+
+  const brInput=`<div class="q-ctrl">
+    <label>Bankroll $<input id="qBankroll" type="number" inputmode="decimal" value="${bankroll||''}" placeholder="set for $ stakes" onchange="setBankroll(this.value)"></label>
+    <label>Min edge <select id="qMinEdge" onchange="setMinEdge(this.value)">${[2,3,4,5,7,10].map(v=>`<option value="${v}"${getMinEdge()===v?' selected':''}>${v}%</option>`).join('')}</select></label>
+  </div>`;
+
+  main.innerHTML=`<div style="max-width:760px;margin:0 auto">
+    <div class="q-head"><b>Qualified Bets</b><span class="beta-pill">${real.length} live edge${real.length===1?'':'s'}</span></div>
+    <div class="q-sub">Every market — HR, hits, Ks, moneyline, totals — filtered to the spots where <b>the book price beats the model's fair price</b> (that gap is your only edge), and for hitter props, where the signal model agrees. Sized by half-Kelly off your edge. HR rows also show <b>line movement</b> since this morning — <span style="color:var(--good)">steam ↑</span> means sharp money is on your side (bet before it shortens more), <span style="color:var(--warm)">fading ↓</span> means the market's drifting away and the extra price may be a trap. This is the list to actually bet.</div>
+    ${brInput}
+    ${real.length?real.map(row).join(""):`<div class="empty" style="padding:28px 16px">No qualified edges at ${getMinEdge()}%+ right now.<br>That's the system working — most nights the board holds few true edges, and forcing bets where there's none is how the vig wins. Lower the min-edge to see thinner spots, or check back once more odds post.</div>`}
+    ${real.length&&bankroll?`<div class="q-total">Total suggested exposure tonight: <b>${(totalExposure*100).toFixed(1)}%</b> of bankroll (~$${Math.round(bankroll*totalExposure)}) across ${real.length} bets</div>`:''}
+    ${rows.filter(r=>r.ref).length?`<details class="sec" style="margin-top:14px"><summary>${rows.filter(r=>r.ref).length} more on reference prices (unverified)</summary><div class="q-sub" style="margin:6px 0">These use a FanDuel reference price because DK/Fanatics didn't post the market — the edge is only real if that price is. Verify at your book before betting.</div>${rows.filter(r=>r.ref).map(row).join("")}</details>`:''}
+    <div class="pl-note" style="margin-top:14px">Edge = model probability × decimal price − 1. Half-Kelly, capped at ${(KELLY_CAP*100)}% per bet, hedges against the fact that these probabilities are <i>estimates</i> — real edges still lose often; the profit is in the price, over hundreds of bets. This is model math, not betting advice.${excludedFade?` ${excludedFade} +EV spot${excludedFade>1?'s':''} hidden because the signal model disagreed (likely book noise).`:''}</div>
+  </div>`;
 }
 
 // Fetched two-sided prop odds for a player, by prop key and name. Accepts either the ETL
@@ -7255,7 +7372,7 @@ document.getElementById("tabbar").addEventListener("click",async e=>{
 // Navigate to a view that lives in the "More" sheet (parlays/stacks/matchup/weather).
 // The More button in the tab bar lights up to show you're in a secondary view, since
 // none of the primary tabs own it.
-const MORE_VIEWS=new Set(["parlays","weather"]);
+const MORE_VIEWS=new Set(["parlays","weather","qualified"]);
 // Drawer navigation — jumps to a view and optionally a sub-view, then closes the drawer.
 function drawerGo(v, sub){
   document.getElementById('moreSheet').classList.remove('show');
