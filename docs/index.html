@@ -1001,6 +1001,8 @@
   .ml-head b{font-family:Archivo;font-weight:800}
   .ml-time{font-size:11px;color:var(--muted);font-weight:400}
   .ml-sp{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.4}
+  .ml-src{font-family:"IBM Plex Mono";font-size:8.5px;font-weight:700;color:var(--good);background:rgba(120,178,145,.12);border-radius:4px;padding:1px 5px}
+  .ml-src.est{color:var(--faint);background:var(--panel-2)}
   .ml-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0 7px}
   .ml-cell{background:var(--panel);border-radius:7px;padding:5px 7px}
   .ml-lbl{display:block;font-size:9px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em;margin-bottom:1px}
@@ -6993,7 +6995,7 @@ function renderProps(){
       }
       return `<div class="ml-row" style="background:${bg}">
         <div class="ml-head"><b>${g.away} @ ${g.home}</b><span class="ml-time">${timeStr(g.time)}</span></div>
-        <div class="ml-sp">${g.away_sp||"?"} vs ${g.home_sp||"?"}${g.park?` · ${g.park}`:""}</div>
+        <div class="ml-sp">${g.away_sp||"?"} vs ${g.home_sp||"?"}${g.park?` · ${g.park}`:""}${g.park_run_src?` · <span class="ml-src${g.park_run_src==='bpp_runs'?'':' est'}">${g.park_run_src==='bpp_runs'?'true run factor':'est. run factor'}</span>`:""}${(((g.home_breakdown||{}).platoon_spots||0)+((g.away_breakdown||{}).platoon_spots||0))>0?` <span class="ml-src">platoon-adj</span>`:""}</div>
         <div class="ml-grid">
           <div class="ml-cell"><span class="ml-lbl">Proj score</span><b>${g.away_runs} – ${g.home_runs}</b></div>
           <div class="ml-cell"><span class="ml-lbl">Total</span><b>${g.total}</b></div>
@@ -7012,7 +7014,7 @@ function renderProps(){
       <h2 class="prop-h">Game Lines</h2>
       <div class="prop-lead">Expected runs per side — each lineup's xwOBA against the opposing starter and bullpen, converted to runs by linear weights, then to a win probability by convolving two negative-binomial run distributions.</div>
       ${subTabs}
-      <div class="prop-note" style="border-color:rgba(200,71,43,.45)"><b>Read this before betting any of it.</b> The moneyline is the <b>sharpest market in baseball</b> — the opposite of HR props. This model has <b>no defense metrics</b>, no true park run factor, no bullpen-availability data, no umpire. Those are exactly what the market prices well. Expect the ML to be informational; the <b>total and F5</b> are the softer, more usable outputs. None of it is validated until the backtest runs.</div>
+      <div class="prop-note" style="border-color:rgba(200,71,43,.45)"><b>Read this before betting any of it.</b> The moneyline is the <b>sharpest market in baseball</b> — the opposite of HR props. The run model now uses BallparkPal's <b>true run park factor</b> (weather included) and <b>handedness platoon</b> — each batter is matched against the starter's split for his hand, so a lineup stacked against a starter's weak side is priced in (this is where non-obvious edges live). It still has <b>no team-defense metric and no umpire</b>. A model-vs-book disagreement still usually means the model is missing what the market knows — treat the ML as informational; the <b>total and F5</b> are the softer outputs, and the <b>calibration backtest below is the real verdict</b> (re-run it after deploying to fold in these changes).</div>
       ${rows||`<div class="empty">${
         BOARD.game_projections===undefined
           ? "Waiting for the next build — needs the updated <code>etl/build_board.py</code> and the new <code>etl/runs.py</code> deployed."
