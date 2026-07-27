@@ -1451,6 +1451,23 @@
   .q-corr{font-family:"IBM Plex Mono";font-size:9.5px;font-weight:700}
   .q-total{background:var(--panel-2);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--muted);margin-top:12px;text-align:center}
   .q-total b{font-family:"IBM Plex Mono";color:var(--ink)}
+  /* SGP builder */
+  .sgp-ctrls{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+  .sgp-ctrl{display:flex;align-items:center;gap:10px}
+  .sgp-ctrl>label{flex:0 0 96px;font-size:11px;color:var(--muted);font-weight:700}
+  .sgp-ctrl .sortchips{padding:0;flex:1}
+  .sgp-card{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--panel)}
+  .sgp-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;font-size:13px}
+  .sgp-head b{font-family:Archivo;font-weight:800}
+  .sgp-odds{font-family:"IBM Plex Mono";font-weight:800;font-size:18px;color:var(--seam)}
+  .sgp-leg{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--line);cursor:pointer}
+  .sgp-lp{flex:0 0 40px;font-family:"IBM Plex Mono";font-weight:800;font-size:15px;text-align:center}
+  .sgp-lb{flex:1;min-width:0;font-size:13px}
+  .sgp-lm{font-family:"IBM Plex Mono";font-size:10px;color:var(--muted);margin-top:2px}
+  .sgp-summary{display:flex;gap:10px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+  .sgp-summary>div{flex:1;text-align:center;background:var(--panel-2);border-radius:8px;padding:8px 4px}
+  .sgp-summary span{display:block;font-size:9.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+  .sgp-summary b{font-family:"IBM Plex Mono";font-size:16px}
   /* top picks */
   .tp-rank{flex:0 0 20px;display:flex;align-items:center;justify-content:center;font-family:"IBM Plex Mono";font-size:12px;font-weight:700;color:var(--faint)}
   .q-edge i{font-style:normal}
@@ -1898,6 +1915,7 @@
 
       <div class="nav-sec">TARGETS</div>
       <button class="nav-item" data-nav="toppicks" onclick="drawerGo('toppicks')">⚡ Top Picks<i>all props, most likely to hit first</i></button>
+      <button class="nav-item" data-nav="sgp" onclick="drawerGo('sgp')">🎰 Parlay Builder<i>SGP generator — pick the mix &amp; goal</i></button>
       <button class="nav-item" data-nav="jackpot" onclick="drawerGo('jackpot')">🎯 Long Ball Jackpot<i>longest-HR contest — ceilings + leverage</i></button>
       <button class="nav-item" data-nav="qualified" onclick="drawerGo('qualified')">💰 Qualified Bets<i>every market, only where price beats fair · Kelly sized</i></button>
       <button class="nav-item" data-nav="edges" onclick="drawerGo('edges','arms')">Vulnerable Arms<i>HR Vuln score · zone maps</i></button>
@@ -3489,7 +3507,7 @@ function renderView(){
   // Weather is a live standalone view again (park + wind arrow, plus slate park ranking).
   if(view==="stacks"){ view="scan"; }
   else if(view==="matchup"){ view="edges"; }
-  if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else if(view==="weather") safe(renderWeather); else if(view==="qualified") safe(renderQualified); else if(view==="toppicks") safe(renderTopPicks); else if(view==="calendar") safe(renderCalendar); else if(view==="jackpot") safe(renderJackpot); else safe(render);
+  if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else if(view==="weather") safe(renderWeather); else if(view==="qualified") safe(renderQualified); else if(view==="toppicks") safe(renderTopPicks); else if(view==="calendar") safe(renderCalendar); else if(view==="jackpot") safe(renderJackpot); else if(view==="sgp") safe(renderSGP); else safe(render);
 }
 
 // Weather dashboard: today's slate, one card per game — conditions, roof call,
@@ -5579,6 +5597,97 @@ function renderTopPicks(){
     <div class="pl-note" style="margin-top:12px">Ranked by likelihood, weighted by data-backed conviction — <b>not</b> by price. A high chance isn't automatically a good <i>bet</i>; check Qualified Bets to see which of these also beat their price. Separate model from HR heat; trust it as your tracker validates it.</div>
   </div>`;
 }
+
+// ===== SGP / PARLAY GENERATOR — adjustable prop mix, legs, and objective =====
+function _decToAm(dec){ if(!isFinite(dec)||dec<=1) return 0; return dec>=2 ? Math.round((dec-1)*100) : Math.round(-100/(dec-1)); }
+let sgpTypes=new Set(["HR","Hit","HRR","Ks"]);
+let sgpLegs=3, sgpMode="likelihood", sgpSameGame=false;
+function _sgpType(propLabel){ return /Home Run/.test(propLabel)?"HR":/HRR/.test(propLabel)?"HRR":/Hits/.test(propLabel)?"Hit":/Ks|Strikeout/.test(propLabel)?"Ks":null; }
+function sgpPool(){
+  const odds={};
+  try{ allPropEV().forEach(e=>{ const tk=_sgpType(e.propLabel); if(tk) odds[e.name+"|"+tk]={price:e.price,ev:e.ev,fallback:e.fallback}; }); }catch(_){}
+  const pool=[];
+  const push=(o)=>{ if(o.prob==null||o.prob<=0) return;
+    const od=odds[o.name+"|"+o.tk];
+    const price=od?od.price:americanFair(o.prob);
+    pool.push({...o, price, ev:od?od.ev:null, hasOdds:!!od, dec:americanToDecimal(price)}); };
+  (BOARD.players||[]).filter(p=>p.lineup_status!=="out").forEach(p=>{
+    push({id:p.id,name:p.name,team:p.team,opp:p.opp_team,game_pk:p.game_pk,tk:"HR",label:"HR",prob:calibratedHRprob(p.heat)});
+    push({id:p.id,name:p.name,team:p.team,opp:p.opp_team,game_pk:p.game_pk,tk:"Hit",label:"1+ Hits",prob:smoothPropProb("hit1",p.hit_heat)});
+    push({id:p.id,name:p.name,team:p.team,opp:p.opp_team,game_pk:p.game_pk,tk:"HRR",label:"HRR 1.5+",prob:smoothPropProb("hrr",p.hrr_heat)});
+  });
+  (BOARD.pitcher_props||[]).forEach(a=>{ if(a.est_ks==null) return;
+    push({id:null,name:a.name,team:a.team,opp:a.opp_team,game_pk:a.game_pk,tk:"Ks",label:`Over ${(Math.floor(a.est_ks)+0.5).toFixed(1)} K`,prob:kOverProb(a.est_ks)}); });
+  return pool;
+}
+function genParlay(pool){
+  let cands=pool.filter(l=>sgpTypes.has(l.tk));
+  if(sgpMode==="ev") cands=cands.filter(l=>l.hasOdds && (l.ev||0)>0);
+  const obj=l=> sgpMode==="likelihood"?l.prob
+             : sgpMode==="ev"?(l.ev||0)
+             : sgpMode==="balanced"?(l.prob*(1+Math.max(0,l.ev||0)))
+             : sgpMode==="longshot"?l.dec : l.prob;
+  const pickN=(arr)=>{
+    const sorted=arr.slice().sort((a,b)=>obj(b)-obj(a)); const out=[], used=new Set();
+    for(const l of sorted){ if(used.has(l.name)) continue; out.push(l); used.add(l.name); if(out.length>=sgpLegs) break; }
+    return out;
+  };
+  if(sgpSameGame){
+    const byGame={}; cands.forEach(l=>{ if(l.game_pk==null) return; (byGame[l.game_pk]||(byGame[l.game_pk]=[])).push(l); });
+    let best=[], bestScore=-1;
+    for(const g in byGame){ const c=pickN(byGame[g]); if(c.length<Math.min(sgpLegs,2)) continue;
+      const dec=c.reduce((d,l)=>d*l.dec,1), prob=c.reduce((p,l)=>p*l.prob,1);
+      const score = sgpMode==="longshot"?dec : sgpMode==="ev"?(prob*dec-1) : prob;
+      if(score>bestScore){ bestScore=score; best=c; } }
+    return best;
+  }
+  return pickN(cands);
+}
+function renderSGP(){
+  const main=document.getElementById("main");
+  if(!BOARD||!BOARD.players){ main.innerHTML=`<div class="empty">Board not loaded.</div>`; return; }
+  const legs=genParlay(sgpPool());
+  const tc={HR:"hr",Hit:"hit",HRR:"hr",Ks:"k"};
+  const typeChip=(k,l)=>`<button class="sortchip${sgpTypes.has(k)?' on':''}" onclick="sgpToggleType('${k}')">${l}</button>`;
+  const legSel=[2,3,4,5,6].map(n=>`<button class="sortchip${sgpLegs===n?' on':''}" onclick="sgpLegs=${n};renderSGP()">${n}</button>`).join("");
+  const modeSel=[["likelihood","Most likely"],["ev","Best EV"],["balanced","Balanced"],["longshot","Longshot"]].map(([k,l])=>`<button class="sortchip${sgpMode===k?' on':''}" onclick="sgpMode='${k}';renderSGP()">${l}</button>`).join("");
+  let card;
+  if(!legs.length){
+    card=`<div class="empty" style="padding:26px 16px">No parlay fits those settings${sgpMode==="ev"?' — Best EV needs live +EV legs of the chosen types; try more types or a different mode.':''}.</div>`;
+  } else {
+    const dec=legs.reduce((d,l)=>d*l.dec,1), prob=legs.reduce((p,l)=>p*l.prob,1);
+    const am=_decToAm(dec), ev=prob*dec-1, anyLive=legs.some(l=>l.hasOdds), pay=(dec-1)*10;
+    const legRows=legs.map(l=>`<div class="sgp-leg"${l.id?` onclick="scanToPlayer(${l.id})"`:""}>
+      <div class="sgp-lp" style="color:${chipColor(Math.round(l.prob*100))}">${Math.round(l.prob*100)}%</div>
+      <div class="sgp-lb"><b>${l.name}</b> <span class="q-type ${tc[l.tk]}">${l.label}</span><div class="sgp-lm">${l.team}→${l.opp} · ${fmtAm(l.price)}${l.hasOdds?'':' <span style="color:var(--faint)">(model fair)</span>'}${l.hasOdds&&l.ev>0?` · <span style="color:var(--good)">+${(l.ev*100).toFixed(0)}%</span>`:''}</div></div>
+    </div>`).join("");
+    const ids=legs.map(l=>l.id).filter(x=>x!=null);
+    card=`<div class="sgp-card">
+      <div class="sgp-head"><div><b>${legs.length}-leg ${sgpSameGame?'SGP':'parlay'}</b> · ${legs.map(l=>l.tk).join(' + ')}</div><div class="sgp-odds">${am>0?'+':''}${am}</div></div>
+      ${legRows}
+      <div class="sgp-summary">
+        <div><span>Hit chance</span><b style="color:${chipColor(Math.round(prob*100))}">${(prob*100).toFixed(1)}%</b></div>
+        <div><span>$10 pays</span><b>$${pay.toFixed(2)}</b></div>
+        <div><span>${anyLive?'Edge':'Model edge'}</span><b style="color:${ev>0?'var(--good)':'var(--muted)'}">${ev>=0?'+':''}${(ev*100).toFixed(0)}%</b></div>
+      </div>
+      ${ids.length?`<button class="listbtn" style="margin-top:8px" onclick='addSlipToList(${JSON.stringify(ids)})'>☆ Add legs to my list</button>`:''}
+    </div>`;
+  }
+  const corrNote = sgpSameGame ? ` Same-game legs are <b>correlated</b> — the true hit chance differs from the straight multiply shown (books price this in), so treat the % as a guide, not a guarantee.` : "";
+  main.innerHTML=`<div style="max-width:760px;margin:0 auto">
+    <div class="q-head"><b>Parlay Builder</b><span class="beta-pill">SGP</span></div>
+    <div class="q-sub">Set the mix and the goal; it builds the best parlay from the model. <b>Most likely</b> = highest combined hit chance (safest). <b>Best EV</b> = highest edge from live prices. <b>Balanced</b> = likely and +EV. <b>Longshot</b> = biggest payout.${corrNote}</div>
+    <div class="sgp-ctrls">
+      <div class="sgp-ctrl"><label>Include</label><div class="sortchips">${typeChip("HR","HR")}${typeChip("Hit","Hits")}${typeChip("HRR","HRR")}${typeChip("Ks","Ks")}</div></div>
+      <div class="sgp-ctrl"><label>Legs</label><div class="sortchips">${legSel}</div></div>
+      <div class="sgp-ctrl"><label>Goal</label><div class="sortchips">${modeSel}</div></div>
+      <div class="sgp-ctrl"><label>Same game only</label><button class="sortchip${sgpSameGame?' on':''}" onclick="sgpSameGame=!sgpSameGame;renderSGP()">${sgpSameGame?'ON — one game':'OFF — any game'}</button></div>
+    </div>
+    ${card}
+    <div class="pl-note" style="margin-top:12px">Legs are the top picks of the chosen types by your goal, one per player. Prices are live where the book has posted, otherwise the model's fair odds (so the payout is an estimate). Parlays multiply the vig against you — this finds the best-constructed one, it doesn't make a bad parlay good. Check Qualified Bets for which legs actually beat their price.</div>
+  </div>`;
+}
+function sgpToggleType(k){ if(sgpTypes.has(k)){ if(sgpTypes.size>1) sgpTypes.delete(k); } else sgpTypes.add(k); renderSGP(); }
 
 // Fetched two-sided prop odds for a player, by prop key and name. Accepts either the ETL
 // bucket key (hits/hrr/pk) or the view key (hit/hrr/k) and normalizes.
@@ -7777,7 +7886,7 @@ document.getElementById("tabbar").addEventListener("click",async e=>{
 // Navigate to a view that lives in the "More" sheet (parlays/stacks/matchup/weather).
 // The More button in the tab bar lights up to show you're in a secondary view, since
 // none of the primary tabs own it.
-const MORE_VIEWS=new Set(["parlays","weather","qualified","toppicks","calendar","jackpot"]);
+const MORE_VIEWS=new Set(["parlays","weather","qualified","toppicks","calendar","jackpot","sgp"]);
 // Drawer navigation — jumps to a view and optionally a sub-view, then closes the drawer.
 function drawerGo(v, sub){
   document.getElementById('moreSheet').classList.remove('show');
