@@ -148,6 +148,38 @@ def _pitcher_xwoba_allowed(prof):
     return bb * W_BB + contact * xwc
 
 
+def _pitcher_xwoba_allowed_vs(prof, hand):
+    """Pitcher's expected wOBA allowed to a batter of a given hand ('R'/'L'), from his platoon
+    split. Switch hitters ('S') bat with the platoon advantage, so they take the pitcher's weaker
+    side. The split is blended toward his overall rate by how many PA it's built on, so a thin
+    split can't swing the projection — this only moves the number when the platoon signal is real.
+    Falls back to overall when there's no usable split. This is where non-obvious edges live: a
+    lineup stacked against a starter's weak platoon side is something the market underweights."""
+    overall = _pitcher_xwoba_allowed(prof)
+    if not prof:
+        return overall
+    splits = prof.get("splits") or {}
+
+    def _for(h):
+        sp = splits.get(h)
+        if not sp:
+            return None
+        val = _pitcher_xwoba_allowed(sp)          # split is itself a {season,recent} wrapper
+        if val is None:
+            return None
+        if overall is None:
+            return val
+        pa = ((sp.get("recent") or {}).get("pa") or 0) + ((sp.get("season") or {}).get("pa") or 0)
+        w = min(1.0, pa / 150.0)                   # ~150 PA vs a hand to fully trust the split
+        return w * val + (1 - w) * overall
+
+    if hand == "S":
+        cand = [x for x in (_for("R"), _for("L")) if x is not None]
+        return max(cand) if cand else overall
+    v = _for(hand) if hand in ("R", "L") else None
+    return v if v is not None else overall
+
+
 def _matchup(batter_xwoba, pitcher_xwoba):
     """Odds-ratio (log5) combination of a hitter rate and a pitcher rate, then
     regressed toward league by MATCHUP_DAMP (see constant for why)."""
@@ -209,18 +241,20 @@ def win_prob(home_runs, away_runs, kmax=25):
 
 
 def team_runs(lineup_recents, opp_sp_prof, opp_pen_prof, sp_bf=None,
-              park_mult=1.0, is_home=False):
+              park_mult=1.0, is_home=False, lineup_hands=None):
     """Expected runs for one team.
 
     lineup_recents : list of trailing-14d batter profile dicts, in batting order
-    opp_sp_prof    : opposing starter profile wrapper {recent, season}
+    opp_sp_prof    : opposing starter profile wrapper {recent, season, splits}
     opp_pen_prof   : opposing bullpen profile wrapper {recent, season}
     sp_bf          : batters the starter is expected to face (default 24)
     park_mult      : run-environment multiplier (1.0 = neutral)
+    lineup_hands   : optional list of batter hands ('R'/'L'/'S'), parallel to lineup_recents,
+                     enabling the platoon matchup vs the starter's split
     """
     if not lineup_recents:
         return None, {}
-    sp_x = _pitcher_xwoba_allowed(opp_sp_prof)
+    sp_x_overall = _pitcher_xwoba_allowed(opp_sp_prof)
     pen_x = _pitcher_xwoba_allowed(opp_pen_prof)
     if pen_x is None:
         pen_x = LG_WOBA                      # league-average pen if unknown
@@ -230,12 +264,24 @@ def team_runs(lineup_recents, opp_sp_prof, opp_pen_prof, sp_bf=None,
     total_pa = LG_PA_PER_TEAM_GAME
     pen_pa = max(0.0, total_pa - bf)
 
-    # Walk the order: each spot gets its share of PA, split between SP and pen
+    # Walk the order: each spot gets its share of PA, split between SP and pen. The SP portion uses
+    # the starter's platoon split for that batter's hand (the pen is a mix of arms, so it stays on
+    # the overall rate).
     n = len(lineup_recents)
     runs = 0.0
+    plat_used = 0
     spot_pa = [total_pa / n] * n           # even split is close enough at 9 spots
     for i, rec in enumerate(lineup_recents):
         b_x = _batter_xwoba(rec)
+        hand = lineup_hands[i] if (lineup_hands and i < len(lineup_hands)) else None
+        if hand:
+            sp_x = _pitcher_xwoba_allowed_vs(opp_sp_prof, hand)
+            if sp_x is not None and opp_sp_prof and (opp_sp_prof.get("splits")):
+                plat_used += 1
+        else:
+            sp_x = sp_x_overall
+        if sp_x is None:
+            sp_x = sp_x_overall
         pa_i = spot_pa[i]
         pa_sp = pa_i * (bf / total_pa)
         pa_pen = pa_i * (pen_pa / total_pa)
@@ -248,27 +294,32 @@ def team_runs(lineup_recents, opp_sp_prof, opp_pen_prof, sp_bf=None,
         runs += HOME_FIELD_RUNS
     runs = max(TEAM_RUNS_FLOOR, min(TEAM_RUNS_CEIL, runs))
     return round(runs, 2), {
-        "sp_xwoba_allowed": round(sp_x, 3) if sp_x is not None else None,
+        "sp_xwoba_allowed": round(sp_x_overall, 3) if sp_x_overall is not None else None,
         "pen_xwoba_allowed": round(pen_x, 3),
         "sp_bf": round(bf, 1),
         "pen_pa": round(pen_pa, 1),
         "park_mult": round(park_mult, 3),
         "lineup_n": n,
+        "platoon_spots": plat_used,
     }
 
 
-def first5_runs(lineup_recents, opp_sp_prof, park_mult=1.0, is_home=False):
+def first5_runs(lineup_recents, opp_sp_prof, park_mult=1.0, is_home=False, lineup_hands=None):
     """Expected runs through 5 innings — the starter faces roughly the first
     ~20 batters, so F5 is almost purely a starter-vs-lineup question. That makes
-    it a cleaner read than the full game (no bullpen guesswork)."""
+    it a cleaner read than the full game (no bullpen guesswork). Platoon matters most here."""
     if not lineup_recents:
         return None
-    sp_x = _pitcher_xwoba_allowed(opp_sp_prof)
+    sp_x_overall = _pitcher_xwoba_allowed(opp_sp_prof)
     pa_f5 = 20.0
     n = len(lineup_recents)
     runs = 0.0
-    for rec in lineup_recents:
+    for i, rec in enumerate(lineup_recents):
         b_x = _batter_xwoba(rec)
+        hand = lineup_hands[i] if (lineup_hands and i < len(lineup_hands)) else None
+        sp_x = _pitcher_xwoba_allowed_vs(opp_sp_prof, hand) if hand else sp_x_overall
+        if sp_x is None:
+            sp_x = sp_x_overall
         runs += (pa_f5 / n) * _woba_to_r_per_pa(_matchup(b_x, sp_x))
     runs *= park_mult
     if is_home:
@@ -284,18 +335,20 @@ def fair_american(p):
 
 
 def project_game(home_lineup, away_lineup, home_sp, away_sp,
-                 home_pen, away_pen, home_bf=None, away_bf=None, park_mult=1.0):
-    """Full game projection. Returns runs, win prob, total, run line, F5."""
+                 home_pen, away_pen, home_bf=None, away_bf=None, park_mult=1.0,
+                 home_hands=None, away_hands=None):
+    """Full game projection. Returns runs, win prob, total, run line, F5.
+    home_hands/away_hands: optional batter-hand lists (parallel to the lineups) for platoon."""
     # away team bats against the HOME starter and HOME pen
     away_r, away_bd = team_runs(away_lineup, home_sp, home_pen, home_bf,
-                                park_mult, is_home=False)
+                                park_mult, is_home=False, lineup_hands=away_hands)
     home_r, home_bd = team_runs(home_lineup, away_sp, away_pen, away_bf,
-                                park_mult, is_home=True)
+                                park_mult, is_home=True, lineup_hands=home_hands)
     if home_r is None or away_r is None:
         return None
     hwp = win_prob(home_r, away_r)
-    f5_home = first5_runs(home_lineup, away_sp, park_mult, is_home=True)
-    f5_away = first5_runs(away_lineup, home_sp, park_mult, is_home=False)
+    f5_home = first5_runs(home_lineup, away_sp, park_mult, is_home=True, lineup_hands=home_hands)
+    f5_away = first5_runs(away_lineup, home_sp, park_mult, is_home=False, lineup_hands=away_hands)
     f5_hwp = win_prob(f5_home, f5_away) if (f5_home and f5_away) else None
     return {
         "home_runs": home_r,

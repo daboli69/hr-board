@@ -310,6 +310,26 @@ def resolve_hr_mult(bpp: dict, *, player_id=None, player_name=None,
     return None, None
 
 
+def resolve_runs_mult(bpp: dict, *, away=None, home=None, game_id=None, fallback=None):
+    """True RUN-environment park factor for a game (not the HR factor). BallparkPal models runs
+    separately from home runs — a homer park is not proportionally a run park — so the moneyline /
+    total model should use THIS, not a damped HR factor. Game-level only.
+    Returns (multiplier, source) with source 'bpp_game' | 'local' | None."""
+    if bpp and bpp.get("ok"):
+        G = bpp.get("games") or {}
+        if game_id is not None:
+            ent = G.get(str(game_id))
+            if ent and ent.get("runs_mult") is not None:
+                return ent["runs_mult"], "bpp_game"
+        if away and home:
+            ent = (bpp.get("by_teams") or {}).get(f"{away}@{home}")
+            if ent and ent.get("runs_mult") is not None:
+                return ent["runs_mult"], "bpp_game"
+    if fallback is not None:
+        return fallback, "local"
+    return None, None
+
+
 # ---------------------------------------------------------------- probe / CLI
 
 def _probe(date_str: str | None = None):

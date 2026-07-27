@@ -1931,8 +1931,12 @@ def build(date_str: str | None = None) -> dict:
                 if len(sp) >= 8:
                     return sorted(sp, key=lambda x: x["lineup_spot"])[:9]
                 return sorted(lst, key=lambda x: -(x.get("heat") or 0))[:9]
-            home_l = [(x.get("windows") or {}).get("L14d") or {} for x in _order(g["home"])]
-            away_l = [(x.get("windows") or {}).get("L14d") or {} for x in _order(g["away"])]
+            home_order = _order(g["home"])
+            away_order = _order(g["away"])
+            home_l = [(x.get("windows") or {}).get("L14d") or {} for x in home_order]
+            away_l = [(x.get("windows") or {}).get("L14d") or {} for x in away_order]
+            home_hands = [x.get("bats") for x in home_order]
+            away_hands = [x.get("bats") for x in away_order]
             if len(home_l) < 6 or len(away_l) < 6:
                 continue
             home_sp = pitch_profiles.get(hp_id) or {}
@@ -1946,20 +1950,37 @@ def build(date_str: str | None = None) -> dict:
             def _bf(pid):
                 sl = (start_lens.get(pid) or {}).get("med_len")
                 return max(6.0, min(30.0, sl * 4.3)) if sl else 24.0
-            # park run multiplier — derived from the HR park boost, damped, since a
-            # HR factor is NOT a run factor (a homer park isn't proportionally a
-            # run park). Honest approximation, flagged as such.
-            pf = None
+            # Park RUN factor. Prefer BallparkPal's TRUE runs multiplier (it models runs separately
+            # from HRs and already bakes in today's weather). Only if that's missing do we fall back
+            # to the damped HR-boost proxy — and in THAT case add our own temperature adjustment
+            # (warmer air = more offense), so we don't double-count weather when BPP already has it.
+            pf = None; temp_f = None
             for x in g["home"] + g["away"]:
                 ph = x.get("park_hr") or {}
-                if ph.get("boost") is not None:
-                    pf = ph["boost"]; break
-            park_mult = 1.0 + (pf / 100.0) * 0.45 if pf is not None else 1.0
-            park_mult = max(0.85, min(1.25, park_mult))
+                if pf is None and ph.get("boost") is not None: pf = ph["boost"]
+                if temp_f is None and ph.get("temp_f") is not None: temp_f = ph["temp_f"]
+            hr_proxy = 1.0 + (pf / 100.0) * 0.45 if pf is not None else 1.0
+            try:
+                rm, _rm_src = ballparkpal.resolve_runs_mult(
+                    BPP, away=gm.get("away"), home=gm.get("home"),
+                    game_id=gm.get("game_pk"), fallback=None)
+            except Exception:
+                rm = None
+            if rm is not None:
+                park_mult = rm                       # BPP runs factor (weather already included)
+                park_src = "bpp_runs"
+            else:
+                wx = 1.0
+                if temp_f is not None:
+                    wx = max(0.94, min(1.08, 1.0 + (temp_f - 72.0) * 0.003))
+                park_mult = hr_proxy * wx            # local HR-proxy + our temperature adjustment
+                park_src = "local"
+            park_mult = max(0.82, min(1.28, park_mult))
 
             proj = RUNS.project_game(
                 home_l, away_l, home_sp, away_sp, home_pen, away_pen,
-                home_bf=_bf(hp_id), away_bf=_bf(ap_id), park_mult=park_mult)
+                home_bf=_bf(hp_id), away_bf=_bf(ap_id), park_mult=park_mult,
+                home_hands=home_hands, away_hands=away_hands)
             if not proj:
                 continue
             game_projections.append({
@@ -1971,6 +1992,7 @@ def build(date_str: str | None = None) -> dict:
                 "home_sp_id": hp_id, "away_sp_id": ap_id,
                 "lineups_confirmed": all(x.get("lineup_spot") for x in g["home"][:9])
                                      and all(x.get("lineup_spot") for x in g["away"][:9]),
+                "park_run_src": park_src,   # 'bpp_runs' (true runs factor) | 'local' (HR proxy + wx)
                 **proj,
             })
         game_projections.sort(key=lambda x: -(x.get("total") or 0))

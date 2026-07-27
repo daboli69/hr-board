@@ -486,9 +486,20 @@ def replay_runs(df: pd.DataFrame, start: str | None = None, end: str | None = No
             pprof = statcast_data.pitcher_profiles(past, [sp["home"], sp["away"]], asof=D)
             hl = [(bprof.get(b) or {}).get("recent") or {} for b in half_bat["home"]]
             al = [(bprof.get(b) or {}).get("recent") or {} for b in half_bat["away"]]
+            # batter hand for the platoon matchup — the stand each batter actually used in this
+            # game (already the correct platoon side vs the starter). Flows the same runs.py
+            # platoon logic through the replay as production uses live.
+            stand_map = {}
+            for bid, grp in g.groupby("batter"):
+                s = grp["stand"].dropna()
+                if len(s):
+                    stand_map[int(bid)] = s.mode().iloc[0]
+            hl_hands = [stand_map.get(b) for b in half_bat["home"]]
+            al_hands = [stand_map.get(b) for b in half_bat["away"]]
             proj = RUNS.project_game(hl, al, pprof.get(sp["home"]) or {},
                                      pprof.get(sp["away"]) or {},
-                                     {}, {}, park_mult=1.0)
+                                     {}, {}, park_mult=1.0,
+                                     home_hands=hl_hands, away_hands=al_hands)
             if not proj:
                 continue
             p = proj["home_wp"]
