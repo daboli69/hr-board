@@ -1860,7 +1860,18 @@ def build(date_str: str | None = None) -> dict:
                              (pprof.get("season") or {}).get("k_pct_allowed"))
             if pitcher_k_pct is not None:
                 if opp_lineup_k is not None:
-                    eff_k = 0.65 * pitcher_k_pct + 0.35 * opp_lineup_k
+                    # odds-ratio (log5) matchup instead of a linear blend: combine the pitcher's
+                    # K rate and the opposing lineup's K rate against the league baseline so the
+                    # extremes compound correctly — a high-K arm vs a high-K lineup lands ABOVE
+                    # both (not between them), and an ace vs an elite-contact lineup lands below.
+                    # A linear blend flattens exactly the matchups where the K edge lives.
+                    LG_K = 22.0                                  # league strikeout rate, ~2024-25
+                    P = min(0.60, max(0.03, pitcher_k_pct / 100.0))
+                    L = min(0.60, max(0.03, opp_lineup_k / 100.0))
+                    G = LG_K / 100.0
+                    odds = (P / (1 - P)) * (L / (1 - L)) / (G / (1 - G))
+                    eff_k = 100.0 * odds / (1.0 + odds)
+                    eff_k = max(10.0, min(42.0, eff_k))          # keep it in a sane band
                 else:
                     eff_k = pitcher_k_pct
                 bf = 4 if meta["opener"] else 24
@@ -1880,7 +1891,8 @@ def build(date_str: str | None = None) -> dict:
                 "swstr_pct": (pprof.get("recent") or {}).get("swstr_pct_allowed") or
                              (pprof.get("season") or {}).get("swstr_pct_allowed"),
                 "est_ks": est_ks,
-                "est_line_over": (est_ks - 0.5) if est_ks is not None else None,
+                # the OVER target the model actually likes = the half-line just BELOW the estimate
+                "est_line_over": (float(np.ceil(est_ks - 0.5) - 0.5) if est_ks is not None else None),
             })
         pitcher_props.sort(key=lambda x: -(x["k_heat"] or 0))
         board["pitcher_props"] = pitcher_props
