@@ -129,6 +129,112 @@ def batted_ball_sample(df: pd.DataFrame, batter_ids) -> dict:
     return out
 
 
+def batted_ball_log(df: pd.DataFrame, batter_ids, n: int = 10) -> dict:
+    """Per-batter log of the most recent N batted balls with full Statcast detail — the data behind
+    the batted-ball table view: EV, launch angle, distance, bat speed, pitch velo, pitch type, arm,
+    result, trajectory, barrel flag, plus raw ev/la/spray for the caller's X/30-parks read. Newest
+    first. `pit` is the pitcher's MLBAM id; the caller maps it to a name."""
+    out = {}
+    need = {"launch_speed", "launch_angle", "hc_x", "hc_y", "batter", "game_date", "bb_type"}
+    if df.empty or not need.issubset(df.columns):
+        return out
+    d = df.dropna(subset=["launch_speed", "launch_angle", "hc_x", "hc_y"])
+    d = d[d["bb_type"].notna()]                      # ball actually put in play
+    if d.empty:
+        return out
+    d = d.sort_values("game_date")
+    spray_all = np.degrees(np.arctan2(d["hc_x"].to_numpy() - 125.42, 198.27 - d["hc_y"].to_numpy()))
+    d = d.assign(_spray=spray_all)
+    wanted = set(int(b) for b in batter_ids)
+    for bid, g in d.groupby("batter"):
+        if int(bid) not in wanted:
+            continue
+        g = g.tail(n)
+        rows = []
+        for _, r in g.iterrows():
+            def _num(k, nd=1):
+                v = r.get(k)
+                try:
+                    return round(float(v), nd) if pd.notna(v) else None
+                except Exception:
+                    return None
+            rows.append({
+                "date": str(r["game_date"])[5:10],
+                "pit": int(r["pitcher"]) if pd.notna(r.get("pitcher")) else None,
+                "arm": (r.get("p_throws") if pd.notna(r.get("p_throws")) else None),
+                "pt": (r.get("pitch_type") if pd.notna(r.get("pitch_type")) else None),
+                "ev": _num("launch_speed"),
+                "la": _num("launch_angle"),
+                "dist": _num("hit_distance_sc", 0),
+                "bs": _num("bat_speed"),
+                "pv": _num("release_speed"),
+                "res": (r.get("events") if (pd.notna(r.get("events")) and r.get("events"))
+                        else (r.get("description") if pd.notna(r.get("description")) else None)),
+                "traj": (r.get("bb_type") if pd.notna(r.get("bb_type")) else None),
+                "brl": int(r.get("launch_speed_angle") == 6) if pd.notna(r.get("launch_speed_angle")) else 0,
+                "_ev": float(r["launch_speed"]), "_la": float(r["launch_angle"]), "_sp": float(r["_spray"]),
+            })
+        out[int(bid)] = list(reversed(rows))          # newest first
+    return out
+
+
+def player_names(ids) -> dict:
+    """MLBAM id -> 'First Last' via pybaseball reverse lookup (one call for all ids). Non-fatal:
+    returns {} on any failure so the caller degrades to arm + pitch type without a name."""
+    import sys as _sys
+    ids = sorted({int(i) for i in ids if i is not None})
+    if not ids:
+        return {}
+    try:
+        from pybaseball import playerid_reverse_lookup
+        dfn = playerid_reverse_lookup(ids, key_type="mlbam")
+        out = {}
+        for _, r in dfn.iterrows():
+            nm = (str(r.get("name_first", "") or "").strip().title() + " " +
+                  str(r.get("name_last", "") or "").strip().title()).strip()
+            if nm:
+                out[int(r["key_mlbam"])] = nm
+        return out
+    except Exception as e:
+        print(f"[names] reverse lookup skipped (non-fatal): {e}", file=_sys.stderr)
+        return {}
+
+
+def team_defense(df: pd.DataFrame) -> dict:
+    """Self-contained team-defense read — an OAA-style proxy: how many hits a team's fielders save
+    versus expected on balls in play, converted to runs saved per game. Positive = good defense
+    (turns more balls into outs than expected); negative = leaky. Derived from the Statcast pull we
+    already have (Statcast's own per-ball xBA vs the actual outcome), so there's no external feed to
+    break the build. Home runs are excluded — fielders can't defend those. Non-fatal: returns {} if
+    the needed columns are missing or the sample is thin, and the run model then runs exactly as it
+    did before. Returns {TEAM_ABBR: runs_saved_per_game}."""
+    need = {"events", "estimated_ba_using_speedangle", "home_team", "away_team",
+            "inning_topbot", "bb_type", "game_pk"}
+    if df is None or df.empty or not need.issubset(df.columns):
+        return {}
+    d = df[df["bb_type"].notna()].copy()                      # balls actually in play
+    d = d[d["events"] != "home_run"]                          # fielders can't defend HR
+    if d.empty:
+        return {}
+    # the fielding team is the side NOT batting: home fields in the top half, away in the bottom
+    topbot = d["inning_topbot"].astype(str)
+    d["_field"] = np.where(topbot.str.startswith("Top"), d["home_team"], d["away_team"])
+    HITS = {"single", "double", "triple"}
+    d["_hit"] = d["events"].isin(HITS).astype(float)
+    d["_xh"] = pd.to_numeric(d["estimated_ba_using_speedangle"], errors="coerce")
+    d = d.dropna(subset=["_xh"])
+    RUNS_PER_HIT = 0.75                                       # ~linear-weight value of a hit prevented
+    out = {}
+    for team, g in d.groupby("_field"):
+        n = len(g)
+        if n < 120:                                           # need a real sample to trust it
+            continue
+        games = g["game_pk"].nunique() or 1
+        hits_saved = float(g["_xh"].sum() - g["_hit"].sum())  # + => fielders beat expectation
+        out[str(team)] = round(hits_saved * RUNS_PER_HIT / games, 3)
+    return out
+
+
 def _pull_metrics(bb: pd.DataFrame) -> tuple:
     """
     Returns (pull_pct, pull_air_pct):

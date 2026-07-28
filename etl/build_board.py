@@ -142,6 +142,18 @@ def build(date_str: str | None = None) -> dict:
 
     profiles = statcast_data.batter_profiles(df, batter_ids, date_str)
     bb_samples = statcast_data.batted_ball_sample(df, batter_ids)
+    bb_logs = statcast_data.batted_ball_log(df, batter_ids)
+    try:
+        team_def = statcast_data.team_defense(df)          # OAA-style runs saved/game, {} if thin
+        if team_def:
+            print(f"[build] team defense computed for {len(team_def)} teams")
+    except Exception as e:
+        print(f"[build] team defense skipped (non-fatal): {e}"); team_def = {}
+    try:
+        _pit_ids = {b["pit"] for lg in bb_logs.values() for b in lg if b.get("pit") is not None}
+        bb_pit_names = statcast_data.player_names(_pit_ids)
+    except Exception as e:
+        print(f"[build] batted-ball pitcher names skipped: {e}"); bb_pit_names = {}
     pitch_profiles = statcast_data.pitcher_profiles(df, pitcher_ids, date_str)
 
     # Pitcher ROLE (season-long), computed once and threaded through every bullpen call.
@@ -1041,6 +1053,24 @@ def build(date_str: str | None = None) -> dict:
                             "borderline": borderline,       # park-dependent balls
                             "per_ball": per,
                         }
+                except Exception:
+                    pass
+                # batted-ball log (the detailed table view) — attach display rows with pitcher name
+                # and the X/30-parks read per ball; drop raw helper fields to keep board.json lean
+                try:
+                    _log = bb_logs.get(int(p.get("id")))
+                    if _log:
+                        _ev = np.array([b["_ev"] for b in _log]); _la = np.array([b["_la"] for b in _log])
+                        _sp = np.array([b["_sp"] for b in _log])
+                        _pc = park_model.parks_cleared(_ev, _la, _sp)
+                        _per = _pc.get("per_ball") or []
+                        _rows = []
+                        for _j, _b in enumerate(_log):
+                            _row = {_k: _b[_k] for _k in ("date","arm","pt","ev","la","dist","bs","pv","res","traj","brl")}
+                            _row["pit"] = bb_pit_names.get(_b.get("pit"))
+                            _row["x30"] = int(_per[_j]) if _j < len(_per) else None
+                            _rows.append(_row)
+                        p["bb_log"] = _rows
                 except Exception:
                     pass
                 i += n
@@ -1977,10 +2007,17 @@ def build(date_str: str | None = None) -> dict:
                 park_src = "local"
             park_mult = max(0.82, min(1.28, park_mult))
 
+            _dalias = {"AZ":"ARI","ARI":"AZ","CWS":"CHW","CHW":"CWS","WSH":"WSN","WSN":"WSH","SD":"SDP","SDP":"SD","SF":"SFG","SFG":"SF","TB":"TBR","TBR":"TB","KC":"KCR","KCR":"KC"}
+            def _def_for(ab):
+                if not ab: return 0.0
+                v = team_def.get(ab)
+                if v is None: v = team_def.get(_dalias.get(ab))
+                return float(v or 0.0)
             proj = RUNS.project_game(
                 home_l, away_l, home_sp, away_sp, home_pen, away_pen,
                 home_bf=_bf(hp_id), away_bf=_bf(ap_id), park_mult=park_mult,
-                home_hands=home_hands, away_hands=away_hands)
+                home_hands=home_hands, away_hands=away_hands,
+                home_def=_def_for(gm.get("home")), away_def=_def_for(gm.get("away")))
             if not proj:
                 continue
             game_projections.append({

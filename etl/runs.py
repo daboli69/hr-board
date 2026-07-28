@@ -241,7 +241,7 @@ def win_prob(home_runs, away_runs, kmax=25):
 
 
 def team_runs(lineup_recents, opp_sp_prof, opp_pen_prof, sp_bf=None,
-              park_mult=1.0, is_home=False, lineup_hands=None):
+              park_mult=1.0, is_home=False, lineup_hands=None, opp_def=0.0):
     """Expected runs for one team.
 
     lineup_recents : list of trailing-14d batter profile dicts, in batting order
@@ -251,6 +251,8 @@ def team_runs(lineup_recents, opp_sp_prof, opp_pen_prof, sp_bf=None,
     park_mult      : run-environment multiplier (1.0 = neutral)
     lineup_hands   : optional list of batter hands ('R'/'L'/'S'), parallel to lineup_recents,
                      enabling the platoon matchup vs the starter's split
+    opp_def        : opponent's defense in runs saved per game (OAA proxy); subtracted from this
+                     team's runs, since the fielding side suppresses balls in play
     """
     if not lineup_recents:
         return None, {}
@@ -292,6 +294,10 @@ def team_runs(lineup_recents, opp_sp_prof, opp_pen_prof, sp_bf=None,
     runs *= park_mult
     if is_home:
         runs += HOME_FIELD_RUNS
+    try:
+        runs -= max(-0.6, min(0.6, float(opp_def or 0.0)))   # clamp: defense is a modest, real effect
+    except Exception:
+        pass
     runs = max(TEAM_RUNS_FLOOR, min(TEAM_RUNS_CEIL, runs))
     return round(runs, 2), {
         "sp_xwoba_allowed": round(sp_x_overall, 3) if sp_x_overall is not None else None,
@@ -301,10 +307,11 @@ def team_runs(lineup_recents, opp_sp_prof, opp_pen_prof, sp_bf=None,
         "park_mult": round(park_mult, 3),
         "lineup_n": n,
         "platoon_spots": plat_used,
+        "opp_def": round(float(opp_def or 0.0), 3),
     }
 
 
-def first5_runs(lineup_recents, opp_sp_prof, park_mult=1.0, is_home=False, lineup_hands=None):
+def first5_runs(lineup_recents, opp_sp_prof, park_mult=1.0, is_home=False, lineup_hands=None, opp_def=0.0):
     """Expected runs through 5 innings — the starter faces roughly the first
     ~20 batters, so F5 is almost purely a starter-vs-lineup question. That makes
     it a cleaner read than the full game (no bullpen guesswork). Platoon matters most here."""
@@ -324,6 +331,10 @@ def first5_runs(lineup_recents, opp_sp_prof, park_mult=1.0, is_home=False, lineu
     runs *= park_mult
     if is_home:
         runs += HOME_FIELD_RUNS * 0.55
+    try:
+        runs -= float(opp_def or 0.0) * 0.55       # ~5/9 of the game defended by the starter's side
+    except Exception:
+        pass
     return round(max(0.2, runs), 2)
 
 
@@ -336,19 +347,21 @@ def fair_american(p):
 
 def project_game(home_lineup, away_lineup, home_sp, away_sp,
                  home_pen, away_pen, home_bf=None, away_bf=None, park_mult=1.0,
-                 home_hands=None, away_hands=None):
+                 home_hands=None, away_hands=None, home_def=0.0, away_def=0.0):
     """Full game projection. Returns runs, win prob, total, run line, F5.
-    home_hands/away_hands: optional batter-hand lists (parallel to the lineups) for platoon."""
-    # away team bats against the HOME starter and HOME pen
+    home_hands/away_hands: optional batter-hand lists (parallel to the lineups) for platoon.
+    home_def/away_def: each team's defense in runs saved per game (OAA proxy); a team's fielding
+    reduces the OTHER team's runs."""
+    # away team bats against the HOME starter and HOME pen — and the HOME defense behind them
     away_r, away_bd = team_runs(away_lineup, home_sp, home_pen, home_bf,
-                                park_mult, is_home=False, lineup_hands=away_hands)
+                                park_mult, is_home=False, lineup_hands=away_hands, opp_def=home_def)
     home_r, home_bd = team_runs(home_lineup, away_sp, away_pen, away_bf,
-                                park_mult, is_home=True, lineup_hands=home_hands)
+                                park_mult, is_home=True, lineup_hands=home_hands, opp_def=away_def)
     if home_r is None or away_r is None:
         return None
     hwp = win_prob(home_r, away_r)
-    f5_home = first5_runs(home_lineup, away_sp, park_mult, is_home=True, lineup_hands=home_hands)
-    f5_away = first5_runs(away_lineup, home_sp, park_mult, is_home=False, lineup_hands=away_hands)
+    f5_home = first5_runs(home_lineup, away_sp, park_mult, is_home=True, lineup_hands=home_hands, opp_def=away_def)
+    f5_away = first5_runs(away_lineup, home_sp, park_mult, is_home=False, lineup_hands=away_hands, opp_def=home_def)
     f5_hwp = win_prob(f5_home, f5_away) if (f5_home and f5_away) else None
     return {
         "home_runs": home_r,
