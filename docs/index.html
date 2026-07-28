@@ -44,6 +44,31 @@
   .faq-item[open] summary .faq-cv{transform:rotate(90deg)}
   .faq-body{padding:0 14px 14px;font-size:12.5px;color:var(--muted);line-height:1.6}
   .faq-body b{color:var(--ink)}
+  /* team vs pitch mix */
+  .pm-wrap{max-width:900px;margin:0 auto}
+  .pm-sel{margin:10px 0 6px}
+  .pm-sel label{display:block;font-family:"IBM Plex Mono";font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+  .pm-sel select{width:100%;background:var(--panel-2);border:1px solid var(--line-2);border-radius:9px;color:var(--ink);font-family:Archivo;font-weight:600;font-size:14px;padding:11px 12px;outline:none}
+  .pm-sec{margin-top:18px}
+  .pm-sec-h{font-family:Archivo;font-weight:800;font-size:15px;margin-bottom:8px}
+  .pm-sec-h span{font-family:"IBM Plex Mono";font-weight:400;font-size:11.5px;color:var(--muted);margin-left:6px}
+  .pm-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+  .pm-chip{font-family:"IBM Plex Mono";font-size:11px;font-weight:600;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:6px 11px;cursor:pointer}
+  .pm-chip.on{background:var(--seam-glow);border-color:var(--seam);color:var(--seam)}
+  .pm-chip.pm-clear{color:var(--faint)}
+  .pm-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:10px}
+  .pm-tbl{border-collapse:collapse;width:100%;min-width:660px;font-family:"IBM Plex Mono"}
+  .pm-tbl th{font-size:8.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.03em;padding:8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap;background:var(--panel);position:sticky;top:0;z-index:1}
+  .pm-tbl th:first-child{text-align:left}
+  .pm-tbl td{font-size:11.5px;padding:7px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap;color:var(--ink)}
+  .pm-tbl tbody tr{cursor:pointer}
+  .pm-tbl tbody tr:active{background:var(--panel-2)}
+  .pm-nm{text-align:left!important;font-family:Archivo;font-weight:700;font-size:12.5px}
+  .pm-nm span{display:block;font-family:"IBM Plex Mono";font-weight:400;font-size:9.5px;color:var(--faint);margin-top:1px}
+  .pm-avg td{border-top:1px solid var(--line-2);font-weight:700;background:var(--panel-2)}
+  .pm-avg .pm-nm{color:var(--muted)}
+  .pm-thin td{color:var(--faint);font-size:10.5px;text-align:left}
+  .pm-none{font-size:12px;color:var(--faint);padding:10px 0}
   /* ladder challenge */
   .lad-wrap{max-width:600px;margin:0 auto}
   .lad-setup{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-top:8px;display:flex;flex-direction:column;gap:12px}
@@ -2049,6 +2074,7 @@
       <button class="nav-item" data-nav="ladder" onclick="drawerGo('ladder')">Ladder Challenge<i>roll a small stake up to a target, safest legs daily</i></button>
       <button class="nav-item" data-nav="qualified" onclick="drawerGo('qualified')">Qualified Bets<i>every market, only where price beats fair · Kelly sized</i></button>
       <button class="nav-item" data-nav="edges" onclick="drawerGo('edges','arms')">Vulnerable Arms<i>HR Vuln score · zone maps</i></button>
+      <button class="nav-item" data-nav="pitchmix" onclick="drawerGo('pitchmix')">Team vs Pitch Mix<i>lineup vs the arsenal he actually throws</i></button>
       <button class="nav-item" data-nav="edges-qt" onclick="drawerGo('edges','qt')">Quick Target<i>dangerous lineup spots per arm</i></button>
       <button class="nav-item" data-nav="edges-pens" onclick="drawerGo('edges','pens')">Bullpens<i>pen rankings + fatigue</i></button>
       <button class="nav-item" data-nav="parlays" onclick="drawerGo('parlays')">Parlays &amp; Jackpots<i>HR combos · grand slam · longball</i></button>
@@ -3916,6 +3942,129 @@ function renderLadder(){
     <div class="lad-foot"><button class="lad-link" onclick="ladderClear()">End this ladder</button></div>
   </div>`;
 }
+// ============ TEAM vs PITCH MIX ============
+// Pick tonight's starter, see the arsenal he actually throws to each batter hand, then see how
+// every hitter in the opposing lineup performs against those exact pitches. Select/deselect
+// pitches to recombine the split live.
+let pmPitcher=null, pmSel={R:null,L:null};
+function pmArsenal(pid,hand){ return (((BOARD.arsenals||{})[String(pid)])||{})[hand]||[]; }
+function pmStarters(){
+  const seen=new Set();
+  return (BOARD.pitcher_props||[]).filter(a=>{ if(!a.id||seen.has(a.id))return false; seen.add(a.id); return true; })
+    .sort((a,b)=>String(a.time||"").localeCompare(String(b.time||"")));
+}
+function pmDefaultSel(pid,hand){ return new Set(pmArsenal(pid,hand).slice(0,2).map(a=>a[0])); }
+function pmSetPitcher(id){ pmPitcher=+id; pmSel={R:null,L:null}; renderPitchMix(); }
+function pmToggle(hand,pt){
+  if(!pmSel[hand]) pmSel[hand]=pmDefaultSel(pmPitcher,hand);
+  if(pmSel[hand].has(pt)) pmSel[hand].delete(pt); else pmSel[hand].add(pt);
+  renderPitchMix();
+}
+function pmClear(hand){ pmSel[hand]=new Set(); renderPitchMix(); }
+// Sum the raw counts across the selected pitch types, THEN divide — averaging percentages
+// across pitches would silently weight a 20-pitch sample the same as a 200-pitch one.
+function pmAgg(vs, pts){
+  const t=new Array(12).fill(0); let any=false;
+  (pts||[]).forEach(pt=>{ const v=vs&&vs[pt]; if(v&&v.length===12){ any=true; for(let i=0;i<12;i++) t[i]+=v[i]; } });
+  if(!any) return null;
+  const [p,wh,pa,k,bbe,nev,evs,brl,pbrl,air,pair,hh]=t;
+  return {pitches:p, bbe,
+    k_pct: pa?100*k/pa:null, swstr: p?100*wh/p:null,
+    ev: nev?evs/nev:null, brl: bbe?100*brl/bbe:null, pbrl: bbe?100*pbrl/bbe:null,
+    pair: air?100*pair/air:null, hh: nev?100*hh/nev:null};
+}
+function _pmScale(kind,v){
+  if(v==null) return null;
+  switch(kind){
+    case "ev":    return (v-82)/(100-82);
+    case "brl":   return v/22;
+    case "pbrl":  return v/14;
+    case "pair":  return v/40;
+    case "hh":    return v/62;
+    case "kpct":  return v/40;
+    case "swstr": return v/25;
+  }
+  return null;
+}
+function _pmCell(kind,v,fmtv){
+  if(v==null) return `<td>–</td>`;
+  const t=_pmScale(kind,v);
+  const bad=(kind==="kpct"||kind==="swstr");
+  const a=Math.max(0,Math.min(1,t));
+  const bg = bad ? `background:rgba(214,96,74,${(.06+a*.42).toFixed(2)})`
+                 : `background:rgba(96,170,112,${(.06+a*.52).toFixed(2)})`;
+  return `<td style="${bg}">${fmtv}</td>`;
+}
+function renderPitchMix(){
+  const main=document.getElementById("main");
+  const starters=pmStarters();
+  if(!BOARD.arsenals || !Object.keys(BOARD.arsenals).length){
+    main.innerHTML=`<div class="pm-wrap"><div class="q-head"><b>Team vs Pitch Mix</b></div>
+      <div class="prop-note">Pitch-mix data isn't in this board yet. Run the <b>Update HR Board</b> workflow once after deploying and this fills in — it needs the season-long pitch-type splits from the ETL.</div></div>`;
+    return;
+  }
+  if(pmPitcher==null && starters.length) pmPitcher=starters[0].id;
+  const arm=starters.find(a=>a.id===pmPitcher)||starters[0];
+  if(!arm){ main.innerHTML=`<div class="pm-wrap"><div class="empty">No starters posted yet.</div></div>`; return; }
+  const throws=arm.throws||"R";
+  // hitters facing this starter, grouped by the side they'll actually bat from tonight
+  const facing=(BOARD.players||[]).filter(p=>((p.opp_pitcher||{}).id)===arm.id);
+  const sideOf=p=>{ const b=p.bats||"R"; return b==="S" ? (throws==="R"?"L":"R") : b; };
+  const section=(hand)=>{
+    const ars=pmArsenal(arm.id,hand);
+    if(!ars.length) return "";
+    if(!pmSel[hand]) pmSel[hand]=pmDefaultSel(arm.id,hand);
+    const sel=[...pmSel[hand]];
+    const hitters=facing.filter(p=>sideOf(p)===hand);
+    const chips=ars.map(([pt,pct])=>`<button class="pm-chip${pmSel[hand].has(pt)?" on":""}" onclick="pmToggle('${hand}','${pt}')">${_ptName(pt)} ${pct}%</button>`).join("")
+      + (sel.length?`<button class="pm-chip pm-clear" onclick="pmClear('${hand}')">Clear ✕</button>`:"");
+    const rows=hitters.map(p=>({p,a:pmAgg(p.vs_pitch,sel)}))
+      .sort((x,y)=>((y.a&&y.a.brl)??-1)-((x.a&&x.a.brl)??-1));
+    const body=rows.map(({p,a})=>{
+      const f=(v,d,s)=>v==null?"–":(v.toFixed(d)+(s||""));
+      if(!a) return `<tr class="pm-thin"><td class="pm-nm">${p.name}<span>${p.bats||""}HB</span></td><td colspan="8">no sample vs these pitches</td></tr>`;
+      return `<tr onclick="scanToPlayer(${p.id})">
+        <td class="pm-nm">${p.name}<span>${p.lineup_spot?"#"+p.lineup_spot+" · ":""}${p.bats||""}HB</span></td>
+        ${_pmCell("kpct",a.k_pct,f(a.k_pct,1,"%"))}${_pmCell("swstr",a.swstr,f(a.swstr,1,"%"))}
+        <td>${a.bbe}</td>
+        ${_pmCell("ev",a.ev,f(a.ev,1))}${_pmCell("brl",a.brl,f(a.brl,1,"%"))}
+        ${_pmCell("pbrl",a.pbrl,f(a.pbrl,1,"%"))}${_pmCell("pair",a.pair,f(a.pair,1,"%"))}
+        ${_pmCell("hh",a.hh,f(a.hh,1,"%"))}</tr>`;
+    }).join("");
+    // team average = pooled counts across everyone listed (not an average of averages)
+    const pooled=new Array(12).fill(0); let anyP=false;
+    hitters.forEach(p=>sel.forEach(pt=>{ const v=p.vs_pitch&&p.vs_pitch[pt]; if(v&&v.length===12){anyP=true; for(let i=0;i<12;i++)pooled[i]+=v[i];} }));
+    let avgRow="";
+    if(anyP){ const [pp,wh,pa,k,bbe,nev,evs,brl,pbrl,air,pair,hh]=pooled;
+      const g=(n,d)=>d?100*n/d:null, f=(v,d,s)=>v==null?"–":(v.toFixed(d)+(s||""));
+      const A={k_pct:g(k,pa),swstr:g(wh,pp),ev:nev?evs/nev:null,brl:g(brl,bbe),pbrl:g(pbrl,bbe),pair:g(pair,air),hh:g(hh,nev)};
+      avgRow=`<tr class="pm-avg"><td class="pm-nm">${hand}HB Avg</td>
+        ${_pmCell("kpct",A.k_pct,f(A.k_pct,1,"%"))}${_pmCell("swstr",A.swstr,f(A.swstr,1,"%"))}
+        <td>${bbe}</td>${_pmCell("ev",A.ev,f(A.ev,1))}${_pmCell("brl",A.brl,f(A.brl,1,"%"))}
+        ${_pmCell("pbrl",A.pbrl,f(A.pbrl,1,"%"))}${_pmCell("pair",A.pair,f(A.pair,1,"%"))}
+        ${_pmCell("hh",A.hh,f(A.hh,1,"%"))}</tr>`; }
+    return `<div class="pm-sec">
+      <div class="pm-sec-h">vs ${hand}HB <span>${sel.length?sel.map(_ptName).join(", "):"select a pitch"}</span></div>
+      <div class="pm-chips">${chips}</div>
+      ${sel.length?`<div class="pm-scroll"><table class="pm-tbl">
+        <thead><tr><th>HITTER</th><th>K%</th><th>SWSTR%</th><th>BBE</th><th>AVG EV</th><th>BARREL%</th><th>PULLBRL%</th><th>PULLAIR%</th><th>HH%</th></tr></thead>
+        <tbody>${body||`<tr><td colspan="9">Lineup not posted yet.</td></tr>`}${avgRow}</tbody></table></div>`
+        :`<div class="pm-none">Pick at least one pitch to see how the lineup handles it.</div>`}
+    </div>`;
+  };
+  main.innerHTML=`<div class="pm-wrap">
+    <div class="q-head"><b>Team vs Pitch Mix</b></div>
+    <div class="q-sub">How tonight's lineup performs against the pitches this starter actually throws — his mix is split by batter hand, because most arms attack lefties and righties differently.</div>
+    <div class="pm-sel">
+      <label>Opposing pitcher</label>
+      <select onchange="pmSetPitcher(this.value)">
+        ${starters.map(a=>`<option value="${a.id}"${a.id===arm.id?" selected":""}>${a.name} (${a.throws||"?"}HP) — ${a.team} vs ${a.opp_team}</option>`).join("")}
+      </select>
+    </div>
+    ${section("R")}${section("L")}
+    <div class="prop-note" style="margin-top:14px">Green = more damage by the hitter; red on K%/SwStr% = the pitch beats him. Rates pool the raw counts across every pitch you select, so a big sample never gets outweighed by a tiny one. Splits are season-long and measured against all pitchers who throw that pitch (not just this arm), which keeps the samples usable. Tap a hitter for his full card.</div>
+  </div>`;
+}
 function renderView(){
   const safe=fn=>{ try{ fn(); }catch(e){ console.error("render",e);
     const m=document.getElementById("main");
@@ -3924,7 +4073,7 @@ function renderView(){
   // Weather is a live standalone view again (park + wind arrow, plus slate park ranking).
   if(view==="stacks"){ view="scan"; }
   else if(view==="matchup"){ view="edges"; }
-  if(view==="today") safe(renderToday); else if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else if(view==="weather") safe(renderWeather); else if(view==="qualified") safe(renderQualified); else if(view==="toppicks") safe(renderTopPicks); else if(view==="calendar") safe(renderCalendar); else if(view==="jackpot") safe(renderJackpot); else if(view==="sgp") safe(renderSGP); else if(view==="faq") safe(renderFaq); else if(view==="ladder") safe(renderLadder); else safe(render);
+  if(view==="today") safe(renderToday); else if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else if(view==="weather") safe(renderWeather); else if(view==="qualified") safe(renderQualified); else if(view==="toppicks") safe(renderTopPicks); else if(view==="calendar") safe(renderCalendar); else if(view==="jackpot") safe(renderJackpot); else if(view==="sgp") safe(renderSGP); else if(view==="faq") safe(renderFaq); else if(view==="ladder") safe(renderLadder); else if(view==="pitchmix") safe(renderPitchMix); else safe(render);
 }
 
 // Weather dashboard: today's slate, one card per game — conditions, roof call,
@@ -8307,7 +8456,7 @@ document.getElementById("tabbar").addEventListener("click",async e=>{
 // Navigate to a view that lives in the "More" sheet (parlays/stacks/matchup/weather).
 // The More button in the tab bar lights up to show you're in a secondary view, since
 // none of the primary tabs own it.
-const MORE_VIEWS=new Set(["parlays","weather","qualified","toppicks","calendar","jackpot","sgp","faq","ladder"]);
+const MORE_VIEWS=new Set(["parlays","weather","qualified","toppicks","calendar","jackpot","sgp","faq","ladder","pitchmix"]);
 // Drawer navigation — jumps to a view and optionally a sub-view, then closes the drawer.
 function renderFaq(){
   const main=document.getElementById("main");
