@@ -63,6 +63,18 @@
   .lad-need{display:flex;align-items:center;justify-content:space-between;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:12px}
   .lad-need-l{font-family:"IBM Plex Mono";font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em}
   .lad-need-v{font-family:"IBM Plex Mono";font-weight:700;font-size:22px;color:var(--seam)}.lad-need-v span{font-size:12px;color:var(--muted);margin-left:4px}
+  .lad-legsel{display:flex;align-items:center;gap:6px;margin-top:12px;flex-wrap:wrap}
+  .lad-legsel>span{font-family:"IBM Plex Mono";font-size:11px;color:var(--faint);margin-right:2px}
+  .lad-legchip{font-family:"IBM Plex Mono";font-size:11px;font-weight:600;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:6px 12px;cursor:pointer}
+  .lad-legchip.on{background:var(--seam-glow);border-color:var(--seam);color:var(--seam)}
+  .lad-leg-p{font-family:"IBM Plex Mono";font-size:10px;color:var(--good);margin-left:8px}
+  .lad-leg-odd{display:flex;align-items:center;gap:6px}
+  .lad-leg-odd>span{font-family:"IBM Plex Mono";font-size:9px;color:var(--faint);text-transform:uppercase}
+  .lad-leg-odd input{width:66px;background:var(--panel-2);border:1px solid var(--line-2);border-radius:7px;color:var(--ink);font-family:"IBM Plex Mono";font-size:14px;font-weight:600;text-align:center;padding:7px 4px;outline:none}
+  .lad-leg-odd input:focus{border-color:var(--seam)}
+  .lad-track{font-family:"IBM Plex Mono";font-size:11px;margin-top:11px;padding:8px 10px;border-radius:8px;line-height:1.4}
+  .lad-track.ok{background:var(--good-glow,rgba(127,180,145,.14));color:var(--good)}
+  .lad-track.under{background:rgba(224,160,72,.14);color:var(--warm)}
   .lad-pick{background:var(--panel);border:1px solid var(--line-2);border-radius:12px;padding:14px;margin-top:10px}
   .lad-pick-h{font-family:"IBM Plex Mono";font-size:10px;color:var(--seam);text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-bottom:10px}
   .lad-leg{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line)}
@@ -3766,35 +3778,61 @@ function _bestCombo(legs, n, reqDec){
   })(0);
   return best;
 }
-function ladderPick(reqDec){
+function ladderPick(reqDec, legMode){
   const pool=ladderPool().sort((a,b)=>b.prob-a.prob);
   if(!pool.length) return null;
   const top=pool.slice(0,28);
-  // safest = highest combined probability across 1–4 legs that clears the required multiplier;
-  // ties go to fewer legs (fewer things that must hit).
+  // safest = highest combined probability that clears the required multiplier. "auto" searches
+  // 1–4 legs (ties to fewer legs); a fixed legMode forces exactly that many legs.
+  if(legMode && legMode!=="auto"){
+    const n=Math.max(1,Math.min(4,parseInt(legMode,10)||1));
+    return _bestCombo(top,n,reqDec) || _bestCombo(top,n,0);   // fall back to best n-leg if none clears
+  }
   let best=null;
   for(let n=1;n<=4;n++){ const c=_bestCombo(top,n,reqDec);
     if(c && (!best || c.prob>best.prob+0.02)) best=c; }
   return best;
+}
+function ladderSetLegs(m){ const st=ladderState(); if(!st) return; st.legMode=m; ladderSave(st); renderLadder(); }
+// Recompute combined odds + payout from the user's edited American odds (books differ leg to leg).
+function ladderRecalc(){
+  if(!_ladCur) return;
+  let dec=1;
+  _ladCur.legs.forEach((l,i)=>{
+    const el=document.getElementById("ladOdd"+i);
+    const am=el?parseFloat(el.value):NaN;
+    const d=isFinite(am)?americanToDecimal(am):l.dec;
+    l.userPrice=isFinite(am)?am:l.price; l.userDec=d||l.dec; dec*=(d||l.dec);
+  });
+  _ladCur.userDec=dec;
+  const st=ladderState();
+  const payEl=document.getElementById("ladPay"); if(payEl) payEl.textContent="$"+(st.current*dec).toFixed(2);
+  const combEl=document.getElementById("ladComb"); if(combEl) combEl.textContent=fmtAm(_decToAm(dec))+" ("+dec.toFixed(2)+"×)";
+  const statEl=document.getElementById("ladStat");
+  if(statEl){ const ok=dec>=_ladCur.reqDec;
+    statEl.className="lad-track "+(ok?"ok":"under");
+    statEl.textContent=ok?"On track — this bet keeps (or gets you ahead of) the pace.":"Below the line — at these odds you'll fall behind pace.";
+  }
 }
 function ladderStart(){
   const s=parseFloat(document.getElementById("ladStart").value);
   const t=parseFloat(document.getElementById("ladTarget").value);
   const dl=document.getElementById("ladDeadline").value;
   if(!(s>0)||!(t>s)||!dl){ alert("Enter a starting amount, a larger target, and a deadline."); return; }
-  ladderSave({start:s,target:t,deadline:dl,current:s,day:1,startedAt:_ladDay(),busted:false,history:[]});
+  ladderSave({start:s,target:t,deadline:dl,current:s,day:1,startedAt:_ladDay(),busted:false,legMode:"auto",history:[]});
   goView("ladder");
 }
 function ladderHit(){
   const st=ladderState(); if(!st||!_ladCur) return;
-  st.history.push({date:_ladDay(),legs:_ladCur.legs.map(l=>({name:l.name,label:l.label,prob:l.prob,price:l.price})),reqDec:_ladCur.reqDec,comboDec:_ladCur.dec,comboProb:_ladCur.prob,result:"hit"});
-  st.current=Math.round(st.current*_ladCur.dec*100)/100;
+  const dec=_ladCur.userDec||_ladCur.dec;          // roll over by the ACTUAL odds the user booked
+  st.history.push({date:_ladDay(),legs:_ladCur.legs.map(l=>({name:l.name,label:l.label,prob:l.prob,price:l.userPrice||l.price})),reqDec:_ladCur.reqDec,comboDec:dec,comboProb:_ladCur.prob,result:"hit"});
+  st.current=Math.round(st.current*dec*100)/100;
   st.day+=1;
   ladderSave(st); renderLadder();
 }
 function ladderMiss(){
   const st=ladderState(); if(!st) return;
-  if(_ladCur) st.history.push({date:_ladDay(),legs:_ladCur.legs.map(l=>({name:l.name,label:l.label,prob:l.prob,price:l.price})),reqDec:_ladCur.reqDec,comboDec:_ladCur.dec,comboProb:_ladCur.prob,result:"miss"});
+  if(_ladCur) st.history.push({date:_ladDay(),legs:_ladCur.legs.map(l=>({name:l.name,label:l.label,prob:l.prob,price:l.userPrice||l.price})),reqDec:_ladCur.reqDec,comboDec:_ladCur.userDec||_ladCur.dec,comboProb:_ladCur.prob,result:"miss"});
   st.busted=true; ladderSave(st); renderLadder();
 }
 function ladderRestart(){
@@ -3827,34 +3865,39 @@ function renderLadder(){
   const daysLeft=_ladDaysLeft(st.deadline);
   const reqMult=Math.max(1, st.target/st.current);
   const reqDec=Math.pow(reqMult, 1/daysLeft);
-  const pick = won?null: ladderPick(reqDec);
-  if(pick) _ladCur={...pick, reqDec};
+  const legMode=st.legMode||"auto";
+  const pick = won?null: ladderPick(reqDec, legMode);
+  if(pick){ _ladCur={...pick, reqDec}; _ladCur.userDec=_ladCur.legs.reduce((a,l)=>a*l.dec,1); _ladCur.legs.forEach(l=>{l.userPrice=l.price;l.userDec=l.dec;}); }
   const pctTo=Math.min(100, 100*Math.log(st.current/st.start)/Math.log(st.target/st.start||1));
-  const legRow=l=>`<div class="lad-leg"><div class="lad-leg-nm"><b>${l.name}</b> <span class="lad-leg-lab">${l.label}</span></div>
-    <div class="lad-leg-r"><span class="lad-leg-p">${Math.round(l.prob*100)}%</span><span class="lad-leg-o">${fmtAm(l.price)}</span></div></div>`;
+  const legRow=(l,i)=>`<div class="lad-leg">
+    <div class="lad-leg-nm"><b>${l.name}</b> <span class="lad-leg-lab">${l.label}</span><span class="lad-leg-p">${Math.round(l.prob*100)}% model</span></div>
+    <div class="lad-leg-odd"><span>odds</span><input id="ladOdd${i}" type="number" inputmode="numeric" value="${Math.round(parseFloat(l.price))}" onchange="ladderRecalc()" onkeyup="ladderRecalc()"></div>
+  </div>`;
+  const legChips=["auto","1","2","3"].map(m=>`<button class="lad-legchip${legMode===m?" on":""}" onclick="ladderSetLegs('${m}')">${m==="auto"?"Safest":m+" leg"+(m==="1"?"":"s")}</button>`).join("");
   let bodyHTML;
   if(won){
     bodyHTML=`<div class="lad-won"><div class="lad-won-t">Target reached</div><div class="lad-won-s">You turned $${st.start} into $${st.current.toFixed(2)}.</div>
       <button class="lad-go" onclick="ladderRestart()">Run it again</button></div>`;
   } else if(!pick){
-    bodyHTML=`<div class="lad-nopath"><b>No safe path tonight.</b> Reaching your target needs a <b>${reqDec.toFixed(2)}×</b> (${_decToAm(reqDec)}) bet today, and tonight's board can't back that safely enough. Push the deadline out, or lower the target, to bring the daily multiplier down.
+    bodyHTML=`<div class="lad-need"><div class="lad-need-l">Today's bet must pay at least</div><div class="lad-need-v">${fmtAm(_decToAm(reqDec))}<span>${reqDec.toFixed(2)}×</span></div></div>
+      <div class="lad-nopath"><b>No safe path tonight.</b> Reaching your target needs about <b>${fmtAm(_decToAm(reqDec))}</b> today, and tonight's board can't back that safely enough. Push the deadline out or lower the target to bring the number down.
       <div style="margin-top:10px"><button class="lad-miss" onclick="ladderMiss()">Log today as a miss</button></div></div>`;
   } else {
-    const payout=st.current*pick.dec;
-    const runProb=Math.pow(pick.prob, daysLeft);   // rough chance of running the rest of the ladder
+    const runProb=Math.pow(pick.prob, daysLeft);
     bodyHTML=`
-      <div class="lad-need"><div class="lad-need-l">Today you need</div><div class="lad-need-v">${reqDec.toFixed(2)}× <span>${_decToAm(reqDec)}</span></div></div>
+      <div class="lad-need"><div class="lad-need-l">Today's bet must pay at least</div><div class="lad-need-v">${fmtAm(_decToAm(reqDec))} <span>${reqDec.toFixed(2)}×</span></div></div>
+      <div class="lad-legsel"><span>Legs:</span>${legChips}</div>
       <div class="lad-pick">
-        <div class="lad-pick-h">Safest play tonight ${pick.legs.length>1?`· ${pick.legs.length}-leg parlay`:`· single leg`}</div>
+        <div class="lad-pick-h">Safest ${pick.legs.length>1?`${pick.legs.length}-leg parlay`:`single leg`} · ${Math.round(pick.prob*100)}% to hit · edit odds to match your book</div>
         ${pick.legs.map(legRow).join("")}
         <div class="lad-pick-sum">
-          <div><span>Combined</span><b>${Math.round(pick.prob*100)}%</b> to hit</div>
-          <div><span>Pays</span><b>${_decToAm(pick.dec)}</b> (${pick.dec.toFixed(2)}×)</div>
-          <div><span>Rolls to</span><b>$${payout.toFixed(2)}</b></div>
+          <div><span>Your combined</span><b id="ladComb">${fmtAm(_decToAm(_ladCur.userDec))} (${_ladCur.userDec.toFixed(2)}×)</b></div>
+          <div><span>Rolls $${st.current.toFixed(2)} to</span><b id="ladPay">$${(st.current*_ladCur.userDec).toFixed(2)}</b></div>
         </div>
+        <div id="ladStat" class="lad-track ${_ladCur.userDec>=reqDec?"ok":"under"}">${_ladCur.userDec>=reqDec?"On track — this bet keeps (or gets you ahead of) the pace.":"Below the line — at these odds you'll fall behind pace."}</div>
       </div>
       <div class="lad-actions"><button class="lad-hit" onclick="ladderHit()">Hit ✓ — roll it over</button><button class="lad-miss" onclick="ladderMiss()">Miss ✕</button></div>
-      <div class="lad-odds-note">Realistic chance of running the full ladder from here: <b>~${(runProb*100)<1?"<1":Math.round(runProb*100)}%</b>. The safest daily play is still a longshot when you compound this fast — that's the math, told straight.</div>`;
+      <div class="lad-odds-note">The odds are prefilled with the model's fair price — <b>edit each leg to the number your sportsbook is posting</b> (e.g. −110), and the combined odds, payout, and pace update live. Realistic chance of running the full ladder from here: <b>~${(runProb*100)<1?"<1":Math.round(runProb*100)}%</b> — the safest daily play is still a longshot when you compound this fast.</div>`;
   }
   const hist = (st.history||[]).slice().reverse().slice(0,10).map(h=>`<div class="lad-hrow ${h.result}">
     <span class="lad-hres">${h.result==="hit"?"✓":"✕"}</span>
