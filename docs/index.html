@@ -14,13 +14,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;900&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
   :root{
-    --bg:#0E1116; --panel:#161B22; --panel-2:#1B222B; --line:#252D38;
-    --ink:#E8EDF2; --muted:#8A95A3; --faint:#5B6573;
-    --seam:#C8472B;            /* baseball-seam red, the one accent */
-    --cold:#3E7CB1; --hot:#E4572E;
-    --good:#5FB97A; --bad:#D6604A;
-    --warm:#C9A961;            /* muted amber for chips */
-    --proof:#C2A24E;           /* quiet gold — validating markers (SMASH, HR-history) */
+    --bg:#0F1311; --panel:#171B18; --panel-2:#1F2420; --panel-3:#272D28; --line:#252B27;
+    --ink:#ECE8DE; --muted:#98A29A; --faint:#606A63;
+    --seam:#E0642F;            /* baseball-leather seam, the one accent */
+    --cold:#5B8AA6; --hot:#E86A4E;
+    --good:#7FB491; --bad:#D6604A;
+    --warm:#E0A048;            /* muted amber for chips */
+    --proof:#E8C15A;           /* quiet gold — validating markers (SMASH, HR-history) */
+    --gold:#E8C15A;
   }
   *{box-sizing:border-box}
   html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
@@ -35,6 +36,47 @@
     *{animation-duration:.001ms!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
   }
   .mono{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+  .faq-item{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin-bottom:8px;overflow:hidden}
+  .faq-item summary{padding:13px 14px;font-weight:700;font-size:13.5px;cursor:pointer;list-style:none;display:flex;align-items:center;gap:9px;font-family:Archivo}
+  .faq-item summary::-webkit-details-marker{display:none}
+  .faq-cv{margin-left:auto;color:var(--faint);transition:transform .2s;font-family:"IBM Plex Mono"}
+  .faq-item[open] summary .faq-cv{transform:rotate(90deg)}
+  .faq-body{padding:0 14px 14px;font-size:12.5px;color:var(--muted);line-height:1.6}
+  .faq-body b{color:var(--ink)}
+  /* Today launchpad */
+  .ty-wrap{max-width:760px;margin:0 auto;padding-bottom:20px}
+  .ty-hero{background:linear-gradient(160deg,var(--panel-2),var(--panel));border:1px solid var(--line);border-radius:14px;padding:16px;position:relative;overflow:hidden}
+  .ty-hero::after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(90deg,transparent 0 3px,rgba(0,0,0,.12) 3px 4px);opacity:.35}
+  .ty-eyebrow{font-family:"IBM Plex Mono";font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--seam);font-weight:600}
+  .ty-hnum{font-family:Archivo;font-weight:900;font-size:50px;line-height:.9;letter-spacing:-.02em;margin:6px 0 2px}
+  .ty-hsub{color:var(--muted);font-size:13px}
+  .ty-hstats{display:flex;margin-top:14px;position:relative;z-index:1}
+  .ty-hstat{flex:1;text-align:center;border-left:1px solid var(--line)}.ty-hstat:first-child{border-left:0}
+  .ty-hstat .n{font-family:"IBM Plex Mono";font-weight:700;font-size:17px}.ty-hstat .l{font-size:9px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em;margin-top:1px}
+  .ty-sec{margin:20px 0 10px;display:flex;align-items:baseline;justify-content:space-between}
+  .ty-sec h2{font-family:Archivo;font-weight:800;font-size:16px;margin:0;letter-spacing:-.01em}
+  .ty-sec a{font-family:"IBM Plex Mono";font-size:11px;color:var(--seam);text-decoration:none;font-weight:600;cursor:pointer}
+  .ty-play{display:flex;gap:11px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:transform .12s,border-color .12s}
+  .ty-play:active{transform:scale(.985);border-color:var(--line-2,#333)}
+  .ty-heat{width:44px;height:44px;flex:0 0 auto;border-radius:11px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:"IBM Plex Mono";font-weight:700;color:#12140f;line-height:1}
+  .ty-heat .hn{font-size:17px}.ty-heat .hl{font-size:6.5px;letter-spacing:.1em;opacity:.72;margin-top:1px}
+  .ty-pm{flex:1;min-width:0}.ty-nm{font-weight:700;font-size:14px;display:flex;align-items:center;gap:6px}
+  .ty-tier{font-family:"IBM Plex Mono";font-size:9px;font-weight:700;color:var(--seam)}
+  .ty-why{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.4}
+  .ty-pr .pct{font-family:"IBM Plex Mono";font-weight:700;font-size:16px;color:var(--hot)}
+  .ty-bet{display:flex;align-items:center;gap:11px;background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--good);border-radius:10px;padding:10px 12px;margin-bottom:8px}
+  .ty-edge{font-family:"IBM Plex Mono";font-weight:800;font-size:15px;color:var(--good);text-align:center;min-width:44px}
+  .ty-edge span{display:block;font-size:8px;color:var(--faint);font-weight:500}
+  .ty-bm{flex:1;min-width:0}.ty-bn{font-weight:600;font-size:13px}.ty-bl{font-family:"IBM Plex Mono";font-size:10px;color:var(--muted);margin-top:1px}
+  .ty-conds{display:flex;gap:9px;overflow-x:auto;scrollbar-width:none}.ty-conds::-webkit-scrollbar{display:none}
+  .ty-cond{flex:0 0 auto;width:130px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:11px 12px}
+  .ty-cond .ty-ic{width:19px;height:19px;color:var(--seam)}
+  .ty-cond .t{font-family:"IBM Plex Mono";font-size:9px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em;margin-top:6px}
+  .ty-cond .v{font-weight:700;font-size:14px;margin-top:1px}.ty-cond .s{font-size:10px;color:var(--muted);margin-top:1px}
+  .ty-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .ty-tool{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:13px;display:flex;flex-direction:column;gap:6px;cursor:pointer;transition:transform .12s,border-color .12s}
+  .ty-tool:active{transform:scale(.98);border-color:var(--seam)}
+  .ty-tool .ty-ic{width:20px;height:20px;color:var(--seam)}.ty-tool .tt{font-weight:700;font-size:13px}.ty-tool .td{font-size:10.5px;color:var(--muted);line-height:1.35}
 
   /* ---- header ---- */
   header{position:sticky;top:0;z-index:20;background:rgba(14,17,22,.92);
@@ -1578,7 +1620,7 @@
     <button class="chip edge-chip" data-edge="mix" aria-pressed="false" title="Only hitters with a favorable pitch-mix matchup (60+)">◎ Mix+</button>
     <button class="chip edge-chip" data-edge="late" aria-pressed="false" title="Only hitters in an elevated late-HR spot">⏱ Late-HR</button>
     <button class="chip edge-chip" data-edge="eye" aria-pressed="false" title="Only disciplined hitters (elite eye or in-zone contact)">👁 Discipline</button>
-    <button class="chip edge-chip" data-edge="grade" aria-pressed="false" title="Only ELITE or STRONG matchup grades (4+ factors aligned)">🎯 Graded</button>
+    <button class="chip edge-chip" data-edge="grade" aria-pressed="false" title="Only ELITE or STRONG matchup grades (4+ factors aligned)">Graded</button>
     <button id="listClearBtn" class="chip listclear" onclick="listClear()" title="Empty your list — asked automatically each new slate">Clear</button>
     <span id="shown" class="shown-count"></span>
   </div>
@@ -1896,11 +1938,10 @@
 <button id="toTop" aria-label="Back to top" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
 
 <nav id="tabbar" role="navigation" aria-label="Primary navigation">
-  <button data-view="board" aria-pressed="true"><svg viewBox="0 0 20 20"><circle cx="4" cy="5.5" r="1"/><circle cx="4" cy="10" r="1"/><circle cx="4" cy="14.5" r="1"/><line x1="7.5" y1="5.5" x2="16" y2="5.5"/><line x1="7.5" y1="10" x2="16" y2="10"/><line x1="7.5" y1="14.5" x2="16" y2="14.5"/></svg><span>Board</span></button>
-  <button data-view="scan" aria-pressed="false"><svg viewBox="0 0 20 20"><rect x="3" y="3" width="6" height="6" rx="1"/><rect x="11" y="3" width="6" height="6" rx="1"/><rect x="3" y="11" width="6" height="6" rx="1"/><rect x="11" y="11" width="6" height="6" rx="1"/></svg><span>Scan</span></button>
-  <button data-view="edges" aria-pressed="false"><svg viewBox="0 0 20 20"><path d="M10 2l2.4 5.2 5.6.7-4.2 3.9 1.1 5.5-4.9-2.8-4.9 2.8 1.1-5.5L2 7.9l5.6-.7z"/></svg><span>Edges</span></button>
-  <button data-view="props" aria-pressed="false"><svg viewBox="0 0 20 20"><path d="M4 15V8"/><path d="M8 15V5"/><path d="M12 15v-6"/><path d="M16 15v-4"/><line x1="3" y1="15" x2="17" y2="15"/></svg><span>Props</span></button>
-  <button data-view="bets" aria-pressed="false"><svg viewBox="0 0 20 20"><path d="M5 3.5h10v13l-2-1.3-2 1.3-2-1.3-2 1.3V3.5z"/><line x1="7.5" y1="7.5" x2="12.5" y2="7.5"/><line x1="7.5" y1="10.5" x2="12.5" y2="10.5"/></svg><span>Bets</span></button>
+  <button data-view="today" aria-pressed="true"><svg viewBox="0 0 20 20"><path d="M3 9l7-6 7 6"/><path d="M4.5 8v8h11V8"/></svg><span>Today</span></button>
+  <button data-view="board" aria-pressed="false"><svg viewBox="0 0 20 20"><line x1="4" y1="5.5" x2="16" y2="5.5"/><line x1="4" y1="10" x2="16" y2="10"/><line x1="4" y1="14.5" x2="12" y2="14.5"/></svg><span>Board</span></button>
+  <button data-view="bets" aria-pressed="false"><svg viewBox="0 0 20 20"><path d="M10 2v16"/><path d="M6 5h6.5a2.5 2.5 0 010 5H7.5a2.5 2.5 0 000 5H14"/></svg><span>Bets</span></button>
+  <button data-view="tracker" aria-pressed="false"><svg viewBox="0 0 20 20"><path d="M3 14l4.5-4.5 3 3L17 6"/><path d="M13 6h4v4"/></svg><span>Trends</span></button>
   <button id="moreBtn" onclick="document.getElementById('moreSheet').classList.add('show')" aria-label="More views"><svg viewBox="0 0 20 20"><circle cx="4" cy="10" r="1.4"/><circle cx="10" cy="10" r="1.4"/><circle cx="16" cy="10" r="1.4"/></svg><span>More</span></button>
 </nav>
 
@@ -1916,10 +1957,10 @@
       <button class="nav-item" data-nav="bets" onclick="drawerGo('bets')">Bets<i>Edge Finder · my bets · jackpots</i></button>
 
       <div class="nav-sec">TARGETS</div>
-      <button class="nav-item" data-nav="toppicks" onclick="drawerGo('toppicks')">⚡ Top Picks<i>all props, most likely to hit first</i></button>
-      <button class="nav-item" data-nav="sgp" onclick="drawerGo('sgp')">🎰 Parlay Builder<i>SGP generator — pick the mix &amp; goal</i></button>
-      <button class="nav-item" data-nav="jackpot" onclick="drawerGo('jackpot')">🎯 Long Ball Jackpot<i>longest-HR contest — ceilings + leverage</i></button>
-      <button class="nav-item" data-nav="qualified" onclick="drawerGo('qualified')">💰 Qualified Bets<i>every market, only where price beats fair · Kelly sized</i></button>
+      <button class="nav-item" data-nav="toppicks" onclick="drawerGo('toppicks')">Top Picks<i>all props, most likely to hit first</i></button>
+      <button class="nav-item" data-nav="sgp" onclick="drawerGo('sgp')">Parlay Builder<i>SGP generator — pick the mix &amp; goal</i></button>
+      <button class="nav-item" data-nav="jackpot" onclick="drawerGo('jackpot')">Long Ball Jackpot<i>longest-HR contest — ceilings + leverage</i></button>
+      <button class="nav-item" data-nav="qualified" onclick="drawerGo('qualified')">Qualified Bets<i>every market, only where price beats fair · Kelly sized</i></button>
       <button class="nav-item" data-nav="edges" onclick="drawerGo('edges','arms')">Vulnerable Arms<i>HR Vuln score · zone maps</i></button>
       <button class="nav-item" data-nav="edges-qt" onclick="drawerGo('edges','qt')">Quick Target<i>dangerous lineup spots per arm</i></button>
       <button class="nav-item" data-nav="edges-pens" onclick="drawerGo('edges','pens')">Bullpens<i>pen rankings + fatigue</i></button>
@@ -1931,10 +1972,10 @@
       <button class="nav-item" data-nav="edges-late" onclick="drawerGo('edges','late')">Late-HR Spots<i>short starter + gassed pen</i></button>
 
       <div class="nav-sec">RESULTS</div>
-      <button class="nav-item" data-nav="calendar" onclick="drawerGo('calendar')">📅 HR Calendar<i>HRs per day · trends · who went deep</i></button>
+      <button class="nav-item" data-nav="calendar" onclick="drawerGo('calendar')">HR Calendar<i>HRs per day · trends · who went deep</i></button>
       <button class="nav-item" data-nav="tracker" onclick="drawerGo('tracker')">Tracker<i>model vs reality, by tier</i></button>
       <button class="nav-item" onclick="openLegend()">Legend<i>what every badge &amp; chip means</i></button>
-      <button class="nav-item" onclick="document.getElementById('moreSheet').classList.remove('show');openFaq()">How it works<i>every signal explained</i></button>
+      <button class="nav-item" data-nav="faq" onclick="drawerGo('faq')">Guide &amp; FAQ<i>what the app is, every feature explained</i></button>
     </div>
   </div>
 </div>
@@ -1977,7 +2018,7 @@ const EXTRA = [
   {k:"fb_pct",     label:"FB%",      fmt:v=>fmt(v,1)},
   {k:"pull_pct",   label:"Pull(all)",fmt:v=>fmt(v,1)},
 ];
-let BOARD=null, HISTORY=null, view="board", sortKey="heat", q="", hideThin=false, minHeat=0, spFloor=0, gameSel=new Set(), batFilter="", traitSel=new Set(), labSel=new Set(), teamSel=new Set(), drySel=new Set(), tierSel=new Set(), mixView=false, listFilter=false, muSort="hist", armsSortMode="vuln", edgeSel=new Set(), zoneMin=0, gradeMin="", bombMin=0, vulnMin="";
+let BOARD=null, HISTORY=null, view="today", sortKey="heat", q="", hideThin=false, minHeat=0, spFloor=0, gameSel=new Set(), batFilter="", traitSel=new Set(), labSel=new Set(), teamSel=new Set(), drySel=new Set(), tierSel=new Set(), mixView=false, listFilter=false, muSort="hist", armsSortMode="vuln", edgeSel=new Set(), zoneMin=0, gradeMin="", bombMin=0, vulnMin="";
 // effective heat: vs-pitch-mix variant when the toggle is on, else standard
 function H(p){return (mixView && p.heat_mix!=null) ? p.heat_mix : p.heat;}
 
@@ -3501,6 +3542,67 @@ window.addEventListener("resize",setHH);
 window.addEventListener("orientationchange",()=>setTimeout(setHH,100));
 window.addEventListener("resize",setHH);
 function setSort(k){ sortKey=k; const s=document.getElementById("sortSel"); if(s) s.value=k; savePrefs(); render(); }
+function renderToday(){
+  const main=document.getElementById("main");
+  if(!BOARD||!BOARD.players){ main.innerHTML=`<div class="empty">Loading tonight's board…</div>`; return; }
+  const games=(BOARD.game_projections||[]);
+  const players=BOARD.players||[];
+  // slate summary
+  const nGames=games.length||new Set(players.map(p=>p.game_pk)).size;
+  const times=players.map(p=>p.time).filter(Boolean).sort();
+  const firstPitch=times.length?timeStr(times[0]):"—";
+  const confirmed=players.filter(p=>p.lineup_spot).length, lineupPct=players.length?Math.round(100*confirmed/players.length):0;
+  const hot=players.filter(p=>(p.heat||0)>=70).length;
+  const tp=(BOARD.top_plays||[]);
+  // conditions (derived, all guarded)
+  let topPark=null,hotAir=null;
+  players.forEach(p=>{ const f=p.park_hr_factor; if(f!=null&&(!topPark||f>topPark.f))topPark={park:p.park,f}; 
+    const t=(p.park_hr||{}).temp_f; if(t!=null&&(!hotAir||t>hotAir.t))hotAir={park:p.park,t}; });
+  // best bets (guarded)
+  let bets=[];
+  try{ bets=(typeof allPropEV==="function"?allPropEV():[]).filter(e=>e.ev>0&&!e.fallback).sort((a,b)=>b.ev-a.ev).slice(0,3); }catch(_){}
+  const playRow=t=>`<div class="ty-play" onclick="scanToPlayer(${t.id})">
+    <div class="ty-heat" style="background:${chipColor(t.heat||0)}"><div class="hn">${t.heat??'–'}</div><div class="hl">HEAT</div></div>
+    <div class="ty-pm"><div class="ty-nm">${t.name}${t.tier?` <span class="ty-tier">${t.tier}</span>`:''}</div>
+      <div class="ty-why">${(t.why||`${t.team||''}${t.opp_team?' → '+t.opp_team:''}${t.spot?' · #'+t.spot:''}`)}</div></div>
+    <div class="ty-pr">${(function(){try{const pr=calibratedHRprob(t.heat);return pr!=null?`<div class="pct">${Math.round(pr*100)}%</div>`:'';}catch(e){return '';}})()}</div>
+  </div>`;
+  const betRow=e=>`<div class="ty-bet"><div class="ty-edge">+${Math.round(e.ev*100)}%<span>EDGE</span></div>
+    <div class="ty-bm"><div class="ty-bn">${e.name} — ${e.propLabel}</div><div class="ty-bl">${fmtAm(e.price)} book · fair ${americanFair(e.prob)}</div></div></div>`;
+  const cond=(ic,t,v,s)=>`<div class="ty-cond"><svg class="ty-ic" viewBox="0 0 24 24">${ic}</svg><div class="t">${t}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+  const IC_PARK=`<path d="M3 9c0-2 4-3 9-3s9 1 9 3-4 3-9 3-9-1-9-3z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3 9v6c0 2 4 3 9 3s9-1 9-3V9" fill="none" stroke="currentColor" stroke-width="1.6"/>`;
+  const IC_TEMP=`<path d="M10 13V5a2 2 0 014 0v8a4 4 0 11-4 0z" fill="none" stroke="currentColor" stroke-width="1.6"/>`;
+  const IC_BOLT=`<path d="M13 2L4 14h7l-1 8 9-12h-7z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>`;
+  const IC_TGT=`<circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="1.6"/>`;
+  const IC_LAY=`<path d="M12 3l9 5-9 5-9-5 9-5z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M3 13l9 5 9-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>`;
+  const IC_CAL=`<rect x="3.5" y="5" width="17" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3.5 9.5h17M8 3v4M16 3v4" fill="none" stroke="currentColor" stroke-width="1.6"/>`;
+  main.innerHTML=`<div class="ty-wrap">
+    <div class="ty-hero">
+      <div class="ty-eyebrow">Tonight's slate</div>
+      <div class="ty-hnum mono">${nGames}</div>
+      <div class="ty-hsub">games · first pitch ${firstPitch} · lineups ${lineupPct}% confirmed</div>
+      <div class="ty-hstats">
+        <div class="ty-hstat"><div class="n" style="color:var(--hot)">${hot}</div><div class="l">Hot 70+</div></div>
+        <div class="ty-hstat"><div class="n" style="color:var(--seam)">${tp.length}</div><div class="l">Top plays</div></div>
+        <div class="ty-hstat"><div class="n">${bets.length}</div><div class="l">+EV bets</div></div>
+        <div class="ty-hstat"><div class="n">${nGames}</div><div class="l">Games</div></div>
+      </div>
+    </div>
+    ${tp.length?`<div class="ty-sec"><h2>Top plays tonight</h2><a onclick="goView('board')">Full board ›</a></div>
+      ${tp.slice(0,4).map(playRow).join("")}`:""}
+    ${bets.length?`<div class="ty-sec"><h2>Best bets right now</h2><a onclick="goView('qualified')">All bets ›</a></div>
+      ${bets.map(betRow).join("")}`:""}
+    ${(topPark||hotAir)?`<div class="ty-sec"><h2>Conditions</h2><a onclick="goView('weather')">Weather ›</a></div>
+      <div class="ty-conds">${topPark?cond(IC_PARK,"Top HR park",topPark.park||"—",`${(+topPark.f).toFixed(2)}× factor`):""}${hotAir?cond(IC_TEMP,"Hottest air",hotAir.park||"—",`${Math.round(hotAir.t)}°F`):""}</div>`:""}
+    <div class="ty-sec"><h2>Jump to</h2></div>
+    <div class="ty-grid">
+      <div class="ty-tool" onclick="goView('toppicks')"><svg class="ty-ic" viewBox="0 0 24 24">${IC_BOLT}</svg><div class="tt">Top Picks</div><div class="td">All props, most likely first</div></div>
+      <div class="ty-tool" onclick="goView('jackpot')"><svg class="ty-ic" viewBox="0 0 24 24">${IC_TGT}</svg><div class="tt">Long Ball Jackpot</div><div class="td">Longest-HR contest</div></div>
+      <div class="ty-tool" onclick="goView('sgp')"><svg class="ty-ic" viewBox="0 0 24 24">${IC_LAY}</svg><div class="tt">Parlay Builder</div><div class="td">Adjustable SGP</div></div>
+      <div class="ty-tool" onclick="goView('calendar')"><svg class="ty-ic" viewBox="0 0 24 24">${IC_CAL}</svg><div class="tt">HR Calendar</div><div class="td">Daily trends</div></div>
+    </div>
+  </div>`;
+}
 function renderView(){
   const safe=fn=>{ try{ fn(); }catch(e){ console.error("render",e);
     const m=document.getElementById("main");
@@ -3509,7 +3611,7 @@ function renderView(){
   // Weather is a live standalone view again (park + wind arrow, plus slate park ranking).
   if(view==="stacks"){ view="scan"; }
   else if(view==="matchup"){ view="edges"; }
-  if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else if(view==="weather") safe(renderWeather); else if(view==="qualified") safe(renderQualified); else if(view==="toppicks") safe(renderTopPicks); else if(view==="calendar") safe(renderCalendar); else if(view==="jackpot") safe(renderJackpot); else if(view==="sgp") safe(renderSGP); else safe(render);
+  if(view==="today") safe(renderToday); else if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else if(view==="weather") safe(renderWeather); else if(view==="qualified") safe(renderQualified); else if(view==="toppicks") safe(renderTopPicks); else if(view==="calendar") safe(renderCalendar); else if(view==="jackpot") safe(renderJackpot); else if(view==="sgp") safe(renderSGP); else if(view==="faq") safe(renderFaq); else safe(render);
 }
 
 // Weather dashboard: today's slate, one card per game — conditions, roof call,
@@ -3656,7 +3758,7 @@ function renderJackpot(){
     .map(p=>({p, j:jackpotModel(p)})).filter(x=>x.j && x.j.md>=430);   // must be able to reach the range
   const sortKeyJ = jackpotView==="value" ? "value" : "winScore";
   cands.sort((a,b)=>b.j[sortKeyJ]-a.j[sortKeyJ]);
-  const tabs=`<div class="sortchips"><button class="sortchip${jackpotView==='win'?' on':''}" onclick="jackpotView='win';renderJackpot()">Best shot to win</button><button class="sortchip${jackpotView==='value'?' on':''}" onclick="jackpotView='value';renderJackpot()">🎯 Best leverage</button></div>`;
+  const tabs=`<div class="sortchips"><button class="sortchip${jackpotView==='win'?' on':''}" onclick="jackpotView='win';renderJackpot()">Best shot to win</button><button class="sortchip${jackpotView==='value'?' on':''}" onclick="jackpotView='value';renderJackpot()">Best leverage</button></div>`;
   const lev=j=> j.leverage>=1.9?["🎯🎯","var(--hot)","low-profile — big payout if he wins"]
               : j.leverage>=1.3?["🎯","var(--seam)","moderately under-the-radar"]
               : ["chalk","var(--muted)","obvious pick — small payout share"];
@@ -6950,7 +7052,7 @@ function renderProps(){
         const best=propEV(pOver, kO.over, kO.under); return best?{a,best,kO}:null; }).filter(Boolean)
         .filter(x=>x.best.ev>0).sort((a,b)=>b.best.ev-a.best.ev);
       if(cands.length){ const t=cands[0];
-        kEVLead=`<div class="prop-ev-lead">💰 Best +EV K prop: <b>${t.a.name}</b> ${t.best.side.toUpperCase()} ${t.kO.line} at ${fmtAm(t.best.price)} — model est ${t.a.est_ks.toFixed(1)} Ks, <b>+${(t.best.ev*100).toFixed(0)}% EV</b>. ${cands.length} +EV play${cands.length>1?"s":""}.</div>`;
+        kEVLead=`<div class="prop-ev-lead">Best +EV K prop: <b>${t.a.name}</b> ${t.best.side.toUpperCase()} ${t.kO.line} at ${fmtAm(t.best.price)} — model est ${t.a.est_ks.toFixed(1)} Ks, <b>+${(t.best.ev*100).toFixed(0)}% EV</b>. ${cands.length} +EV play${cands.length>1?"s":""}.</div>`;
       }
     }
     inner=`
@@ -7072,7 +7174,7 @@ function renderProps(){
         .filter(x=>x.best.ev>0).sort((a,b)=>b.best.ev-a.best.ev);
       if(cands.length){
         const t=cands[0];
-        evLead=`<div class="prop-ev-lead">💰 Best +EV ${label}: <b>${t.p.name}</b> ${t.best.side.toUpperCase()} ${t.e.line} at ${fmtAm(t.best.price)} — model ${(t.best.prob*100).toFixed(0)}%, <b>+${(t.best.ev*100).toFixed(0)}% EV</b>. ${cands.length} +EV play${cands.length>1?"s":""} total.</div>`;
+        evLead=`<div class="prop-ev-lead">Best +EV ${label}: <b>${t.p.name}</b> ${t.best.side.toUpperCase()} ${t.e.line} at ${fmtAm(t.best.price)} — model ${(t.best.prob*100).toFixed(0)}%, <b>+${(t.best.ev*100).toFixed(0)}% EV</b>. ${cands.length} +EV play${cands.length>1?"s":""} total.</div>`;
       }
     }
     inner=`
@@ -7888,8 +7990,27 @@ document.getElementById("tabbar").addEventListener("click",async e=>{
 // Navigate to a view that lives in the "More" sheet (parlays/stacks/matchup/weather).
 // The More button in the tab bar lights up to show you're in a secondary view, since
 // none of the primary tabs own it.
-const MORE_VIEWS=new Set(["parlays","weather","qualified","toppicks","calendar","jackpot","sgp"]);
+const MORE_VIEWS=new Set(["parlays","weather","qualified","toppicks","calendar","jackpot","sgp","faq"]);
 // Drawer navigation — jumps to a view and optionally a sub-view, then closes the drawer.
+function renderFaq(){
+  const main=document.getElementById("main");
+  const q=(icon,title,body,open)=>`<details class="faq-item"${open?" open":""}><summary>${title}<span class="faq-cv">›</span></summary><div class="faq-body">${body}</div></details>`;
+  main.innerHTML=`<div style="max-width:760px;margin:0 auto">
+    <div class="q-head"><b>Guide &amp; FAQ</b></div>
+    <div class="q-sub">Going Yard turns Statcast data into a daily read on who's likely to homer, which props and parlays carry real value, and how the model has actually performed. Here's what everything means.</div>
+    ${q("","What is \"heat\"?",`Heat is a <b>0–100 score</b> for how likely a hitter is to homer tonight, built from four Statcast signals — pull-in-air rate, exit velocity, barrel rate, and ideal launch angle — blended over his last two weeks. <b>70+</b> is elite, <b>55–69</b> solid, under 40 is a fade. It's the backbone of the app and it's <b>frozen</b> — every other feature is a lens on top of it, never a change to it.`,true)}
+    ${q("","Badges & the ELITE tag",`Badges flag why a hitter stands out: <b>HOT / COOL</b> (form rising or cooling), <b>DUE</b> (hitting it harder than results show), <b>LOCK</b> (elite earned contact), <b>PLATOON</b> (handedness edge on tonight's pitcher), <b>HR vs SP / PEN</b> (has taken this staff deep), and <b>CROSSHAIR</b> (zone overlap with the pitcher's weak spots). Each badge also shows its <b>measured lift</b> — how much more often it's actually led to a HR in the backtest.`)}
+    ${q("","The spray field on player cards",`Each card draws <b>tonight's ballpark</b> — its real outfield fence — and plots the hitter's last two weeks of batted balls by angle and distance. <b>Gold dots are home runs</b>, orange dots are balls that <b>would clear tonight's fence</b> where they were hit, gray are other air balls. It shows at a glance whether his power plays in this specific park.`)}
+    ${q("","Reading the data (deep dive)",`Every card shows core signals with <b>MLB percentile chips</b> (P88 = top 12%) and 2-week / season / career splits, a <b>zone-damage grid</b> (xwOBA by pitch location), plate-discipline percentiles, and the full <b>opposing-arm vulnerability table</b> — barrel, EV, HR/PA and whiff rates allowed, velo trend, and platoon splits. If you want to verify the model's read yourself, it's all there.`)}
+    ${q("","Qualified Bets & edge",`These are spots where the <b>book's price beats our fair price</b> — the only real edge in betting. Each is sized by <b>half-Kelly</b> off your bankroll, and HR bets show <b>line movement</b> (steam toward you, or drifting away). If you just want the model's best value plays, this is the list.`)}
+    ${q("","Top Picks vs Qualified Bets",`<b>Top Picks</b> ranks every prop by how <b>likely</b> it is to hit — pick from the top when you just want winners. <b>Qualified Bets</b> ranks by <b>value</b> — where the price is wrong. The sweet spot is a play high on both. Likelihood wins more often; value makes money long-term.`)}
+    ${q("","Parlay Builder & Long Ball Jackpot",`<b>Parlay Builder</b> generates a same-game or cross-game parlay from your chosen prop mix, leg count, and goal (most likely, best value, or biggest payout). <b>Long Ball Jackpot</b> targets the "longest HR of the day" contest — it finds the highest distance ceilings and flags the under-the-radar ones that pay the most if they win.`)}
+    ${q("","Game Lines (moneyline)",`A run model projects each game from lineups, starter and bullpen quality, park, weather, and handedness platoon, giving a win probability, total, and first-5 line. The moneyline is the <b>sharpest market in baseball</b>, so treat it as informational — the calibration backtest in Results is the honest verdict on its accuracy.`)}
+    ${q("","How accurate is it, really?",`Everything is backtested and tracked. The <b>Tracker</b> shows whether hitters in each heat band homer at the predicted rate; the <b>backtests</b> show HR, prop, and moneyline accuracy across the season. The misses are shown too — an honest tool is the point.`)}
+    ${q("","Bankroll & responsible betting",`Set your bankroll in settings and the app sizes every bet with <b>half-Kelly</b> — never more than the math says. This is an analytics tool, not a guarantee; no model wins every night. Bet within your means, and only what you can afford to lose.`)}
+    <div class="prop-note" style="margin-top:14px">Every feature in the app has an entry here. As new features ship, they get added — so anyone can always find out what something means.</div>
+  </div>`;
+}
 function drawerGo(v, sub){
   document.getElementById('moreSheet').classList.remove('show');
   if(v==='edges' && sub){ edgesView=sub; edgesPitcher=null; edgesBatter=null; }
@@ -8212,14 +8333,16 @@ async function load(){
   if(typeof pf.mixView==="boolean"){ mixView=pf.mixView; const m=document.getElementById("mixBtn"); if(m) m.setAttribute("aria-pressed",mixView); }
   if(typeof pf.hideThin==="boolean"){ hideThin=pf.hideThin; const t=document.getElementById("thinBtn"); if(t) t.setAttribute("aria-pressed",hideThin); }
   if(typeof pf.listFilter==="boolean"){ listFilter=pf.listFilter; const l=document.getElementById("listBtn"); if(l) l.setAttribute("aria-pressed",listFilter); }
-  if(pf.view && pf.view!=="board"){
+  if(pf.view){
     view=pf.view;
+  }
+  {
     const inMore=MORE_VIEWS.has(view);
     [...document.querySelectorAll("#tabbar button")].forEach(x=>{
       if(x.id==="moreBtn") x.setAttribute("aria-pressed", inMore?"true":"false");
       else x.setAttribute("aria-pressed", x.dataset.view===view ? "true":"false");
     });
-    document.getElementById("boardControls").style.display="none";
+    document.getElementById("boardControls").style.display = view==="board"?"":"none";
   }
   if((view==="tracker"||view==="parlays"||view==="calendar") && !HISTORY){ await loadHistory(); }
   renderView();
