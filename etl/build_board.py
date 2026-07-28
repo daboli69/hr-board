@@ -144,6 +144,12 @@ def build(date_str: str | None = None) -> dict:
     bb_samples = statcast_data.batted_ball_sample(df, batter_ids)
     bb_logs = statcast_data.batted_ball_log(df, batter_ids)
     try:
+        arsenals = statcast_data.pitcher_arsenal(df, pitcher_ids)     # usage % by batter hand
+        vs_pitch = statcast_data.batter_vs_pitch(df, batter_ids)      # hitter vs specific pitch types
+        print(f"[build] pitch mix: {len(arsenals)} arsenals, {len(vs_pitch)} hitter splits")
+    except Exception as e:
+        print(f"[build] pitch-mix data skipped (non-fatal): {e}"); arsenals, vs_pitch = {}, {}
+    try:
         team_def = statcast_data.team_defense(df)          # OAA-style runs saved/game, {} if thin
         if team_def:
             print(f"[build] team defense computed for {len(team_def)} teams")
@@ -809,6 +815,7 @@ def build(date_str: str | None = None) -> dict:
             "opp_pen_live": pen_live,
             "traded": traded.get(bid),
             "pitch_splits": prof.get("pitch_splits"),
+            "vs_pitch": vs_pitch.get(int(bid)) if vs_pitch else None,
             "pitch_usage": pprof.get("usage"),
             "pitch_matchup": pmatch,
             "features": feat,          # parallel edges: pitch_matchup, late_hr (never touch heat)
@@ -1728,6 +1735,7 @@ def build(date_str: str | None = None) -> dict:
             "end": date_str,
         },
         "players": players,
+        "arsenals": arsenals,               # starter pitch usage % split by batter handedness
         "pitcher_edges": pitcher_edges,     # Edges tab: per-arm zone heatmap + ranked batters
         "bullpen_rankings": bullpen_rankings,   # slate-wide pen ranking, worst to best
         "park_source": ("ballparkpal" if BPP.get("ok") else "local"),

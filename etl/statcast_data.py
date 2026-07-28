@@ -200,6 +200,104 @@ def player_names(ids) -> dict:
         return {}
 
 
+def pitcher_arsenal(df: pd.DataFrame, pitcher_ids, min_pitches: int = 60) -> dict:
+    """Per pitcher, his pitch usage split by the BATTER's handedness — the "what does he
+    actually throw to lefties vs righties" read. Arsenals are often very different by hand
+    (a changeup that only shows up vs the opposite side), which is exactly the split that
+    matters when you're asking whether tonight's lineup can handle his mix.
+    Returns {pid: {"R": [[pitch_type, usage_pct, n], ...desc], "L": [...]}}."""
+    need = {"pitcher", "pitch_type", "stand"}
+    if df is None or df.empty or not need.issubset(df.columns):
+        return {}
+    d = df[df["pitch_type"].notna() & df["stand"].notna()]
+    if d.empty:
+        return {}
+    wanted = {int(p) for p in pitcher_ids if p is not None}
+    out = {}
+    for pid, g in d.groupby("pitcher"):
+        if int(pid) not in wanted or len(g) < min_pitches:
+            continue
+        hands = {}
+        for hand, gh in g.groupby("stand"):
+            tot = len(gh)
+            if tot < 25:                                  # too thin to quote a mix
+                continue
+            vc = gh["pitch_type"].value_counts()
+            arr = [[str(pt), round(100.0 * int(c) / tot, 1), int(c)]
+                   for pt, c in vc.items() if int(c) >= 3]
+            if arr:
+                hands[str(hand)] = arr[:8]
+        if hands:
+            out[int(pid)] = hands
+    return out
+
+
+# Raw per-pitch-type counts, in this fixed order, so the UI can COMBINE several pitch types
+# correctly (sum the counts, then divide) instead of averaging percentages — which would be wrong.
+VS_PITCH_ORDER = ("pitches", "whiffs", "pa", "k", "bbe", "n_ev", "ev_sum",
+                  "barrels", "pull_brl", "air", "pull_air", "hard_hit")
+
+
+def batter_vs_pitch(df: pd.DataFrame, batter_ids, min_pitches: int = 25) -> dict:
+    """Per batter, per SPECIFIC pitch type, how he actually performs — season-long.
+    Emits raw counts (not percentages) in VS_PITCH_ORDER so the front end can select several
+    pitch types and recombine them exactly. Pull/air use the same definitions as the frozen
+    model (`_pull_metrics`): pull = beyond +/-15 deg to the batter's pull side, air = fly ball
+    or line drive, so these numbers are consistent with the pull_air_pct you already read.
+    Returns {bid: {pitch_type: [12 numbers]}}."""
+    need = {"batter", "pitch_type", "description", "events"}
+    if df is None or df.empty or not need.issubset(df.columns):
+        return {}
+    d = df[df["pitch_type"].notna()]
+    if d.empty:
+        return {}
+    wanted = {int(b) for b in batter_ids if b is not None}
+    K_EV = {"strikeout", "strikeout_double_play"}
+    out = {}
+    for bid, g in d.groupby("batter"):
+        if int(bid) not in wanted:
+            continue
+        rec = {}
+        for pt, gp in g.groupby("pitch_type"):
+            n = len(gp)
+            if n < min_pitches:                            # skip noise-level samples
+                continue
+            desc = gp["description"].astype(str)
+            whiffs = int(desc.isin(SWING_STRIKE).sum())
+            ev_col = gp["events"]
+            pa = int(ev_col.isin(PA_EVENTS).sum())
+            k = int(ev_col.isin(K_EV).sum())
+            bb = gp[gp["bb_type"].notna()] if "bb_type" in gp else gp.iloc[0:0]
+            bbe = len(bb)
+            n_ev = ev_sum = barrels = pull_brl = air = pull_air = hard = 0
+            if bbe:
+                ls = pd.to_numeric(bb.get("launch_speed"), errors="coerce")
+                ok = ls.notna()
+                n_ev = int(ok.sum())
+                ev_sum = round(float(ls[ok].sum()), 1)
+                hard = int((ls[ok] >= 95.0).sum())
+                is_brl = ((bb["launch_speed_angle"] == 6).to_numpy()
+                          if "launch_speed_angle" in bb else np.zeros(bbe, bool))
+                barrels = int(is_brl.sum())
+                if {"hc_x", "hc_y", "stand"}.issubset(bb.columns):
+                    loc = bb.dropna(subset=["hc_x", "hc_y"])
+                    if len(loc):
+                        ang = np.degrees(np.arctan2(loc["hc_x"] - 125.42, 198.27 - loc["hc_y"]))
+                        is_r = loc["stand"].values == "R"
+                        pulled = np.where(is_r, ang.values < -15, ang.values > 15)
+                        air_m = loc["bb_type"].isin(["fly_ball", "line_drive"]).values
+                        air = int(air_m.sum())
+                        pull_air = int((pulled & air_m).sum())
+                        brl_loc = ((loc["launch_speed_angle"] == 6).to_numpy()
+                                   if "launch_speed_angle" in loc else np.zeros(len(loc), bool))
+                        pull_brl = int((pulled & brl_loc).sum())
+            rec[str(pt)] = [n, whiffs, pa, k, bbe, n_ev, ev_sum,
+                            barrels, pull_brl, air, pull_air, hard]
+        if rec:
+            out[int(bid)] = rec
+    return out
+
+
 def team_defense(df: pd.DataFrame) -> dict:
     """Self-contained team-defense read — an OAA-style proxy: how many hits a team's fielders save
     versus expected on balls in play, converted to runs saved per game. Positive = good defense
