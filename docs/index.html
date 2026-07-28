@@ -5497,9 +5497,13 @@ function smoothPropProb(kind, score){
   return anchors[anchors.length-1][1];
 }
 // P(pitcher goes over his estimated-K half-line) — likelihood proxy for a K over, no book needed.
+// The OVER line the model actually likes = the half-line just BELOW the estimate. Using
+// floor(est)+0.5 put the line ABOVE the estimate whenever the decimal was under .5 (e.g. est 6.2
+// -> "O6.5"), which the model expects him to MISS — a poor over target and a ranking artifact.
+function kOverLine(estKs){ return estKs==null?null : Math.ceil(estKs-0.5)-0.5; }
 function kOverProb(estKs){
   if(estKs==null) return null;
-  const line=Math.floor(estKs)+0.5;             // nearest half-line below the estimate
+  const line=kOverLine(estKs);                  // sensible over target, just below the estimate
   return 1-_poissonCdf(Math.floor(line), estKs);
 }
 
@@ -5741,7 +5745,7 @@ function unifiedPicks(filter){
     if(a.est_ks==null) return;
     const ac=armConv(a), prob=kOverProb(a.est_ks); if(prob==null) return;
     out.push({id:null, name:a.name, team:a.team, opp:a.opp_team, typeKey:"Ks",
-      label:`Over ${(Math.floor(a.est_ks)+0.5).toFixed(1)} Ks`, prob, conf:prob*(0.82+0.30*ac.conv),
+      label:`Over ${kOverLine(a.est_ks).toFixed(1)} Ks`, prob, conf:prob*(0.82+0.30*ac.conv),
       conv:ac.conv, bits:ac.bits, est:a.est_ks, isArm:true});
   });
   let list=out;
@@ -5797,7 +5801,7 @@ function sgpPool(){
     push({id:p.id,name:p.name,team:p.team,opp:p.opp_team,game_pk:p.game_pk,tk:"HRR",label:"HRR 1.5+",prob:smoothPropProb("hrr",p.hrr_heat)});
   });
   (BOARD.pitcher_props||[]).forEach(a=>{ if(a.est_ks==null) return;
-    push({id:null,name:a.name,team:a.team,opp:a.opp_team,game_pk:a.game_pk,tk:"Ks",label:`Over ${(Math.floor(a.est_ks)+0.5).toFixed(1)} K`,prob:kOverProb(a.est_ks)}); });
+    push({id:null,name:a.name,team:a.team,opp:a.opp_team,game_pk:a.game_pk,tk:"Ks",label:`Over ${kOverLine(a.est_ks).toFixed(1)} K`,prob:kOverProb(a.est_ks)}); });
   return pool;
 }
 function genParlay(pool){
@@ -7092,7 +7096,7 @@ function renderProps(){
       // Estimated line — nearest 0.5 that the model expects him to clear.
       // Displayed prominently so users can eyeball against the book's posted line.
       const estK = a.est_ks;
-      const estLine = estK!=null ? `<span class="est-line">est. ${estK.toFixed(1)} Ks · line target O${(Math.floor(estK)+0.5).toFixed(1)}</span>` : "";
+      const estLine = estK!=null ? `<span class="est-line">est. ${estK.toFixed(1)} Ks · line target O${kOverLine(estK).toFixed(1)}</span>` : "";
       // Real book K line + EV: turn the model's estimate into P(over the book's line) via a
       // Poisson approximation (Ks are count data), then price the better side.
       const kOdds = fetchedPropFor("pk", a.name||"");
