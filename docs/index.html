@@ -22,6 +22,7 @@
     --warm:#E0A048;            /* muted amber for chips */
     --proof:#E8C15A;           /* quiet gold — validating markers (SMASH, HR-history) */
     --gold:#E8C15A;
+    --seam-glow:rgba(224,100,47,.14); --line-2:rgba(236,232,222,.15);
   }
   *{box-sizing:border-box}
   html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
@@ -43,6 +44,30 @@
   .faq-item[open] summary .faq-cv{transform:rotate(90deg)}
   .faq-body{padding:0 14px 14px;font-size:12.5px;color:var(--muted);line-height:1.6}
   .faq-body b{color:var(--ink)}
+  /* batted-ball log table */
+  .bl-sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(70px,1fr));gap:6px;margin:8px 0}
+  .bl-s{background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:8px;text-align:center}
+  .bl-sl{font-family:"IBM Plex Mono";font-size:8.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.03em}
+  .bl-sv{font-family:"IBM Plex Mono";font-weight:700;font-size:15px;margin-top:3px;border-radius:5px;padding:2px 0}
+  .bl-legend{display:flex;gap:14px;font-family:"IBM Plex Mono";font-size:10px;color:var(--muted);margin:2px 0 8px}
+  .bl-lg{display:flex;align-items:center;gap:5px}
+  .bl-lg::before{content:"";width:10px;height:10px;border-radius:2px;display:inline-block}
+  .bl-lg.bl-brl::before{background:rgba(214,96,74,.5)}
+  .bl-lg.bl-hr::before{background:rgba(96,170,112,.7)}
+  .bl-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:8px}
+  .bl-tbl{border-collapse:collapse;width:100%;min-width:640px;font-family:"IBM Plex Mono"}
+  .bl-tbl th{font-size:8.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.03em;padding:7px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap;position:sticky;top:0;background:var(--panel);z-index:1}
+  .bl-tbl th:nth-child(-n+4){text-align:left}
+  .bl-tbl td{font-size:11px;padding:6px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap;color:var(--ink)}
+  .bl-tbl td:first-child{text-align:left;color:var(--muted)}
+  .bl-tbl td.bl-pit,.bl-tbl td.bl-pt,.bl-tbl td.bl-res{text-align:left}
+  .bl-tbl td.bl-pt{color:var(--muted)}
+  .bl-tbl tr.bl-hr td{background:rgba(96,170,112,.09)}
+  .bl-tbl tr.bl-hr .bl-res{color:var(--good);font-weight:700}
+  .bl-tbl tr.bl-brl .bl-res{color:var(--warm)}
+  .bl-tbl td.bl-x30{color:var(--muted)}
+  .bl-cap{font-family:"IBM Plex Mono";font-size:9px;color:var(--faint);font-weight:400;margin-left:6px}
+  .bl-foot{font-size:10px;color:var(--faint);line-height:1.5;margin-top:8px}
   /* Today launchpad */
   .ty-wrap{max-width:760px;margin:0 auto;padding-bottom:20px}
   .ty-hero{background:linear-gradient(160deg,var(--panel-2),var(--panel));border:1px solid var(--line);border-radius:14px;padding:16px;position:relative;overflow:hidden}
@@ -403,7 +428,8 @@
   .spotcell .spotlbl{font-size:9px;color:var(--muted);margin-top:1px}
   .spot-note{font-size:11px;color:var(--muted);margin-top:6px}
   .clearflag{display:inline-block;margin:0 5px 0 0;font-family:"IBM Plex Mono";font-weight:700;font-size:8.5px;letter-spacing:.06em;color:var(--proof);background:rgba(194,162,78,.08);padding:1px 5px;border-radius:4px;border:1px solid rgba(194,162,78,.38);vertical-align:middle}
-  .clearnote{background:rgba(194,162,78,.07);border:1px solid rgba(194,162,78,.28);border-radius:9px;padding:9px 11px;margin:2px 0 12px;font-size:12px;color:var(--ink);line-height:1.5}
+  .clearnote{background:linear-gradient(150deg,var(--seam-glow,rgba(224,100,47,.14)),transparent);border:1px solid rgba(224,100,47,.30);border-left:3px solid var(--seam);border-radius:10px;padding:11px 13px;margin:2px 0 12px;font-size:12.5px;color:var(--ink);line-height:1.55}
+  .clearnote b{color:var(--seam)}
   .hlab{display:inline-block;font-family:"IBM Plex Mono";font-weight:700;font-size:8.5px;letter-spacing:.05em;padding:1px 5px;border-radius:4px;vertical-align:middle;border:1px solid transparent}
   .hl-elite{color:#e05252;background:rgba(239,68,68,.09);border-color:rgba(239,68,68,.38)}
   .hl-fb{color:#4fb96f;background:rgba(34,197,94,.09);border-color:rgba(34,197,94,.36)}
@@ -497,7 +523,9 @@
   .parkbox-cond{font-family:"IBM Plex Mono";font-size:11.5px;color:var(--seam);margin-top:5px;font-weight:600}
   .parkbox-note{font-size:11px;color:var(--faint);margin-top:6px;line-height:1.45}
   .liststar{color:#f4c84a;margin-left:5px;font-size:12px}
-  .listbtn{display:inline-block;margin:2px 0 10px;padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--muted);font-family:Archivo;font-weight:700;font-size:12px;cursor:pointer}
+  .listbtn{display:block;width:100%;text-align:center;margin:2px 0 12px;padding:11px 12px;border-radius:10px;border:1px solid var(--seam);background:var(--seam);color:#12140f;font-family:"IBM Plex Mono";font-weight:600;font-size:12.5px;cursor:pointer;transition:transform .12s}
+  .listbtn:active{transform:scale(.99)}
+  .listbtn.on{background:var(--panel-2);border-color:var(--line-2);color:var(--muted)}
   .listbtn.on{color:#f4c84a;border-color:#f4c84a}
   .pl-wrap{padding:4px 0 20px}
   .pl-conf{background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:13px 14px;margin-bottom:14px}
@@ -1118,8 +1146,9 @@
   .ldv{color:var(--faint);font-size:10px}
   .fbv.hi,.gbv.hi,.ldv.hi{font-weight:800;font-size:11px}
   .ldv.hi{color:var(--muted)}
-  .odds-line{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:0 0 12px;font-size:12px;color:var(--ink)}
-  .odds-line b{font-family:"IBM Plex Mono"}
+  .odds-line{background:linear-gradient(150deg,var(--panel-2),var(--panel));border:1px solid var(--line-2);border-radius:10px;padding:11px 13px;margin:0 0 12px;font-size:12px;color:var(--muted);line-height:1.5}
+  .odds-line b{font-family:"IBM Plex Mono";color:var(--ink)}
+  .odds-line b:first-of-type{font-size:20px;font-weight:700;color:var(--hot)}
   .odds-line span{display:block;font-size:10px;color:var(--faint);margin-top:3px;line-height:1.45}
   .wx-wrap{max-width:760px;margin:0 auto}
   .wx-head{font-family:Archivo;font-weight:800;font-size:15px;display:flex;flex-direction:column;gap:2px;margin:4px 0 8px}
@@ -1200,13 +1229,14 @@
   .tp-cat-h span{font-family:'IBM Plex Mono';font-weight:400;font-size:10.5px;
     text-transform:none;letter-spacing:0;color:var(--muted)}
   .tp.open .tp-body{display:block}
-  .tp-row{padding:9px 13px;border-bottom:1px solid var(--line)}
+  .tp-row{padding:11px 13px;border-bottom:1px solid var(--line);transition:background .12s}
   .tp-row:last-child{border-bottom:none}
-  .tp-row .top{display:flex;align-items:center;gap:8px}
-  .tp-row .hc{font-family:Archivo;font-weight:900;font-size:15px;width:34px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex:none}
-  .tp-row .nm{font-family:Archivo;font-weight:700;font-size:14px}
-  .tp-row .why{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.45}
-  .tp-sig{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-top:5px;padding-left:42px}
+  .tp-row:active{background:var(--panel-2)}
+  .tp-row .top{display:flex;align-items:center;gap:11px}
+  .tp-row .hc{font-family:"IBM Plex Mono";font-weight:700;font-size:16px;width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:none;color:#12140f}
+  .tp-row .nm{font-family:Archivo;font-weight:700;font-size:14.5px;letter-spacing:-.01em}
+  .tp-row .why{font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.45;padding-left:51px}
+  .tp-sig{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-top:6px;padding-left:51px}
   .tp-bomb{font-family:"IBM Plex Mono";font-size:8px;font-weight:800;padding:1.5px 5px;border-radius:3px;
     background:rgba(200,71,43,.16);color:var(--seam);border:1px solid var(--seam);vertical-align:middle}
   .tp-bomb.elite{background:var(--hot);color:#0c0f14;border-color:var(--hot)}
@@ -2831,6 +2861,51 @@ function drivesStrip(p){
   return `<div class="drives-box"><div class="drives-h">Last ${d.length} batted balls<span>distance ft · HRs in orange</span></div><div class="drives-strip">${bars}</div></div>`;
 }
 
+// Detailed batted-ball log table (Statcast) — the data-nerd view: every recent ball with EV,
+// angle, distance, bat speed, pitch velo, pitch, result, trajectory, and the X/30-parks read.
+function _ptName(pt){const m={FF:'Four-seam FB',FA:'Fastball',FT:'Two-seam FB',SI:'Sinker',SL:'Slider',ST:'Sweeper',SV:'Slurve',CH:'Changeup',CU:'Curveball',KC:'Knuckle-curve',FC:'Cutter',FS:'Splitter',KN:'Knuckleball',EP:'Eephus',FO:'Forkball',SC:'Screwball'};return m[pt]||pt||'—';}
+function _grn(t){t=Math.max(0,Math.min(1,t));return `background:rgba(96,170,112,${(.08+t*.52).toFixed(2)})`;}
+function _evHeat(ev){return ev==null?'':_grn((ev-80)/(112-80));}
+function _bsHeat(bs){return bs==null?'':_grn((bs-60)/(85-60));}
+function _laHeat(la){return la==null?'':_grn(1-Math.min(1,Math.abs(la-22)/38));}
+function battedBallLog(p){
+  const log=p.bb_log; if(!log||!log.length) return "";
+  const evs=log.map(b=>b.ev).filter(v=>v!=null);
+  const avgEv=evs.length?evs.reduce((a,b)=>a+b,0)/evs.length:null;
+  const brlPct=log.length?100*log.filter(b=>b.brl===1).length/log.length:null;
+  const sEv=(p.season&&p.season.avg_ev)!=null?p.season.avg_ev:(p.avg_ev!=null?p.avg_ev:null);
+  const sBrl=(p.season&&p.season.barrel_pct)!=null?p.season.barrel_pct:(p.barrel_pct!=null?p.barrel_pct:null);
+  const sc=(lab,val,fmt,heat)=>`<div class="bl-s"><div class="bl-sl">${lab}</div><div class="bl-sv" style="${heat||''}">${val==null?'–':fmt(val)}</div></div>`;
+  const rows=log.map(b=>{
+    const hr=/home_run/.test(b.res||''); const brl=b.brl===1;
+    return `<tr class="${hr?'bl-hr':(brl?'bl-brl':'')}">
+      <td>${b.date||''}</td><td class="bl-pit">${b.pit||'—'}</td><td>${b.arm||''}</td>
+      <td class="bl-pt">${_ptName(b.pt)}</td>
+      <td style="${_evHeat(b.ev)}">${b.ev==null?'–':b.ev}</td>
+      <td style="${_laHeat(b.la)}">${b.la==null?'–':b.la}</td>
+      <td>${b.dist==null?'–':b.dist}</td>
+      <td style="${_bsHeat(b.bs)}">${b.bs==null?'–':b.bs}</td>
+      <td>${b.pv==null?'–':b.pv}</td>
+      <td class="bl-res">${(b.res||'').replace(/_/g,' ')}</td>
+      <td>${(b.traj||'').replace(/_/g,' ')}</td>
+      <td class="bl-x30">${b.x30!=null?b.x30+'/30':'–'}</td>
+    </tr>`;
+  }).join("");
+  return `<details class="sec bl-wrap"><summary>Batted-ball log <span class="bl-cap">last ${log.length} · Statcast</span></summary>
+    <div class="bl-sum">
+      ${sc('L'+log.length+' AVG EV',avgEv,v=>v.toFixed(1),_evHeat(avgEv))}
+      ${sc('L'+log.length+' BARREL%',brlPct,v=>v.toFixed(1)+'%')}
+      ${sEv!=null?sc("'26 AVG EV",+sEv,v=>v.toFixed(1),_evHeat(+sEv)):''}
+      ${sBrl!=null?sc("'26 BARREL%",+sBrl,v=>v.toFixed(1)+'%'):''}
+    </div>
+    <div class="bl-legend"><span class="bl-lg bl-brl">Barrel</span><span class="bl-lg bl-hr">Home Run</span></div>
+    <div class="bl-scroll"><table class="bl-tbl">
+      <thead><tr><th>DATE</th><th>PITCHER</th><th>ARM</th><th>TYPE</th><th>EV</th><th>ANGLE</th><th>DIST</th><th>BAT SPD</th><th>P VELO</th><th>RESULT</th><th>TRAJ</th><th>HR PARK</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+    <div class="bl-foot">Green scales with harder contact and ideal angle. Row tint: amber = barrel, green = home run. HR PARK = how many of 30 MLB parks the ball clears.</div>
+  </details>`;
+}
+
 // B3 — MLB percentile bars (Savant-style) for the hitter's contact/discipline profile.
 function percentileBars(p){
   const pc=(p.features||{}).percentiles; if(!pc) return "";
@@ -3036,6 +3111,7 @@ function buildDetail(p){
       ${spotBlock(p)}
       ${bvpBlock(p)}
       ${drivesStrip(p)}
+      ${battedBallLog(p)}
       <h4>Four signals — recent · season · career</h4>
       <div class="strip" style="border:1px solid var(--line);border-radius:10px">${strip}</div>
       <details class="sec"><summary>Trend — last 2 wk vs game windows</summary>
@@ -7097,7 +7173,7 @@ function renderProps(){
       }
       return `<div class="ml-row" style="background:${bg}">
         <div class="ml-head"><b>${g.away} @ ${g.home}</b><span class="ml-time">${timeStr(g.time)}</span></div>
-        <div class="ml-sp">${g.away_sp||"?"} vs ${g.home_sp||"?"}${g.park?` · ${g.park}`:""}${g.park_run_src?` · <span class="ml-src${g.park_run_src==='bpp_runs'?'':' est'}">${g.park_run_src==='bpp_runs'?'true run factor':'est. run factor'}</span>`:""}${(((g.home_breakdown||{}).platoon_spots||0)+((g.away_breakdown||{}).platoon_spots||0))>0?` <span class="ml-src">platoon-adj</span>`:""}</div>
+        <div class="ml-sp">${g.away_sp||"?"} vs ${g.home_sp||"?"}${g.park?` · ${g.park}`:""}${g.park_run_src?` · <span class="ml-src${g.park_run_src==='bpp_runs'?'':' est'}">${g.park_run_src==='bpp_runs'?'true run factor':'est. run factor'}</span>`:""}${(((g.home_breakdown||{}).platoon_spots||0)+((g.away_breakdown||{}).platoon_spots||0))>0?` <span class="ml-src">platoon-adj</span>`:""}${(Math.abs((g.home_breakdown||{}).opp_def||0)+Math.abs((g.away_breakdown||{}).opp_def||0))>0.15?` <span class="ml-src">defense-adj</span>`:""}</div>
         <div class="ml-grid">
           <div class="ml-cell"><span class="ml-lbl">Proj score</span><b>${g.away_runs} – ${g.home_runs}</b></div>
           <div class="ml-cell"><span class="ml-lbl">Total</span><b>${g.total}</b></div>
@@ -7116,7 +7192,7 @@ function renderProps(){
       <h2 class="prop-h">Game Lines</h2>
       <div class="prop-lead">Expected runs per side — each lineup's xwOBA against the opposing starter and bullpen, converted to runs by linear weights, then to a win probability by convolving two negative-binomial run distributions.</div>
       ${subTabs}
-      <div class="prop-note" style="border-color:rgba(200,71,43,.45)"><b>Read this before betting any of it.</b> The moneyline is the <b>sharpest market in baseball</b> — the opposite of HR props. The run model now uses BallparkPal's <b>true run park factor</b> (weather included) and <b>handedness platoon</b> — each batter is matched against the starter's split for his hand, so a lineup stacked against a starter's weak side is priced in (this is where non-obvious edges live). It still has <b>no team-defense metric and no umpire</b>. A model-vs-book disagreement still usually means the model is missing what the market knows — treat the ML as informational; the <b>total and F5</b> are the softer outputs, and the <b>calibration backtest below is the real verdict</b> (re-run it after deploying to fold in these changes).</div>
+      <div class="prop-note" style="border-color:rgba(200,71,43,.45)"><b>Read this before betting any of it.</b> The moneyline is the <b>sharpest market in baseball</b> — the opposite of HR props. The run model now uses BallparkPal's <b>true run park factor</b> (weather included) and <b>handedness platoon</b> — each batter is matched against the starter's split for his hand — plus an <b>OAA-style team-defense</b> adjustment (how many hits each defense saves vs expected). It still has <b>no umpire assignment</b>. A model-vs-book disagreement still usually means the model is missing what the market knows — treat the ML as informational; the <b>total and F5</b> are the softer outputs, and the <b>calibration backtest below is the real verdict</b> (defense is live-only, so re-run the backtest to see the platoon effect folded in).</div>
       ${rows||`<div class="empty">${
         BOARD.game_projections===undefined
           ? "Waiting for the next build — needs the updated <code>etl/build_board.py</code> and the new <code>etl/runs.py</code> deployed."
