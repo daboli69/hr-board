@@ -44,6 +44,39 @@
   .faq-item[open] summary .faq-cv{transform:rotate(90deg)}
   .faq-body{padding:0 14px 14px;font-size:12.5px;color:var(--muted);line-height:1.6}
   .faq-body b{color:var(--ink)}
+  /* zone matchup view */
+  .zx-wrap{padding:2px 0}
+  .zx-stats{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
+  .zx-stat{font-family:"IBM Plex Mono";font-size:10px;font-weight:600;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:5px 10px;cursor:pointer}
+  .zx-stat.on{background:var(--seam-glow);border-color:var(--seam);color:var(--seam)}
+  .zx-title{font-family:"IBM Plex Mono";font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em;text-align:center;margin:12px 0 6px}
+  .zx-board{position:relative;max-width:300px;margin:0 auto}
+  .zx-outer{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:2px;aspect-ratio:1}
+  .zx-inner{position:absolute;top:22%;left:22%;width:56%;height:56%;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:2px}
+  .zx-cell{border:1px solid var(--line);border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;overflow:hidden}
+  .zx-cell .zx-z{position:absolute;top:2px;left:3px;font-family:"IBM Plex Mono";font-size:7px;color:var(--faint)}
+  .zx-cell .zx-v{font-family:"IBM Plex Mono";font-weight:700;font-size:12px;color:var(--ink)}
+  .zx-inner .zx-cell .zx-v{font-size:13px}
+  .zx-crush{box-shadow:inset 0 0 0 1.5px var(--seam)}
+  .zx-legend{display:flex;gap:14px;justify-content:center;margin-top:10px;font-family:"IBM Plex Mono";font-size:9.5px;color:var(--muted)}
+  .zx-legend span{display:flex;align-items:center;gap:5px}
+  .zx-legend i{width:10px;height:10px;border-radius:2px;display:inline-block}
+  .zx-edges{background:var(--panel-2);border:1px solid var(--line);border-left:3px solid var(--seam);border-radius:9px;padding:11px;margin-bottom:10px}
+  .zx-eh{font-family:"IBM Plex Mono";font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+  .zx-hot{background:var(--seam);color:#12140f;font-weight:800;padding:1px 6px;border-radius:4px;margin:0 3px}
+  .zx-edge{display:flex;align-items:center;gap:9px;padding:5px 0}
+  .zx-ez{font-family:"IBM Plex Mono";font-size:9px;font-weight:700;background:var(--panel-3);color:var(--muted);border-radius:4px;padding:2px 5px;flex:0 0 auto}
+  .zx-eb{flex:1;min-width:0}
+  .zx-en{font-size:12px;font-weight:600}
+  .zx-ebar{height:4px;background:var(--panel-3);border-radius:3px;margin-top:3px;overflow:hidden}
+  .zx-ebar i{display:block;height:100%;background:var(--seam);border-radius:3px}
+  .zx-er{text-align:right;flex:0 0 auto}
+  .zx-ee{font-family:"IBM Plex Mono";font-weight:700;font-size:13px;display:block}
+  .zx-ee.pos{color:var(--hot)} .zx-ee.neg{color:var(--cold)}
+  .zx-eu{font-family:"IBM Plex Mono";font-size:9px;color:var(--faint)}
+  .zx-escore{font-size:10.5px;color:var(--faint);margin-top:8px;padding-top:8px;border-top:1px solid var(--line);line-height:1.45}
+  .zx-escore b{color:var(--seam);font-family:"IBM Plex Mono"}
+  .zx-chip{font-family:"IBM Plex Mono";font-size:8px;font-weight:800;padding:1.5px 5px;border-radius:3px;background:var(--seam-glow);color:var(--seam);letter-spacing:.02em}
   /* ball-change trend */
   .bt-verdict{font-family:Archivo;font-weight:900;font-size:20px;letter-spacing:-.01em;margin-top:4px}
   .bt-sub{font-size:12px;color:var(--muted);line-height:1.5;margin-top:3px}
@@ -3012,18 +3045,100 @@ function percentileBars(p){
 }
 
 // B2 — strike-zone damage grid: xwOBA-tinted 3×3, the hitter's crushed cells flagged.
-function zoneDamageGrid(p){
+// ---- Zone matchup view: the batter's damage map laid over where this arm actually lives ----
+// Statcast zones 1-9 are the strike zone; 11-14 are the four quadrants outside it (roughly half
+// of all pitches), so both grids show the full 13 cells. Every metric here is a display lens —
+// none of it touches the frozen heat model.
+const ZSTATS={
+  pw:{label:"Power Score",lo:0,hi:100,dec:0},
+  hr:{label:"HR Rate",lo:0,hi:12,dec:1,suf:"%"},
+  xw:{label:"xwOBAcon",lo:0.280,hi:0.650,dec:3},
+  slg:{label:"SLG",lo:0.300,hi:0.900,dec:3},
+  iso:{label:"ISO",lo:0.050,hi:0.450,dec:3},
+  brl:{label:"Barrel %",lo:0,hi:20,dec:1,suf:"%"},
+  hh:{label:"Hard-Hit %",lo:15,hi:55,dec:1,suf:"%"},
+  ev:{label:"Avg EV",lo:84,hi:100,dec:1},
+  dist:{label:"Avg Distance",lo:250,hi:400,dec:0,suf:"ft"}
+};
+let zoneStat="pw", _curDetailPlayer=null;
+function setZoneStat(k){
+  zoneStat=k;
+  const host=document.getElementById("zxHost");
+  if(host && _curDetailPlayer) host.innerHTML=zoneInner(_curDetailPlayer);
+}
+// Zone labels flip with the batter's side: the catcher's-view left edge is inside to a righty
+// and outside to a lefty, so a fixed label would be wrong half the time.
+function zLabel(z,bats){
+  const inSide = (bats==="L") ? "Out" : "In", outSide = (bats==="L") ? "In" : "Out";
+  const m={1:"Up/"+inSide,2:"Up",3:"Up/"+outSide,4:inSide,5:"Middle",6:outSide,
+           7:"Down/"+inSide,8:"Down",9:"Down/"+outSide,
+           11:"Way Up/"+inSide,12:"Way Up/"+outSide,13:"Way Down/"+inSide,14:"Way Down/"+outSide};
+  return m[z]||("Z"+z);
+}
+function _zVal(cell,key){ if(!cell) return null; const v=cell[key]; return (v==null?null:+v); }
+function _zColor(t){                      // red = strength, blue = weakness (app heat language)
+  if(t==null) return "background:var(--panel-2)";
+  const a=Math.max(0,Math.min(1,t));
+  return a>=0.5 ? `background:rgba(232,106,78,${(0.10+(a-0.5)*1.1).toFixed(2)})`
+                : `background:rgba(91,138,166,${(0.10+(0.5-a)*1.1).toFixed(2)})`;
+}
+function zoneInner(p){
   const zp=(p.features||{}).zone_profile; if(!zp||!zp.zone_dmg) return "";
-  const dmg=zp.zone_dmg, crushed=new Set(zp.crushed||[]);
-  const cell=z=>{
+  const dmg=zp.zone_dmg, crushed=new Set(zp.crushed||[]), bats=p.bats||"R";
+  const S=ZSTATS[zoneStat]||ZSTATS.pw;
+  const fmt=v=>v==null?"–":(S.dec===3?v.toFixed(3).replace(/^0/,""):v.toFixed(S.dec))+(S.suf||"");
+  const bCell=z=>{
     const d=dmg[z]||dmg[String(z)];
-    if(!d) return `<div class="zd-cell zd-empty"></div>`;
-    const xw=d.xw||0, t=Math.max(0,Math.min(1,(xw-0.250)/0.400));
-    const bg=`rgba(214,110,90,${(0.08+t*0.55).toFixed(2)})`;
-    return `<div class="zd-cell${crushed.has(z)?' crushed':''}" style="background:${bg}" title="xwOBA ${xw} · ${d.brl||0}% brl · ${d.dist||0}ft · ${d.n||0} BBE"><span class="zd-xw">${xw.toFixed(3).replace(/^0/,'')}</span>${crushed.has(z)?'<span class="zd-star">●</span>':''}</div>`;
+    const v=_zVal(d,zoneStat);
+    const t=v==null?null:(v-S.lo)/(S.hi-S.lo);
+    const tip=d?`${S.label} ${fmt(v)} · ${d.n||0} BBE`:"no sample";
+    return `<div class="zx-cell${crushed.has(z)?" zx-crush":""}" style="${_zColor(t)}" title="${tip}">
+      <span class="zx-z">Z${z}</span><span class="zx-v">${fmt(v)}</span></div>`;
   };
-  const grid=[1,2,3,4,5,6,7,8,9].map(cell).join("");
-  return `<details class="sec"><summary>Zone damage — where he crushes it</summary><div class="zd-wrap"><div class="zd-grid">${grid}</div><div class="zd-note">Catcher's view · tint = xwOBA on contact · ● = a crushed zone. Pairs with the arm's meatball zones.</div></div></details>`;
+  const grid=zp.arm_grid||null;
+  const uCell=z=>{
+    const u=grid?grid[String(z)]:null;
+    const pct=u==null?null:u*100;
+    const t=pct==null?null:Math.min(1,pct/18);
+    return `<div class="zx-cell" style="${_zColor(t)}" title="${pct==null?"–":pct.toFixed(1)+"% of pitches"}">
+      <span class="zx-z">Z${z}</span><span class="zx-v">${pct==null?"–":pct.toFixed(1)+"%"}</span></div>`;
+  };
+  const board=(cellFn)=>`<div class="zx-board">
+      <div class="zx-outer">${[11,12,13,14].map(cellFn).join("")}</div>
+      <div class="zx-inner">${[1,2,3,4,5,6,7,8,9].map(cellFn).join("")}</div>
+    </div>`;
+  const picker=Object.keys(ZSTATS).map(k=>`<button class="zx-stat${k===zoneStat?" on":""}" onclick="setZoneStat('${k}')">${ZSTATS[k].label}</button>`).join("");
+  // matchup edges — the batter's strong zones this arm actually targets
+  const ze=zp.zone_edge;
+  let edges="";
+  if(ze&&ze.edges&&ze.edges.length){
+    const rows=ze.edges.map(e=>`<div class="zx-edge">
+      <span class="zx-ez">Z${e.zone}</span>
+      <div class="zx-eb"><div class="zx-en">${zLabel(e.zone,bats)}</div>
+        <div class="zx-ebar"><i style="width:${Math.max(4,Math.min(100,e.power)).toFixed(0)}%"></i></div></div>
+      <div class="zx-er"><span class="zx-ee${e.edge>=0?" pos":" neg"}">${e.edge>=0?"+":""}${e.edge}</span>
+        <span class="zx-eu">${e.usage}% used</span></div></div>`).join("");
+    edges=`<div class="zx-edges">
+      <div class="zx-eh">Matchup edges <span class="zx-hot">${ze.hot_in_top}/${ze.top_k}</span> hot zones in his ${ze.top_k} most-used</div>
+      ${rows}
+      <div class="zx-escore">Zone edge score <b>${ze.edge_score}</b> — usage-weighted power in the cells this arm lives in.</div>
+    </div>`;
+  }
+  return `<div class="zx-wrap">
+      <div class="zx-stats">${picker}</div>
+      ${edges}
+      <div class="zx-title">${p.name} — batter${zp.vs_arm?"":""}</div>
+      ${board(bCell)}
+      ${grid?`<div class="zx-title">${zp.vs_arm||"Opposing arm"} — usage vs ${bats}HB</div>${board(uCell)}`:""}
+      <div class="zx-legend"><span><i style="background:rgba(232,106,78,.75)"></i>Strength</span><span><i style="background:var(--panel-2)"></i>Average</span><span><i style="background:rgba(91,138,166,.75)"></i>Weakness</span></div>
+      <div class="zd-note">Catcher's view · inner 9 cells are the strike zone, the four corners are the chase quadrants (Z11–Z14). Zone labels are flipped for a lefty so "In" always means in on the hands.</div>
+    </div>`;
+}
+function zoneDamageGrid(p){
+  const zp=(p.features||{}).zone_profile;
+  if(!zp||!zp.zone_dmg) return "";
+  return `<details class="sec"><summary>Zone matchup — where he crushes it vs where this arm lives</summary>
+    <div id="zxHost">${zoneInner(p)}</div></details>`;
 }
 
 // D2 — contact-consistency read from recent batted-ball spread.
@@ -3073,9 +3188,21 @@ function topPlaysCard(){
   </details>`;
 }
 
+// Zone edge: usage-weighted power in the cells tonight's arm actually lives in. A parallel
+// ranking lens — it never touches heat, it just answers "does this pitcher pitch where he hits".
+function zoneEdgeVal(p){
+  const ze=(((p.features||{}).zone_profile)||{}).zone_edge;
+  return (ze && ze.edge_score!=null) ? +ze.edge_score : -1;
+}
+function zoneEdgeChip(p){
+  const ze=(((p.features||{}).zone_profile)||{}).zone_edge;
+  if(!ze||ze.edge_score==null||ze.edge_score<60) return "";
+  return `<span class="zx-chip" title="Usage-weighted power in this arm's most-used zones · ${ze.hot_in_top}/${ze.top_k} hot">ZONE ${Math.round(ze.edge_score)}</span>`;
+}
+
 // C1 — quick sort chips: the sorts you actually reach for, one tap instead of the dropdown.
 function sortChips(){
-  const opts=[["heat","Heat"],["bomb","Bomb"],["grade","Grade"],["park","Park"],["trend","Trend"],["bp","Bullpen"]];
+  const opts=[["heat","Heat"],["zone","Zone edge"],["bomb","Bomb"],["grade","Grade"],["park","Park"],["trend","Trend"],["bp","Bullpen"]];
   return `<div class="sortchips">${opts.map(([k,l])=>`<button class="sortchip${sortKey===k?' on':''}" onclick="setSort('${k}')">${l}</button>`).join("")}</div>`;
 }
 // U2 — one-tap filter presets. Each sets a whole combo and keeps the filter sheet in sync.
@@ -3112,6 +3239,7 @@ function activeFilterBar(){
 // rows up front. These are cached per render (player-independent) so buildDetail is self-contained.
 let _smashSet=null, _RR=null, _BRR=null;
 function buildDetail(p){
+  _curDetailPlayer=p;
   const op=p.opp_pitcher||{};
   const form=op.form||null;
   const sm=(_smashSet&&_smashSet.get)?_smashSet.get(p.id):null;
@@ -3330,6 +3458,7 @@ function render(){
     if(sortKey==="trend") return trendVal(b.trend)-trendVal(a.trend)|| b.heat-a.heat;
     if(sortKey==="bp") return bpVal(b)-bpVal(a)|| b.heat-a.heat;
     if(sortKey==="bomb") return bombVal(b)-bombVal(a)|| b.heat-a.heat;
+    if(sortKey==="zone") return zoneEdgeVal(b)-zoneEdgeVal(a)|| b.heat-a.heat;
     if(sortKey==="grade") return gradeVal(b)-gradeVal(a)|| bombVal(b)-bombVal(a)|| b.heat-a.heat;
     if(sortKey==="park") return pkVal(b)-pkVal(a)|| b.heat-a.heat;
     if(sortKey==="hrsp"||sortKey==="hrbp"){
@@ -3420,7 +3549,7 @@ function render(){
         <div class="hc" style="background:${chipColor(p.heat)}">${p.heat}</div>
         <div><span class="nm">${p.name}</span>${b2b}${p.lineup_spot?` <span class="spot">#${p.lineup_spot}</span>`:""}${bombBit}
           <span style="color:var(--muted);font-size:11px"> ${p.team}→${p.opp_team} · ${timeStr(p.time)}${armBit}</span>${extra||""}</div>
-      </div>${sig.trim()?`<div class="tp-sig">${sig}</div>`:""}<div class="why">${note||p.angle||p.why||""}</div></div>`;
+      </div>${(sig.trim()||zoneEdgeChip(p))?`<div class="tp-sig">${sig}${zoneEdgeChip(p)}</div>`:""}<div class="why">${note||p.angle||p.why||""}</div></div>`;
     };
     const body=cats.map(c=>`<div class="tp-cat"><div class="tp-cat-h">${c.t}<span>${c.d}</span></div>${
       c.ps.map(p=>prow(p,c.mix?` <span class="mixd up">▲${mixGain(p)}</span>`:"",c.note?c.note(p):null)).join("")}</div>`).join("");
@@ -3647,7 +3776,7 @@ function render(){
           <div class="cheat" style="background:${col}">${H(p)}</div>
           <div class="cwho">
             <div class="name"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span class="nm-txt">${p.name}</span><span class="liststar"${listHas(p.id)?"":" hidden"}>★</span></div>
-            ${(()=>{const sig=`${gradePill(p)}${zoneBadgeInline(p)}${eliteChip(p)}${platoonChip(p)}${consistencyTag(p)}${disciplineIcons(p)}`;return sig.trim()?`<div class="csig">${sig}</div>`:"";})()}
+            ${(()=>{const sig=`${gradePill(p)}${zoneBadgeInline(p)}${zoneEdgeChip(p)}${eliteChip(p)}${platoonChip(p)}${consistencyTag(p)}${disciplineIcons(p)}`;return sig.trim()?`<div class="csig">${sig}</div>`:"";})()}
             <div class="cmini">${sm?'<span class="clearflag">SMASH</span> ':""}${hlabPill(p)}${p.robbed?robbedChip(p.robbed):""}${p.milestone?`<span class="mstone">${p.milestone.kind==="team"?`vs ${p.milestone.target.split(" ").pop()}: ${p.milestone.away===1?"1 HR":p.milestone.away+" HR"}`:`HR ${p.milestone.career_hr} → ${p.milestone.next}`}</span> `:""}${bpChip}${lbChip}${pkChip}${mdChip}${trendBadge(p.trend)?trendBadge(p.trend)+" ":""}${p.lineup_status==="projected"?`<span class="spot" style="color:var(--seam);border-color:var(--seam)">proj</span> `:""}${p.lineup_spot?`#${p.lineup_spot} · `:""}${p.team}→${p.opp_team} · ${timeStr(p.time)}${armSc!=null?` · arm <b style="color:${armCol}">${armSc}</b>`:""} · ${(p.windows&&p.windows.L14d&&p.windows.L14d.pa!=null)?`${p.windows.L14d.pa}PA`:"–"}</div>
           </div>
           <div class="cmetrics">${mini}</div>
