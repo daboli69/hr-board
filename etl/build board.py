@@ -1,0 +1,2385 @@
+"""
+build_board.py — the one script the cron runs.
+
+  python -m etl.build_board
+
+It pulls the slate (StatsAPI) + Statcast season data (Savant), computes every
+hitter in today's posted lineups, scores them, and writes docs/board.json.
+
+Designed to fail soft: any single data source hiccup degrades that column to
+null rather than crashing the whole run, so an unattended cron keeps producing
+a board.
+"""
+from __future__ import annotations
+import json
+import os
+import time
+import numpy as np
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
+from etl import statsapi, statcast_data, parks, compute, park_model, props
+try:
+    from etl import features                 # parallel feature-extraction edges (never touch heat)
+except Exception:
+    features = None
+# microclimate temp-sensitivity profiles (built by the separate microclimate.py ETL)
+_MICRO = {}
+try:
+    _mp = os.path.join(os.path.dirname(__file__), "..", "docs", "microclimate.json")
+    with open(_mp) as _f:
+        _MICRO = (json.load(_f) or {}).get("profiles", {})
+except Exception:
+    _MICRO = {}
+
+try:                       # cache Savant pulls to disk so repeat runs are fast
+    from pybaseball import cache as pyb_cache
+    pyb_cache.enable()
+except Exception:
+    pass
+
+ET = ZoneInfo("America/New_York")
+SEASON_START = os.environ.get("SEASON_START", "2026-03-26")
+BUILD_HEALTH = []          # subsystem skip notes; shipped in board.json as build_health
+
+
+def _hnote(sub, err):
+    BUILD_HEALTH.append({"sub": sub, "issue": f"{type(err).__name__}: {err}"[:160]})
+
+
+RECENT_DAYS = int(os.environ.get("RECENT_DAYS", "45"))  # window for L5/L15/L30
+OUT_PATH = os.environ.get("BOARD_OUT", "docs/board.json")
+MIN_STATCAST_ROWS = int(os.environ.get("MIN_STATCAST_ROWS", "5000"))
+PULL_RETRIES = int(os.environ.get("PULL_RETRIES", "3"))
+
+
+def _norm(s: str) -> str:
+    import unicodedata
+    s = unicodedata.normalize("NFKD", str(s)).encode("ascii", "ignore").decode()
+    return "".join(ch for ch in s.lower() if ch.isalpha() or ch == " ").strip()
+
+
+def build(date_str: str | None = None) -> dict:
+    now = datetime.now(ET)
+    date_str = date_str or now.strftime("%Y-%m-%d")
+    print(f"[build] slate {date_str}")
+
+    slate = statsapi.get_slate(date_str)
+    games = slate["games"]
+    print(f"[build] {len(games)} games, lineups posted for {len(slate['lineups'])}")
+
+    # Fall back to each team's last batting order (projected) where today's
+    # lineup isn't posted yet, so the board isn't blank in the morning.
+    yest = (datetime.strptime(date_str, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
+    _recent_cache = {}
+
+    def _recent(team_id):
+        if team_id not in _recent_cache:
+            _recent_cache[team_id] = statsapi.get_recent_lineup(team_id, yest)
+        return _recent_cache[team_id]
+
+    projected_sides = set()
+    for g in games:
+        pk = g["game_pk"]
+        lu = slate["lineups"].get(pk) or {}
+        away = lu.get("away") or None
+        home = lu.get("home") or None
+        # fill EACH side independently — a posted away lineup must not block a
+        # projected home lineup (partial postings otherwise erase a whole team)
+        if not away:
+            away = _recent(g["away_id"])
+            if away:
+                projected_sides.add((pk, "away"))
+        if not home:
+            home = _recent(g["home_id"])
+            if home:
+                projected_sides.add((pk, "home"))
+        if away or home:
+            slate["lineups"][pk] = {"away": away or [], "home": home or []}
+    proj_game_pks = {pk for (pk, _s) in projected_sides}
+    print(f"[build] projected {len(projected_sides)} lineup side(s) across {len(proj_game_pks)} game(s)")
+
+    # collect batter ids from posted lineups
+    batter_ids, game_of_batter, side_of_batter, spot_of_batter, status_of_batter = [], {}, {}, {}, {}
+    for pk, lu in slate["lineups"].items():
+        gmeta = next((g for g in games if g["game_pk"] == pk), None)
+        if not gmeta:
+            continue
+        for i, bid in enumerate(lu.get("away", [])):
+            batter_ids.append(bid); game_of_batter[bid] = pk; side_of_batter[bid] = "away"; spot_of_batter[bid] = i + 1
+            status_of_batter[bid] = "projected" if (pk, "away") in projected_sides else "confirmed"
+        for i, bid in enumerate(lu.get("home", [])):
+            batter_ids.append(bid); game_of_batter[bid] = pk; side_of_batter[bid] = "home"; spot_of_batter[bid] = i + 1
+            status_of_batter[bid] = "projected" if (pk, "home") in projected_sides else "confirmed"
+    batter_ids = list(dict.fromkeys(batter_ids))
+
+    pitcher_ids = [p for g in games for p in (g["away_pitcher_id"], g["home_pitcher_id"])]
+
+    # handedness for everyone
+    hands = statsapi.get_handedness(batter_ids + [p for p in pitcher_ids if p])
+
+    # one big Statcast pull -> recent windows + season + pitcher allowed
+    end = date_str
+    print(f"[build] pulling Statcast {SEASON_START}..{end}")
+    df = statcast_data.pd.DataFrame()
+    for attempt in range(1, PULL_RETRIES + 1):
+        try:
+            df = statcast_data.pull_season(SEASON_START, end)
+        except Exception as e:
+            print(f"[build] statcast pull attempt {attempt} failed: {e}")
+            df = statcast_data.pd.DataFrame()
+        if len(df) >= MIN_STATCAST_ROWS:
+            break
+        if attempt < PULL_RETRIES:
+            wait = 30 * attempt
+            print(f"[build] got {len(df)} rows (<{MIN_STATCAST_ROWS}); retrying in {wait}s")
+            time.sleep(wait)
+
+    # GUARD: if Savant came back empty/short, do NOT zero out a good board.
+    if len(df) < MIN_STATCAST_ROWS:
+        print(f"[build] Statcast insufficient ({len(df)} rows). Keeping last good board.")
+        raise statcast_data.StatcastUnavailable(len(df))
+
+    profiles = statcast_data.batter_profiles(df, batter_ids, date_str)
+    bb_samples = statcast_data.batted_ball_sample(df, batter_ids)
+    bb_logs = statcast_data.batted_ball_log(df, batter_ids)
+    try:
+        arsenals = statcast_data.pitcher_arsenal(df, pitcher_ids)     # usage % by batter hand
+        vs_pitch = statcast_data.batter_vs_pitch(df, batter_ids)      # hitter vs specific pitch types
+        print(f"[build] pitch mix: {len(arsenals)} arsenals, {len(vs_pitch)} hitter splits")
+    except Exception as e:
+        print(f"[build] pitch-mix data skipped (non-fatal): {e}"); arsenals, vs_pitch = {}, {}
+    try:
+        team_def = statcast_data.team_defense(df)          # OAA-style runs saved/game, {} if thin
+        if team_def:
+            print(f"[build] team defense computed for {len(team_def)} teams")
+    except Exception as e:
+        print(f"[build] team defense skipped (non-fatal): {e}"); team_def = {}
+    try:
+        _pit_ids = {b["pit"] for lg in bb_logs.values() for b in lg if b.get("pit") is not None}
+        bb_pit_names = statcast_data.player_names(_pit_ids)
+    except Exception as e:
+        print(f"[build] batted-ball pitcher names skipped: {e}"); bb_pit_names = {}
+    pitch_profiles = statcast_data.pitcher_profiles(df, pitcher_ids, date_str)
+
+    # Pitcher ROLE (season-long), computed once and threaded through every bullpen call.
+    # This is what keeps real starters out of the bullpen — a starter's spot relief
+    # appearance, or a bulk starter following an opener, used to land him in the pen pool
+    # and his HRs-allowed-as-a-starter got tagged "HR vs PEN."
+    try:
+        p_roles = statcast_data.pitcher_roles(df)
+    except Exception as e:
+        p_roles = {}
+        _hnote("pitcher roles", e); print(f"[build] pitcher roles skipped: {e}")
+
+    bullpens = statcast_data.bullpen_profiles(df, date_str, roles=p_roles)
+    # Bullpen AVAILABILITY: who's burnt from recent usage. The full-roster pen number
+    # silently includes a closer who threw the last two nights and can't go tonight.
+    try:
+        pen_avail = statcast_data.bullpen_availability(df, date_str, roles=p_roles)
+        pens_avail = statcast_data.bullpen_profiles_available(df, date_str, pen_avail, roles=p_roles)
+        _gassed = [t for t, v in pen_avail.items() if v.get("label") == "GASSED"]
+        print(f"[build] bullpen availability: {len(pen_avail)} pens analyzed"
+              f"{f' — GASSED: {', '.join(sorted(_gassed))}' if _gassed else ''}")
+    except Exception as e:
+        pen_avail, pens_avail = {}, {}
+        _hnote("bullpen availability", e); print(f"[build] bullpen availability skipped: {e}")
+    # Traded players: trailing profile is park-contaminated until the new sample builds
+    try:
+        traded = statcast_data.team_changes(df, date_str)
+        if traded:
+            print(f"[build] team changes detected: {len(traded)} player(s)")
+    except Exception as e:
+        traded = {}
+        _hnote("team changes", e); print(f"[build] team changes skipped: {e}")
+    career = statcast_data.career_table(2015, now.year)
+
+    # season batter-vs-pitcher (for the Matchup tab): has this hitter homered off today's
+    # starter, or off any active arm in the opponent's pen? Computed from the slate frame.
+    bvp = {}
+    bvp_pen = {}
+    pen_arms = {}
+    pen_names = {}
+    try:
+        # Two BvP tables, deliberately different:
+        #   bvp     — ALL PAs. Correct for "HR vs SP": you homered off that guy, period.
+        #   bvp_pen — RELIEF PAs only. Correct for "HR vs PEN": the bullpen is a ROLE,
+        #             not a person. A homer off a starter in his start is not a bullpen
+        #             homer, even if that starter later appears in the pen pool.
+        bvp = statcast_data.bvp_table(df)
+        bvp_pen = statcast_data.bvp_table(df, relief_only=True)
+        pen_arms = statcast_data.bullpen_arms(df, date_str, roles=p_roles)
+        all_arms = sorted({pid for arms in pen_arms.values() for pid in arms})
+        if all_arms:
+            try:
+                pen_names = {int(k): v.get("name", "") for k, v in
+                             statsapi.get_handedness(all_arms).items()}
+            except Exception as e:
+                _hnote("bullpen name lookup", e); print(f"[build] bullpen name lookup skipped: {e}")
+        _sp_ct = sum(1 for r in p_roles.values() if r["role"] == "SP")
+        _rp_ct = sum(1 for r in p_roles.values() if r["role"] == "RP")
+        _sw_ct = sum(1 for r in p_roles.values() if r["role"] == "SWING")
+        print(f"[build] pitcher roles: {_sp_ct} SP / {_rp_ct} RP / {_sw_ct} SWING")
+        print(f"[build] BvP: {len(bvp)} matchups ({len(bvp_pen)} relief-only), "
+              f"{sum(len(a) for a in pen_arms.values())} active arms")
+    except Exception as e:
+        _hnote("BvP", e); print(f"[build] BvP skipped: {e}")
+
+    # career BvP vs the starter (MLB Stats API), cached so the day's builds share one fetch
+    import time as _t
+    bvp_cache_path = os.path.join(os.path.dirname(__file__), "..", "docs", "bvp_career.json")
+    try:
+        bvp_career_cache = json.load(open(bvp_cache_path)).get("pairs", {})
+    except Exception:
+        bvp_career_cache = {}
+    _bvp_now = _t.time(); _bvp_ttl = 64800; _bvp_fetched = [0]; _BVP_MAX = 340
+
+    try:                                           # season HR distribution by batting-order slot
+        hr_spot = statcast_data.hr_by_lineup_spot(df)
+    except Exception as e:
+        hr_spot = {}; _hnote("hr_by_spot", e); print(f"[build] hr_by_spot skipped: {e}")
+
+    try:                                           # opener detection: how deep starters really go
+        start_lens = statcast_data.starter_lengths(df)
+        p_apps = statcast_data.pitcher_appearances(df)
+    except Exception as e:
+        start_lens, p_apps = {}, {}; _hnote("starter lengths", e); print(f"[build] starter lengths skipped: {e}")
+
+    # ---- PHASE C precomputes: Quick Target, Day/Night, TTO, pitcher ERA/WHIP ----
+    # ---- LEAGUE-WIDE STATCAST PERCENTILES (true MLB percentiles from the full season pull) ----
+    league_pctl = {}
+    try:
+        _lg = features.league_batter_stats(df)
+        league_pctl = features.league_percentiles(_lg)
+        print(f"[build] league percentiles: {len(league_pctl)} qualified MLB batters")
+    except Exception as e:
+        _hnote("league percentiles", e); print(f"[build] league percentiles skipped: {e}")
+
+    # ---- BALLPARK PAL park factors (primary source for park/weather effect) ----
+    # Modeled on ~1M batted balls, with PER-HITTER factors based on each batter's own spray
+    # profile. Falls back to the local park model automatically when the key is missing or
+    # the API is down. NOTE: BPP is today-and-future only, so the backtest keeps using the
+    # local model — expect a small live-vs-backtest divergence on park terms.
+    BPP = {"ok": False}
+    try:
+        from etl import ballparkpal
+        BPP = ballparkpal.fetch_all(date_str)
+        if BPP.get("ok"):
+            print(f"[build] park factors: Ballpark Pal ({len(BPP.get('hitters') or {})} hitter-level)")
+        else:
+            print(f"[build] park factors: local model ({BPP.get('reason','api unavailable')})")
+    except Exception as e:
+        BPP = {"ok": False}
+        _hnote("ballparkpal", e); print(f"[build] ballparkpal skipped: {e}")
+
+    try:                                           # QUICK TARGET: dangerous lineup spots per arm
+        spot_damage = statcast_data.pitcher_damage_by_spot(df)
+        print(f"[build] quick target: {len(spot_damage)} arms scored by lineup slot")
+    except Exception as e:
+        spot_damage = {}; _hnote("quick target", e); print(f"[build] quick target skipped: {e}")
+
+    try:                                           # day/night splits (from sv_id timestamps)
+        dn_splits = statcast_data.day_night_splits(df)
+        print(f"[build] day/night splits: {len(dn_splits)} batters")
+    except Exception as e:
+        dn_splits = {}; _hnote("day/night", e); print(f"[build] day/night skipped: {e}")
+
+    try:                                           # times-through-order vulnerability per arm
+        tto_by_pid = statcast_data.tto_vulnerability(df)
+        print(f"[build] TTO vulnerability: {len(tto_by_pid)} arms")
+    except Exception as e:
+        tto_by_pid = {}; _hnote("tto", e); print(f"[build] TTO skipped: {e}")
+
+    try:                                           # season ERA/WHIP for today's starters
+        _sp_ids = []
+        for _g in games:
+            for _k in ("away_pitcher_id", "home_pitcher_id"):
+                if _g.get(_k):
+                    _sp_ids.append(_g[_k])
+        pstats = statsapi.get_pitcher_stats(_sp_ids) if _sp_ids else {}
+        print(f"[build] pitcher season stats: {len(pstats)}/{len(_sp_ids)} starters (ERA/WHIP)")
+    except Exception as e:
+        pstats = {}; _hnote("pitcher stats", e); print(f"[build] pitcher stats skipped: {e}")
+
+
+    # ---- FEATURE EDGES (parallel track, never touches heat) ----
+    # Reliever cumulative fatigue: per-arm leverage-weighted workload over trailing 5 days.
+    fatigue_log = {}
+    fatigue_by_pid = {}
+    if features is not None:
+        try:
+            fatigue_log = statcast_data.reliever_appearance_log(df, roles=p_roles)
+            for _pid, _apps in fatigue_log.items():
+                fatigue_by_pid[_pid] = features.reliever_fatigue(_apps, date_str)
+            print(f"[build] reliever fatigue: {len(fatigue_by_pid)} arms scored")
+        except Exception as e:
+            _hnote("reliever fatigue", e); print(f"[build] reliever fatigue skipped: {e}")
+    # Pitcher arsenals for the pitch-matchup join (starters facing today's hitters).
+    arsenal_by_pid = {}
+    if features is not None:
+        try:
+            for _pid in pitcher_ids:
+                _rows = statcast_data.pitcher_arsenal_rows(df, _pid, date_str)
+                _ars = features.pitcher_arsenal(_rows)
+                if _ars:
+                    arsenal_by_pid[_pid] = _ars
+            print(f"[build] pitcher arsenals: {len(arsenal_by_pid)} built")
+        except Exception as e:
+            _hnote("pitcher arsenals", e); print(f"[build] pitcher arsenals skipped: {e}")
+    # Today's forecast temp per game, for the microclimate flag (built early so the row loop
+    # can use it). Reuses the same weather source as the Weather dashboard.
+    _game_temp = {}
+    if _MICRO:
+        try:
+            from etl import weather as _W, park_geometry as _PG
+            for g in games:
+                _lat, _lon, _ = _PG.park_coords(g["park"])
+                _wx = _W.get_weather(_lat, _lon, g["time"], venue=g["park"])
+                _tf = (_wx or {}).get("temp_f")
+                if _tf is not None:
+                    _game_temp[g["game_pk"]] = round(_tf)
+        except Exception as e:
+            _hnote("microclimate temps", e); print(f"[build] microclimate temps skipped: {e}")
+
+    try:                                           # B2B: homered in his most recent game AND it was actually yesterday
+        b2b_set = statcast_data.hr_last_game(df, slate_date=date_str)
+    except Exception as e:
+        b2b_set = set(); _hnote("hr_last_game", e); print(f"[build] hr_last_game skipped: {e}")
+
+    try:                                           # per-park wind sensitivity (weekly, archived wx)
+        from etl import wind_sens as WS
+        ws_cache = os.path.join(os.path.dirname(__file__), "..", "docs", "wind_sens.json")
+        park_model.set_wind_sens(WS.load_wind_sensitivity(ws_cache, df=df))
+    except Exception as e:
+        _hnote("wind sensitivity", e); print(f"[build] wind sensitivity skipped: {e}")
+
+    try:                                           # pitcher batted-ball mix allowed (FB% = target)
+        p_batted = statcast_data.pitcher_batted_profile(df)
+    except Exception as e:
+        p_batted = {}; _hnote("pitcher batted profile", e); print(f"[build] pitcher batted profile skipped: {e}")
+
+    try:                                           # PF-style profile labels (trailing 14d)
+        _lab_start = str(statcast_data.game_day_cutoff(df, date_str, 14).date())
+        hit_labels = statcast_data.hitter_labels(df, _lab_start)   # same game-day window as the model
+        print(f"[build] labels: {sum(1 for v in hit_labels.values() if v=='elite')} elite, "
+              f"{sum(1 for v in hit_labels.values() if v=='fb')} fb, "
+              f"{sum(1 for v in hit_labels.values() if v=='ld')} ld")
+    except Exception as e:
+        hit_labels = {}; _hnote("labels", e); print(f"[build] labels skipped: {e}")
+
+    # statsapi and Statcast mostly share team abbreviations; a few differ.
+    _TEAM_ALIAS = {"AZ": "ARI", "ARI": "AZ", "CWS": "CHW", "CHW": "CWS",
+                   "WSH": "WSN", "WSN": "WSH", "KC": "KCR", "KCR": "KC",
+                   "SD": "SDP", "SDP": "SD", "SF": "SFG", "SFG": "SF",
+                   "TB": "TBR", "TBR": "TB"}
+
+    def _bullpen_for(abbr):
+        if abbr in bullpens:
+            return bullpens[abbr]
+        return bullpens.get(_TEAM_ALIAS.get(abbr))
+
+    # score every probable pitcher's HR vulnerability once
+    pitcher_hr = {}
+    for pid, prof_p in pitch_profiles.items():
+        pitcher_hr[pid] = compute.pitcher_hr_score(prof_p.get("recent", {}), prof_p.get("season", {}))
+
+    # 2-year HR-by-hand per starter (cached in a repo file so we don't re-pull hourly)
+    # _HAND2YR_V invalidates old cache entries when the computation changes.
+    # v2 = regular-season-only filter + two-calendar-season window (was trailing 730d
+    # with spring training + postseason contamination).
+    _HAND2YR_V = 2
+    _HAND2YR_PATH = os.path.join(os.path.dirname(OUT_PATH) or ".", "hand2yr.json")
+    try:
+        with open(_HAND2YR_PATH) as _f:
+            hand2yr_cache = json.load(_f)
+    except Exception:
+        hand2yr_cache = {}
+    hand2yr = {}
+    for pid in {p for p in pitcher_ids if p}:
+        key = str(pid)
+        ent = hand2yr_cache.get(key)
+        fresh = False
+        if ent and ent.get("asof") and ent.get("v") == _HAND2YR_V:
+            try:
+                fresh = 0 <= (datetime.strptime(date_str, "%Y-%m-%d") -
+                              datetime.strptime(ent["asof"], "%Y-%m-%d")).days <= 10
+            except Exception:
+                fresh = False
+        if fresh:
+            hand2yr[pid] = ent.get("data")
+        else:
+            data = statcast_data.pitcher_hand_hr_2yr(pid, date_str)
+            if data is not None:
+                hand2yr_cache[key] = {"asof": date_str, "v": _HAND2YR_V, "data": data}
+                hand2yr[pid] = data
+            elif ent and ent.get("v") == _HAND2YR_V:
+                # pull failed but we have an older same-version value — keep it
+                hand2yr[pid] = ent.get("data")
+            # old-version data on a failed pull: drop rather than serve contaminated numbers
+
+    # opposing pitcher lookup per batter
+    def opp_pitcher(pk, side):
+        g = next((x for x in games if x["game_pk"] == pk), None)
+        if not g:
+            return None, None
+        pid = g["home_pitcher_id"] if side == "away" else g["away_pitcher_id"]
+        return pid, g
+
+    players = []
+    _discipline_raw = {}      # {batter_id: {chase_pct, zcontact_pct...}} -> percentiled after loop
+    for bid in batter_ids:
+        prof = profiles.get(bid, {})
+        recent = prof.get("recent", {})
+        season = prof.get("season", {})
+        hand = hands.get(bid, {})
+        bats = hand.get("bats", "R")
+        name = hand.get("name", str(bid))
+        car = career.get(_norm(name), {})
+
+        pk = game_of_batter[bid]
+        side = side_of_batter[bid]
+        pid, g = opp_pitcher(pk, side)
+        pprof = pitch_profiles.get(pid, {}) if pid else {}
+        phr = pitcher_hr.get(pid, {}) if pid else {}
+        meta = slate["pitchers"].get(pid, {}) if pid else {}
+        throws = hands.get(pid, {}).get("throws", "") if pid else ""
+
+        # switch hitters bat opposite the pitcher's hand — use that side for park factor
+        eff_side = bats
+        if bats == "S":
+            eff_side = "L" if throws == "R" else "R"
+        # Park factor: prefer Ballpark Pal's per-HITTER model (built on this batter's own
+        # spray profile), then their per-game number, then our local geometry model.
+        _pf_local = parks.park_factor(g["park"], eff_side) if g else 1.0
+        pf, pf_src = _pf_local, "local"
+        try:
+            from etl import ballparkpal as _BPP
+            pf, pf_src = _BPP.resolve_hr_mult(
+                BPP, player_id=bid, player_name=name,
+                game_id=(g or {}).get("game_pk"),
+                away=(g or {}).get("away"), home=(g or {}).get("home"),
+                fallback=_pf_local)
+        except Exception:
+            pf, pf_src = _pf_local, "local"
+
+        # doubles/triples (XBH) park factor for this hitter, if BallparkPal supplies it
+        _xbh = None
+        try:
+            _h = (BPP.get("hitters") or {}).get(bid) or (BPP.get("hitters") or {}).get(str(bid))
+            if _h and _h.get("xbh_mult") is not None:
+                _xbh = round(_h["xbh_mult"], 2)
+        except Exception:
+            _xbh = None
+        score, breakdown = compute.heat_score(recent, phr.get("score"))
+
+        # vs-pitch-mix variant: re-weight the two pitch-dependent power signals —
+        # avg EV and barrel% — to THIS arm's pitch mix (last 2wk), then recompute Heat.
+        # Barrel varies most by pitch type and is the heaviest signal, so this is what
+        # actually moves the ranking. Bidirectional: weak-vs-mix hitters drop too.
+        mix_prof = compute.pitch_mix_profile(prof.get("pitch_splits_recent"), pprof.get("usage"))
+        pmatch = compute.pitch_matchup(prof.get("pitch_splits"), pprof.get("usage"), season.get("barrel_pct"))
+        heat_mix = score
+        if mix_prof and mix_prof.get("avg_ev") is not None:
+            recent_mix = dict(recent)
+            recent_mix["avg_ev"] = mix_prof["avg_ev"]
+            if mix_prof.get("barrel_pct") is not None:
+                recent_mix["barrel_pct"] = mix_prof["barrel_pct"]
+            heat_mix, _ = compute.heat_score(recent_mix, phr.get("score"))
+
+        # trend (contact-quality) + the synthesized one-line read
+        tr = compute.trend(prof.get("windows", {}).get("L5", {}),
+                           prof.get("windows", {}).get("L30", {}),
+                           mid_w=prof.get("windows", {}).get("L15", {}))
+        eff_hand = eff_side if bats == "S" else bats
+        angle = compute.read_angle(
+            hand=bats, trend=tr, pitch_matchup=pmatch,
+            luck_gap=recent.get("luck_gap"), xwobacon=recent.get("xwobacon"),
+            opp_form=(phr.get("form") or {}).get("label"),
+            hand_hr=(hand2yr.get(pid) or {}).get("two_yr"), eff_hand=eff_hand)
+        badges = compute.player_badges(
+            opp_form=(phr.get("form") or {}).get("label"),
+            hand_hr=(hand2yr.get(pid) or {}).get("two_yr"), eff_hand=eff_hand,
+            pitch_matchup=pmatch, luck_gap=recent.get("luck_gap"), trend=tr,
+            xwobacon=recent.get("xwobacon"),
+            max_ev=(prof.get("season", {}) or {}).get("max_ev"))
+
+        pr = pprof.get("recent", {})
+
+        # ---- FEATURE EDGES per hitter (parallel track, never touches heat) ----
+        feat = {}
+        if features is not None:
+            try:
+                # 1. pitch-type matchup: hitter's family power+whiff profile vs THIS arm's arsenal
+                ars = arsenal_by_pid.get(pid) if pid else None
+                _hp_rows = None
+                if ars:
+                    _hp_rows = statcast_data.batter_pitch_rows(df, bid, date_str)
+                    hprof = features.hitter_pitch_profile(_hp_rows)
+                    if hprof:
+                        pm = features.pitch_matchup(hprof, ars)
+                        if pm:
+                            feat["pitch_matchup"] = pm
+                # HR power profile: raw batted-ball power lens (barrel/dist/hr-swing). Reuses the
+                # rows already pulled above; only pulls its own if pitch_matchup didn't.
+                try:
+                    _pp_rows = _hp_rows if _hp_rows is not None else statcast_data.batter_pitch_rows(df, bid, date_str)
+                    hpp = features.hr_power_profile(_pp_rows)
+                    if hpp:
+                        feat["hr_power"] = hpp
+                    sqr = features.square_up_rating(_pp_rows)
+                    if sqr:
+                        feat["square_up"] = sqr
+                    # plate discipline (raw chase% + z-contact%); percentile-ranked after the loop
+                    try:
+                        pdr = features.plate_discipline_raw(_pp_rows)
+                        if pdr:
+                            _discipline_raw[bid] = pdr
+                    except Exception:
+                        pass
+                except Exception:
+                    pass
+                # 4. late-HR context: short starter + gassed pen behind the OPPOSING arm.
+                # (elevated late HR expectancy this hitter benefits from when facing this team)
+                opp_abbr = g["home"] if side == "away" else g["away"] if g else None
+                pen_obj = _bullpen_for(opp_abbr) if opp_abbr else None
+                if pen_obj and pid:
+                    _sl = start_lens.get(pid)
+                    exp_ip = _sl.get("med_len") if isinstance(_sl, dict) else _sl
+                    pen_pids = pen_obj.get("arm_ids") or []
+                    fidx = [fatigue_by_pid[a]["index"] for a in pen_pids if a in fatigue_by_pid]
+                    if exp_ip and fidx:
+                        lc = features.late_hr_context(exp_ip, fidx)
+                        if lc:
+                            feat["late_hr"] = lc
+                # 2. MICROCLIMATE: this hitter's temp-sensitivity vs today's forecast temp.
+                # The horse-genetics edge — flags when tonight's conditions favor/hurt a
+                # temperature-fragile hitter, using real per-pitch-timestamp history.
+                mp = _MICRO.get(str(bid))
+                if mp and mp.get("temp_sensitivity_ev") is not None:
+                    today_temp = _game_temp.get(g["game_pk"]) if g else None
+                    sens = mp["temp_sensitivity_ev"]        # +ve = loses EV when cool
+                    micro = {"sensitivity_ev": sens, "median_temp": mp.get("median_temp"),
+                             "warm": mp.get("warm"), "cool": mp.get("cool"),
+                             "n": mp.get("n_total"), "today_temp": today_temp}
+                    if today_temp is not None and abs(sens) >= 2.0:
+                        cold = today_temp < mp.get("median_temp", 70)
+                        # fragile hitter (sens>0) in the cold = downgrade; in the warmth = boost
+                        if sens >= 2.0:
+                            micro["flag"] = "COLD FADE" if cold else "WARM BOOST"
+                        elif sens <= -2.0:   # rare: hits better cold
+                            micro["flag"] = "COLD BOOST" if cold else "WARM FADE"
+                    feat["microclimate"] = micro
+            except Exception:
+                pass   # feature failure never breaks a row
+        ps = pprof.get("season", {})
+        opp_pitcher_obj = {
+            "id": pid,
+            "name": meta.get("name", ""),
+            "throws": throws,
+            "hr_score": phr.get("score"),
+            "recent_score": phr.get("recent_score"),
+            "season_score": phr.get("season_score"),
+            "form": phr.get("form"),
+            "flags": phr.get("flags", []),
+            "recent": {
+                "barrel_pct_allowed": pr.get("barrel_pct_allowed"),
+                "hardhit_pct_allowed": pr.get("hardhit_pct_allowed"),
+                "avg_ev_allowed": pr.get("avg_ev_allowed"),
+                "hr_per_pa": pr.get("hr_per_pa"),
+                "ideal_aa_allowed": pr.get("ideal_aa_allowed"),
+                "pull_air_allowed": pr.get("pull_air_allowed"),
+                "swstr_pct_allowed": pr.get("swstr_pct_allowed"),
+                "fb_velo": pr.get("fb_velo"),
+                "velo_trend": pr.get("velo_trend"),
+                "bbe": pr.get("bbe"),
+            },
+            "season": {
+                "barrel_pct_allowed": ps.get("barrel_pct_allowed"),
+                "hardhit_pct_allowed": ps.get("hardhit_pct_allowed"),
+                "avg_ev_allowed": ps.get("avg_ev_allowed"),
+                "hr_per_pa": ps.get("hr_per_pa"),
+                "ideal_aa_allowed": ps.get("ideal_aa_allowed"),
+                "pull_air_allowed": ps.get("pull_air_allowed"),
+                "swstr_pct_allowed": ps.get("swstr_pct_allowed"),
+                "fb_velo": ps.get("fb_velo"),
+            },
+        }
+
+        # opener detection: listed SP whose real starts run 1-2 innings, or a pure
+        # reliever getting the "start". Downstream, BvP-vs-SP matters less (one look)
+        # and the bullpen matters much more.
+        _bat = p_batted.get(pid)
+        if _bat:
+            opp_pitcher_obj["fb_pct"] = _bat["fb_pct"]
+            opp_pitcher_obj["ld_pct"] = _bat.get("ld_pct")
+            opp_pitcher_obj["gb_pct"] = _bat["gb_pct"]
+        _sl = start_lens.get(pid)
+        if _sl and _sl["starts"] >= 2 and _sl["med_len"] <= 2.0:
+            opp_pitcher_obj["opener"] = True
+            opp_pitcher_obj["start_len"] = round(_sl["med_len"], 1)
+        elif _sl is None and p_apps.get(pid, 0) >= 5:
+            opp_pitcher_obj["opener"] = True          # relieves all year, "starting" today
+            opp_pitcher_obj["start_len"] = None
+        else:
+            opp_pitcher_obj["opener"] = False
+            opp_pitcher_obj["start_len"] = round(_sl["med_len"], 1) if _sl else None
+
+        # pitcher platoon splits — what he allows vs this hitter's hand
+        eff_hand = eff_side if bats == "S" else bats
+        psplits = pprof.get("splits") or {}
+        opp_pitcher_obj["platoon"] = compute.platoon_note(psplits)
+        opp_pitcher_obj["hr_by_hand"] = {
+            "R_hr": (psplits.get("R") or {}).get("season", {}).get("hr_allowed"),
+            "R_pa": (psplits.get("R") or {}).get("season", {}).get("pa"),
+            "L_hr": (psplits.get("L") or {}).get("season", {}).get("hr_allowed"),
+            "L_pa": (psplits.get("L") or {}).get("season", {}).get("pa"),
+        }
+        opp_pitcher_obj["hr_by_hand_2yr"] = hand2yr.get(pid)
+        vh = compute.hand_vuln(psplits.get(eff_hand)) if eff_hand in ("R", "L") else None
+        opp_pitcher_obj["vs_hand"] = eff_hand
+        opp_pitcher_obj["vs_hand_score"] = vh["score"] if vh else None
+        _vhs = (psplits.get(eff_hand) or {})
+        opp_pitcher_obj["vs_hand_metrics"] = {
+            "barrel_pct_allowed": (_vhs.get("season") or {}).get("barrel_pct_allowed"),
+            "hr_per_pa": (_vhs.get("season") or {}).get("hr_per_pa"),
+            "bbe": (_vhs.get("season") or {}).get("bbe"),
+        }
+
+        # opposing BULLPEN vulnerability (overall + vs this hitter's hand)
+        opp_abbr = g["home"] if side == "away" else g["away"]
+        opp_bullpen = compute.bullpen_vuln(_bullpen_for(opp_abbr), eff_hand) if g else None
+
+        # The pen he'll ACTUALLY face: same score recomputed from available arms only.
+        # If the closer and setup man threw the last two nights, they're not in tonight's
+        # game, and the arms that remain are more HR-prone. Full-pen score kept as
+        # opp_bullpen; this is the honest one.
+        pen_live = None
+        try:
+            av = pen_avail.get(opp_abbr) or pen_avail.get(_TEAM_ALIAS.get(opp_abbr)) or {}
+            prof_av = pens_avail.get(opp_abbr) or pens_avail.get(_TEAM_ALIAS.get(opp_abbr))
+            if av:
+                pen_live = {
+                    "fatigue": av.get("fatigue"),
+                    "label": av.get("label"),
+                    "n_out": av.get("n_out"),
+                    "n_arms": av.get("n_arms"),
+                    "pen_pitches_l2": av.get("pen_pitches_l2"),
+                }
+                if prof_av:
+                    vuln_av = compute.bullpen_vuln(prof_av, eff_hand)
+                    if vuln_av:
+                        pen_live["score"] = vuln_av.get("score")
+                        pen_live["vs_hand"] = vuln_av.get("vs_hand")
+                        base = (opp_bullpen or {}).get("score")
+                        if base is not None and vuln_av.get("score") is not None:
+                            pen_live["delta"] = round(vuln_av["score"] - base, 1)
+        except Exception:
+            pen_live = None
+
+        metrics = {}
+        # the four headline signals first (in your order), then context metrics
+        for key in ("pull_air_pct", "avg_ev", "barrel_pct", "ideal_aa_pct",
+                    "bat_speed", "hardhit_pct", "iso", "slg", "launch_angle",
+                    "fb_pct", "pull_pct", "swstr_pct", "k_pct"):
+            metrics[key] = {
+                "recent": recent.get(key),
+                "season": season.get(key),
+                "career": car.get(key),
+            }
+
+        # ---- ELITE gate: the four headline thresholds, applied app-wide. A hitter is "elite"
+        # when he clears all four on his season profile (season = stable enough to gate on):
+        #   pull_air_pct >= 33  (66% of HR are pulled; 33 is the floor, <33 removed)
+        #   avg_ev       >= 90  (harder contact = more distance)
+        #   barrel_pct   >= 10  (80-86% of HR are barreled; 10 is the good/elite line)
+        #   ideal_aa_pct >= league-ish (upward attack angle at contact, launch 5-20)
+        # ideal_aa has no universal cutoff yet (new metric); we gate the other three hard and
+        # treat ideal_aa as a bonus tier. Each check reports which it cleared so the UI can show it.
+        def _egate(src):
+            pa_ = src.get("pull_air_pct"); ev_ = src.get("avg_ev")
+            br_ = src.get("barrel_pct"); ia_ = src.get("ideal_aa_pct")
+            checks = {
+                "pull": (pa_ is not None and pa_ >= 33, pa_),
+                "ev":   (ev_ is not None and ev_ >= 90, ev_),
+                "barrel": (br_ is not None and br_ >= 10, br_),
+                "ideal_aa": (ia_ is not None and ia_ >= 55, ia_),   # 55%+ = strong upward-AA rate
+            }
+            core = ["pull", "ev", "barrel"]                 # the three hard gates
+            cleared_core = sum(1 for k in core if checks[k][0])
+            is_elite = cleared_core == 3
+            return {
+                "elite": is_elite,
+                "cleared_core": cleared_core,
+                "ideal_aa_bonus": checks["ideal_aa"][0],
+                "checks": {k: {"ok": v[0], "val": v[1]} for k, v in checks.items()},
+                # a tier label for quick scanning
+                "tier": ("ELITE+" if is_elite and checks["ideal_aa"][0]
+                         else "ELITE" if is_elite
+                         else "NEAR" if cleared_core == 2 else "BELOW"),
+            }
+        elite = _egate(season)
+        elite["recent"] = _egate(recent)      # also flag if he's elite on recent form specifically
+
+        # auto "why" line — the cleared signals + arm read, for instant scanning
+        why_bits = []
+        if recent.get("pull_air_pct") is not None and recent["pull_air_pct"] >= 40:
+            why_bits.append(f"{recent['pull_air_pct']:.0f}% air-pull")
+        if recent.get("barrel_pct") is not None and recent["barrel_pct"] >= 11:
+            why_bits.append(f"{recent['barrel_pct']:.0f}% brl")
+        if recent.get("avg_ev") is not None and recent["avg_ev"] >= 88.5:
+            why_bits.append(f"{recent['avg_ev']:.1f} EV")
+        if recent.get("ideal_aa_pct") is not None and recent["ideal_aa_pct"] >= 58:
+            why_bits.append(f"{recent['ideal_aa_pct']:.0f}% IAA")
+        if recent.get("iso") is not None and recent["iso"] >= 0.200:
+            why_bits.append(f".{int(round(recent['iso']*1000)):03d} ISO")
+        oform = (opp_pitcher_obj.get("form") or {}).get("label", "")
+        why = " · ".join(why_bits[:3])
+        if oform in ("SHELLABLE", "STEADY-BAD", "SLIPPING", "HITTABLE"):
+            why = (why + " · " if why else "") + f"vs {oform} arm"
+
+        opp_abbr = g["home"] if side == "away" else g["away"]
+        sp_bvp = bvp.get((bid, pid)) if pid else None
+        bp_list = []
+        for apid in pen_arms.get(opp_abbr, []):
+            # relief-only table: a HR this hitter hit off this pitcher WHILE HE WAS
+            # STARTING must not count as a bullpen HR
+            rec = bvp_pen.get((bid, apid))
+            if rec and rec[0] > 0:
+                bp_list.append({"name": pen_names.get(apid, ""), "pa": rec[0], "hr": rec[1]})
+        bp_list.sort(key=lambda x: (x["hr"], x["pa"]), reverse=True)
+        player_bvp = {
+            "sp": {"name": opp_pitcher_obj.get("name", ""),
+                   "pa": sp_bvp[0] if sp_bvp else 0, "hr": sp_bvp[1] if sp_bvp else 0},
+            "bp": [a for a in bp_list if a["name"]][:12],
+            "bp_hr": any(a["hr"] > 0 for a in bp_list),
+        }
+        if pid:                                   # career vs today's starter (cached)
+            _k = f"{bid}-{pid}"
+            _c = bvp_career_cache.get(_k)
+            _sc = None
+            if _c and (_bvp_now - _c.get("ts", 0) < _bvp_ttl):
+                _sc = {"pa": _c["pa"], "hr": _c["hr"]}
+            elif _bvp_fetched[0] < _BVP_MAX:
+                _r = statsapi.bvp_career(bid, pid)
+                _bvp_fetched[0] += 1
+                if _r is not None:
+                    bvp_career_cache[_k] = {"pa": _r["pa"], "hr": _r["hr"], "ts": _bvp_now}
+                    _sc = {"pa": _r["pa"], "hr": _r["hr"]}
+                _t.sleep(0.02)
+            if _sc is not None:
+                player_bvp["sp_career"] = {"name": opp_pitcher_obj.get("name", ""), **_sc}
+
+        # tags for having gone deep off today's arms (flow into tracker + parlay weighting)
+        _bvp_badges = []
+        if player_bvp.get("sp_career", {}).get("hr", 0) or player_bvp["sp"]["hr"]:
+            _bvp_badges.append({"t": "HR vs SP", "k": "hrsp"})
+        if player_bvp["bp_hr"]:
+            _bvp_badges.append({"t": "HR vs PEN", "k": "hrbp"})
+        badges = _bvp_badges + badges
+
+        players.append({
+            "id": bid,
+            "name": name,
+            "bats": bats,
+            "bvp": player_bvp,
+            "hr_by_spot": hr_spot.get(bid, {}),
+            "hr_last_game": bid in b2b_set,
+            "day_night": (g or {}).get("day_night") or "",     # today's game condition
+            "dn_split": dn_splits.get(bid),                     # his day vs night history
+            "hit_label": hit_labels.get(bid),
+            "lineup_spot": spot_of_batter.get(bid),
+            "lineup_status": status_of_batter.get(bid, "confirmed"),
+            "trend": tr,
+            "angle": angle,
+            "badges": badges,
+            "team": g["away"] if side == "away" else g["home"],
+            "opp_team": g["home"] if side == "away" else g["away"],
+            "side": side,          # "away"/"home" — used by the Edges tab to match arm vs lineup
+            "game_pk": pk,
+            "time": g["time"],
+            "park": g["park"],
+            "park_hr_factor": round(pf, 2),
+            "xbh_factor": _xbh,             # BallparkPal doubles/triples park factor (or None)
+            "park_src": pf_src,          # 'bpp_hitter' | 'bpp_game' | 'local'
+            "why": why,
+            "tier": breakdown.get("tier"),
+            "cleared": breakdown.get("cleared"),
+            "sample": {                       # batted-ball counts so tiny windows are obvious
+                "L5": (prof.get("windows", {}).get("L5", {}) or {}).get("bb_count"),
+                "L15": (prof.get("windows", {}).get("L15", {}) or {}).get("bb_count"),
+                "L30": (prof.get("windows", {}).get("L30", {}) or {}).get("bb_count"),
+                "season": season.get("bb_count"),
+            },
+            "opp_pitcher": opp_pitcher_obj,
+            "opp_bullpen": opp_bullpen,
+            "opp_pen_live": pen_live,
+            "traded": traded.get(bid),
+            "pitch_splits": prof.get("pitch_splits"),
+            "vs_pitch": vs_pitch.get(int(bid)) if vs_pitch else None,
+            "pitch_usage": pprof.get("usage"),
+            "pitch_matchup": pmatch,
+            "features": feat,          # parallel edges: pitch_matchup, late_hr (never touch heat)
+            "elite": elite,            # four-threshold elite gate (pull/EV/barrel/ideal-AA)
+            "_season_metrics": {k: season.get(k) for k in ("pull_air_pct","avg_ev","barrel_pct","ideal_aa_pct","bb_pct","iso","xwoba","hardhit_pct")},
+            "heat_mix": heat_mix,
+            "mix": mix_prof,
+            "ev_overall": recent.get("avg_ev"),
+            "luck": {
+                "recent": {k: recent.get(k) for k in ("xwobacon", "wobacon", "luck_gap", "barrel_pct", "hr", "bb_count")},
+                "season": {k: season.get(k) for k in ("xwobacon", "wobacon", "luck_gap", "barrel_pct", "hr", "bb_count")},
+            },
+            "max_ev": {"recent": recent.get("max_ev"), "season": season.get("max_ev")},
+            "heat": score,
+            "score_breakdown": breakdown,
+            # Props scores — parallel track for the Other Props tab, NEVER touch heat.
+            # hrr_heat needs lineup_spot + HR heat; computed as a post-attach step.
+            "hit_heat": props.hit_heat(recent, pprof)[0],
+            "k_heat_bat": props.k_heat_hitter(recent, pprof)[0],
+            "hrr_heat": props.hrr_heat(recent, pprof,
+                lineup_spot=spot_of_batter.get(bid), hr_heat=score)[0],
+            "metrics": metrics,
+            "windows": prof.get("windows", {}),
+            "hr_recent": {w: prof.get("windows", {}).get(w, {}).get("hr") for w in ("L5", "L15", "L30")},
+        })
+
+    players.sort(key=lambda p: p["heat"], reverse=True)
+
+    # Plate discipline + Statcast percentile card, both from TRUE MLB percentiles (computed
+    # over every qualified batter in the season pull, not just today's slate).
+    try:
+        for _p in players:
+            cats = league_pctl.get(_p["id"])
+            if not cats:
+                continue
+            _p.setdefault("features", {})["percentiles"] = cats
+            ch = cats.get("chase_pct"); zc = cats.get("zcontact_pct")
+            eye = bool(ch and ch["pctl"] >= 75)
+            crosshair = bool(zc and zc["pctl"] >= 75)
+            warning = bool(ch and ch["pctl"] <= 25)
+            mult = 1.0; grade = 0
+            if eye: mult *= 1.06; grade += 1
+            if crosshair: mult *= 1.05; grade += 1
+            if warning: mult *= 0.94; grade -= 1
+            _p["features"]["discipline"] = {
+                "chase_pct": ch["value"] if ch else None,
+                "chase_pctl": ch["pctl"] if ch else None,
+                "zcontact_pct": zc["value"] if zc else None,
+                "zcontact_pctl": zc["pctl"] if zc else None,
+                "eye": eye, "crosshair": crosshair, "warning": warning,
+                "hr_mult": round(mult, 3), "grade_delta": grade,
+                "scope": "mlb",          # true league percentiles, not slate-relative
+            }
+        _n_pc = sum(1 for _p in players if (_p.get("features") or {}).get("percentiles"))
+        print(f"[build] percentile cards: {_n_pc} hitters (true MLB percentiles)")
+    except Exception as e:
+        _hnote("percentiles", e); print(f"[build] percentiles skipped: {e}")
+
+    # ---- GRAND SLAM generator: score each hitter's GS likelihood = traffic (bases loaded when
+    # he bats) x punish (can he golf a grooved in-zone fastball) + pen/shift amplifiers. Parallel
+    # to heat. Attaches p["grand_slam"], and board["grand_slam"] = top 3 for the DK jackpot. ----
+    try:
+        from etl import grandslam
+        # on-base proxy per player from season profile (OBP ~ (H+BB)/PA; we approximate with
+        # a blend of bb_pct and batting-average-ish signal available on the row).
+        for p in players:
+            szn = (p.get("_season_metrics") or {})
+            # reconstruct a rough OBP: league-avg baseline nudged by walk rate + on-base skill
+            bb = szn.get("bb_pct")
+            # we stored iso/slg but not AVG directly; use a coarse OBP proxy from bb_pct + xwoba-ish
+            # fallback: heat-independent. If bb missing, use .315 league-ish.
+            ob = 0.300
+            if bb is not None:
+                ob = 0.300 + (bb - 8.5) * 0.006      # each pt of BB% over league ~+6 OBP pts
+            xw = szn.get("xwoba")
+            if xw is not None:
+                ob = max(ob, xw - 0.030)              # xwOBA is a strong OBP proxy
+            p["_ob"] = round(max(0.230, min(0.470, ob)), 3)
+
+        # group hitters by game to model each lineup's traffic
+        by_game_lu = {}
+        for p in players:
+            by_game_lu.setdefault(p.get("game_pk"), []).append(p)
+
+        gs_all = []
+        for gpk, lineup in by_game_lu.items():
+            # opposing starter walk rate (wildness) — same for all hitters facing that arm
+            for p in lineup:
+                opp = p.get("opp_pitcher") or {}
+                opp_bb = (opp.get("season") or {}).get("bb_pct_allowed") or (opp.get("recent") or {}).get("bb_pct_allowed")
+                traffic = grandslam.traffic_score(p.get("lineup_spot"), lineup, opp_bb)
+                # in-zone fastball punish, if the feature pipeline computed it
+                izfb = (p.get("features") or {}).get("in_zone_fb")
+                punish = grandslam.punish_score(p.get("_season_metrics"), p.get("elite"), izfb)
+                # pen amplifier: gassed pen / short starter behind the arm (reuse late_hr feature)
+                pen_boost = 0.0
+                lc = (p.get("features") or {}).get("late_hr")
+                if lc and lc.get("score"):
+                    pen_boost = min(8.0, lc["score"] * 0.10)
+                gs = grandslam.grand_slam_score(traffic, punish, pen_boost=pen_boost)
+                if gs:
+                    p["grand_slam"] = gs
+                    gs_all.append((gs["score"], p))
+        # board-level top 3 for the DK jackpot
+        gs_all.sort(key=lambda x: -x[0])
+        board_gs = []
+        for sc, p in gs_all[:12]:
+            board_gs.append({
+                "id": p["id"], "name": p["name"], "team": p.get("team"),
+                "opp_team": p.get("opp_team"), "spot": p.get("lineup_spot"),
+                "game_pk": p.get("game_pk"), "time": p.get("time"),
+                "score": sc, "traffic": p["grand_slam"]["traffic"],
+                "punish": p["grand_slam"]["punish"], "drivers": p["grand_slam"]["drivers"],
+                "heat": p.get("heat"), "elite": (p.get("elite") or {}).get("tier"),
+            })
+        print(f"[build] grand slam: {len(gs_all)} hitters scored, top {len(board_gs)} surfaced")
+    except Exception as e:
+        board_gs = []
+        _hnote("grand slam", e); print(f"[build] grand slam skipped: {e}")
+
+    try:                                           # persist career-BvP cache for the next build
+        json.dump({"pairs": bvp_career_cache, "updated": _bvp_now}, open(bvp_cache_path, "w"))
+        print(f"[build] career BvP: {_bvp_fetched[0]} fetched this run, {len(bvp_career_cache)} cached")
+    except Exception as e:
+        print(f"[build] bvp cache write failed: {e}")
+
+    # ---- park + weather HR model: a separate lens, computed per game in one vectorized
+    # pass, attached as p["park_hr"]. Never feeds the heat score or the grader. The park's
+    # overall HR level comes from Baseball Savant (auto-pulled, rolling, handedness-split);
+    # the physics only adds per-hitter spray + live weather on top, anchored to Savant so a
+    # dimension/orientation that's slightly off can't make the park factor wrong. Wrapped so
+    # a Savant/weather outage degrades gracefully instead of breaking the board.
+    try:
+        from etl import park_factors
+        pf_cache = os.path.join(os.path.dirname(__file__), "..", "docs", "park_factors.json")
+        savant = park_factors.load_park_factors(pf_cache, df=df, year=now.year)
+        gpk_home = {g["game_pk"]: g["home"] for g in games}     # durable key for the factor lookup
+
+        try:                                       # spray chart uses last 14d for volume
+            _drv_start = (datetime.strptime(date_str, "%Y-%m-%d") - timedelta(days=14)).strftime("%Y-%m-%d")
+            drives_map = statcast_data.recent_drives(df, _drv_start)
+            # robbed scan: the PRIOR DAY only — "did he just miss last night?" A flyout from
+            # three days ago isn't actionable context for today's slate.
+            _rob_start = (datetime.strptime(date_str, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
+            robbed_drives = statcast_data.recent_drives(df, _rob_start, min_dist=320)
+        except Exception as e:
+            drives_map = {}; robbed_drives = {}
+            _hnote("recent drives", e); print(f"[build] recent drives skipped: {e}")
+
+        by_game = {}
+        for p in players:
+            by_game.setdefault((p["park"], p["time"], p["game_pk"]), []).append(p)
+        for (venue, gtime, pk), ps in by_game.items():
+            # tonight's conditions once per game, reused for every hitter's robbed check
+            try:
+                rho_g, wind_g = park_model.game_conditions(venue, gtime)
+            except Exception:
+                rho_g, wind_g = None, None
+            for p in ps:
+                # spray chart: 2-week volume so the picture has data points
+                drv = drives_map.get(p["id"]) or []
+                # robbed scan: only last 3 days — recent-recent contact only
+                rob_drv = robbed_drives.get(p["id"]) or []
+                flags = [0] * len(drv)
+                # mark HRs in the spray drives
+                for j, d in enumerate(drv):
+                    if d["hr"]:
+                        flags[j] = 1
+                # robbed check runs on the tight 3-day set, ignoring HRs; flagged
+                # results get folded back into the spray chart flags by (date, dist)
+                rob_hits = []
+                if rho_g is not None and rob_drv:
+                    deep = [(j, d) for j, d in enumerate(rob_drv)
+                            if (not d["hr"]) and d["dist"] >= 320 and 15 <= d["la"] <= 45]
+                    if deep:
+                        cl = park_model.clears_here([d["ev"] for _, d in deep],
+                                                    [d["la"] for _, d in deep],
+                                                    [d["spray"] for _, d in deep],
+                                                    venue, rho_g, wind_g)
+                        for (j, d), c in zip(deep, cl):
+                            if bool(c):
+                                rob_hits.append(d)
+                                # mark in spray chart too if same ball is present
+                                for jj, sd in enumerate(drv):
+                                    if sd["date"] == d["date"] and abs(sd["dist"] - d["dist"]) <= 2:
+                                        flags[jj] = 2
+                if drv:
+                    p["drives"] = [[d["spray"], d["dist"], flags[j]] for j, d in enumerate(drv)]
+                if rob_hits:
+                    best = max(rob_hits, key=lambda x: x["dist"])
+                    p["robbed"] = {"n": len(rob_hits),
+                                   "best_ft": best["dist"], "best_date": best["date"],
+                                   "inning": best.get("inning"), "half": best.get("half"),
+                                   # every near-miss, so the UI can list them with their inning
+                                   "hits": [{"ft": h["dist"], "inning": h.get("inning"),
+                                             "half": h.get("half"), "ev": h.get("ev")}
+                                            for h in sorted(rob_hits, key=lambda x: -x["dist"])[:4]]}
+            evs, las, sprays, spans = [], [], [], []
+            for p in ps:
+                s = bb_samples.get(p["id"])
+                n = 0 if (s is None) else len(s["ev"])
+                spans.append((p, n))
+                if n:
+                    evs.append(s["ev"]); las.append(s["la"]); sprays.append(s["spray"])
+            if not evs:
+                continue
+            ev_all = np.concatenate(evs); la_all = np.concatenate(las); sp_all = np.concatenate(sprays)
+            hr_park, hr_neut, meta = park_model.evaluate_game(ev_all, la_all, sp_all, venue, gtime)
+            i = 0
+            for p, n in spans:
+                if not n:
+                    continue
+                hand = p.get("bats", "R")
+                sav = park_factors.factor_for(savant, venue, hand, team=gpk_home.get(pk))
+                anchor = park_model.savant_anchor(venue, hand, sav)
+                agg = park_model.aggregate_hitter(hr_park[i:i+n], hr_neut[i:i+n], meta,
+                                                  anchor=anchor, savant_factor=sav)
+                if agg:
+                    p["park_hr"] = agg
+                # "Would clear in X of 30 parks" — a geometry read on this hitter's recent
+                # batted balls. Restrict to genuinely deep/liftable balls so it measures HR
+                # potential, not weak grounders. Cheap (ms/hitter) and never touches heat.
+                try:
+                    ev_s = ev_all[i:i+n]; la_s = la_all[i:i+n]; sp_s = sp_all[i:i+n]
+                    deep_m = (ev_s >= 95.0) & (la_s >= 18.0) & (la_s <= 42.0)
+                    ndeep = int(deep_m.sum())
+                    if ndeep >= 3:
+                        pc = park_model.parks_cleared(ev_s[deep_m], la_s[deep_m], sp_s[deep_m])
+                        per = pc["per_ball"]
+                        # a ball is "borderline" if it clears some parks but not most —
+                        # those are the ones where tonight's park actually decides it
+                        borderline = sum(1 for c in per if 1 <= c <= 24)
+                        here = int(np.asarray(
+                            park_model.clears_here(ev_s[deep_m], la_s[deep_m], sp_s[deep_m],
+                                                   venue, *park_model.game_conditions(venue, gtime)),
+                            dtype=bool).sum())
+                        p["parks30"] = {
+                            "n_deep": ndeep,
+                            "out_here": here,               # clear tonight's park
+                            "any": pc["any"],               # clear at least one park
+                            "avg_parks": pc["avg_parks"],   # mean parks a clearing ball clears
+                            "borderline": borderline,       # park-dependent balls
+                            "per_ball": per,
+                        }
+                except Exception:
+                    pass
+                # batted-ball log (the detailed table view) — attach display rows with pitcher name
+                # and the X/30-parks read per ball; drop raw helper fields to keep board.json lean
+                try:
+                    _log = bb_logs.get(int(p.get("id")))
+                    if _log:
+                        _ev = np.array([b["_ev"] for b in _log]); _la = np.array([b["_la"] for b in _log])
+                        _sp = np.array([b["_sp"] for b in _log])
+                        _pc = park_model.parks_cleared(_ev, _la, _sp)
+                        _per = _pc.get("per_ball") or []
+                        _rows = []
+                        for _j, _b in enumerate(_log):
+                            _row = {_k: _b[_k] for _k in ("date","arm","pt","ev","la","dist","bs","pv","res","traj","brl")}
+                            _row["pit"] = bb_pit_names.get(_b.get("pit"))
+                            _row["x30"] = int(_per[_j]) if _j < len(_per) else None
+                            _rows.append(_row)
+                        p["bb_log"] = _rows
+                except Exception:
+                    pass
+                i += n
+    except Exception as e:
+        _hnote("park model", e); print(f"[build] park model skipped: {e}")
+
+    # ---- decision helpers ----
+    def _thin(p):
+        return any(str(f).startswith("small sample") for f in p["score_breakdown"].get("flags", []))
+
+    # Top Plays: strongest, non-thin hitters not facing a DEALING arm
+    top_plays = []
+    for p in players:
+        if _thin(p) or p["heat"] < 60:
+            continue
+        if (p["opp_pitcher"].get("form") or {}).get("label") == "DEALING":
+            continue
+        top_plays.append({
+            "name": p["name"], "team": p["team"], "opp_team": p["opp_team"],
+            "heat": p["heat"], "tier": p["tier"], "why": p["why"],
+            "spot": p["lineup_spot"], "time": p["time"],
+            "arm": p["opp_pitcher"].get("name"),
+            "arm_form": (p["opp_pitcher"].get("form") or {}).get("label"),
+            "arm_score": p["opp_pitcher"].get("hr_score"),
+        })
+        if len(top_plays) >= 12:
+            break
+
+    # Stacks (pairing): a target for the whole lineup — either a vulnerable arm with
+    # 2+ strong hitters facing him, OR a bullpen game (opener "start" + weak pen),
+    # which the old form filter wrongly excluded. Sorted by a blended stack score so
+    # a slightly-less-bad arm facing five monsters can outrank a worse arm facing two.
+    from collections import defaultdict
+    groups = defaultdict(list)
+    for p in players:
+        groups[(p["game_pk"], p["opp_pitcher"].get("name"))].append(p)
+    stacks = []
+    for (gpk, arm), ps in groups.items():
+        if not arm:
+            continue
+        op = ps[0]["opp_pitcher"]
+        form = (op.get("form") or {}).get("label", "")
+        pen_sc = (ps[0].get("opp_bullpen") or {}).get("score")
+        opener = bool(op.get("opener"))
+        targetable_arm = form in ("SHELLABLE", "STEADY-BAD", "SLIPPING", "HITTABLE")
+        pen_game = opener and (pen_sc or 0) >= 55
+        if not (targetable_arm or pen_game):
+            continue
+        strong = sorted([x for x in ps if x["heat"] >= 55], key=lambda x: x["heat"], reverse=True)
+        if len(strong) < 2:
+            continue
+        vuln = max(op.get("hr_score") or 0, (pen_sc or 0) if opener else 0)
+        top3 = sum(x["heat"] for x in strong[:3]) / min(3, len(strong))
+        stacks.append({
+            "arm": arm,
+            "form": op.get("form"),
+            "arm_score": op.get("hr_score"),
+            "pen_score": pen_sc,
+            "opener": opener,
+            "pen_game": pen_game,
+            "stack_score": int(round(0.55 * vuln + 0.45 * top3)),
+            "park": strong[0].get("park"),
+            "park_factor": strong[0].get("park_hr_factor"),
+            "game_pk": gpk,
+            "team": strong[0]["team"], "opp_team": strong[0]["opp_team"],
+            "time": strong[0]["time"],
+            "hitters": [{
+                "id": x["id"], "name": x["name"], "heat": x["heat"], "tier": x["tier"],
+                "spot": x["lineup_spot"], "bats": x["bats"],
+                "b2b": bool(x.get("hr_last_game")),
+                "owns": any(b.get("k") in ("hrsp", "hrbp") for b in (x.get("badges") or [])),
+            } for x in strong[:6]],
+        })
+    stacks.sort(key=lambda s: (s["stack_score"], len(s["hitters"])), reverse=True)
+
+    try:                                       # career HR milestone watch
+        _id_to_team = {p["id"]: p.get("team") for p in players}
+        mstones = statcast_data.career_hr_milestones(
+            [p["id"] for p in players], id_to_team=_id_to_team)
+        for p in players:
+            if p["id"] in mstones:
+                p["milestone"] = mstones[p["id"]]
+    except Exception as e:
+        _hnote("milestones", e); print(f"[build] milestones skipped: {e}")
+
+    # ---- fences for the spray chart + the morning briefing ----
+    fences = {}
+    try:
+        for g in games:
+            if g["park"] not in fences:
+                fences[g["park"]] = park_model.fence_polyline(g["park"])
+    except Exception as e:
+        _hnote("fences", e); print(f"[build] fences skipped: {e}")
+
+    briefing = []
+    try:
+        boosts = [(p["park_hr"]["boost"], p) for p in players
+                  if p.get("park_hr") and p["park_hr"].get("boost") is not None]
+        if boosts:
+            b, p = max(boosts, key=lambda x: x[0])
+            if b >= 8:
+                w = (p["park_hr"].get("wind_mph"))
+                briefing.append(f"Best environment: {p['park']} at +{b}%"
+                                + (f" with wind {w} mph" if w else "") + ".")
+        opener_teams = sorted({p["opp_team"] for p in players
+                               if (p.get("opp_pitcher") or {}).get("opener")})
+        if opener_teams:
+            briefing.append(("Bullpen game" if len(opener_teams) == 1 else "Bullpen games")
+                            + f" vs {', '.join(opener_teams)} — weigh the pen, not the listed arm.")
+        rb = sorted([p for p in players if p.get("robbed")],
+                    key=lambda p: (-p["robbed"]["n"], -p["robbed"]["best_ft"]))[:2]
+        for p in rb:
+            r = p["robbed"]
+            briefing.append(f"Robbed watch: {p['name']} — {r['best_ft']}ft out on {r['best_date'][5:]} "
+                            f"clears here tonight" + (f" ({r['n']} such balls)." if r["n"] > 1 else "."))
+        b2b = [p for p in players if p.get("hr_last_game") and p["heat"] >= 70]
+        if b2b:
+            names = ", ".join(p["name"] for p in b2b[:2])
+            briefing.append(f"B2B fade: {names} homered last night — bases over HR by your rules.")
+        ms1 = [p for p in players if (p.get("milestone") or {}).get("away") == 1]
+        for p in ms1[:2]:
+            m = p["milestone"]
+            briefing.append(f"Milestone watch: {p['name']} sits at {m['career_hr']} career HR — "
+                            f"one swing from {m['next']}.")
+        nlab = {"elite": 0, "fb": 0, "ld": 0}
+        for p in players:
+            if p.get("hit_label"): nlab[p["hit_label"]] += 1
+        if sum(nlab.values()):
+            briefing.append(f"Profiles on slate: {nlab['elite']} ELITE · {nlab['fb']} FB · {nlab['ld']} LD.")
+    except Exception as e:
+        _hnote("briefing", e); print(f"[build] briefing skipped: {e}")
+
+    # per-game weather summaries for the Weather dashboard (roof call, disruption status,
+    # wind rendered relative to each park's actual orientation)
+    wx_list = []
+    try:
+        from etl import weather as W, park_geometry as PG
+        for g in games:
+            lat, lon, _ = PG.park_coords(g["park"])
+            wx = W.get_weather(lat, lon, g["time"], venue=g["park"])
+            roof = W.roof_call(g["park"], wx)
+            pp = (wx or {}).get("precip_prob")
+            if roof in ("dome", "closed", "canopy") or pp is None:
+                status = "clear" if roof else "unknown"
+            elif pp < 20:
+                status = "clear"
+            elif pp < 45:
+                status = "chance"
+            elif pp < 70:
+                status = "likely"
+            else:
+                status = "postpone"
+            cf = PG.cf_bearing(g["park"])
+            frm = (wx or {}).get("wind_from_deg")
+            rel = round(((frm + 180.0) - cf) % 360.0) if (frm is not None and cf is not None) else None
+            wx_list.append({
+                "game_pk": g["game_pk"], "away": g["away"], "home": g["home"],
+                "park": g["park"], "time": g["time"],
+                "temp_f": round((wx or {}).get("temp_f")) if (wx or {}).get("temp_f") is not None else None,
+                "rh_pct": round((wx or {}).get("rh_pct")) if (wx or {}).get("rh_pct") is not None else None,
+                "precip_prob": round(pp) if pp is not None else None,
+                "wind_mph": round((wx or {}).get("wind_mph")) if (wx or {}).get("wind_mph") is not None else None,
+                "wind_rel_deg": rel, "roof": roof, "status": status,
+            })
+    except Exception as e:
+        _hnote("weather summaries", e); print(f"[build] weather summaries skipped: {e}")
+
+    # ---- PITCHER EDGES: per-arm arsenal + zone heatmap + ranked opposing batters who
+    # punish his zones. Powers the Edges tab (pitcher-first drill-down). Parallel track. ----
+    pitcher_edges = []
+    if features is not None:
+        try:
+            # index built players by (game_pk, batter side) so we can find each arm's opponents
+            for g in games:
+                for pid, p_side, opp_side in ((g["home_pitcher_id"], "home", "away"),
+                                              (g["away_pitcher_id"], "away", "home")):
+                    if not pid:
+                        continue
+                    ars = arsenal_by_pid.get(pid)
+                    arows = statcast_data.pitcher_arsenal_rows(df, pid, date_str)
+                    zgrid = features.pitcher_zone_grid(arows)
+                    pzdmg = features.pitcher_zone_damage(arows)   # MEATBALL zones (damage allowed)
+                    meta = slate["pitchers"].get(pid, {})
+                    # opposing batters: those in this game on the other side
+                    opp_batters = []
+                    for pl in players:
+                        if pl.get("game_pk") != g["game_pk"] or pl.get("side") != opp_side:
+                            continue
+                        bz = None
+                        bhr = None
+                        try:
+                            brows = statcast_data.batter_pitch_rows(df, pl["id"], date_str)
+                            bz = features.batter_zone_damage(brows)
+                            bhr = features.batter_hr_zones(brows)      # actual HR locations
+                        except Exception:
+                            bz = None; bhr = None
+                        # the pitcher attacks lefties and righties differently — grade this
+                        # hitter against the grid for HIS side, falling back to the overall grid
+                        _hand = pl.get("bats")
+                        if _hand == "S":
+                            _hand = "L" if meta.get("throws", "R") == "R" else "R"
+                        zgrid_h = zgrid
+                        if _hand in ("R", "L"):
+                            try:
+                                _gh = features.pitcher_zone_grid(arows, hand=_hand)
+                                if _gh and _gh.get("n", 0) >= 150:
+                                    zgrid_h = _gh
+                            except Exception:
+                                pass
+                        vz = features.batter_vs_pitcher_zones(bz, zgrid_h) if bz else {}
+                        zedge = features.zone_matchup_edges(bz, zgrid_h) if bz else {}
+                        pm = (pl.get("features") or {}).get("pitch_matchup") or {}
+                        # zones this batter "crushes" = cells with xwOBAcon >= 0.400 on adequate
+                        # sample. Count is shown as a badge; the map colors these for THIS hitter.
+                        crushed = []
+                        zdmg_full = {}
+                        _zedge = zedge
+                        if bz:
+                            for zk, zv in bz.items():
+                                xw = zv.get("xwobacon"); n = zv.get("n")
+                                # carry barrel% + air distance so the map shows HR-power context
+                                zdmg_full[zk] = {"xw": xw, "n": n,
+                                                 "brl": zv.get("barrel_pct"),
+                                                 "dist": zv.get("avg_dist"),
+                                                 "pw": zv.get("power"),
+                                                 "hr": zv.get("hr_rate"),
+                                                 "slg": zv.get("slg"),
+                                                 "iso": zv.get("iso"),
+                                                 "hh": zv.get("hh_pct"),
+                                                 "ev": zv.get("avg_ev")}
+                                if xw is not None and xw >= 0.400 and (n or 0) >= 6:
+                                    crushed.append(int(zk))
+                        # ZONE SIGNAL: HRs this batter hit in this pitcher's meatball zones.
+                        overlap = features.zone_overlap(bhr, pzdmg) if bhr else {"count":0,"cells":[],"hr_by_cell":{},"center_count":0,"badge":None,"meatballs":[]}
+                        opp_batters.append({
+                            "id": pl["id"], "name": pl["name"], "spot": pl.get("lineup_spot"),
+                            "bats": pl.get("bats"), "heat": pl.get("heat"),
+                            "zone_score": vz.get("score"), "hot_zone": vz.get("hot_zone"),
+                            "hot_xw": vz.get("hot_xw"),
+                            "matchup_score": pm.get("score"),
+                            # full per-zone {xw, n} for the interactive per-hitter heatmap
+                            "zone_dmg": zdmg_full or None,
+                            "crushed_zones": sorted(crushed),      # e.g. [4,7,8] -> badge "3"
+                            "overlap": overlap,                     # HRs in his meatball zones
+                            "hr_zones": bhr or None,                # his HR count per zone
+                            "zone_edge": _zedge or None,            # pitcher-usage-weighted matchup
+                            "elite": (pl.get("elite") or {}).get("tier"),
+                        })
+                    # rank opponents by zone score (who punishes where he lives)
+                    opp_batters.sort(key=lambda b: (b["zone_score"] is not None, b["zone_score"] or 0), reverse=True)
+                    fat = fatigue_by_pid.get(pid) if p_roles.get(pid, {}).get("role") != "SP" else None
+                    # exploitability: how much the top opponents punish his zones. Only count
+                    # batters with ADEQUATE total zone sample (>=20 batted balls across their
+                    # graded zones) so a hitter with 5 BBE doesn't inflate an arm's rank.
+                    def _bat_sample(b):
+                        zd = b.get("zone_dmg") or {}
+                        return sum((zv.get("n") or 0) for zv in zd.values())
+                    qualified = [b for b in opp_batters
+                                 if b["zone_score"] is not None and _bat_sample(b) >= 20]
+                    top_scores = [b["zone_score"] for b in qualified[:5]]
+                    exploit = round(sum(top_scores) / len(top_scores), 3) if top_scores else None
+
+                    # ---- HR VULNERABILITY SCORE (additional pitcher score, 0-100) ----
+                    # ERA 30 · park 20 · hand-splits 15 · WHIP 15 · zone damage 12 · danger 8
+                    _ps = (pstats or {}).get(pid) or {}
+                    # park HR factor: average the L/R factors for a general park read
+                    # park HR factor: Ballpark Pal's per-game model, else local L/R average
+                    _pf = None
+                    try:
+                        from etl import ballparkpal as _BPP2
+                        _pf, _ = _BPP2.resolve_hr_mult(
+                            BPP, game_id=g.get("game_pk"),
+                            away=g.get("away"), home=g.get("home"), fallback=None)
+                    except Exception:
+                        _pf = None
+                    if _pf is None:
+                        try:
+                            _pf_l = parks.park_factor(g["park"], "L")
+                            _pf_r = parks.park_factor(g["park"], "R")
+                            _pf = (float(_pf_l) + float(_pf_r)) / 2.0
+                        except Exception:
+                            _pf = None
+                    # dangerous bats today: elite-gated or genuinely hot, in this lineup
+                    _danger = sum(1 for b in opp_batters
+                                  if (b.get("elite") in ("ELITE", "ELITE+"))
+                                  or (b.get("heat") or 0) >= 65
+                                  or ((b.get("overlap") or {}).get("count", 0) >= 3))
+                    vuln = features.vuln_score(
+                        era=_ps.get("era"), whip=_ps.get("whip"),
+                        park_factor=_pf,
+                        hand_hr=(hand2yr.get(pid) or {}).get("two_yr"),
+                        zone_damage=pzdmg,
+                        danger_count=_danger)
+
+                    # batted-ball profile allowed (GB/FB, contact quality, velo) for the arm card
+                    _pp = pitch_profiles.get(pid) or {}
+                    _pseason = _pp.get("season") or {}
+                    _precent = _pp.get("recent") or {}
+                    _arm_profile = {
+                        "gb_pct": _pseason.get("gb_pct"), "fb_pct": _pseason.get("fb_pct"),
+                        "ld_pct": _pseason.get("ld_pct"),
+                        "avg_ev_allowed": _pseason.get("avg_ev_allowed"),
+                        "barrel_pct_allowed": _pseason.get("barrel_pct_allowed"),
+                        "hardhit_pct_allowed": _pseason.get("hardhit_pct_allowed"),
+                        "fb_velo": _pseason.get("fb_velo") or _precent.get("fb_velo"),
+                        "velo_trend": _precent.get("velo_trend"),
+                        "recent_barrel": _precent.get("barrel_pct_allowed"),
+                        "recent_ev": _precent.get("avg_ev_allowed"),
+                    }
+                    # HR HOT SPOTS: hitters who have taken this arm deep (from the BvP table)
+                    _hot_spots = []
+                    try:
+                        for (_b, _p2), _v in (bvp or {}).items():
+                            if _p2 != pid:
+                                continue
+                            _hr = _v[1] if isinstance(_v, (list, tuple)) and len(_v) > 1 else 0
+                            if _hr and _hr > 0:
+                                _nm = (hands.get(_b, {}) or {}).get("name") or str(_b)
+                                _hot_spots.append({"id": int(_b), "name": _nm, "hr": int(_hr),
+                                                   "pa": int(_v[0]) if _v else 0})
+                        _hot_spots.sort(key=lambda x: -x["hr"])
+                        _hot_spots = _hot_spots[:6]
+                    except Exception:
+                        _hot_spots = []
+
+                    pitcher_edges.append({
+                        "id": pid, "name": meta.get("name") or f"#{pid}",
+                        "team": g["home"] if p_side == "home" else g["away"],
+                        "opp_team": g["away"] if p_side == "home" else g["home"],
+                        "game_pk": g["game_pk"], "time": g["time"], "park": g["park"],
+                        "throws": (hands.get(pid, {}) or {}).get("throws", ""),
+                        "arsenal": ars, "zone_grid": zgrid,
+                        "meatball_zones": pzdmg,     # per-zone damage allowed (darkest = meatball)
+                        "season": pstats.get(pid),   # ERA / WHIP / IP / HR allowed
+                        "vuln": vuln,                # 0-100 HR vulnerability composite
+                        "quick_target": spot_damage.get(pid),   # dangerous lineup slots vs him
+                        "tto": tto_by_pid.get(pid),  # times-through-order vulnerability
+                        "profile": _arm_profile,     # GB/FB/EV/barrel/hardhit allowed + velo
+                        "hand_splits": (hand2yr.get(pid) or {}),   # HR allowed by batter hand
+                        "hr_hot_spots": _hot_spots,  # batters who've taken him deep
+                        "park_hr_factor": round(_pf, 2) if _pf else None,
+                        "fatigue": fat, "exploit_score": exploit,
+                        "batters": opp_batters,
+                    })
+            # rank arms by exploitability (most exploitable first)
+            pitcher_edges.sort(key=lambda e: (e["exploit_score"] is not None, e["exploit_score"] or 0), reverse=True)
+            print(f"[build] pitcher edges: {len(pitcher_edges)} arms")
+            # Unify edge surfacing: copy each hitter's zone profile (vs today's opposing arm) back
+            # onto their own player row, so the BOARD CARD can show which zones they crush without
+            # the user drilling into Edges. One hitter faces one arm, so this is unambiguous.
+            _pid_map = {p["id"]: p for p in players}
+            for pe in pitcher_edges:
+                for b in pe.get("batters") or []:
+                    tgt = _pid_map.get(b["id"])
+                    if tgt is not None and (b.get("hr_zones") or b.get("crushed_zones")):
+                        tgt.setdefault("features", {})["zone_profile"] = {
+                            "crushed": b["crushed_zones"],
+                            "zone_dmg": b.get("zone_dmg"),
+                            "vs_arm": pe["name"],
+                            "zone_score": b.get("zone_score"),
+                            "overlap": b.get("overlap"),          # true ZONE-badge overlap count
+                            "hr_zones": b.get("hr_zones"),        # his HR count per zone
+                            "zone_edge": b.get("zone_edge"),      # matchup edges vs his hand
+                            "arm_grid": pe.get("zone_grid"),      # pitcher usage per zone
+                            "arm_throws": pe.get("throws"),
+                            "meatball_zones": pe.get("meatball_zones"),  # for the amber-dot map
+                        }
+
+            # ---- BOMB SCORE: the composite batter-vs-pitcher matchup score (replaces the old
+            # max-EV "Bomb" sort). Needs zone overlap, so it runs after the edges block. ----
+            try:
+                _era_by_pid = {int(k): v.get("era") for k, v in (pstats or {}).items()}
+                # vuln tier per arm, for the Matchup Grade's pitcher-vulnerability factor
+                _vuln_by_pid = {}
+                for _pe in pitcher_edges:
+                    if _pe.get("vuln") and _pe.get("id") is not None:
+                        _vuln_by_pid[_pe["id"]] = _pe["vuln"]
+                for _p in players:
+                    _f = _p.get("features") or {}
+                    _zp = _f.get("zone_profile") or {}
+                    _ov = (_zp.get("overlap") or {}).get("count", 0)
+                    _w = (_p.get("windows") or {}).get("L14d") or {}
+                    _opp = _p.get("opp_pitcher") or {}
+                    _opp_id = _opp.get("id")
+                    # platoon edge: LHB vs RHP or RHB vs LHP (switch hitters always have it)
+                    _bats = (_p.get("bats") or "").upper()
+                    _thr = (_opp.get("throws") or "").upper()
+                    _plat = None
+                    if _bats and _thr:
+                        _plat = True if (_bats == "S" or _bats != _thr) else False
+                    _tto = (tto_by_pid.get(_opp_id) or {}).get("score") if _opp_id else None
+                    bs = features.bomb_score(
+                        iso=_w.get("iso"), slg=_w.get("slg"),
+                        overlap_count=_ov,
+                        park_boost=(_p.get("park_hr") or {}).get("boost"),
+                        platoon=_plat,
+                        pitcher_era=_era_by_pid.get(_opp_id) if _opp_id else None,
+                        hot_streak=_p.get("trend"),
+                        tto_score=_tto)
+                    if bs:
+                        _p["bomb_score"] = bs
+
+                    # ---- MATCHUP GRADE: factor convergence across the five inputs ----
+                    _vt = (_vuln_by_pid.get(_opp_id) or {}).get("tier") if _opp_id else None
+                    _dd = ((_f.get("discipline") or {}).get("grade_delta")) or 0
+                    mg = features.matchup_grade(
+                        iso=_w.get("iso"),
+                        overlap_count=_ov,
+                        vuln_tier=_vt,
+                        park_factor=_p.get("park_hr_factor"),
+                        hot_form=_p.get("trend"),
+                        discipline_delta=_dd)
+                    if mg:
+                        _p["matchup_grade"] = mg
+                _n_bs = sum(1 for _p in players if _p.get("bomb_score"))
+                _n_mg = sum(1 for _p in players if _p.get("matchup_grade"))
+                _elite = sum(1 for _p in players if (_p.get("matchup_grade") or {}).get("grade") == "ELITE")
+                print(f"[build] bomb score: {_n_bs} hitters · matchup grade: {_n_mg} ({_elite} ELITE)")
+            except Exception as e:
+                _hnote("bomb score", e); print(f"[build] bomb score skipped: {e}")
+        except Exception as e:
+            _hnote("pitcher edges", e); print(f"[build] pitcher edges skipped: {e}")
+
+    # ---- TOP PLAYS v2: now that grade / bomb / ZONE / vuln all exist, rebuild the panel so it
+    # ranks by CONVERGENCE rather than heat alone. A hitter with an ELITE grade and 5 HRs in the
+    # arm's meatball zones outranks a hotter bat in a neutral spot. Falls back to the heat-only
+    # list if the edge data didn't populate. ----
+    try:
+        _vuln_tier_by_pid = {}
+        for _pe in (pitcher_edges or []):
+            if _pe.get("vuln") and _pe.get("id") is not None:
+                _vuln_tier_by_pid[_pe["id"]] = _pe["vuln"].get("tier")
+
+        def _tp_rank(p):
+            mg = p.get("matchup_grade") or {}
+            gr = {"ELITE": 3, "STRONG": 2, "MOD": 1}.get(mg.get("grade"), 0)
+            bs = (p.get("bomb_score") or {}).get("score") or 0
+            zc = (((p.get("features") or {}).get("zone_profile") or {}).get("overlap") or {}).get("count", 0)
+            return (gr, zc, bs, p.get("heat") or 0)
+
+        _cands = [p for p in players
+                  if not _thin(p)
+                  and (p.get("heat") or 0) >= 55
+                  and (p["opp_pitcher"].get("form") or {}).get("label") != "DEALING"]
+        _cands.sort(key=_tp_rank, reverse=True)
+        _tp2 = []
+        for p in _cands:
+            mg = p.get("matchup_grade") or {}
+            bs = p.get("bomb_score") or {}
+            zov = (((p.get("features") or {}).get("zone_profile") or {}).get("overlap") or {})
+            d = (p.get("features") or {}).get("discipline") or {}
+            # only surface plays that have SOME edge beyond heat
+            if not (mg.get("grade") in ("ELITE", "STRONG") or zov.get("count", 0) >= 3
+                    or (bs.get("score") or 0) >= 55 or (p.get("heat") or 0) >= 70):
+                continue
+            _tp2.append({
+                "id": p["id"], "name": p["name"], "team": p["team"], "opp_team": p["opp_team"],
+                "heat": p["heat"], "tier": p["tier"], "why": p.get("why"),
+                "spot": p.get("lineup_spot"), "time": p.get("time"),
+                "arm": p["opp_pitcher"].get("name"),
+                "arm_form": (p["opp_pitcher"].get("form") or {}).get("label"),
+                "arm_score": p["opp_pitcher"].get("hr_score"),
+                # --- new signals ---
+                "grade": mg.get("grade"), "aligned": mg.get("aligned"),
+                "bomb": bs.get("score"), "bomb_tier": bs.get("tier"),
+                "zone": zov.get("count", 0), "zone_cells": zov.get("cells") or [],
+                "vuln_tier": _vuln_tier_by_pid.get(p["opp_pitcher"].get("id")),
+                "elite": (p.get("elite") or {}).get("tier"),
+                "eye": bool(d.get("eye")), "crosshair": bool(d.get("crosshair")),
+                "warning": bool(d.get("warning")),
+            })
+            if len(_tp2) >= 12:
+                break
+        if _tp2:
+            top_plays = _tp2
+            print(f"[build] top plays v2: {len(top_plays)} (ranked by grade/zone/bomb)")
+    except Exception as e:
+        _hnote("top plays v2", e); print(f"[build] top plays v2 skipped: {e}")
+
+    # ---- BULLPEN RANKINGS (renovated): rank every pen on the slate from most exploitable to
+    # toughest on the stats that actually decide it — bullpen ERA, season HRs allowed (as a rate),
+    # how worn down the pen is (recent workload + arms unavailable), and its platoon split. The
+    # statcast HR-vulnerability read is kept as a smaller supporting term. Degrades gracefully to
+    # the statcast/fatigue terms when the traditional season stats can't be fetched. ----
+    bullpen_rankings = []
+    try:
+        slate_teams = set()
+        for g in games:
+            slate_teams.add(g["away"]); slate_teams.add(g["home"])
+
+        # season ERA/HR/IP for every reliever who's pitched recently, per team
+        pen_arm_ids, team_arm_ids = set(), {}
+        for team in slate_teams:
+            av = (pen_avail or {}).get(team) or (pen_avail or {}).get(_TEAM_ALIAS.get(team)) or {}
+            ids = [int(x) for x in (av.get("available", []) + av.get("unavailable", [])) if x]
+            team_arm_ids[team] = ids
+            pen_arm_ids.update(ids)
+        # Cache season stats per date so we don't re-fetch ~200 relievers every build.
+        # Mirrors the hand2yr.json cache pattern: entries are stamped with today's date and
+        # only arms missing/stale for today are pulled. Season stats barely move intraday.
+        _PEN_STATS_PATH = os.path.join(os.path.dirname(OUT_PATH) or ".", "pen_season.json")
+        try:
+            with open(_PEN_STATS_PATH) as _f:
+                _pen_cache = json.load(_f) or {}
+        except Exception:
+            _pen_cache = {}
+        pen_stats = {}
+        _need = []
+        for _pid in pen_arm_ids:
+            ent = _pen_cache.get(str(_pid))
+            if ent and ent.get("asof") == date_str and ent.get("data") is not None:
+                pen_stats[_pid] = ent["data"]
+            else:
+                _need.append(_pid)
+        try:
+            fetched = statsapi.get_pitcher_stats(sorted(_need)) if _need else {}
+            for _pid, _st in fetched.items():
+                pen_stats[int(_pid)] = _st
+                _pen_cache[str(int(_pid))] = {"asof": date_str, "data": _st}
+            print(f"[build] bullpen season stats: {len(pen_stats)}/{len(pen_arm_ids)} relievers "
+                  f"({len(pen_stats) - len(fetched)} cached, {len(fetched)} fetched)")
+            try:
+                with open(_PEN_STATS_PATH, "w") as _f:
+                    json.dump(_pen_cache, _f, separators=(",", ":"))
+            except Exception as _e:
+                print(f"[build] pen_season cache write skipped: {_e}")
+        except Exception as e:
+            _hnote("bullpen season stats", e); print(f"[build] bullpen season stats fetch skipped: {e}")
+
+        def _clamp01(x): return max(0.0, min(1.0, x))
+
+        for team in slate_teams:
+            pen = _bullpen_for(team)
+            avail = (pen_avail or {}).get(team) or (pen_avail or {}).get(_TEAM_ALIAS.get(team)) or {}
+            vuln = compute.bullpen_vuln(pen) if pen else None
+            hr_score = (vuln or {}).get("score")          # statcast HR-vulnerability (contact quality)
+            fatigue = avail.get("fatigue")                # 0-100, higher = more gassed
+            n_avail = len(avail.get("available", [])) if avail else None
+            n_out = len(avail.get("unavailable", [])) if avail else None
+            label = avail.get("label")
+            platoon = (vuln or {}).get("platoon") or {}
+
+            # aggregate traditional season stats across this pen's arms (IP-weighted ERA, HR rate)
+            arms = [pen_stats[i] for i in team_arm_ids.get(team, []) if i in pen_stats]
+            bp_era = season_hr = total_ip = hr9 = None
+            if arms:
+                ip_sum = sum((a.get("ip") or 0) for a in arms)
+                era_ip = [(a.get("era"), a.get("ip")) for a in arms if a.get("era") is not None and a.get("ip")]
+                if era_ip:
+                    _w = sum(ip for _, ip in era_ip)
+                    if _w > 0:
+                        bp_era = round(sum(e * ip for e, ip in era_ip) / _w, 2)
+                _hr = sum((a.get("hr") or 0) for a in arms)
+                season_hr = _hr if _hr else None
+                total_ip = round(ip_sum, 1) if ip_sum else None
+                if season_hr is not None and total_ip and total_ip > 0:
+                    hr9 = round(season_hr / (total_ip / 9.0), 2)
+
+            # score components (higher = more exploitable)
+            parts = {}
+            rank_val = 0.0
+            if bp_era is not None:
+                era_pts = _clamp01((bp_era - 3.2) / 2.0) * 30       # 3.2 ERA -> 0, 5.2+ -> 30
+                rank_val += era_pts; parts["era"] = round(era_pts, 1)
+            if hr9 is not None:
+                hr_pts = _clamp01((hr9 - 0.9) / 0.8) * 30           # 0.9 HR/9 -> 0, 1.7+ -> 30
+                rank_val += hr_pts; parts["hr"] = round(hr_pts, 1)
+            if fatigue is not None:
+                wear_pts = _clamp01(fatigue / 100.0) * 16 + min(6, (n_out or 0) * 3)
+                rank_val += wear_pts; parts["wear"] = round(wear_pts, 1)
+            gap = platoon.get("gap")
+            if gap is not None:
+                plat_pts = _clamp01(gap / 25.0) * 10
+                rank_val += plat_pts; parts["platoon"] = round(plat_pts, 1)
+            if hr_score is not None:
+                sc_pts = _clamp01((hr_score - 35) / 40.0) * 12       # supporting contact-quality term
+                rank_val += sc_pts; parts["contact"] = round(sc_pts, 1)
+            if not parts:
+                continue
+
+            # human-readable reasons
+            reasons = []
+            if bp_era is not None:
+                reasons.append(f"{bp_era} pen ERA")
+            if hr9 is not None and season_hr is not None:
+                reasons.append(f"{hr9} HR/9 ({season_hr} HR)")
+            if label == "GASSED":
+                reasons.append(f"gassed — {n_out or '?'} down, {avail.get('pen_pitches_l1','?')} pitches yesterday")
+            elif label == "WORN":
+                reasons.append(f"worn — {n_out or 0} arm{'s' if (n_out or 0) != 1 else ''} down, {avail.get('pen_pitches_l2','?')} pitches over 2 days")
+            if gap is not None and gap >= 8 and platoon.get("worse"):
+                reasons.append(f"crushed by {'RHB' if platoon['worse'] == 'R' else 'LHB'} (gap {gap})")
+            for fl in (vuln or {}).get("flags", [])[:1]:
+                reasons.append(fl)
+            if n_avail is not None and n_avail <= 4:
+                reasons.append(f"only {n_avail} fresh arms")
+
+            form = (vuln or {}).get("form") or {}
+            bullpen_rankings.append({
+                "team": team,
+                "rank_val": round(rank_val, 1),
+                "bp_era": bp_era,
+                "hr9": hr9,
+                "season_hr": season_hr,
+                "total_ip": total_ip,
+                "hr_score": hr_score,
+                "fatigue": fatigue,
+                "label": label,
+                "n_available": n_avail,
+                "n_unavailable": n_out,
+                "platoon": ({"worse": platoon.get("worse"), "gap": platoon.get("gap"),
+                             "R": platoon.get("R"), "L": platoon.get("L")} if platoon else None),
+                "form": form.get("label") if isinstance(form, dict) else form,
+                "parts": parts,
+                "reasons": reasons or ["about average tonight"],
+            })
+        # sort worst (highest rank_val = most exploitable) first
+        bullpen_rankings.sort(key=lambda x: -x["rank_val"])
+        print(f"[build] bullpen rankings: {len(bullpen_rankings)} pens ranked (renovated: ERA/HR/wear/platoon)")
+    except Exception as e:
+        _hnote("bullpen rankings", e); print(f"[build] bullpen rankings skipped: {e}")
+
+    # ---- PARK RANKS: best/worst HR park on tonight's slate, for the Weather view's ranking.
+    # Prefer Ballpark Pal's per-game HR factor (the authoritative park+weather model); fall back
+    # to the local park model so the ranking ALWAYS renders even when the BPP key isn't set.
+    # Each entry carries the park name so the view can label it. ----
+    park_ranks = []
+    try:
+        _pk_by_teams = {f'{g["away"]}@{g["home"]}': g.get("park") for g in games}
+        if BPP.get("ok") and BPP.get("by_teams"):
+            for v in sorted(BPP["by_teams"].values(), key=lambda x: -(x.get("hr_mult") or 0)):
+                park_ranks.append({
+                    "away": v.get("away"), "home": v.get("home"),
+                    "park": _pk_by_teams.get(f'{v.get("away")}@{v.get("home")}'),
+                    "hr_mult": v.get("hr_mult"), "hr_pct": v.get("hr_pct"),
+                    "runs_mult": v.get("runs_mult"), "runs_pct": v.get("runs_pct"),
+                    "hr_amount": v.get("hr_amount"), "game_time": v.get("game_time"),
+                    "src": "bpp"})
+        else:
+            for g in games:
+                _pk = g.get("park")
+                _l = parks.park_factor(_pk, "L"); _r = parks.park_factor(_pk, "R")
+                _m = round((_l + _r) / 2.0, 3)
+                park_ranks.append({
+                    "away": g.get("away"), "home": g.get("home"), "park": _pk,
+                    "hr_mult": _m, "hr_pct": round((_m - 1.0) * 100, 1),
+                    "runs_mult": None, "runs_pct": None, "hr_amount": None,
+                    "game_time": g.get("time"), "src": "local"})
+            park_ranks.sort(key=lambda x: -(x.get("hr_mult") or 0))
+        print(f"[build] park ranks: {len(park_ranks)} ({'bpp' if BPP.get('ok') else 'local'})")
+    except Exception as e:
+        _hnote("park ranks", e); print(f"[build] park ranks skipped: {e}")
+
+    # strip build-time helper fields that shouldn't ship in the JSON
+    for _p in players:
+        _p.pop("_ob", None)
+        _p.pop("_season_metrics", None)
+
+    board = {
+        "generated_at": now.isoformat(timespec="seconds"),
+        "slate_date": date_str,
+        "model_version": compute.MODEL_VERSION,
+        "games": [{
+            "game_pk": g["game_pk"], "away": g["away"], "home": g["home"],
+            "park": g["park"], "time": g["time"],
+        } for g in games],
+        "lineups_pending": [g["game_pk"] for g in games if g["game_pk"] not in slate["lineups"]],
+        "projected_games": [
+            {"game_pk": g["game_pk"], "away": g["away"], "home": g["home"]}
+            for g in games if g["game_pk"] in proj_game_pks
+        ],
+        "recent_window": {
+            "days": 14,
+            # v2: the window is now the last 14 GAME-days, not calendar days. Across the
+            # All-Star break a calendar window silently held ~10 game-days and compressed
+            # every heat score. Stamped so the tracker can segment pre/post-change days.
+            "basis": "game_days",
+            "v": 2,
+            "start": str(statcast_data.game_day_cutoff(df, date_str, 14).date()),
+            "end": date_str,
+        },
+        "players": players,
+        "arsenals": arsenals,               # starter pitch usage % split by batter handedness
+        "pitcher_edges": pitcher_edges,     # Edges tab: per-arm zone heatmap + ranked batters
+        "bullpen_rankings": bullpen_rankings,   # slate-wide pen ranking, worst to best
+        "park_source": ("ballparkpal" if BPP.get("ok") else "local"),
+        "park_ranks": park_ranks,           # best/worst HR park tonight (BPP live, local fallback)
+        "grand_slam": board_gs,             # top GS-jackpot candidates (traffic x punish)
+        "top_plays": top_plays,
+        "wx": wx_list,
+        "fences": fences,
+        "briefing": briefing,
+        "build_health": {
+            "df_rows": int(len(df)) if df is not None else 0,
+            "players": len(players), "arms_ok": True,
+            "labeled": sum(1 for p in players if p.get("hit_label")),
+            "b2b": sum(1 for p in players if p.get("hr_last_game")),
+            "openers": sum(1 for p in players if (p.get("opp_pitcher") or {}).get("opener")),
+            "stacks": len(stacks), "wx": len(wx_list),
+            "issues": BUILD_HEALTH,
+        },
+        "arms": sorted([
+            {
+                "id": pid,
+                "name": slate["pitchers"].get(pid, {}).get("name", str(pid)),
+                "throws": hands.get(pid, {}).get("throws", ""),
+                "team": next((g["home"] if g["home_pitcher_id"] == pid else g["away"]
+                              for g in games if pid in (g["home_pitcher_id"], g["away_pitcher_id"])), ""),
+                "opp": next((g["away"] if g["home_pitcher_id"] == pid else g["home"]
+                             for g in games if pid in (g["home_pitcher_id"], g["away_pitcher_id"])), ""),
+                "park": next((g["park"] for g in games if pid in (g["home_pitcher_id"], g["away_pitcher_id"])), ""),
+                "time": next((g["time"] for g in games if pid in (g["home_pitcher_id"], g["away_pitcher_id"])), ""),
+                "hr_score": phr.get("score"),
+                "recent_score": phr.get("recent_score"),
+                "season_score": phr.get("season_score"),
+                "delta": phr.get("delta"),
+                "form": phr.get("form"),
+                "flags": phr.get("flags", []),
+                "opener": bool(
+                    (start_lens.get(pid) and start_lens[pid]["starts"] >= 2
+                     and start_lens[pid]["med_len"] <= 2.0)
+                    or (start_lens.get(pid) is None and p_apps.get(pid, 0) >= 5)),
+                "fb_pct": (p_batted.get(pid) or {}).get("fb_pct"),
+                "ld_pct": (p_batted.get(pid) or {}).get("ld_pct"),
+                "gb_pct": (p_batted.get(pid) or {}).get("gb_pct"),
+                "start_len": (round(start_lens[pid]["med_len"], 1)
+                              if start_lens.get(pid) else None),
+                # heaviest 2yr HR-by-hand side, raw numbers for the strip
+                "hand_hr": (lambda ty: (max(
+                    ({"side": h, "hr": s["hr"], "pa": s["pa"]}
+                     for h, s in (ty or {}).items() if s and s.get("pa", 0) >= 100),
+                    key=lambda x: x["hr"] / max(1, x["pa"]), default=None)))(
+                        (hand2yr.get(pid) or {}).get("two_yr")),
+                # same heaviest-side but for this season only — so users can compare
+                # against reference tools (PropFinder etc) that default to season-only
+                "hand_hr_ytd": (lambda ty: (max(
+                    ({"side": h, "hr": s["hr"], "pa": s["pa"]}
+                     for h, s in (ty or {}).items() if s and s.get("pa", 0) >= 40),
+                    key=lambda x: x["hr"] / max(1, x["pa"]), default=None)))(
+                        (hand2yr.get(pid) or {}).get("this_yr")),
+                # full raw splits (both R and L, both windows) so the expanded arm view
+                # can show a proper table without more data fetches
+                "hand_hr_full": hand2yr.get(pid),
+                "badges": compute.pitcher_badges(
+                    recent=pitch_profiles.get(pid, {}).get("recent", {}),
+                    score=phr.get("score"), recent_score=phr.get("recent_score"),
+                    season_score=phr.get("season_score"),
+                    two_yr=(hand2yr.get(pid) or {}).get("two_yr")),
+                "platoon": compute.platoon_note(pitch_profiles.get(pid, {}).get("splits")),
+            }
+            for pid, phr in pitcher_hr.items()
+        ], key=lambda a: (a["hr_score"] is not None, a["hr_score"] or 0), reverse=True),
+    }
+
+    # persist the 2-year HR-by-hand cache so future builds reuse it (avoids hourly re-pulls)
+    try:
+        with open(_HAND2YR_PATH, "w") as _f:
+            json.dump(hand2yr_cache, _f)
+    except Exception as _e:
+        print(f"[build] hand2yr cache write failed (non-fatal): {_e}")
+
+    # ---- Pitcher K props (Ks tab in Other Props) ----
+    # MUST live inside build() so pitch_profiles is in scope. Each starter gets a
+    # k_heat computed from their 14-day K stuff blended toward season, weighted
+    # against opposing lineup K vulnerability. Openers get a hard downgrade.
+    pitcher_props = []
+    try:
+        opp_batters = {}   # pitcher_id -> list of hitter k_pct values (opposing lineup)
+        seen_pitcher = {}  # pitcher_id -> game/team metadata for the pitcher himself
+        for hp in board["players"]:
+            op = hp.get("opp_pitcher") or {}
+            pid = op.get("id")
+            if not pid:
+                continue
+            try:
+                pid = int(pid)
+            except (TypeError, ValueError):
+                continue
+            k_pct = ((hp.get("windows") or {}).get("L14d") or {}).get("k_pct")
+            if k_pct is not None:
+                opp_batters.setdefault(pid, []).append(k_pct)
+            if pid not in seen_pitcher:
+                seen_pitcher[pid] = {
+                    "id": pid,
+                    "name": op.get("name") or "",
+                    "throws": op.get("throws"),
+                    "game_pk": hp.get("game_pk"),
+                    "opp_team": hp.get("team"),
+                    "team": hp.get("opp_team"),
+                    "time": hp.get("time"),
+                    "park": hp.get("park"),
+                    "opener": bool(op.get("opener")),
+                    "form": op.get("form"),
+                    "hr_score": op.get("hr_score"),
+                    "recent_score": op.get("recent_score"),
+                    "season_score": op.get("season_score"),
+                }
+        for pid, meta in seen_pitcher.items():
+            pprof = pitch_profiles.get(pid) or {}
+            opp_ks = opp_batters.get(pid) or []
+            opp_lineup_k = round(sum(opp_ks) / len(opp_ks), 1) if opp_ks else None
+            k_sc, k_br = props.pitcher_k_heat(pprof, opp_lineup_k, opener=meta["opener"])
+            if k_sc is None:
+                continue
+            # Estimated K total for the pitcher today. Two ingredients:
+            #  1. Effective K% — blend of pitcher's own K% and the opposing lineup's K%
+            #     (both matter; a ~28% K arm vs a 22% K lineup lands around 25%).
+            #  2. Expected batters faced: ~24 for a healthy starter, ~4 for a listed
+            #     opener. When start_len data is available, we lean on that; otherwise
+            #     use median start_len from _pitcher_metrics.
+            est_ks = None
+            # K rate: blend recent form into the season baseline IN PROPORTION TO ITS SAMPLE, then
+            # regress a thin overall sample toward league. Using the raw 2-week number was the bug
+            # that put small-sample arms (a 45% K rate over ~40 PA) at the top of the list — they
+            # regress hard, which is why the "best" K plays kept losing.
+            _rec = pprof.get("recent") or {}
+            _szn = pprof.get("season") or {}
+            k_rec, k_szn = _rec.get("k_pct_allowed"), _szn.get("k_pct_allowed")
+            pa_rec, pa_szn = float(_rec.get("pa") or 0), float(_szn.get("pa") or 0)
+            LG_K_RATE = 22.0
+            if k_rec is not None and k_szn is not None:
+                w = min(1.0, pa_rec / 120.0)              # ~120 PA to fully trust the recent window
+                pitcher_k_pct = w * k_rec + (1 - w) * k_szn
+            else:
+                pitcher_k_pct = k_szn if k_szn is not None else k_rec
+            if pitcher_k_pct is not None and pa_szn > 0:
+                w2 = min(1.0, pa_szn / 200.0)             # thin season -> pull toward league
+                pitcher_k_pct = w2 * pitcher_k_pct + (1 - w2) * LG_K_RATE
+            if pitcher_k_pct is not None:
+                if opp_lineup_k is not None:
+                    # odds-ratio (log5) matchup instead of a linear blend: combine the pitcher's
+                    # K rate and the opposing lineup's K rate against the league baseline so the
+                    # extremes compound correctly — a high-K arm vs a high-K lineup lands ABOVE
+                    # both (not between them), and an ace vs an elite-contact lineup lands below.
+                    # A linear blend flattens exactly the matchups where the K edge lives.
+                    LG_K = 22.0                                  # league strikeout rate, ~2024-25
+                    P = min(0.60, max(0.03, pitcher_k_pct / 100.0))
+                    L = min(0.60, max(0.03, opp_lineup_k / 100.0))
+                    G = LG_K / 100.0
+                    odds = (P / (1 - P)) * (L / (1 - L)) / (G / (1 - G))
+                    eff_k = 100.0 * odds / (1.0 + odds)
+                    eff_k = max(10.0, min(42.0, eff_k))          # keep it in a sane band
+                else:
+                    eff_k = pitcher_k_pct
+                bf = 4 if meta["opener"] else 22
+                # if we know his typical start length, refine BF (~4.3 BF per IP). The modern
+                # starter averages ~5.1 IP (~22 BF); the old default of 24 quietly added most of
+                # half a strikeout to every projection.
+                sl = start_lens.get(pid, {}).get("med_len") if start_lens else None
+                if sl and not meta["opener"]:
+                    bf = max(6, min(27, sl * 4.3))
+                est_ks = round(eff_k / 100.0 * bf, 1)
+            pitcher_props.append({
+                **meta,
+                "k_heat": k_sc,
+                "k_signals": k_br.get("signals"),
+                "recent_weight": k_br.get("pitcher_recent_weight"),
+                "opp_lineup_k_pct": opp_lineup_k,
+                "opp_lineup_n": len(opp_ks),
+                "k_pct": pitcher_k_pct,
+                "swstr_pct": (pprof.get("recent") or {}).get("swstr_pct_allowed") or
+                             (pprof.get("season") or {}).get("swstr_pct_allowed"),
+                "est_ks": est_ks,
+                # the OVER target the model actually likes = the half-line just BELOW the estimate
+                "est_line_over": (float(np.ceil(est_ks - 0.5) - 0.5) if est_ks is not None else None),
+            })
+        pitcher_props.sort(key=lambda x: -(x["k_heat"] or 0))
+        board["pitcher_props"] = pitcher_props
+        print(f"[build] pitcher K props: {len(pitcher_props)} arms ranked "
+              f"(out of {len(seen_pitcher)} distinct pitchers seen)")
+    except Exception as e:
+        board["pitcher_props"] = []
+        _hnote("pitcher K props", e); print(f"[build] pitcher K props skipped: {e}")
+
+    # ---- Heat history: 10-day heat trajectory per player (sparkline data) ----
+    # Walks the most recent snapshots and attaches heat_history:[...] per player.
+    # Cheap because snapshots are already on disk and we only need the (id, heat)
+    # tuples. Displayed as an inline sparkline on the expanded card.
+    try:
+        snap_dir = os.path.join(os.path.dirname(OUT_PATH) or ".", "snapshots")
+        import glob
+        recent_snaps = sorted(glob.glob(os.path.join(snap_dir, "20*.json")))[-14:]
+        heat_trail = {}   # {id: [(date, heat), ...]}
+        for spath in recent_snaps:
+            try:
+                with open(spath) as sf:
+                    sd = json.load(sf)
+                sdate = sd.get("date")
+                for pl in sd.get("players", []):
+                    pid_pl = pl.get("id")
+                    heat_val = pl.get("heat")
+                    if pid_pl is None or heat_val is None:
+                        continue
+                    heat_trail.setdefault(int(pid_pl), []).append((sdate, heat_val))
+            except Exception:
+                continue
+        attached = 0
+        for p in board["players"]:
+            trail = heat_trail.get(p["id"])
+            if trail:
+                # keep only most recent 10, chronological
+                trail = sorted(trail, key=lambda x: x[0])[-10:]
+                p["heat_history"] = [round(h, 1) for _, h in trail]
+                attached += 1
+        print(f"[build] heat_history attached to {attached} of {len(board['players'])} hitters "
+              f"(from {len(recent_snaps)} snapshots)")
+    except Exception as e:
+        _hnote("heat_history", e); print(f"[build] heat_history skipped: {e}")
+
+    # ---- Game projections: expected runs, moneyline, total, F5 ----
+    # Uses the run-expectancy engine (etl/runs.py). Completely separate from the HR
+    # heat model and from props. INFORMATIONAL until backtested — the moneyline is
+    # the sharpest market in baseball and this model has no defense, no true park
+    # run factor, and no bullpen-availability data.
+    game_projections = []
+    try:
+        from etl import runs as RUNS
+        # group hitters by game + side
+        by_game = {}
+        for p in board["players"]:
+            if p.get("lineup_status") == "out":
+                continue
+            gpk = p.get("game_pk")
+            if not gpk:
+                continue
+            g = by_game.setdefault(gpk, {"home": [], "away": [], "meta": None})
+            gm = next((x for x in games if x["game_pk"] == gpk), None)
+            if gm and g["meta"] is None:
+                g["meta"] = gm
+            side = "home" if p.get("team") == (gm or {}).get("home") else "away"
+            g[side].append(p)
+
+        for gpk, g in by_game.items():
+            gm = g["meta"]
+            if not gm:
+                continue
+            hp_id, ap_id = gm.get("home_pitcher_id"), gm.get("away_pitcher_id")
+            if not hp_id or not ap_id:
+                continue
+            # lineups in batting order (fall back to heat order if spots missing)
+            def _order(lst):
+                sp = [x for x in lst if x.get("lineup_spot")]
+                if len(sp) >= 8:
+                    return sorted(sp, key=lambda x: x["lineup_spot"])[:9]
+                return sorted(lst, key=lambda x: -(x.get("heat") or 0))[:9]
+            home_order = _order(g["home"])
+            away_order = _order(g["away"])
+            home_l = [(x.get("windows") or {}).get("L14d") or {} for x in home_order]
+            away_l = [(x.get("windows") or {}).get("L14d") or {} for x in away_order]
+            home_hands = [x.get("bats") for x in home_order]
+            away_hands = [x.get("bats") for x in away_order]
+            if len(home_l) < 6 or len(away_l) < 6:
+                continue
+            home_sp = pitch_profiles.get(hp_id) or {}
+            away_sp = pitch_profiles.get(ap_id) or {}
+            # prefer the AVAILABLE-arms pen — that's who actually pitches tonight
+            home_pen = (pens_avail.get(gm.get("home"))
+                        or _bullpen_for(gm.get("home")) or {})
+            away_pen = (pens_avail.get(gm.get("away"))
+                        or _bullpen_for(gm.get("away")) or {})
+            # expected batters faced per starter (~4.3 BF per inning)
+            def _bf(pid):
+                sl = (start_lens.get(pid) or {}).get("med_len")
+                return max(6.0, min(30.0, sl * 4.3)) if sl else 24.0
+            # Park RUN factor. Prefer BallparkPal's TRUE runs multiplier (it models runs separately
+            # from HRs and already bakes in today's weather). Only if that's missing do we fall back
+            # to the damped HR-boost proxy — and in THAT case add our own temperature adjustment
+            # (warmer air = more offense), so we don't double-count weather when BPP already has it.
+            pf = None; temp_f = None
+            for x in g["home"] + g["away"]:
+                ph = x.get("park_hr") or {}
+                if pf is None and ph.get("boost") is not None: pf = ph["boost"]
+                if temp_f is None and ph.get("temp_f") is not None: temp_f = ph["temp_f"]
+            hr_proxy = 1.0 + (pf / 100.0) * 0.45 if pf is not None else 1.0
+            try:
+                rm, _rm_src = ballparkpal.resolve_runs_mult(
+                    BPP, away=gm.get("away"), home=gm.get("home"),
+                    game_id=gm.get("game_pk"), fallback=None)
+            except Exception:
+                rm = None
+            if rm is not None:
+                park_mult = rm                       # BPP runs factor (weather already included)
+                park_src = "bpp_runs"
+            else:
+                wx = 1.0
+                if temp_f is not None:
+                    wx = max(0.94, min(1.08, 1.0 + (temp_f - 72.0) * 0.003))
+                park_mult = hr_proxy * wx            # local HR-proxy + our temperature adjustment
+                park_src = "local"
+            park_mult = max(0.82, min(1.28, park_mult))
+
+            _dalias = {"AZ":"ARI","ARI":"AZ","CWS":"CHW","CHW":"CWS","WSH":"WSN","WSN":"WSH","SD":"SDP","SDP":"SD","SF":"SFG","SFG":"SF","TB":"TBR","TBR":"TB","KC":"KCR","KCR":"KC"}
+            def _def_for(ab):
+                if not ab: return 0.0
+                v = team_def.get(ab)
+                if v is None: v = team_def.get(_dalias.get(ab))
+                return float(v or 0.0)
+            proj = RUNS.project_game(
+                home_l, away_l, home_sp, away_sp, home_pen, away_pen,
+                home_bf=_bf(hp_id), away_bf=_bf(ap_id), park_mult=park_mult,
+                home_hands=home_hands, away_hands=away_hands,
+                home_def=_def_for(gm.get("home")), away_def=_def_for(gm.get("away")))
+            if not proj:
+                continue
+            game_projections.append({
+                "game_pk": gpk,
+                "home": gm.get("home"), "away": gm.get("away"),
+                "park": gm.get("park"), "time": gm.get("time"),
+                "home_sp": (slate["pitchers"].get(hp_id) or {}).get("name", ""),
+                "away_sp": (slate["pitchers"].get(ap_id) or {}).get("name", ""),
+                "home_sp_id": hp_id, "away_sp_id": ap_id,
+                "lineups_confirmed": all(x.get("lineup_spot") for x in g["home"][:9])
+                                     and all(x.get("lineup_spot") for x in g["away"][:9]),
+                "park_run_src": park_src,   # 'bpp_runs' (true runs factor) | 'local' (HR proxy + wx)
+                **proj,
+            })
+        game_projections.sort(key=lambda x: -(x.get("total") or 0))
+        board["game_projections"] = game_projections
+        print(f"[build] game projections: {len(game_projections)} games modeled")
+    except Exception as e:
+        board["game_projections"] = []
+        _hnote("game projections", e); print(f"[build] game projections skipped: {e}")
+
+    return board
+
+
+def main():
+    try:
+        board = build()
+    except statcast_data.StatcastUnavailable as e:
+        # Savant was unavailable/throttled. Leave the existing board.json in place
+        # (no write) so the page keeps serving the last good data instead of zeros.
+        print(f"[build] SKIPPED write — Statcast unavailable ({e}). Last good board preserved.")
+        return
+    os.makedirs(os.path.dirname(OUT_PATH) or ".", exist_ok=True)
+    with open(OUT_PATH, "w") as f:
+        # compact: the client parses/holds this in mobile memory, so drop pretty-print whitespace
+        json.dump(board, f, separators=(",", ":"), default=str)
+
+    # slate-level SMASH selection, mirrored from the UI's convergence scorer so the
+    # grader can measure the flag's real conversion rate (the whole point of the flag).
+    # Uses standard heat (the UI's default view).
+    def _smash_score(p):
+        H = p.get("heat") or 0
+        s = max(0.0, min(3.0, (H - 45) / 10.0)); r = 0
+        ks = {b["k"] for b in (p.get("badges") or [])}
+        tr = p.get("trend") or {}
+        if "lock" in ks: s += 1.5; r += 1
+        elif "hot" in ks: s += 0.75; r += 1
+        if "due" in ks: s += 1.0; r += 1
+        if tr.get("dir") == "up": s += 1.0; r += 1
+        pb = (p.get("park_hr") or {}).get("boost") or 0
+        if pb >= 12: s += 1.5; r += 1
+        elif pb >= 6: s += 0.75; r += 1
+        opnr = bool((p.get("opp_pitcher") or {}).get("opener"))
+        if "hrsp" in ks: s += (0.75 if opnr else 1.5); r += 1
+        if "hrbp" in ks: s += (1.5 if opnr else 1.0); r += 1
+        spot_hr = (p.get("hr_by_spot") or {}).get(p.get("lineup_spot") or 0, 0)
+        if spot_hr >= 3: s += 1.5; r += 1
+        elif spot_hr >= 2: s += 0.75; r += 1
+        mixd = (p.get("heat_mix") - p["heat"]) if (p.get("heat_mix") is not None and p.get("heat") is not None) else 0
+        if mixd >= 6: s += 1.0; r += 1
+        elif mixd >= 4: s += 0.5; r += 1
+        arm = (p.get("opp_pitcher") or {}).get("hr_score") or 0
+        if arm >= 65 or "arm" in ks: s += 1.0; r += 1
+        if "mix" in ks: s += 0.75; r += 1
+        if "pow" in ks: s += 0.5; r += 1
+        if "plat" in ks: s += 0.5; r += 1
+        return s, r
+    smash_ids = set()
+    try:
+        cand = []
+        for p in board["players"]:
+            if p.get("lineup_status") == "out":
+                continue
+            sc, nr = _smash_score(p)
+            if sc >= 6.5 and nr >= 3 and (p.get("heat") or 0) >= 55:
+                cand.append((sc, p["id"]))
+        cand.sort(reverse=True)
+        smash_ids = {pid for _, pid in cand[:3]}
+        print(f"[build] SMASH: {len(smash_ids)} flagged")
+        if smash_ids:
+            _nm = [p["name"] for p in board["players"] if p["id"] in smash_ids]
+            board.setdefault("briefing", []).insert(0, "SMASH today: " + " · ".join(_nm) + ".")
+    except Exception as e:
+        _hnote("smash calc", e); print(f"[build] smash calc skipped: {e}")
+
+    # ---- Auto-tracked parlays: pick server-side so the grader can score them ----
+    # Uses simplified rules that mirror the app's UI logic (heat as the ranking
+    # score in place of the client-side blend, but same filters/constraints).
+    # Records get flagged by strategy so we can measure whether each type actually
+    # pays off vs the base rate — closes the "are parlays actually winning?" question.
+    parlay_picks = []
+    try:
+        live_p = [p for p in board["players"] if p.get("lineup_status") != "out"]
+
+        # Sample-aware heat for PARLAY RANKING ONLY — never touches the real heat field or the
+        # model. A recent HR legitimately raises the power metrics, but in a thin window (few
+        # batted balls) one or two big games spike the score disproportionately. For parlays we
+        # shrink heat toward a neutral 50 when the recent sample is small, so a genuine 14-day
+        # streak on solid sample ranks ahead of a "2 HRs in 15 BBE" mirage. Full trust at 25+
+        # batted balls; linearly reduced below that.
+        def _adj_heat(p):
+            h = p.get("heat") or 0
+            bbe = (((p.get("windows") or {}).get("L14d") or {}).get("bb_count")
+                   or (p.get("sample") or {}).get("L15") or 0)
+            # shrink factor: 1.0 at 25+ BBE, ramps down to 0.55 at 0 BBE
+            trust = max(0.55, min(1.0, 0.55 + 0.45 * (bbe / 25.0)))
+            return 50 + (h - 50) * trust      # pull toward 50 when sample is thin
+        by_heat = sorted(live_p, key=lambda p: -_adj_heat(p))
+
+        # Jackpot: top-3 mid-tier by (max_ev + park_hr + iso), not B2B, heat>=45
+        def _mev(p):
+            m = p.get("max_ev") or {}
+            return m.get("season") or m.get("recent") or 0
+        def _rk(p):
+            for i, x in enumerate(by_heat):
+                if x["id"] == p["id"]:
+                    return i
+            return 99
+        jp_pool = [p for p in live_p
+                   if not p.get("hr_last_game")
+                   and _rk(p) >= 8
+                   and 45 <= (p.get("heat") or 0) <= 78
+                   and _mev(p) >= 108]
+        def _dist(p):
+            ev = (min(118.0, max(105.0, _mev(p))) - 105.0) / 13.0
+            pk = (p.get("park_hr") or {}).get("boost") or 0
+            pk = max(-0.5, min(1.0, pk / 20.0))
+            iso = ((p.get("windows") or {}).get("L14d") or {}).get("iso") or 0
+            return ev * 0.5 + pk * 0.3 + min(1.0, iso / 0.30) * 0.2
+        jp = sorted(jp_pool, key=_dist, reverse=True)[:3]
+        if jp:
+            parlay_picks.append({
+                "kind": "jackpot",
+                "legs": [{"id": p["id"], "name": p["name"], "team": p["team"], "heat": p.get("heat")} for p in jp],
+            })
+
+        # Best3: top-3 by heat, one per team, at most 1 B2B
+        best3, seen_teams, b2b_used = [], set(), False
+        for p in by_heat:
+            if len(best3) >= 3:
+                break
+            if p["team"] in seen_teams:
+                continue
+            if p.get("hr_last_game"):
+                if b2b_used:
+                    continue
+                b2b_used = True
+            best3.append(p); seen_teams.add(p["team"])
+        if len(best3) == 3:
+            parlay_picks.append({
+                "kind": "best3",
+                "legs": [{"id": p["id"], "name": p["name"], "team": p["team"], "heat": p.get("heat")} for p in best3],
+            })
+
+        # Round Robin by 2s: 5 legs across tiers, 5 different games,
+        # max 1 chalk (top-3 board), max 1 B2B
+        def _pick_from(pool, avoid_ids, avoid_games, chalk_used, b2b_used):
+            for p in pool:
+                if p["id"] in avoid_ids:
+                    continue
+                if p["game_pk"] in avoid_games:
+                    continue
+                is_chalk = _rk(p) < 3
+                if is_chalk and chalk_used:
+                    continue
+                if p.get("hr_last_game") and b2b_used:
+                    continue
+                return p
+            return None
+
+        rr_slots = [
+            lambda p: _adj_heat(p) >= 75,
+            lambda p: 55 <= _adj_heat(p) < 75,
+            lambda p: 55 <= _adj_heat(p) < 75,
+            lambda p: 40 <= _adj_heat(p) < 55,
+            lambda p: _adj_heat(p) < 55 and _rk(p) >= 20,
+        ]
+        rr_picks = []
+        used_ids, used_games = set(), set()
+        chalk_used = b2b_used = False
+        for slot in rr_slots:
+            pool = [p for p in by_heat if slot(p)]
+            p = _pick_from(pool, used_ids, used_games, chalk_used, b2b_used)
+            if p is None:
+                break
+            rr_picks.append(p)
+            used_ids.add(p["id"]); used_games.add(p["game_pk"])
+            if _rk(p) < 3: chalk_used = True
+            if p.get("hr_last_game"): b2b_used = True
+        if len(rr_picks) == 5:
+            parlay_picks.append({
+                "kind": "rr5",
+                "legs": [{"id": p["id"], "name": p["name"], "team": p["team"], "heat": p.get("heat")} for p in rr_picks],
+            })
+
+        board["parlay_picks"] = parlay_picks
+        print(f"[build] parlay picks: {len(parlay_picks)} strategies "
+              f"({', '.join(pk['kind'] for pk in parlay_picks) or 'none — thin slate'})")
+    except Exception as e:
+        _hnote("parlay picks", e); print(f"[build] parlay picks skipped: {e}")
+
+    # slim daily snapshot so the grader can grade this day even after the live
+    # board rolls over to tomorrow's slate
+    try:
+        snap_dir = os.path.join(os.path.dirname(OUT_PATH) or ".", "snapshots")
+        os.makedirs(snap_dir, exist_ok=True)
+        # vuln tier per arm, so each hitter's snapshot records how vulnerable his opponent was
+        _vuln_tier_snap = {}
+        for _pe in (board.get("pitcher_edges") or []):
+            if _pe.get("vuln") and _pe.get("id") is not None:
+                _vuln_tier_snap[_pe["id"]] = _pe["vuln"].get("tier")
+        snap = {
+            "date": board["slate_date"],
+            "window_v": (board.get("recent_window") or {}).get("v", 1),
+            "parlay_picks": parlay_picks,
+            "pitcher_props": board.get("pitcher_props", []),
+            "players": [{
+                "id": p["id"], "name": p["name"], "team": p["team"],
+                "heat": p["heat"], "tier": p.get("tier"), "cleared": p.get("cleared"),
+                "signals": p["score_breakdown"].get("signals", {}),
+                "opp_form": (p["opp_pitcher"].get("form") or {}).get("label"),
+                "iso": (p.get("windows", {}).get("L14d", {}) or {}).get("iso"),
+                "barrel_pct": (p.get("windows", {}).get("L14d", {}) or {}).get("barrel_pct"),
+                # ---- enrichment: context that can't be backfilled later ----
+                "badges": [b["k"] for b in (p.get("badges") or [])],
+                "bp_score": (p.get("opp_bullpen") or {}).get("score"),
+                "sp_vuln": (p["opp_pitcher"].get("hr_score")),
+                "luck_gap": (((p.get("luck") or {}).get("recent")) or {}).get("luck_gap"),
+                "heat_mix": p.get("heat_mix"),
+                "spot": p.get("lineup_spot"),
+                "park_boost": (p.get("park_hr") or {}).get("boost"),
+                "trend": (p.get("trend") or {}).get("dir"),
+                "b2b": p.get("hr_last_game"),
+                "smash": p["id"] in smash_ids,
+                "opener": bool((p.get("opp_pitcher") or {}).get("opener")),
+                "hlabel": p.get("hit_label"),
+                # Props-scoring fields (parallel to heat, never fed back in)
+                "hit_heat": p.get("hit_heat"),
+                "hrr_heat": p.get("hrr_heat"),
+                "k_heat_bat": p.get("k_heat_bat"),
+                # ---- NEW SIGNALS (graded by track.py; each is a testable hypothesis) ----
+                "zone": ((((p.get("features") or {}).get("zone_profile") or {}).get("overlap")) or {}).get("count", 0),
+                "grade": (p.get("matchup_grade") or {}).get("grade"),
+                "grade_aligned": (p.get("matchup_grade") or {}).get("aligned"),
+                "bomb": (p.get("bomb_score") or {}).get("score"),
+                "vuln": _vuln_tier_snap.get((p.get("opp_pitcher") or {}).get("id")),
+                "elite_tier": (p.get("elite") or {}).get("tier"),
+                "sq_up": ((p.get("features") or {}).get("square_up") or {}).get("rating"),
+                "eye": bool(((p.get("features") or {}).get("discipline") or {}).get("eye")),
+                "crosshair": bool(((p.get("features") or {}).get("discipline") or {}).get("crosshair")),
+                "chaser": bool(((p.get("features") or {}).get("discipline") or {}).get("warning")),
+                "hr_power": ((p.get("features") or {}).get("hr_power") or {}).get("barrel_pct"),
+                "micro": ((p.get("features") or {}).get("microclimate") or {}).get("flag"),
+                "late_hr": ((p.get("features") or {}).get("late_hr") or {}).get("label"),
+                "pitch_mix": ((p.get("features") or {}).get("pitch_matchup") or {}).get("score"),
+                "day_night": p.get("day_night"),
+            } for p in board["players"]],
+        }
+        with open(os.path.join(snap_dir, f"{board['slate_date']}.json"), "w") as f:
+            json.dump(snap, f, default=str)
+        import glob
+        for old in sorted(glob.glob(os.path.join(snap_dir, "20*.json")))[:-16]:
+            os.remove(old)
+    except Exception as e:
+        print(f"[build] snapshot write failed (non-fatal): {e}")
+
+    # ---- Re-write board.json with all post-build modifications ----
+    # The initial write happens right after build() returns, but SMASH briefing,
+    # pitcher_props, and parlay_picks are all computed in main() AFTER that write.
+    # Without this second serialize, none of that surfaces on the live UI (they
+    # only make it into the snapshot). This second write is what makes the Pitcher
+    # Ks tab actually get its data.
+    try:
+        with open(OUT_PATH, "w") as f:
+            json.dump(board, f, separators=(",", ":"), default=str)
+        print(f"[build] re-wrote {OUT_PATH} with pitcher_props ({len(board.get('pitcher_props',[]))} arms), "
+              f"parlay_picks ({len(board.get('parlay_picks',[]))} strategies)")
+    except Exception as e:
+        print(f"[build] board re-write failed (non-fatal): {e}")
+
+    print(f"[build] wrote {OUT_PATH}: {len(board['players'])} hitters, "
+          f"{len(board['games'])} games")
+
+    # ---- first-run smell test: do the right names surface? ----
+    ps = board["players"]
+    def topby(key, label):
+        ranked = sorted(
+            [p for p in ps if (p["metrics"].get(key) or {}).get("recent") is not None],
+            key=lambda p: p["metrics"][key]["recent"], reverse=True)[:5]
+        print(f"  top {label}:")
+        for p in ranked:
+            print(f"    {p['metrics'][key]['recent']:>6}  {p['name']}")
+    print("[sanity] eyeball these — known pull sluggers should be high on pull-air:")
+    topby("pull_air_pct", "pull-air%")
+    topby("ideal_aa_pct", "ideal AA%")
+    thin = [p["name"] for p in ps
+            if any(str(f).startswith("small sample") for f in p.get("score_breakdown", {}).get("flags", []))]
+    if thin:
+        print(f"[sanity] {len(thin)} thin-sample hitters flagged (dimmed on board): {', '.join(thin[:8])}")
+
+
+if __name__ == "__main__":
+    main()

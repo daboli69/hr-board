@@ -105,24 +105,45 @@ def hitter_pitch_profile(rows) -> dict:
     return out
 
 
-def pitcher_zone_grid(rows) -> dict:
-    """3x3 zone grid of where a pitcher lives, using the Statcast `zone` field (1-9 in the
-    strike zone, 11-14 chase). Returns {zone: usage_pct} over zones 1-9 plus a 'chase' bucket.
-    Feeds the heatmap on the Edges tab. Zones map to a 3x3 grid:
-        1 2 3   (up:    left/mid/right from catcher view)
+# Statcast zones: 1-9 are the strike-zone thirds; 11-14 are the four corners OUTSIDE it
+# (the "shadow"/chase quadrants). Those outer cells are roughly half of all pitches thrown and
+# are where a lot of both damage and weakness actually lives, so they're first-class here.
+ZONES_ALL = [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14]
+ZONE_LABEL = {
+    1: "Up/In", 2: "Up", 3: "Up/Out", 4: "In", 5: "Middle", 6: "Out",
+    7: "Down/In", 8: "Down", 9: "Down/Out",
+    11: "Way Up/In", 12: "Way Up/Out", 13: "Way Down/In", 14: "Way Down/Out",
+}
+
+
+def pitcher_zone_grid(rows, hand=None) -> dict:
+    """Where a pitcher lives, using the Statcast `zone` field. Returns {zone: usage_pct} over
+    zones 1-9 AND the four outside quadrants 11-14, plus a rolled-up 'chase' bucket and the
+    pitch count behind it.
+
+    `hand` ('R'/'L') restricts to pitches thrown to batters of that side. This matters a lot:
+    most arms attack lefties and righties in completely different parts of the zone, so an
+    overall grid blurs exactly the pattern you'd want to exploit.
+        1 2 3   (up:    in/mid/out from the batter's perspective)
         4 5 6   (mid)
         7 8 9   (down)
     """
     if pd is None or rows is None or rows.empty or "zone" not in rows.columns:
         return {}
-    z = pd.to_numeric(rows["zone"], errors="coerce").dropna()
+    r = rows
+    if hand and "stand" in r.columns:
+        r = r[r["stand"] == hand]
+        if r.empty:
+            return {}
+    z = pd.to_numeric(r["zone"], errors="coerce").dropna()
     if not len(z):
         return {}
     total = len(z)
     grid = {}
-    for zone in range(1, 10):
+    for zone in ZONES_ALL:
         grid[str(zone)] = round(float((z == zone).sum()) / total, 3)
     grid["chase"] = round(float(z.isin([11, 12, 13, 14]).sum()) / total, 3)
+    grid["n"] = int(total)
     return grid
 
 
@@ -230,12 +251,15 @@ def batter_hr_zones(rows) -> dict:
 
 
 def batter_zone_damage(rows, min_n: int = 6) -> dict:
-    """A hitter's contact quality by strike-zone cell (1-9). For a HR app we return not just
-    xwOBAcon but the two most HR-predictive contact facts: barrel rate (launch_speed_angle==6)
-    and average distance on air balls — so the UI can show whether damage in a zone is
-    over-the-fence power or gap doubles. {zone: {xwobacon, barrel_pct, avg_dist, n}}.
-    Requires min_n batted balls in a cell (default 6) so a 2-3 ball fluke doesn't read as
-    'crushes this zone'. Joined against a pitcher's zone_grid.
+    """A hitter's contact quality by zone — now across all 13 cells (1-9 in the zone, 11-14
+    outside it) and with the full set of metrics the matchup view can switch between, not just
+    xwOBAcon: barrel rate, hard-hit rate, average exit velo, average distance on air balls,
+    HR rate, SLG and ISO on contact.
+
+    `power` is a 0-100 composite built ONLY from the facts that predict home runs — barrel rate
+    weighted heaviest, then earned contact quality, exit velo and hard-hit rate. It's a display
+    lens for reading a zone at a glance; it never feeds the frozen heat model.
+    Requires min_n batted balls in a cell so a 2-3 ball fluke doesn't read as 'crushes this zone'.
     """
     if pd is None or rows is None or rows.empty or "zone" not in rows.columns:
         return {}
@@ -245,28 +269,118 @@ def batter_zone_damage(rows, min_n: int = 6) -> dict:
     if bb.empty:
         return {}
     bb["_z"] = pd.to_numeric(bb["zone"], errors="coerce")
+    TB = {"single": 1, "double": 2, "triple": 3, "home_run": 4}
     out = {}
-    for zone in range(1, 10):
+    for zone in ZONES_ALL:
         sub = bb[bb["_z"] == zone]
-        if len(sub) < min_n:
+        n = len(sub)
+        if n < min_n:
             continue
         xw = pd.to_numeric(sub.get("estimated_woba_using_speedangle"), errors="coerce").dropna()
         if not len(xw):
             continue
-        entry = {"xwobacon": round(float(xw.mean()), 3), "n": int(len(sub))}
-        # barrel rate — the single most HR-predictive contact event
+        entry = {"xwobacon": round(float(xw.mean()), 3), "n": int(n)}
+        ls = pd.to_numeric(sub["launch_speed"], errors="coerce")
+        ok = ls.notna()
+        if int(ok.sum()):
+            entry["avg_ev"] = round(float(ls[ok].mean()), 1)
+            entry["hh_pct"] = round(float(100.0 * (ls[ok] >= 95).sum() / int(ok.sum())), 1)
         if "launch_speed_angle" in sub.columns:
             lsa = pd.to_numeric(sub["launch_speed_angle"], errors="coerce")
-            entry["barrel_pct"] = round(float(100.0 * (lsa == 6).sum() / len(sub)), 1)
-        # average distance on balls hit in the air (LA >= 10) — is the damage leaving the yard?
+            entry["barrel_pct"] = round(float(100.0 * (lsa == 6).sum() / n), 1)
         if "hit_distance_sc" in sub.columns and "launch_angle" in sub.columns:
             la = pd.to_numeric(sub["launch_angle"], errors="coerce")
             dist = pd.to_numeric(sub["hit_distance_sc"], errors="coerce")
             air = dist[(la >= 10) & dist.notna()]
             if len(air):
                 entry["avg_dist"] = int(round(float(air.mean())))
+        if "events" in sub.columns:
+            ev = sub["events"].astype(str)
+            hr = int((ev == "home_run").sum())
+            entry["hr_rate"] = round(100.0 * hr / n, 1)
+            tb = float(sum(TB.get(e, 0) for e in ev))
+            hits = int(ev.isin(list(TB)).sum())
+            entry["slg"] = round(tb / n, 3)
+            entry["iso"] = round((tb - hits) / n, 3)
+        # 0-100 power composite, barrel-weighted (HR-predictive first)
+        def _c(v, lo, hi):
+            if v is None:
+                return None
+            return max(0.0, min(1.0, (v - lo) / (hi - lo)))
+        parts, wts = [], []
+        for val, lo, hi, w in ((entry.get("barrel_pct"), 0, 20, 0.35),
+                               (entry.get("xwobacon"), 0.280, 0.650, 0.25),
+                               (entry.get("avg_ev"), 84, 100, 0.20),
+                               (entry.get("hh_pct"), 15, 55, 0.20)):
+            c = _c(val, lo, hi)
+            if c is not None:
+                parts.append(c * w); wts.append(w)
+        if wts:
+            entry["power"] = int(round(100.0 * sum(parts) / sum(wts)))
         out[str(zone)] = entry
     return out
+
+
+# Which metrics the zone view can switch between, and how each scales for colouring.
+ZONE_METRICS = {
+    "power":      {"label": "Power Score", "lo": 0,     "hi": 100,   "dec": 0},
+    "hr_rate":    {"label": "HR Rate",     "lo": 0,     "hi": 12,    "dec": 1},
+    "xwobacon":   {"label": "xwOBAcon",    "lo": 0.280, "hi": 0.650, "dec": 3},
+    "slg":        {"label": "SLG",         "lo": 0.300, "hi": 0.900, "dec": 3},
+    "iso":        {"label": "ISO",         "lo": 0.050, "hi": 0.450, "dec": 3},
+    "barrel_pct": {"label": "Barrel %",    "lo": 0,     "hi": 20,    "dec": 1},
+    "hh_pct":     {"label": "Hard-Hit %",  "lo": 15,    "hi": 55,    "dec": 1},
+    "avg_ev":     {"label": "Avg EV",      "lo": 84,    "hi": 100,   "dec": 1},
+    "avg_dist":   {"label": "Avg Distance","lo": 250,   "hi": 400,   "dec": 0},
+}
+
+
+def zone_matchup_edges(batter_zone: dict, pitcher_grid: dict, top_k: int = 7,
+                       hot_at: int = 60) -> dict:
+    """The matchup read: of the zones this pitcher actually lives in, how many are the ones
+    this hitter punishes — and by how much?
+
+    Takes the pitcher's `top_k` most-used cells, looks up the hitter's power score in each, and
+    returns the overlaps sorted by how much damage sits in a well-used zone. `edge_score` is the
+    usage-weighted average power across those cells: a single number to rank tonight's hitters by
+    "does this pitcher live where this guy does damage". Parallel lens only — never feeds heat.
+    """
+    if not batter_zone or not pitcher_grid:
+        return {}
+    used = []
+    for z in ZONES_ALL:
+        u = pitcher_grid.get(str(z))
+        if isinstance(u, (int, float)) and u > 0:
+            used.append((z, float(u)))
+    if not used:
+        return {}
+    used.sort(key=lambda t: -t[1])
+    top = used[:top_k]
+    edges, num, wsum, hot = [], 0.0, 0.0, 0
+    for z, usage in top:
+        bz = batter_zone.get(str(z))
+        if not bz or bz.get("power") is None:
+            continue
+        pw = bz["power"]
+        num += usage * pw
+        wsum += usage
+        if pw >= hot_at:
+            hot += 1
+        edges.append({
+            "zone": z, "label": ZONE_LABEL.get(z, str(z)),
+            "usage": round(100.0 * usage, 1),
+            "power": pw, "edge": pw - 50,           # vs a neutral-zone baseline
+            "n": bz.get("n"), "hr_rate": bz.get("hr_rate"), "barrel_pct": bz.get("barrel_pct"),
+        })
+    if not edges:
+        return {}
+    edges.sort(key=lambda e: -(e["power"] * e["usage"]))
+    return {
+        "edge_score": round(num / wsum, 1) if wsum else None,
+        "hot_in_top": hot,
+        "top_k": len(top),
+        "edges": edges[:6],
+    }
 
 
 def batter_vs_pitcher_zones(batter_zone: dict, pitcher_grid: dict) -> dict:
