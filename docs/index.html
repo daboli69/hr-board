@@ -44,6 +44,16 @@
   .faq-item[open] summary .faq-cv{transform:rotate(90deg)}
   .faq-body{padding:0 14px 14px;font-size:12.5px;color:var(--muted);line-height:1.6}
   .faq-body b{color:var(--ink)}
+  /* ball-change trend */
+  .bt-verdict{font-family:Archivo;font-weight:900;font-size:20px;letter-spacing:-.01em;margin-top:4px}
+  .bt-sub{font-size:12px;color:var(--muted);line-height:1.5;margin-top:3px}
+  .bt-spark{width:100%;height:64px;display:block;margin:12px 0 2px}
+  .bt-axis{display:flex;justify-content:space-between;font-family:"IBM Plex Mono";font-size:9px;color:var(--faint)}
+  .bt-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(78px,1fr));gap:7px;margin-top:12px}
+  .bt-s{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:9px 8px;text-align:center}
+  .bt-sl{font-family:"IBM Plex Mono";font-size:8.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.03em}
+  .bt-sv{font-family:"IBM Plex Mono";font-weight:700;font-size:15px;margin:3px 0 1px}
+  .bt-ss{font-size:9px;color:var(--faint);line-height:1.3}
   /* team vs pitch mix */
   .pm-wrap{max-width:900px;margin:0 auto}
   .pm-sel{margin:10px 0 6px}
@@ -5883,14 +5893,62 @@ function smoothPropProb(kind, score){
   return anchors[anchors.length-1][1];
 }
 // P(pitcher goes over his estimated-K half-line) — likelihood proxy for a K over, no book needed.
-// The OVER line the model actually likes = the half-line just BELOW the estimate. Using
-// floor(est)+0.5 put the line ABOVE the estimate whenever the decimal was under .5 (e.g. est 6.2
-// -> "O6.5"), which the model expects him to MISS — a poor over target and a ranking artifact.
+// --- Strikeout projection, anchored to what actually happened ---
+// The bottom-up projection (K% x batters faced) runs hot: the backtest says even a top-tier arm
+// averages ~6.1 Ks, while the raw projection was printing 7-9 for the same arms. These helpers
+// pull the number back toward measured reality and price the over off observed hit rates instead
+// of a pure Poisson guess.
+const _KBANDS=[["<40",30],["40-54",47],["55-69",62],["70+",80]];
+function _pkTiers(){ try{ return BACKTEST.props.pk.by_tier||null; }catch(e){ return null; } }
+function _pkInterp(pick, kHeat){
+  const t=_pkTiers(); if(!t) return null;
+  const pts=[];
+  _KBANDS.forEach(([k,mid])=>{ const v=t[k]; if(v&&v.n){ const y=pick(v); if(y!=null) pts.push([mid,y]); } });
+  if(!pts.length) return null;
+  const h=Math.max(0,Math.min(100, kHeat==null?50:kHeat));
+  if(h<=pts[0][0]) return pts[0][1];
+  if(h>=pts[pts.length-1][0]) return pts[pts.length-1][1];
+  for(let i=1;i<pts.length;i++){
+    if(h<=pts[i][0]){ const [x0,y0]=pts[i-1],[x1,y1]=pts[i];
+      return y0+(y1-y0)*(h-x0)/(x1-x0); }
+  }
+  return null;
+}
+// Measured average Ks for an arm of this k_heat.
+function ksBacktestAvg(kHeat){ return _pkInterp(v=>v.total_ks/v.n, kHeat); }
+// The number we actually show: matchup projection blended 50/50 with measured reality.
+function ksProjection(a){
+  if(!a) return null;
+  const bu=(a.est_ks==null?null:+a.est_ks), cal=ksBacktestAvg(a.k_heat);
+  if(bu==null) return cal;
+  if(cal==null) return bu;
+  return Math.round((0.5*bu + 0.5*cal)*10)/10;
+}
+// Measured over-rate straight from the backtest (o5 = 6+ Ks, o6 = 7+, o7 = 8+).
+function kOverProbMeasured(kHeat, line){
+  const col = line===5.5?"o5" : line===6.5?"o6" : line===7.5?"o7" : null;
+  if(!col) return null;
+  return _pkInterp(v=>v[col]/v.n, kHeat);
+}
+// The OVER line the model actually likes = the half-line just BELOW the projection. Using
+// floor(est)+0.5 put the line ABOVE the projection whenever the decimal was under .5 (e.g. 6.2
+// -> "O6.5"), i.e. a bet the model itself expected to lose.
 function kOverLine(estKs){ return estKs==null?null : Math.ceil(estKs-0.5)-0.5; }
-function kOverProb(estKs){
+function kOverProb(estKs, kHeat){
   if(estKs==null) return null;
-  const line=kOverLine(estKs);                  // sensible over target, just below the estimate
+  const line=kOverLine(estKs);
+  const measured=(kHeat!=null)?kOverProbMeasured(kHeat,line):null;
+  if(measured!=null) return measured;           // prefer what actually happened
   return 1-_poissonCdf(Math.floor(line), estKs);
+}
+// Probability an arm clears a SPECIFIC book line: the measured rate when the backtest covers
+// that line, otherwise Poisson on the reality-anchored projection.
+function kProbAtLine(a, line){
+  const proj=ksProjection(a);
+  if(proj==null || line==null) return null;
+  const m=kOverProbMeasured(a.k_heat, line);
+  if(m!=null) return m;
+  return 1-_poissonCdf(Math.floor(line), proj);
 }
 
 // Poisson CDF P(X <= k) for mean lambda — used to turn a pitcher's estimated K total into
@@ -5962,7 +6020,7 @@ function allPropEV(){
   arms.forEach(a=>{
     const e=fetchedPropFor("pk", a.name||"");
     if(!e||a.est_ks==null) return;
-    const pOver=1-_poissonCdf(Math.floor(e.line), a.est_ks);
+    const pOver=kProbAtLine(a, e.line); if(pOver==null) return;
     const best=propEV(pOver, e.over, e.under);
     if(best&&best.ev>0) out.push({name:a.name, team:a.team, opp:a.opp_team, propLabel:`Ks O/U ${e.line}`,
       side:best.side, line:e.line, price:best.price, ev:best.ev, prob:best.prob, fallback:e.fallback});
@@ -6129,10 +6187,11 @@ function unifiedPicks(filter){
   });
   (BOARD.pitcher_props||[]).forEach(a=>{
     if(a.est_ks==null) return;
-    const ac=armConv(a), prob=kOverProb(a.est_ks); if(prob==null) return;
+    const _kp=ksProjection(a);
+    const ac=armConv(a), prob=kOverProb(_kp, a.k_heat); if(prob==null) return;
     out.push({id:null, name:a.name, team:a.team, opp:a.opp_team, typeKey:"Ks",
-      label:`Over ${kOverLine(a.est_ks).toFixed(1)} Ks`, prob, conf:prob*(0.82+0.30*ac.conv),
-      conv:ac.conv, bits:ac.bits, est:a.est_ks, isArm:true});
+      label:`Over ${kOverLine(_kp).toFixed(1)} Ks`, prob, conf:prob*(0.82+0.30*ac.conv),
+      conv:ac.conv, bits:ac.bits, est:_kp, isArm:true});
   });
   let list=out;
   if(filter&&filter!=="all") list=list.filter(x=>x.typeKey===filter);
@@ -6187,7 +6246,8 @@ function sgpPool(){
     push({id:p.id,name:p.name,team:p.team,opp:p.opp_team,game_pk:p.game_pk,tk:"HRR",label:"HRR 1.5+",prob:smoothPropProb("hrr",p.hrr_heat)});
   });
   (BOARD.pitcher_props||[]).forEach(a=>{ if(a.est_ks==null) return;
-    push({id:null,name:a.name,team:a.team,opp:a.opp_team,game_pk:a.game_pk,tk:"Ks",label:`Over ${kOverLine(a.est_ks).toFixed(1)} K`,prob:kOverProb(a.est_ks)}); });
+    const _kp=ksProjection(a);
+    push({id:null,name:a.name,team:a.team,opp:a.opp_team,game_pk:a.game_pk,tk:"Ks",label:`Over ${kOverLine(_kp).toFixed(1)} K`,prob:kOverProb(_kp,a.k_heat)}); });
   return pool;
 }
 function genParlay(pool){
@@ -7471,7 +7531,7 @@ function renderProps(){
   } else if(propsView==="k"){
     // Ks = PITCHER-level view. Rank by est. strikeouts (the likelihood of a big K game),
     // falling back to k_heat when the estimate is missing.
-    const arms=(BOARD.pitcher_props||[]).slice().sort((a,b)=>((b.est_ks??-1)-(a.est_ks??-1))||((b.k_heat||0)-(a.k_heat||0)));
+    const arms=(BOARD.pitcher_props||[]).slice().sort((a,b)=>((ksProjection(b)??-1)-(ksProjection(a)??-1))||((b.k_heat||0)-(a.k_heat||0)));
     const rows=arms.map((a,i)=>{
       const sc=a.k_heat, bg=propsCardColor(sc);
       const tag = sc>=70?"TIER 1": sc>=55?"TIER 2": sc>=40?"TIER 3":"low";
@@ -7481,7 +7541,7 @@ function renderProps(){
       const ss=a.swstr_pct!=null?` · SwStr ${a.swstr_pct.toFixed(1)}%`:"";
       // Estimated line — nearest 0.5 that the model expects him to clear.
       // Displayed prominently so users can eyeball against the book's posted line.
-      const estK = a.est_ks;
+      const estK = ksProjection(a);
       const estLine = estK!=null ? `<span class="est-line">est. ${estK.toFixed(1)} Ks · line target O${kOverLine(estK).toFixed(1)}</span>` : "";
       // Real book K line + EV: turn the model's estimate into P(over the book's line) via a
       // Poisson approximation (Ks are count data), then price the better side.
@@ -7514,11 +7574,11 @@ function renderProps(){
     let kEVLead="";
     if(ODDS && ODDS.props && ODDS.props.pk){
       const cands=arms.map(a=>{ const kO=fetchedPropFor("pk",a.name||""); if(!kO||a.est_ks==null) return null;
-        const pOver=1-_poissonCdf(Math.floor(kO.line), a.est_ks);
+        const pOver=kProbAtLine(a, kO.line); if(pOver==null) return null;
         const best=propEV(pOver, kO.over, kO.under); return best?{a,best,kO}:null; }).filter(Boolean)
         .filter(x=>x.best.ev>0).sort((a,b)=>b.best.ev-a.best.ev);
       if(cands.length){ const t=cands[0];
-        kEVLead=`<div class="prop-ev-lead">Best +EV K prop: <b>${t.a.name}</b> ${t.best.side.toUpperCase()} ${t.kO.line} at ${fmtAm(t.best.price)} — model est ${t.a.est_ks.toFixed(1)} Ks, <b>+${(t.best.ev*100).toFixed(0)}% EV</b>. ${cands.length} +EV play${cands.length>1?"s":""}.</div>`;
+        kEVLead=`<div class="prop-ev-lead">Best +EV K prop: <b>${t.a.name}</b> ${t.best.side.toUpperCase()} ${t.kO.line} at ${fmtAm(t.best.price)} — model est ${ksProjection(t.a).toFixed(1)} Ks, <b>+${(t.best.ev*100).toFixed(0)}% EV</b>. ${cands.length} +EV play${cands.length>1?"s":""}.</div>`;
       }
     }
     inner=`
@@ -7761,6 +7821,58 @@ function _hrColor(n){
 // heat-band + signal + badge conversion use only live-tracked days (backfilled days have no model
 // overlay). Everything carries its sample size so thin numbers read as thin.
 let calInsScope="season";
+// "Is the ball changing?" — the honest version. Tracks how far well-struck balls actually carry
+// versus what their exit velo and launch angle should produce. Average HR distance alone is
+// selection-biased (a deader ball means only the best-struck balls clear at all), so carry is
+// the number that actually moves when the baseball changes.
+function ballTrendBlock(allDays){
+  const D=(allDays||[]).filter(d=>d&&d.ball&&d.ball.carry!=null).sort((a,b)=>a.date<b.date?-1:1);
+  if(D.length<6){
+    return `<div class="ins-card"><div class="ins-h">Is the ball changing?</div>
+      <div class="ins-note">Building this now — <b>${D.length}</b> day${D.length===1?"":"s"} measured. Each night the grader records how far every well-struck ball (95+ mph, 20–35°) actually travels versus what that contact should produce. It takes about two weeks of days before the trend means anything.</div></div>`;
+  }
+  const fmtD=ds=>new Date(ds+"T12:00:00").toLocaleDateString('default',{month:'short',day:'numeric'});
+  const roll=(arr,k)=>arr.map((_,i)=>{const s=arr.slice(Math.max(0,i-k+1),i+1);return s.reduce((a,b)=>a+b,0)/s.length;});
+  const carry=D.map(d=>d.ball.carry), rc=roll(carry,7);
+  const half=Math.max(3,Math.floor(D.length/2));
+  const early=carry.slice(0,half), late=carry.slice(-half);
+  const mean=a=>a.reduce((x,y)=>x+y,0)/a.length;
+  const dC=mean(late)-mean(early);
+  // control: is contact quality itself different? if EV is flat but carry moved, that's the ball.
+  const evs=D.map(d=>d.ball.avg_ev).filter(v=>v!=null);
+  const dEV=evs.length>=half*2 ? mean(evs.slice(-half))-mean(evs.slice(0,half)) : null;
+  const hrd=D.map(d=>d.ball.hr_avg_dist).filter(v=>v!=null);
+  const dHR=hrd.length>=half*2 ? mean(hrd.slice(-half))-mean(hrd.slice(0,half)) : null;
+  // sparkline of the 7-day rolling carry
+  const W=300,H=64,lo=Math.min(...rc),hi=Math.max(...rc),span=(hi-lo)||1;
+  const pts=rc.map((v,i)=>`${(i/(rc.length-1||1)*W).toFixed(1)},${(H-((v-lo)/span)*(H-10)-5).toFixed(1)}`).join(" ");
+  const zeroY=(H-((0-lo)/span)*(H-10)-5);
+  const showZero=(0>=lo&&0<=hi);
+  const verdict = Math.abs(dC)<1.5
+    ? {t:"No meaningful change",c:"var(--muted)",s:"Carry is holding steady — the ball is behaving the same as it was."}
+    : dC>0
+      ? {t:`Carrying ${dC.toFixed(1)} ft farther`,c:"var(--hot)",s:"Well-struck balls are travelling farther than the same contact produced earlier."}
+      : {t:`Carrying ${Math.abs(dC).toFixed(1)} ft shorter`,c:"var(--cold)",s:"Well-struck balls are dying relative to the same contact earlier."};
+  const stat=(l,v,sub)=>`<div class="bt-s"><div class="bt-sl">${l}</div><div class="bt-sv">${v}</div><div class="bt-ss">${sub||""}</div></div>`;
+  const sgn=v=>(v>0?"+":"")+v.toFixed(1);
+  return `<div class="ins-card">
+    <div class="ins-h">Is the ball changing?</div>
+    <div class="bt-verdict" style="color:${verdict.c}">${verdict.t}</div>
+    <div class="bt-sub">${verdict.s}</div>
+    <svg class="bt-spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+      ${showZero?`<line x1="0" y1="${zeroY.toFixed(1)}" x2="${W}" y2="${zeroY.toFixed(1)}" stroke="var(--line-2)" stroke-width="1" stroke-dasharray="3 3"/>`:""}
+      <polyline points="${pts}" fill="none" stroke="var(--seam)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    </svg>
+    <div class="bt-axis"><span>${fmtD(D[0].date)}</span><span>7-day rolling carry (ft vs expected)</span><span>${fmtD(D[D.length-1].date)}</span></div>
+    <div class="bt-stats">
+      ${stat("Carry shift", sgn(dC)+" ft", "late vs early window")}
+      ${dEV!=null?stat("Contact (control)", sgn(dEV)+" mph", Math.abs(dEV)<0.5?"flat — so it's not hitters":"hitters changed too"):""}
+      ${dHR!=null?stat("Avg HR distance", sgn(dHR)+" ft", "selection-biased, for reference"):""}
+      ${stat("Days measured", String(D.length), "more days = more signal")}
+    </div>
+    <div class="ins-note">Read it this way: if <b>carry</b> moves while <b>contact</b> stays flat, the ball itself changed. If both moved together, hitters did. One caveat kept honest — warm air carries better, so a slow rise from April to July is mostly weather; a <b>sharp step-change</b> within a few days is the real ball signal.</div>
+  </div>`;
+}
 function calendarInsights(allDays, curMonth){
   const scope=calInsScope;
   const inScope = scope==="month" ? allDays.filter(d=>d.date.startsWith(curMonth)) : allDays.slice();
@@ -7900,6 +8012,7 @@ function renderCalendar(){
     <div class="cal-dow">${["Su","Mo","Tu","We","Th","Fr","Sa"].map(d=>`<div>${d}</div>`).join("")}</div>
     <div class="cal-grid">${cells}</div>
     ${detail}
+    ${ballTrendBlock(days)}
     ${calendarInsights(days, calMonth)}
     <div class="pl-note" style="margin-top:12px">Total HRs across all tracked hitters each day — tap any day for who went deep and the heat/badge breakdown. A run of low days (like the one you noticed) can flag a real change — ball, weather, league-wide — that no model sees; this is where it'd show up. Tracking since ${days[0].date}, growing daily.</div>
   </div>`;
