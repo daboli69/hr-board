@@ -1864,8 +1864,23 @@ def build(date_str: str | None = None) -> dict:
             #     opener. When start_len data is available, we lean on that; otherwise
             #     use median start_len from _pitcher_metrics.
             est_ks = None
-            pitcher_k_pct = ((pprof.get("recent") or {}).get("k_pct_allowed") or
-                             (pprof.get("season") or {}).get("k_pct_allowed"))
+            # K rate: blend recent form into the season baseline IN PROPORTION TO ITS SAMPLE, then
+            # regress a thin overall sample toward league. Using the raw 2-week number was the bug
+            # that put small-sample arms (a 45% K rate over ~40 PA) at the top of the list — they
+            # regress hard, which is why the "best" K plays kept losing.
+            _rec = pprof.get("recent") or {}
+            _szn = pprof.get("season") or {}
+            k_rec, k_szn = _rec.get("k_pct_allowed"), _szn.get("k_pct_allowed")
+            pa_rec, pa_szn = float(_rec.get("pa") or 0), float(_szn.get("pa") or 0)
+            LG_K_RATE = 22.0
+            if k_rec is not None and k_szn is not None:
+                w = min(1.0, pa_rec / 120.0)              # ~120 PA to fully trust the recent window
+                pitcher_k_pct = w * k_rec + (1 - w) * k_szn
+            else:
+                pitcher_k_pct = k_szn if k_szn is not None else k_rec
+            if pitcher_k_pct is not None and pa_szn > 0:
+                w2 = min(1.0, pa_szn / 200.0)             # thin season -> pull toward league
+                pitcher_k_pct = w2 * pitcher_k_pct + (1 - w2) * LG_K_RATE
             if pitcher_k_pct is not None:
                 if opp_lineup_k is not None:
                     # odds-ratio (log5) matchup instead of a linear blend: combine the pitcher's
@@ -1882,11 +1897,13 @@ def build(date_str: str | None = None) -> dict:
                     eff_k = max(10.0, min(42.0, eff_k))          # keep it in a sane band
                 else:
                     eff_k = pitcher_k_pct
-                bf = 4 if meta["opener"] else 24
-                # if we know his typical start length, refine BF (~4.3 BF per IP)
+                bf = 4 if meta["opener"] else 22
+                # if we know his typical start length, refine BF (~4.3 BF per IP). The modern
+                # starter averages ~5.1 IP (~22 BF); the old default of 24 quietly added most of
+                # half a strikeout to every projection.
                 sl = start_lens.get(pid, {}).get("med_len") if start_lens else None
                 if sl and not meta["opener"]:
-                    bf = max(6, min(30, sl * 4.3))
+                    bf = max(6, min(27, sl * 4.3))
                 est_ks = round(eff_k / 100.0 * bf, 1)
             pitcher_props.append({
                 **meta,

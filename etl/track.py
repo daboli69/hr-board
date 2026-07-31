@@ -85,10 +85,80 @@ def _hr_map(sc):
         bid = int(row["batter"]); gp = int(row["game_pk"]); half = row["inning_topbot"]
         pit = row["pitcher"]
         is_sp = (pit == pit) and starters.get((gp, half)) == int(pit)
-        rec = out.setdefault(bid, {"hr": 0, "sp": 0, "bp": 0})
+        rec = out.setdefault(bid, {"hr": 0, "sp": 0, "bp": 0, "dist": None, "ev": None})
         rec["hr"] += 1
         rec["sp" if is_sp else "bp"] += 1
+        # keep the longest HR's distance/EV for the day log (ball-flight trend tracking)
+        d = row.get("hit_distance_sc"); e = row.get("launch_speed")
+        try:
+            d = float(d) if d == d and d is not None else None
+            e = float(e) if e == e and e is not None else None
+        except Exception:
+            d = e = None
+        if d is not None and (rec["dist"] is None or d > rec["dist"]):
+            rec["dist"] = round(d, 1); rec["ev"] = round(e, 1) if e is not None else None
     return out
+
+
+# --- "did the ball change?" probe -------------------------------------------------
+# Expected distance from exit velo and launch angle. This is a deliberately simple, FIXED
+# reference curve — its absolute accuracy doesn't matter, because it's applied identically
+# every day, so any constant bias cancels out. Only the TREND in the residual is the signal.
+def _expected_distance(ev, la):
+    return 4.0 * ev - 4.5 * abs(la - 28.0) - 20.0
+
+
+def _ball_metrics(sc):
+    """Daily read on whether the baseball itself is flying differently.
+
+    Uses ALL well-struck balls in play that day, not just home runs. HR-only would be
+    selection-biased: if the ball goes dead, only the very best-struck balls still clear the
+    fence, which can keep average HR distance flat while real carry drops. Holding the contact
+    window fixed (EV >= 95, LA 20-35) and measuring distance vs what that contact "should"
+    produce controls for day-to-day hitter quality.
+
+    Caveat kept honest in the UI: warm air carries better, so a summer rise in carry can be
+    weather rather than the ball. Compare like months, and treat a sharp step-change — not a
+    slow seasonal drift — as the real ball-change signal."""
+    try:
+        import pandas as pd
+        need = {"launch_speed", "launch_angle", "hit_distance_sc", "events"}
+        if sc is None or not need.issubset(set(sc.columns)):
+            return None
+        d = sc.dropna(subset=["launch_speed", "launch_angle", "hit_distance_sc"])
+        if d.empty:
+            return None
+        ev = pd.to_numeric(d["launch_speed"], errors="coerce")
+        la = pd.to_numeric(d["launch_angle"], errors="coerce")
+        dist = pd.to_numeric(d["hit_distance_sc"], errors="coerce")
+        m = (ev >= 95) & (la >= 20) & (la <= 35) & dist.notna()
+        n = int(m.sum())
+        out = {}
+        if n >= 20:
+            exp = _expected_distance(ev[m], la[m])
+            out.update({
+                "n": n,
+                "avg_ev": round(float(ev[m].mean()), 2),
+                "avg_la": round(float(la[m].mean()), 2),
+                "avg_dist": round(float(dist[m].mean()), 1),
+                "carry": round(float((dist[m] - exp).mean()), 2),
+            })
+        # plain HR distance too — the simple read
+        hr = d[d["events"].to_numpy() == "home_run"]
+        if len(hr):
+            hd = pd.to_numeric(hr["hit_distance_sc"], errors="coerce").dropna()
+            he = pd.to_numeric(hr["launch_speed"], errors="coerce").dropna()
+            if len(hd):
+                out["hr_n"] = int(len(hd))
+                out["hr_avg_dist"] = round(float(hd.mean()), 1)
+                out["hr_med_dist"] = round(float(hd.median()), 1)
+                out["hr_max_dist"] = round(float(hd.max()), 1)
+            if len(he):
+                out["hr_avg_ev"] = round(float(he.mean()), 2)
+        return out or None
+    except Exception as e:
+        print(f"[track] ball metrics skipped (non-fatal): {e}")
+        return None
 
 
 HIT_EVENTS = {"single", "double", "triple", "home_run"}
@@ -311,6 +381,7 @@ def grade_date(date):
             hr_log.append({"name": p["name"], "heat": p.get("heat"), "tier": p.get("tier"),
                            "arm_form": p.get("opp_form"),
                            "off": "SP" if res["sp"] else "BP", "hr": res["hr"],
+                           "dist": res.get("dist"), "ev": res.get("ev"),
                            "badges": badges, "n_badges": len(badges)})
 
     # ---- the validation that matters: does Heat beat simple baselines? ----
@@ -456,6 +527,7 @@ def grade_date(date):
         "by_props": by_props,
         "badges_on_hr": badge_hits, "top_n": topN,
         "ranks": ranks,
+        "ball": _ball_metrics(sc),          # carry / distance probe: is the ball changing?
         "hr_log": sorted(hr_log, key=lambda x: (x["heat"] or 0), reverse=True),
     }
 
