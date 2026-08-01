@@ -144,6 +144,16 @@ def build(date_str: str | None = None) -> dict:
     bb_samples = statcast_data.batted_ball_sample(df, batter_ids)
     bb_logs = statcast_data.batted_ball_log(df, batter_ids)
     try:
+        bat_tables = statcast_data.batter_pitch_tables(df, batter_ids)     # full BvP line by pitch
+        arm_tables = statcast_data.pitcher_pitch_tables(df, pitcher_ids)
+        pitch_hist = statcast_data.pitch_history(df, pitcher_ids)          # usage per start
+        team_ks = statcast_data.team_k_splits(df)                          # lineup K% by context
+        print(f"[build] bvp tables: {len(bat_tables)} hitters, {len(arm_tables)} arms, "
+              f"{len(pitch_hist)} histories, {len(team_ks)} team K splits")
+    except Exception as e:
+        print(f"[build] BvP tables skipped (non-fatal): {e}")
+        bat_tables, arm_tables, pitch_hist, team_ks = {}, {}, {}, {}
+    try:
         arsenals = statcast_data.pitcher_arsenal(df, pitcher_ids)     # usage % by batter hand
         vs_pitch = statcast_data.batter_vs_pitch(df, batter_ids)      # hitter vs specific pitch types
         print(f"[build] pitch mix: {len(arsenals)} arsenals, {len(vs_pitch)} hitter splits")
@@ -816,6 +826,7 @@ def build(date_str: str | None = None) -> dict:
             "traded": traded.get(bid),
             "pitch_splits": prof.get("pitch_splits"),
             "vs_pitch": vs_pitch.get(int(bid)) if vs_pitch else None,
+            "pitch_table": bat_tables.get(int(bid)) if bat_tables else None,
             "pitch_usage": pprof.get("usage"),
             "pitch_matchup": pmatch,
             "features": feat,          # parallel edges: pitch_matchup, late_hr (never touch heat)
@@ -1274,19 +1285,40 @@ def build(date_str: str | None = None) -> dict:
                             bhr = features.batter_hr_zones(brows)      # actual HR locations
                         except Exception:
                             bz = None; bhr = None
-                        vz = features.batter_vs_pitcher_zones(bz, zgrid) if bz else {}
+                        # the pitcher attacks lefties and righties differently — grade this
+                        # hitter against the grid for HIS side, falling back to the overall grid
+                        _hand = pl.get("bats")
+                        if _hand == "S":
+                            _hand = "L" if meta.get("throws", "R") == "R" else "R"
+                        zgrid_h = zgrid
+                        if _hand in ("R", "L"):
+                            try:
+                                _gh = features.pitcher_zone_grid(arows, hand=_hand)
+                                if _gh and _gh.get("n", 0) >= 150:
+                                    zgrid_h = _gh
+                            except Exception:
+                                pass
+                        vz = features.batter_vs_pitcher_zones(bz, zgrid_h) if bz else {}
+                        zedge = features.zone_matchup_edges(bz, zgrid_h) if bz else {}
                         pm = (pl.get("features") or {}).get("pitch_matchup") or {}
                         # zones this batter "crushes" = cells with xwOBAcon >= 0.400 on adequate
                         # sample. Count is shown as a badge; the map colors these for THIS hitter.
                         crushed = []
                         zdmg_full = {}
+                        _zedge = zedge
                         if bz:
                             for zk, zv in bz.items():
                                 xw = zv.get("xwobacon"); n = zv.get("n")
                                 # carry barrel% + air distance so the map shows HR-power context
                                 zdmg_full[zk] = {"xw": xw, "n": n,
                                                  "brl": zv.get("barrel_pct"),
-                                                 "dist": zv.get("avg_dist")}
+                                                 "dist": zv.get("avg_dist"),
+                                                 "pw": zv.get("power"),
+                                                 "hr": zv.get("hr_rate"),
+                                                 "slg": zv.get("slg"),
+                                                 "iso": zv.get("iso"),
+                                                 "hh": zv.get("hh_pct"),
+                                                 "ev": zv.get("avg_ev")}
                                 if xw is not None and xw >= 0.400 and (n or 0) >= 6:
                                     crushed.append(int(zk))
                         # ZONE SIGNAL: HRs this batter hit in this pitcher's meatball zones.
@@ -1302,6 +1334,7 @@ def build(date_str: str | None = None) -> dict:
                             "crushed_zones": sorted(crushed),      # e.g. [4,7,8] -> badge "3"
                             "overlap": overlap,                     # HRs in his meatball zones
                             "hr_zones": bhr or None,                # his HR count per zone
+                            "zone_edge": _zedge or None,            # pitcher-usage-weighted matchup
                             "elite": (pl.get("elite") or {}).get("tier"),
                         })
                     # rank opponents by zone score (who punishes where he lives)
@@ -1418,8 +1451,79 @@ def build(date_str: str | None = None) -> dict:
                             "zone_score": b.get("zone_score"),
                             "overlap": b.get("overlap"),          # true ZONE-badge overlap count
                             "hr_zones": b.get("hr_zones"),        # his HR count per zone
+                            "zone_edge": b.get("zone_edge"),      # matchup edges vs his hand
+                            "arm_grid": pe.get("zone_grid"),      # pitcher usage per zone
+                            "arm_throws": pe.get("throws"),
                             "meatball_zones": pe.get("meatball_zones"),  # for the amber-dot map
                         }
+
+            # ---- SIGNAL CONVERGENCE: how many INDEPENDENT reads point at this hitter tonight.
+            # Deliberately weighted by what the backtest actually measured, not by gut feel:
+            # `pow` has shown ~+76% lift and `lock` ~+36%, while `due` (+1%) and `cool` (-2%)
+            # have shown none — so those two are excluded outright rather than padding a count.
+            # Signals split into MEASURED (validated by the backtest) and PROVISIONAL (the newer
+            # zone/arsenal/environment reads, which are hypotheses until they're graded). They're
+            # reported separately so a hitter can never look "5-signal strong" on unvalidated
+            # evidence alone. This is a parallel lens — it never feeds the frozen heat model.
+            try:
+                _HEAT_LIFT = ((70, 47), (55, 30), (40, 14))       # measured lift by heat band
+                _BADGE_LIFT = {"pow": 76, "lock": 36}             # measured; due/cool excluded
+                for _p in players:
+                    _meas, _prov = [], []
+                    _h = _p.get("heat")
+                    if _h is not None:
+                        for _cut, _lift in _HEAT_LIFT:
+                            if _h >= _cut:
+                                _meas.append({"k": "heat", "lab": f"Heat {int(_h)}", "lift": _lift})
+                                break
+                    _bset = {str(b).lower() for b in (_p.get("badges") or [])}
+                    for _bk, _bl in _BADGE_LIFT.items():
+                        if _bk in _bset:
+                            _meas.append({"k": _bk, "lab": _bk.upper(), "lift": _bl})
+                    # provisional: location matchup
+                    _ze = ((_p.get("features") or {}).get("zone_profile") or {}).get("zone_edge") or {}
+                    if _ze.get("edge_score") is not None and _ze["edge_score"] >= 62:
+                        _prov.append({"k": "zone", "lab": f"Zone {int(_ze['edge_score'])}",
+                                      "lift": None, "n": _ze.get("hot_in_top")})
+                    # provisional: does he punish the pitches this arm actually throws?
+                    _fit = None
+                    try:
+                        _arm = (_p.get("opp_pitcher") or {}).get("id")
+                        _hand = _p.get("bats")
+                        if _hand == "S":
+                            _hand = "L" if (_p.get("opp_pitcher") or {}).get("throws") == "R" else "R"
+                        _ars = (arsenals.get(int(_arm)) or {}).get(_hand) if _arm else None
+                        _vp = _p.get("vs_pitch") or {}
+                        if _ars and _vp:
+                            _num = _den = 0.0
+                            for _pt, _pct, _n in _ars:
+                                _v = _vp.get(_pt)
+                                if _v and _v[4]:                  # bbe > 0
+                                    _num += _pct * (100.0 * _v[7] / _v[4])   # barrel% vs that pitch
+                                    _den += _pct
+                            if _den > 0:
+                                _fit = round(_num / _den, 1)
+                    except Exception:
+                        _fit = None
+                    if _fit is not None:
+                        _p["arsenal_fit"] = _fit
+                        if _fit >= 9.0:                            # ~league-average barrel is ~7-8%
+                            _prov.append({"k": "arsenal", "lab": f"Arsenal {_fit}%", "lift": None})
+                    # provisional: vulnerable opposing arm
+                    _as = (_p.get("opp_pitcher") or {}).get("hr_score")
+                    if _as is not None and _as >= 60:
+                        _prov.append({"k": "arm", "lab": f"Arm {int(_as)}", "lift": None})
+                    # provisional: environment
+                    _pf = _p.get("park_hr_factor")
+                    if _pf is not None and _pf >= 1.05:
+                        _prov.append({"k": "park", "lab": f"Park {_pf:.2f}x", "lift": None})
+                    _p["converge"] = {
+                        "measured": _meas, "provisional": _prov,
+                        "n_measured": len(_meas), "n_provisional": len(_prov),
+                        "lift": sum(m["lift"] for m in _meas),   # summed MEASURED lift only
+                    }
+            except Exception as _e:
+                print(f"[build] convergence scoring skipped (non-fatal): {_e}")
 
             # ---- BOMB SCORE: the composite batter-vs-pitcher matchup score (replaces the old
             # max-EV "Bomb" sort). Needs zone overlap, so it runs after the edges block. ----
@@ -1736,6 +1840,9 @@ def build(date_str: str | None = None) -> dict:
         },
         "players": players,
         "arsenals": arsenals,               # starter pitch usage % split by batter handedness
+        "arm_tables": arm_tables,           # per-arm full BvP stat line by pitch type & batter hand
+        "pitch_hist": pitch_hist,           # per-arm pitch usage per start (arsenal drift)
+        "team_ks": team_ks,                 # lineup strikeout rate + league rank by context
         "pitcher_edges": pitcher_edges,     # Edges tab: per-arm zone heatmap + ranked batters
         "bullpen_rankings": bullpen_rankings,   # slate-wide pen ranking, worst to best
         "park_source": ("ballparkpal" if BPP.get("ok") else "local"),

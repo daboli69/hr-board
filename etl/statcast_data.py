@@ -65,6 +65,7 @@ def pull_season(start: str, end: str) -> pd.DataFrame:
         "estimated_woba_using_speedangle", "estimated_ba_using_speedangle",
         "woba_value", "woba_denom",
         # --- feature-extraction additions ---
+        "balls", "strikes",                 # count state -> two-strike putaway rate
         "plate_x", "plate_z", "zone",      # pitch LOCATION for pitch-type/location matchup
         "sv_id",                            # encodes YYMMDD_HHMMSS — timestamp for microclimate
         # --- authoritative scoring fields for accurate HRR (no base-runner simulation) ---
@@ -295,6 +296,242 @@ def batter_vs_pitch(df: pd.DataFrame, batter_ids, min_pitches: int = 25) -> dict
                             barrels, pull_brl, air, pull_air, hard]
         if rec:
             out[int(bid)] = rec
+    return out
+
+
+# A complete BvP stat line for one pitch type, in this fixed order. Emitted as a compact array
+# rather than a dict so the extra depth costs kilobytes instead of hundreds of them; the UI
+# knows the order. Same function serves BOTH sides — a batter's line vs a pitch type and a
+# pitcher's line with it are the identical calculation over different slices.
+PITCH_TABLE_ORDER = (
+    "n", "usage", "bbe", "ba", "woba", "slg", "iso", "hr",
+    "bb_pct", "whiff_pct", "k_pct", "putaway_pct", "swstr_pct",
+    "velo", "ev", "la", "barrel_pct", "hh_pct", "pullbrl_pct", "pullair_pct",
+    "fb_pct", "ld_pct", "gb_pct",
+)
+_SWINGS_ALL = {"swinging_strike", "swinging_strike_blocked", "foul", "foul_tip",
+               "foul_bunt", "hit_into_play", "hit_into_play_score", "hit_into_play_no_out"}
+_HIT_EV = {"single": 1, "double": 2, "triple": 3, "home_run": 4}
+_NON_AB = {"walk", "intent_walk", "hit_by_pitch", "sac_fly", "sac_bunt",
+           "catcher_interf", "sac_fly_double_play", "sac_bunt_double_play"}
+
+
+def _pitch_line(sub, total_pitches):
+    """One row of the BvP pitch table. `sub` is every pitch of one type in the slice."""
+    n = len(sub)
+    if not n:
+        return None
+    def _r(v, d=1):
+        try:
+            return None if v is None or v != v else round(float(v), d)
+        except Exception:
+            return None
+    desc = sub["description"].astype(str) if "description" in sub else pd.Series([], dtype=str)
+    ev_col = sub["events"].astype(str) if "events" in sub else pd.Series([], dtype=str)
+    swings = int(desc.isin(_SWINGS_ALL).sum()) if len(desc) else 0
+    whiffs = int(desc.isin(SWING_STRIKE).sum()) if len(desc) else 0
+    pa = int(sub["events"].isin(PA_EVENTS).sum()) if "events" in sub else 0
+    k = int(ev_col.isin({"strikeout", "strikeout_double_play"}).sum()) if len(ev_col) else 0
+    bb = int(ev_col.isin({"walk", "intent_walk"}).sum()) if len(ev_col) else 0
+    hr = int((ev_col == "home_run").sum()) if len(ev_col) else 0
+    hits = int(ev_col.isin(list(_HIT_EV)).sum()) if len(ev_col) else 0
+    tb = float(sum(_HIT_EV.get(e, 0) for e in ev_col)) if len(ev_col) else 0.0
+    non_ab = int(ev_col.isin(_NON_AB).sum()) if len(ev_col) else 0
+    ab = max(0, pa - non_ab)
+    # putaway: strikeouts as a share of the two-strike pitches thrown
+    two_strike = 0
+    if "strikes" in sub:
+        two_strike = int((pd.to_numeric(sub["strikes"], errors="coerce") == 2).sum())
+    woba = None
+    if "woba_value" in sub and "woba_denom" in sub:
+        wv = pd.to_numeric(sub["woba_value"], errors="coerce")
+        wd = pd.to_numeric(sub["woba_denom"], errors="coerce")
+        den = float(wd.sum(skipna=True) or 0)
+        if den > 0:
+            woba = float(wv.sum(skipna=True)) / den
+    velo = None
+    if "release_speed" in sub:
+        rs = pd.to_numeric(sub["release_speed"], errors="coerce").dropna()
+        if len(rs):
+            velo = float(rs.mean())
+    bb_rows = sub[sub["bb_type"].notna()] if "bb_type" in sub else sub.iloc[0:0]
+    bbe = len(bb_rows)
+    ev = la = barrel = hh = pull_brl = pull_air = fb = ld = gb = None
+    if bbe:
+        ls = pd.to_numeric(bb_rows["launch_speed"], errors="coerce")
+        lang = pd.to_numeric(bb_rows["launch_angle"], errors="coerce")
+        okv = ls.notna()
+        if int(okv.sum()):
+            ev = float(ls[okv].mean())
+            hh = 100.0 * float((ls[okv] >= 95).sum()) / int(okv.sum())
+        if int(lang.notna().sum()):
+            la = float(lang[lang.notna()].mean())
+        if "launch_speed_angle" in bb_rows:
+            lsa = pd.to_numeric(bb_rows["launch_speed_angle"], errors="coerce")
+            barrel = 100.0 * float((lsa == 6).sum()) / bbe
+        bt = bb_rows["bb_type"].astype(str)
+        fb = 100.0 * float((bt == "fly_ball").sum()) / bbe
+        ld = 100.0 * float((bt == "line_drive").sum()) / bbe
+        gb = 100.0 * float((bt == "ground_ball").sum()) / bbe
+        if {"hc_x", "hc_y", "stand"}.issubset(bb_rows.columns):
+            loc = bb_rows.dropna(subset=["hc_x", "hc_y"])
+            if len(loc):
+                ang = np.degrees(np.arctan2(loc["hc_x"] - 125.42, 198.27 - loc["hc_y"]))
+                is_r = loc["stand"].values == "R"
+                pulled = np.where(is_r, ang.values < -15, ang.values > 15)
+                air_m = loc["bb_type"].isin(["fly_ball", "line_drive"]).values
+                brl_m = ((loc["launch_speed_angle"] == 6).to_numpy()
+                         if "launch_speed_angle" in loc else np.zeros(len(loc), bool))
+                pull_brl = 100.0 * float((pulled & brl_m).sum()) / bbe
+                pull_air = 100.0 * float((pulled & air_m).sum()) / bbe
+    return [
+        n,
+        _r(100.0 * n / total_pitches, 1) if total_pitches else None,
+        bbe,
+        _r(hits / ab, 3) if ab else None,
+        _r(woba, 3),
+        _r(tb / ab, 3) if ab else None,
+        _r(tb / ab - hits / ab, 3) if ab else None,
+        hr,
+        _r(100.0 * bb / pa, 1) if pa else None,
+        _r(100.0 * whiffs / swings, 1) if swings else None,
+        _r(100.0 * k / pa, 1) if pa else None,
+        _r(100.0 * k / two_strike, 1) if two_strike else None,
+        _r(100.0 * whiffs / n, 1),
+        _r(velo, 1), _r(ev, 1), _r(la, 1),
+        _r(barrel, 1), _r(hh, 1), _r(pull_brl, 1), _r(pull_air, 1),
+        _r(fb, 1), _r(ld, 1), _r(gb, 1),
+    ]
+
+
+def _pitch_tables(df, ids, id_col, split_col, min_pitches=25):
+    """Shared engine: per entity, per opponent handedness, per pitch type -> full stat line."""
+    need = {id_col, "pitch_type", split_col, "description", "events"}
+    if df is None or df.empty or not need.issubset(df.columns):
+        return {}
+    d = df[df["pitch_type"].notna() & df[split_col].notna()]
+    if d.empty:
+        return {}
+    wanted = {int(i) for i in ids if i is not None}
+    out = {}
+    for eid, g in d.groupby(id_col):
+        if int(eid) not in wanted:
+            continue
+        hands = {}
+        for hand, gh in g.groupby(split_col):
+            if str(hand) not in ("R", "L"):
+                continue
+            tot = len(gh)
+            if tot < 80:
+                continue
+            byp = {}
+            for pt, gp in gh.groupby("pitch_type"):
+                if len(gp) < min_pitches:
+                    continue
+                line = _pitch_line(gp, tot)
+                if line:
+                    byp[str(pt)] = line
+            if byp:
+                hands[str(hand)] = byp
+        if hands:
+            out[int(eid)] = hands
+    return out
+
+
+def batter_pitch_tables(df, batter_ids, min_pitches=25) -> dict:
+    """Each hitter's full stat line by pitch type, split by the PITCHER's hand — the
+    'Willi Castro vs RHP / vs LHP' table. {bid: {"R": {pitch: [...]}, "L": {...}}}"""
+    return _pitch_tables(df, batter_ids, "batter", "p_throws", min_pitches)
+
+
+def pitcher_pitch_tables(df, pitcher_ids, min_pitches=25) -> dict:
+    """Each arm's full stat line by pitch type, split by the BATTER's hand — the
+    'Michael Wacha vs LHB / vs RHB' table. {pid: {"R": {pitch: [...]}, "L": {...}}}"""
+    return _pitch_tables(df, pitcher_ids, "pitcher", "stand", min_pitches)
+
+
+def pitch_history(df, pitcher_ids, max_starts: int = 15) -> dict:
+    """Pitch usage per start, so you can see an arsenal actually shifting over the season —
+    a pitcher who has doubled his slider usage in the last month is a different pitcher than
+    his season line says. Split by batter hand as well as overall.
+    {pid: {"all": [{"d": "MM-DD", "mix": {pt: pct}}, ...], "R": [...], "L": [...]}}"""
+    need = {"pitcher", "pitch_type", "game_date", "game_pk"}
+    if df is None or df.empty or not need.issubset(df.columns):
+        return {}
+    d = df[df["pitch_type"].notna()]
+    if d.empty:
+        return {}
+    wanted = {int(p) for p in pitcher_ids if p is not None}
+    out = {}
+    for pid, g in d.groupby("pitcher"):
+        if int(pid) not in wanted:
+            continue
+        entry = {}
+        for key, gh in (("all", g), ("R", g[g.get("stand") == "R"] if "stand" in g else g.iloc[0:0]),
+                        ("L", g[g.get("stand") == "L"] if "stand" in g else g.iloc[0:0])):
+            if gh is None or gh.empty:
+                continue
+            starts = []
+            for (gd, _gp), gg in gh.groupby(["game_date", "game_pk"], sort=True):
+                tot = len(gg)
+                if tot < 20:                       # a relief cameo isn't a "start"
+                    continue
+                vc = gg["pitch_type"].value_counts()
+                mix = {str(pt): round(100.0 * int(c) / tot, 1) for pt, c in vc.items()
+                       if 100.0 * int(c) / tot >= 1.0}
+                starts.append({"d": str(gd)[5:10], "mix": mix})
+            if starts:
+                entry[key] = starts[-max_starts:]
+        if entry:
+            out[int(pid)] = entry
+    return out
+
+
+def team_k_splits(df) -> dict:
+    """How strikeout-prone each lineup is, by context — season, last 15/30 days, home/away, and
+    vs each pitcher hand — with a 1-30 league rank on every split (1 = whiffs least, 30 = most).
+    This is the missing context for a strikeout prop: an arm's K upside is as much about who he's
+    facing, and where, as it is about him. {TEAM: {split: {"k": n, "pct": x, "rank": r}}}"""
+    need = {"events", "inning_topbot", "home_team", "away_team", "game_date", "p_throws"}
+    if df is None or df.empty or not need.issubset(df.columns):
+        return {}
+    d = df[df["events"].notna()].copy()
+    d = d[d["events"].isin(PA_EVENTS)]
+    if d.empty:
+        return {}
+    topbot = d["inning_topbot"].astype(str)
+    # the batting team is away in the top half, home in the bottom
+    d["_team"] = np.where(topbot.str.startswith("Top"), d["away_team"], d["home_team"])
+    d["_home"] = ~topbot.str.startswith("Top")
+    d["_k"] = d["events"].isin({"strikeout", "strikeout_double_play"})
+    dates = pd.to_datetime(d["game_date"], errors="coerce")
+    last = dates.max()
+    d["_l15"] = dates >= (last - pd.Timedelta(days=15))
+    d["_l30"] = dates >= (last - pd.Timedelta(days=30))
+    slices = {
+        "season": lambda x: x,
+        "l15":    lambda x: x[x["_l15"]],
+        "l30":    lambda x: x[x["_l30"]],
+        "home":   lambda x: x[x["_home"]],
+        "away":   lambda x: x[~x["_home"]],
+        "vs_rhp": lambda x: x[x["p_throws"] == "R"],
+        "vs_lhp": lambda x: x[x["p_throws"] == "L"],
+    }
+    out = {}
+    for name, fn in slices.items():
+        sl = fn(d)
+        if sl.empty:
+            continue
+        agg = sl.groupby("_team").agg(k=("_k", "sum"), pa=("_k", "size"))
+        agg = agg[agg["pa"] >= 50]
+        if agg.empty:
+            continue
+        agg["pct"] = 100.0 * agg["k"] / agg["pa"]
+        agg["rank"] = agg["pct"].rank(method="min").astype(int)
+        for team, row in agg.iterrows():
+            out.setdefault(str(team), {})[name] = {
+                "k": int(row["k"]), "pct": round(float(row["pct"]), 1), "rank": int(row["rank"]),
+            }
     return out
 
 
