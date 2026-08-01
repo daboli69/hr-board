@@ -1457,35 +1457,28 @@ def build(date_str: str | None = None) -> dict:
                             "meatball_zones": pe.get("meatball_zones"),  # for the amber-dot map
                         }
 
-            # ---- SIGNAL CONVERGENCE: how many INDEPENDENT reads point at this hitter tonight.
-            # Deliberately weighted by what the backtest actually measured, not by gut feel:
-            # `pow` has shown ~+76% lift and `lock` ~+36%, while `due` (+1%) and `cool` (-2%)
-            # have shown none — so those two are excluded outright rather than padding a count.
-            # Signals split into MEASURED (validated by the backtest) and PROVISIONAL (the newer
-            # zone/arsenal/environment reads, which are hypotheses until they're graded). They're
-            # reported separately so a hitter can never look "5-signal strong" on unvalidated
-            # evidence alone. This is a parallel lens — it never feeds the frozen heat model.
+            # ---- SIGNAL CONVERGENCE, per prop type ----
+            # Weighted by what the backtest ACTUALLY measured for each prop, which differs a lot:
+            # the HR heat bands separate hard (+47/+30/+14%), but 1+hit is only +11% at the very
+            # top and flat below it. So a band only counts as a "measured signal" for a prop where
+            # it showed real lift — otherwise convergence would just be counting noise.
+            # Badge lift (POW +76%, LOCK +36%) was measured against HR outcomes only, so badges
+            # count as measured for HR and stay provisional everywhere else. DUE (+1%) and COOL
+            # (-2%) are excluded from every prop. Parallel lens; never feeds any heat model.
             try:
-                _HEAT_LIFT = ((70, 47), (55, 30), (40, 14))       # measured lift by heat band
-                _BADGE_LIFT = {"pow": 76, "lock": 36}             # measured; due/cool excluded
+                _LIFT = {
+                    "hr":  [(70, 47), (55, 30), (40, 14)],
+                    "hit": [(70, 11)],
+                    "hrr": [(70, 13)],
+                }
+                _HEAT_KEY = {"hr": "heat", "hit": "hit_heat", "hrr": "hrr_heat"}
                 for _p in players:
-                    _meas, _prov = [], []
-                    _h = _p.get("heat")
-                    if _h is not None:
-                        for _cut, _lift in _HEAT_LIFT:
-                            if _h >= _cut:
-                                _meas.append({"k": "heat", "lab": f"Heat {int(_h)}", "lift": _lift})
-                                break
                     _bset = {str(b).lower() for b in (_p.get("badges") or [])}
-                    for _bk, _bl in _BADGE_LIFT.items():
-                        if _bk in _bset:
-                            _meas.append({"k": _bk, "lab": _bk.upper(), "lift": _bl})
-                    # provisional: location matchup
+                    # shared provisional reads (same matchup context for every prop)
+                    _shared = []
                     _ze = ((_p.get("features") or {}).get("zone_profile") or {}).get("zone_edge") or {}
                     if _ze.get("edge_score") is not None and _ze["edge_score"] >= 62:
-                        _prov.append({"k": "zone", "lab": f"Zone {int(_ze['edge_score'])}",
-                                      "lift": None, "n": _ze.get("hot_in_top")})
-                    # provisional: does he punish the pitches this arm actually throws?
+                        _shared.append({"k": "zone", "lab": f"Zone {int(_ze['edge_score'])}"})
                     _fit = None
                     try:
                         _arm = (_p.get("opp_pitcher") or {}).get("id")
@@ -1498,29 +1491,68 @@ def build(date_str: str | None = None) -> dict:
                             _num = _den = 0.0
                             for _pt, _pct, _n in _ars:
                                 _v = _vp.get(_pt)
-                                if _v and _v[4]:                  # bbe > 0
-                                    _num += _pct * (100.0 * _v[7] / _v[4])   # barrel% vs that pitch
-                                    _den += _pct
+                                if _v and _v[4]:
+                                    _num += _pct * (100.0 * _v[7] / _v[4]); _den += _pct
                             if _den > 0:
                                 _fit = round(_num / _den, 1)
                     except Exception:
                         _fit = None
                     if _fit is not None:
                         _p["arsenal_fit"] = _fit
-                        if _fit >= 9.0:                            # ~league-average barrel is ~7-8%
-                            _prov.append({"k": "arsenal", "lab": f"Arsenal {_fit}%", "lift": None})
-                    # provisional: vulnerable opposing arm
+                        if _fit >= 9.0:
+                            _shared.append({"k": "arsenal", "lab": f"Arsenal {_fit}%"})
                     _as = (_p.get("opp_pitcher") or {}).get("hr_score")
                     if _as is not None and _as >= 60:
-                        _prov.append({"k": "arm", "lab": f"Arm {int(_as)}", "lift": None})
-                    # provisional: environment
+                        _shared.append({"k": "arm", "lab": f"Arm {int(_as)}"})
                     _pf = _p.get("park_hr_factor")
                     if _pf is not None and _pf >= 1.05:
-                        _prov.append({"k": "park", "lab": f"Park {_pf:.2f}x", "lift": None})
-                    _p["converge"] = {
+                        _shared.append({"k": "park", "lab": f"Park {_pf:.2f}x"})
+                    _conv = {}
+                    for _prop, _bands in _LIFT.items():
+                        _h = _p.get(_HEAT_KEY[_prop])
+                        _meas, _prov = [], list(_shared)
+                        if _h is not None:
+                            for _cut, _lift in _bands:
+                                if _h >= _cut:
+                                    _meas.append({"k": "heat", "lab": f"Heat {int(_h)}", "lift": _lift})
+                                    break
+                        for _bk, _bl in (("pow", 76), ("lock", 36)):
+                            if _bk in _bset:
+                                if _prop == "hr":
+                                    _meas.append({"k": _bk, "lab": _bk.upper(), "lift": _bl})
+                                else:
+                                    _prov.append({"k": _bk, "lab": _bk.upper()})
+                        _conv[_prop] = {
+                            "measured": _meas, "provisional": _prov,
+                            "n_measured": len(_meas), "n_provisional": len(_prov),
+                            "lift": sum(m["lift"] for m in _meas),
+                        }
+                    _p["converge"] = _conv
+                # ---- pitchers: strikeout convergence ----
+                for _a in pitcher_props:
+                    _meas, _prov = [], []
+                    _kh = _a.get("k_heat")
+                    if _kh is not None:
+                        for _cut, _lift in ((70, 28), (55, 10)):
+                            if _kh >= _cut:
+                                _meas.append({"k": "heat", "lab": f"K-heat {int(_kh)}", "lift": _lift})
+                                break
+                    _sw = _a.get("swstr_pct")
+                    if _sw is not None and _sw >= 13:
+                        _prov.append({"k": "swstr", "lab": f"SwStr {_sw}%"})
+                    _ol = _a.get("opp_lineup_k_pct")
+                    if _ol is not None and _ol >= 23:
+                        _prov.append({"k": "lineup", "lab": f"Lineup K {_ol}%"})
+                    try:
+                        _tk = (team_ks.get(_a.get("opp_team")) or {}).get("season") or {}
+                        if _tk.get("rank") and _tk["rank"] >= 20:
+                            _prov.append({"k": "krank", "lab": f"K-rank {_tk['rank']}/30"})
+                    except Exception:
+                        pass
+                    _a["converge"] = {
                         "measured": _meas, "provisional": _prov,
                         "n_measured": len(_meas), "n_provisional": len(_prov),
-                        "lift": sum(m["lift"] for m in _meas),   # summed MEASURED lift only
+                        "lift": sum(m["lift"] for m in _meas),
                     }
             except Exception as _e:
                 print(f"[build] convergence scoring skipped (non-fatal): {_e}")

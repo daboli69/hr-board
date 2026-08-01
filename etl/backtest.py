@@ -141,12 +141,36 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str) -> dict:
     # ---- NEW-SIGNAL replay: compute the ZONE signal AS OF this date from `past` only (no
     # leakage), so the backtest can prove or kill the newer edges the way it validates heat.
     _meat_by_sp = {}
+    _grid_by_sp = {}      # (pid, batter_hand) -> zone usage grid
+    _ars_by_sp = {}       # (pid, batter_hand) -> [(pitch_type, usage_pct), ...]
+    _throws_by_sp = {}
     try:
         from etl import features as _F
         for pid in sp_ids:
             _prows = past[past["pitcher"] == pid]
-            if len(_prows) >= 150:
-                _meat_by_sp[pid] = _F.pitcher_zone_damage(_prows)
+            if len(_prows) < 150:
+                continue
+            _meat_by_sp[pid] = _F.pitcher_zone_damage(_prows)
+            if "p_throws" in _prows.columns and len(_prows):
+                _tv = _prows["p_throws"].dropna()
+                if len(_tv):
+                    _throws_by_sp[pid] = str(_tv.iloc[0])
+            for _h in ("R", "L"):
+                try:
+                    _g = _F.pitcher_zone_grid(_prows, hand=_h)
+                    if _g and _g.get("n", 0) >= 150:
+                        _grid_by_sp[(pid, _h)] = _g
+                except Exception:
+                    pass
+                try:
+                    _ph = _prows[_prows["stand"] == _h] if "stand" in _prows.columns else None
+                    if _ph is not None and len(_ph) >= 150 and "pitch_type" in _ph.columns:
+                        _vc = _ph["pitch_type"].value_counts()
+                        _tot = int(_vc.sum())
+                        _ars_by_sp[(pid, _h)] = [(str(k), 100.0 * int(v) / _tot)
+                                                 for k, v in _vc.items() if int(v) >= 15]
+                except Exception:
+                    pass
     except Exception:
         _meat_by_sp = {}
     for bid in batters:
@@ -203,7 +227,54 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str) -> dict:
                     _hrpow = _hp.get("barrel_pct")
         except Exception:
             pass
+        # ---- zone edge + arsenal fit + convergence, all as-of `past` ----
+        _zedge = None; _afit = None; _nm = _nmh = _np = 0
+        try:
+            _sp = face.get(bid)
+            _bh = None
+            _bs = past[past["batter"] == bid]["stand"].dropna() if "stand" in past.columns else None
+            if _bs is not None and len(_bs):
+                _bh = str(_bs.iloc[0])
+            if _bh == "S":
+                _bh = "L" if _throws_by_sp.get(_sp) == "R" else "R"
+            _brows2 = past[past["batter"] == bid]
+            if _sp and _bh and len(_brows2) >= 80:
+                _bz = _F.batter_zone_damage(_brows2)
+                _g = _grid_by_sp.get((_sp, _bh))
+                if _bz and _g:
+                    _ze = _F.zone_matchup_edges(_bz, _g)
+                    if _ze:
+                        _zedge = _ze.get("edge_score")
+                # arsenal fit: his barrel rate on the pitches this arm actually throws him
+                _ars = _ars_by_sp.get((_sp, _bh))
+                if _ars and "pitch_type" in _brows2.columns:
+                    _bb = _brows2[_brows2["bb_type"].notna()] if "bb_type" in _brows2 else None
+                    if _bb is not None and len(_bb) >= 30:
+                        _num = _den = 0.0
+                        for _pt, _pct in _ars:
+                            _sub = _bb[_bb["pitch_type"] == _pt]
+                            if len(_sub) >= 5 and "launch_speed_angle" in _sub.columns:
+                                _br = 100.0 * float((_sub["launch_speed_angle"] == 6).sum()) / len(_sub)
+                                _num += _pct * _br; _den += _pct
+                        if _den > 0:
+                            _afit = round(_num / _den, 1)
+            # convergence, using only the badges the backtest itself has validated
+            _bset = {str(b).lower() for b in badge_keys}
+            _nmh = (1 if heat >= 40 else 0)                 # HR heat band as a measured signal
+            _nm = (1 if "pow" in _bset else 0) + (1 if "lock" in _bset else 0)
+            # hit / HRR use their OWN heat models, and only the bands that actually showed lift
+            # (70+ only: +11% for 1+hit, +13% for HRR — the middle bands were flat).
+            _cv_hit = (1 if (hh is not None and hh >= 70) else 0)
+            _cv_hrr = (1 if (hr_h is not None and hr_h >= 70) else 0)
+            _np = ((1 if (_zedge is not None and _zedge >= 62) else 0)
+                   + (1 if (_afit is not None and _afit >= 9.0) else 0)
+                   + (1 if (phr.get(face.get(bid)) or 0) >= 60 else 0))
+        except Exception:
+            pass
         out[bid] = {
+            "zone_edge": _zedge, "arsenal_fit": _afit,
+            "cv_meas": _nm + _nmh, "cv_meas_noheat": _nm, "cv_prov": _np,
+            "cv_hit": _cv_hit, "cv_hrr": _cv_hrr,
             "heat": float(heat), "hr": bid in hr_today,
             "hit_heat": float(hh) if hh is not None else None,
             "hrr_heat": float(hr_h) if hr_h is not None else None,
@@ -225,6 +296,11 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
     dates = [d for d in all_dates[WARMUP_DAYS:] if (not start or d >= start) and (not end or d <= end)]
     by_tier = {name: {"n": 0, "hr": 0} for name, _, _ in TIERS}
     by_badge = {}   # badge_key -> {n, hr}: HR rate for hitters carrying each badge
+    # convergence graded against EACH prop's own outcome, not the HR outcome
+    by_conv = {}    # prop -> bucket -> {n, hit}
+    def _conv_tally(prop, bucket, ok):
+        d = by_conv.setdefault(prop, {}).setdefault(bucket, {"n": 0, "hit": 0})
+        d["n"] += 1; d["hit"] += 1 if ok else 0
     top_n = {"5": {"n": 0, "hr": 0}, "10": {"n": 0, "hr": 0}, "25": {"n": 0, "hr": 0}}
     calib = {}
     n_tot = hr_tot = 0
@@ -276,6 +352,24 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
             if _z is not None:
                 _edge("zone", "5+ premium" if _z >= 5 else "3-4 viable" if _z >= 3
                       else "1-2 thin" if _z >= 1 else "0 none", hit)
+            # ---- the newer reads, bucketed so they can be proven or killed ----
+            _ze = r.get("zone_edge")
+            if _ze is not None:
+                _edge("zone_edge", "70+ strong" if _ze >= 70 else "62-69 good" if _ze >= 62
+                      else "50-61 avg" if _ze >= 50 else "<50 weak", hit)
+            _af = r.get("arsenal_fit")
+            if _af is not None:
+                _edge("arsenal_fit", "11+ punishes" if _af >= 11 else "9-10.9 good" if _af >= 9
+                      else "7-8.9 avg" if _af >= 7 else "<7 weak", hit)
+            _cm = r.get("cv_meas")
+            if _cm is not None:
+                _edge("converge", f"{min(int(_cm),3)}{'+' if int(_cm)>=3 else ''} measured", hit)
+            _cn = r.get("cv_meas_noheat")
+            if _cn is not None:
+                _edge("converge_noheat", f"{min(int(_cn),2)}{'+' if int(_cn)>=2 else ''} measured", hit)
+            _cp = r.get("cv_prov")
+            if _cp is not None:
+                _edge("converge_prov", f"{min(int(_cp),3)}{'+' if int(_cp)>=3 else ''} provisional", hit)
             _sq = r.get("square_up")
             if _sq is not None:
                 _edge("square_up", "75+ elite" if _sq >= 75 else "60-74 strong" if _sq >= 60
@@ -296,6 +390,10 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
             P["hit1"][tier]["n"] += 1; P["hit1"][tier]["hit"] += 1 if got1 else 0
             P["hit2"][tier]["n"] += 1; P["hit2"][tier]["hit"] += 1 if got2 else 0
             hit_n += 1; hit1_tot += 1 if got1 else 0; hit2_tot += 1 if got2 else 0
+            _cvh = r.get("cv_hit")
+            if _cvh is not None:
+                _conv_tally("hit1", f"{_cvh} measured", got1)
+                _conv_tally("hit2", f"{_cvh} measured", got2)
             for k in ("5", "10", "25"):
                 if i < int(k):
                     p_top["hit1"][k]["n"] += 1; p_top["hit1"][k]["hit"] += 1 if got1 else 0
@@ -306,6 +404,9 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
             tier = _tier(r["hrr_heat"])
             got = r["hrr"] >= 2
             P["hrr"][tier]["n"] += 1; P["hrr"][tier]["hit"] += 1 if got else 0
+            _cvr = r.get("cv_hrr")
+            if _cvr is not None:
+                _conv_tally("hrr", f"{_cvr} measured", got)
             hrr_n += 1; hrr2_tot += 1 if got else 0
             for k in ("5", "10", "25"):
                 if i < int(k):
@@ -337,6 +438,7 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
         "base_pct": round(100 * hr_tot / n_tot, 2) if n_tot else None,
         "by_tier": by_tier, "top_n": top_n, "by_edge": by_edge,
         "by_badge": _badge_lift(by_badge, hr_tot / n_tot if n_tot else 0),
+        "by_converge_prop": by_conv,   # convergence graded per prop, on that prop's outcome
         "calib": {k: calib[k] for k in sorted(calib, key=int)},
         "props": {
             "hit1": {"by_tier": P["hit1"], "top_n": p_top["hit1"],
