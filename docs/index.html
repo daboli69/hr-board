@@ -44,6 +44,30 @@
   .faq-item[open] summary .faq-cv{transform:rotate(90deg)}
   .faq-body{padding:0 14px 14px;font-size:12.5px;color:var(--muted);line-height:1.6}
   .faq-body b{color:var(--ink)}
+  /* arm heat map (Vulnerable Arms) */
+  .eh-ctl{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px}
+  .eh-st,.eh-hd{font-family:"IBM Plex Mono";font-size:10px;font-weight:600;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:5px 10px;cursor:pointer}
+  .eh-st.on{background:var(--seam-glow);border-color:var(--seam);color:var(--seam)}
+  .eh-hd.on{background:var(--seam);border-color:var(--seam);color:#12140f}
+  .eh-hands{margin-bottom:10px}
+  .eh-mix{display:flex;flex-wrap:wrap;gap:8px;font-family:"IBM Plex Mono";font-size:10px;color:var(--muted);margin-bottom:10px}
+  .eh-mix b{color:var(--ink)}
+  .eh-board{position:relative;max-width:300px;margin:0 auto}
+  .eh-outer{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:2px;aspect-ratio:1}
+  .eh-inner{position:absolute;top:22%;left:22%;width:56%;height:56%;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:2px}
+  .eh-cell{border:1px solid var(--line);border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;overflow:hidden}
+  .eh-z{position:absolute;top:2px;left:3px;font-family:"IBM Plex Mono";font-size:7px;color:var(--faint)}
+  .eh-v{font-family:"IBM Plex Mono";font-weight:700;font-size:12px;color:var(--ink)}
+  .eh-inner .eh-v{font-size:13px}
+  .eh-hr{font-family:"IBM Plex Mono";font-size:9px;font-weight:700;color:var(--gold,#E8C15A)}
+  .eh-hr i{font-style:normal;font-size:6px;margin-left:1px;opacity:.8}
+  .eh-m{position:absolute;top:2px;right:3px;font-family:"IBM Plex Mono";font-size:7px;font-weight:800;color:var(--warm)}
+  .eh-meat{box-shadow:inset 0 0 0 1px rgba(224,160,72,.5)}
+  .eh-ov{box-shadow:inset 0 0 0 2px var(--gold,#E8C15A)}
+  .eh-legend{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:center;margin-top:9px;font-family:"IBM Plex Mono";font-size:9px;color:var(--muted)}
+  .eh-lk{width:10px;height:10px;border-radius:2px;background:var(--panel-2);display:inline-block;margin-right:3px}
+  .eh-lk.eh-ov{box-shadow:inset 0 0 0 2px var(--gold,#E8C15A)}
+  .eh-lk.eh-meat{box-shadow:inset 0 0 0 1px rgba(224,160,72,.6)}
   /* signal convergence */
   .cv-wrap{max-width:760px;margin:0 auto}
   .cv-key{display:flex;gap:8px;margin:10px 0 12px;flex-wrap:wrap}
@@ -5179,62 +5203,93 @@ function renderEdges(){
 //  - batter mode (a hitter selected): cells colored by THAT hitter's xwOBA, with a ◆ on zones he
 //    crushes that the pitcher also throws to (the danger overlap), ● on zones he crushes elsewhere.
 // Every cell is labeled with its zone number so "crushes zone 8" is locatable.
-function zoneHeatmap(grid, batter, meatballs){
-  if(!grid) return "";
-  // meatball set = the pitcher's most-damaged cells (same definition the ZONE badge uses)
-  const meatSet=new Set();
-  if(meatballs){
-    const ranked=Object.entries(meatballs)
-      .map(([z,v])=>[z, (v&&v.xwobacon!=null)?v.xwobacon:null])
-      .filter(([,x])=>x!=null && x>=0.370)
-      .sort((a,b)=>b[1]-a[1]).slice(0,4);
-    ranked.forEach(([z])=>meatSet.add(String(z)));
+// Arm heat map — now the full 13-cell Statcast zone (1-9 in the strike zone, 11-14 the chase
+// quadrants that are roughly half of all pitches), split by batter handedness, with a stat
+// selector so the same board can show usage, damage allowed, or the batter's own power there.
+let ehStat="usage", ehHand="auto", _ehArm=null, _ehBat=null;
+const EH_STATS={
+  usage:  {label:"Usage %",       lo:0,   hi:18,   dec:1, suf:"%", src:"arm"},
+  xwoba:  {label:"xwOBA allowed", lo:.280,hi:.560, dec:3,            src:"arm"},
+  barrel: {label:"Barrel% allowed",lo:0,  hi:16,   dec:1, suf:"%",  src:"arm"},
+  bpower: {label:"Batter power",  lo:0,   hi:100,  dec:0,            src:"bat"},
+  bhr:    {label:"Batter HRs",    lo:0,   hi:4,    dec:0,            src:"bat"},
+  bxw:    {label:"Batter xwOBAcon",lo:.280,hi:.650,dec:3,            src:"bat"},
+};
+function setEhStat(k){ ehStat=k; _ehRedraw(); }
+function setEhHand(h){ ehHand=h; _ehRedraw(); }
+function _ehRedraw(){
+  const host=document.getElementById("ehHost");
+  if(host&&_ehArm) host.innerHTML=zoneHeatmapInner(_ehArm,_ehBat);
+}
+function _ehVal(arm,bat,z,meatSet){
+  const zk=String(z), S=EH_STATS[ehStat];
+  if(S.src==="bat"){
+    if(!bat) return null;
+    if(ehStat==="bhr")  return (bat.hr_zones&&bat.hr_zones[zk])||0;
+    const zd=(bat.zone_dmg||{})[zk]; if(!zd) return null;
+    if(ehStat==="bxw")  return zd.xw!=null?zd.xw:null;
+    return zd.pw!=null?zd.pw:null;                 // batter power score
   }
-  const cells=[];
-  for(let z=1;z<=9;z++){
-    const zk=String(z);
-    const u=grid[zk]||0;                       // pitcher usage in this cell
-    // pitcher usage badge — shown in BOTH modes so you always see how often he throws here
-    const usePct=Math.round(u*100);
-    const useBadge=`<span class="zc-use" title="how often ${'this pitcher'} throws here">P ${usePct}%</span>`;
-    let bg, mark="", label=`<span class="zc-lbl">${z}</span>`, sub="";
-    if(batter && (batter.hr_zones || batter.zone_dmg)){
-      // BATTER MODE: the ZONE signal is HOME RUNS. Lead with his HR count in this cell; color by
-      // whether it's an overlap (HR + meatball), and keep xwOBA as small secondary context.
-      const nHR=(batter.hr_zones&&batter.hr_zones[zk])||0;
-      const isMeat=meatSet.has(zk);
-      const zd=(batter.zone_dmg||{})[zk];
-      const xw=zd?zd.xw:null, brl=zd?zd.brl:null;
-      if(nHR && isMeat){
-        bg="#F5A623";                                      // amber = the overlap that matters
-        sub=`<span class="zc-hrn dark">${nHR}<i>HR</i></span>`;
-        mark='<span class="zc-star danger">◆</span>';
-      }else if(nHR){
-        bg="rgba(214,110,90,.42)";
-        sub=`<span class="zc-hrn">${nHR}<i>HR</i></span>`;
-        mark='<span class="zc-star">●</span>';
-      }else if(isMeat){
-        bg="rgba(214,110,90,.12)";
-        sub=`<span class="zc-hrn muted">0<i>HR</i></span>`;
-      }else{
-        bg="var(--panel-2)";
-        sub=`<span class="zc-hrn muted">–</span>`;
-      }
-      const ctx=[];
-      if(xw!=null) ctx.push(xw.toFixed(3).replace(/^0/,""));
-      if(brl!=null) ctx.push(`${Math.round(brl)}%b`);
-      if(ctx.length) sub+=`<span class="zc-pow">${ctx.join(" · ")}</span>`;
-      cells.push(`<div class="zc${nHR&&isMeat?' zc-amber':''}" style="background:${bg}" title="zone ${z}${nHR?` · ${nHR} HR here`:" · no HR here"}${isMeat?" · pitcher meatball":""}">${label}${useBadge}${sub}${mark}</div>`);
-    }else{
-      // PITCHER MODE: color by where he lives; usage is the main number
-      const intensity=Math.min(1, u/0.20);
-      bg=`rgba(214,110,90,${(intensity*0.7).toFixed(2)})`;
-      const isMeat=meatSet.has(zk);
-      sub=`<span class="zc-u">${usePct}%</span>`;
-      cells.push(`<div class="zc${isMeat?' zc-meat':''}" style="background:${bg}" title="zone ${z} · ${usePct}% of pitches${isMeat?' · MEATBALL (he gets hurt here)':''}">${label}${sub}${isMeat?'<span class="zc-mb">M</span>':''}</div>`);
-    }
+  const hand=_ehResolvedHand(arm,bat);
+  const grid=(hand==="R"&&arm.zone_grid_R)||(hand==="L"&&arm.zone_grid_L)||arm.zone_grid||{};
+  const dmg=(hand==="R"&&arm.meatball_R)||(hand==="L"&&arm.meatball_L)||arm.meatball_zones||{};
+  if(ehStat==="usage") return grid[zk]!=null?grid[zk]*100:null;
+  const d=dmg[zk]; if(!d) return null;
+  return ehStat==="xwoba" ? (d.xwobacon!=null?d.xwobacon:null)
+                          : (d.barrel_pct!=null?d.barrel_pct:null);
+}
+function _ehResolvedHand(arm,bat){
+  if(ehHand!=="auto") return ehHand;
+  if(bat&&bat.bats){ return bat.bats==="S" ? ((arm.throws==="R")?"L":"R") : bat.bats; }
+  return null;
+}
+function _ehMeatSet(arm,bat){
+  const hand=_ehResolvedHand(arm,bat);
+  const dmg=(hand==="R"&&arm.meatball_R)||(hand==="L"&&arm.meatball_L)||arm.meatball_zones||{};
+  const ranked=Object.entries(dmg).map(([z,v])=>[z,(v&&v.xwobacon!=null)?v.xwobacon:null])
+    .filter(([,x])=>x!=null&&x>=0.370).sort((a,b)=>b[1]-a[1]).slice(0,4);
+  return new Set(ranked.map(([z])=>String(z)));
+}
+function zoneHeatmapInner(arm,bat){
+  if(!arm) return "";
+  const S=EH_STATS[ehStat], meat=_ehMeatSet(arm,bat), hand=_ehResolvedHand(arm,bat);
+  const fmt=v=>v==null?"–":(S.dec===3?v.toFixed(3).replace(/^0/,""):v.toFixed(S.dec))+(S.suf||"");
+  const cell=z=>{
+    const zk=String(z), v=_ehVal(arm,bat,z,meat);
+    let t=v==null?null:(v-S.lo)/(S.hi-S.lo); if(t!=null) t=Math.max(0,Math.min(1,t));
+    const bg=t==null?"var(--panel-2)":`rgba(232,106,78,${(0.07+t*0.62).toFixed(2)})`;
+    const nHR=(bat&&bat.hr_zones&&bat.hr_zones[zk])||0;
+    const isMeat=meat.has(zk);
+    const overlap=nHR&&isMeat;
+    return `<div class="eh-cell${overlap?" eh-ov":""}${isMeat?" eh-meat":""}" style="background:${bg}"
+      title="Zone ${z}${hand?" · vs "+hand+"HB":""} · ${S.label} ${fmt(v)}${isMeat?" · MEATBALL":""}${nHR?` · ${nHR} HR here`:""}">
+      <span class="eh-z">Z${z}</span><span class="eh-v">${fmt(v)}</span>
+      ${nHR?`<span class="eh-hr">${nHR}<i>HR</i></span>`:""}${isMeat?`<span class="eh-m">M</span>`:""}</div>`;
+  };
+  const board=`<div class="eh-board">
+      <div class="eh-outer">${[11,12,13,14].map(cell).join("")}</div>
+      <div class="eh-inner">${[1,2,3,4,5,6,7,8,9].map(cell).join("")}</div>
+    </div>`;
+  const stats=Object.entries(EH_STATS).filter(([k,v])=>v.src!=="bat"||bat)
+    .map(([k,v])=>`<button class="eh-st${k===ehStat?" on":""}" onclick="setEhStat('${k}')">${v.label}</button>`).join("");
+  const hands=[["auto",bat?"Auto":"All"],["R","vs RHB"],["L","vs LHB"]]
+    .map(([v,l])=>`<button class="eh-hd${ehHand===v?" on":""}" onclick="setEhHand('${v}')">${l}</button>`).join("");
+  // the arsenal he actually throws that side
+  let mix="";
+  const ah=arm.arsenal_hand&&hand?arm.arsenal_hand[hand]:null;
+  if(ah&&ah.length){
+    mix=`<div class="eh-mix">${ah.slice(0,6).map(([pt,pct])=>`<span>${_ptName(pt)} <b>${pct}%</b></span>`).join("")}</div>`;
   }
-  return `<div class="zone-grid">${cells.join("")}</div>`;
+  return `<div class="eh-ctl">${stats}</div><div class="eh-ctl eh-hands">${hands}</div>
+    ${mix}${board}
+    <div class="eh-legend"><span class="eh-lk eh-ov"></span>HR + meatball overlap <span class="eh-lk eh-meat"></span>meatball cell <span class="eh-lk"></span>intensity = ${S.label.toLowerCase()}</div>
+    <div class="zd-note">Catcher's view. Inner nine are the strike zone; the four corners are the chase quadrants (Z11–Z14) — about half of all pitches, and where a lot of damage actually lives. ${hand?`Showing his usage and damage <b>vs ${hand}HB</b>`:`Showing his overall profile — pick a side to see how he changes`}.</div>`;
+}
+function zoneHeatmap(grid, batter, meatballs, arm){
+  // back-compat: older callers pass (grid, batter, meatballs); prefer the full arm record.
+  const a=arm||{zone_grid:grid, meatball_zones:meatballs};
+  _ehArm=a; _ehBat=batter||null;
+  return `<div id="ehHost">${zoneHeatmapInner(a,batter||null)}</div>`;
 }
 
 function edgesDrilldown(p){
@@ -5398,7 +5453,7 @@ function edgesDrilldown(p){
     })()}
     ${fatLine}
     <div class="edge-dd-zone-h">${mapHeader}</div>
-    ${zoneHeatmap(g, sel, p.meatball_zones)}
+    ${zoneHeatmap(g, sel, p.meatball_zones, p)}
     <div class="edge-dd-zk"><span>catcher's view · zones 1-3 up, 4-6 middle, 7-9 down${sel?` · <a onclick="edgesBatter=null;renderEdges()" style="color:var(--seam);cursor:pointer">show pitcher's zones</a>`:""}</span></div>
     <div class="edge-dd-bh">Batters who punish his zones <span>tap one to light up his zones on the map above</span></div>
     ${batRows||'<div class="empty" style="padding:16px">No batter zone data for this arm yet.</div>'}
