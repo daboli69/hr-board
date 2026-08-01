@@ -1414,6 +1414,22 @@ def build(date_str: str | None = None) -> dict:
                     except Exception:
                         _hot_spots = []
 
+                    # per-hand zone usage + damage-allowed, computed from this arm's own rows
+                    _zgrid_hand, _pzd_hand = {}, {}
+                    try:
+                        for _h in ("R", "L"):
+                            _rh = arows[arows["stand"] == _h] if "stand" in arows.columns else None
+                            if _rh is None or len(_rh) < 150:
+                                continue
+                            _g = features.pitcher_zone_grid(_rh, hand=_h)
+                            if _g:
+                                _zgrid_hand[_h] = _g
+                            _d = features.pitcher_zone_damage(_rh)
+                            if _d:
+                                _pzd_hand[_h] = _d
+                    except Exception:
+                        _zgrid_hand, _pzd_hand = {}, {}
+
                     pitcher_edges.append({
                         "id": pid, "name": meta.get("name") or f"#{pid}",
                         "team": g["home"] if p_side == "home" else g["away"],
@@ -1421,6 +1437,14 @@ def build(date_str: str | None = None) -> dict:
                         "game_pk": g["game_pk"], "time": g["time"], "park": g["park"],
                         "throws": (hands.get(pid, {}) or {}).get("throws", ""),
                         "arsenal": ars, "zone_grid": zgrid,
+                        # per-hand usage grids (13 cells incl. the chase quadrants) + the pitch
+                        # mix he throws each side, so the heatmap can answer "where does he live
+                        # against THIS batter's side, and with what?"
+                        "zone_grid_R": _zgrid_hand.get("R"),
+                        "zone_grid_L": _zgrid_hand.get("L"),
+                        "meatball_R": _pzd_hand.get("R"),
+                        "meatball_L": _pzd_hand.get("L"),
+                        "arsenal_hand": (arsenals.get(int(pid)) if arsenals else None),
                         "meatball_zones": pzdmg,     # per-zone damage allowed (darkest = meatball)
                         "season": pstats.get(pid),   # ERA / WHIP / IP / HR allowed
                         "vuln": vuln,                # 0-100 HR vulnerability composite
@@ -1466,10 +1490,84 @@ def build(date_str: str | None = None) -> dict:
             # count as measured for HR and stay provisional everywhere else. DUE (+1%) and COOL
             # (-2%) are excluded from every prop. Parallel lens; never feeds any heat model.
             try:
+                # Lift is READ FROM THE LATEST BACKTEST, not hardcoded — so when you re-run the
+                # backtest, convergence re-weights itself automatically. A band only counts as a
+                # measured signal if it CURRENTLY shows real lift (>=8% over the pool base rate);
+                # if a re-run flattens a band, it silently stops counting instead of quietly
+                # asserting a number that's no longer true. Falls back to the last-known values
+                # only when a backtest file isn't present at all.
+                def _lift_bands(block, key="hit", min_lift=8.0):
+                    """[(heat_cut, lift_pct)] for bands that currently beat the base rate."""
+                    try:
+                        bt_ = (block or {}).get("by_tier") or {}
+                        tot_n = sum(v.get("n", 0) for v in bt_.values())
+                        tot_h = sum(v.get(key, 0) for v in bt_.values())
+                        if not tot_n or not tot_h:
+                            return None
+                        base = tot_h / tot_n
+                        cuts = {"70+": 70, "55-69": 55, "40-54": 40}
+                        out = []
+                        for tier, cut in cuts.items():
+                            v = bt_.get(tier) or {}
+                            if v.get("n", 0) < 150:
+                                continue
+                            rate = v.get(key, 0) / v["n"]
+                            lift = 100.0 * (rate / base - 1) if base else 0
+                            if lift >= min_lift:
+                                out.append((cut, int(round(lift))))
+                        return sorted(out, key=lambda x: -x[0]) or None
+                    except Exception:
+                        return None
+                _BT = {}
+                try:
+                    _btp = os.path.join(os.path.dirname(__file__), "..", "docs", "backtest.json")
+                    if os.path.exists(_btp):
+                        with open(_btp) as _f:
+                            _BT = json.load(_f) or {}
+                except Exception:
+                    _BT = {}
+                _props_bt = _BT.get("props") or {}
                 _LIFT = {
-                    "hr":  [(70, 47), (55, 30), (40, 14)],
-                    "hit": [(70, 11)],
-                    "hrr": [(70, 13)],
+                    "hr":  _lift_bands({"by_tier": _BT.get("by_tier")}, key="hr") or [(70, 47), (55, 30), (40, 14)],
+                    "hit": _lift_bands(_props_bt.get("hit1")) or [(70, 11)],
+                    "hrr": _lift_bands(_props_bt.get("hrr")) or [(70, 13)],
+                }
+                # badge lift, likewise read live from the backtest's measured table
+                _BADGES = {}
+                try:
+                    for _k, _v in (_BT.get("by_badge") or {}).items():
+                        _l = _v.get("lift")
+                        if _v.get("n", 0) >= 300 and _l and _l >= 1.15:
+                            _BADGES[str(_k).lower()] = int(round(100 * (_l - 1)))
+                except Exception:
+                    pass
+                if not _BADGES:
+                    _BADGES = {"pow": 76, "lock": 36}
+                # pitcher K bands, same treatment
+                _K_BANDS = None
+                try:
+                    _pk = (_props_bt.get("pk") or {}).get("by_tier") or {}
+                    _tn = sum(v.get("n", 0) for v in _pk.values())
+                    _tk = sum(v.get("total_ks", 0) for v in _pk.values())
+                    if _tn and _tk:
+                        _kbase = _tk / _tn
+                        _K_BANDS = []
+                        for _tier, _cut in (("70+", 70), ("55-69", 55)):
+                            _v = _pk.get(_tier) or {}
+                            if _v.get("n", 0) >= 150:
+                                _l = 100.0 * ((_v["total_ks"] / _v["n"]) / _kbase - 1)
+                                if _l >= 8:
+                                    _K_BANDS.append((_cut, int(round(_l))))
+                except Exception:
+                    _K_BANDS = None
+                if not _K_BANDS:
+                    _K_BANDS = [(70, 28), (55, 10)]
+                print(f"[build] convergence lift from backtest: hr={_LIFT['hr']} hit={_LIFT['hit']} "
+                      f"hrr={_LIFT['hrr']} badges={_BADGES} k={_K_BANDS}")
+                globals()["_CONVERGE_LIFT"] = {
+                    "hr": _LIFT["hr"], "hit": _LIFT["hit"], "hrr": _LIFT["hrr"],
+                    "badges": _BADGES, "k": _K_BANDS,
+                    "source": ("backtest" if _BT else "fallback"),
                 }
                 _HEAT_KEY = {"hr": "heat", "hit": "hit_heat", "hrr": "hrr_heat"}
                 for _p in players:
@@ -1516,7 +1614,7 @@ def build(date_str: str | None = None) -> dict:
                                 if _h >= _cut:
                                     _meas.append({"k": "heat", "lab": f"Heat {int(_h)}", "lift": _lift})
                                     break
-                        for _bk, _bl in (("pow", 76), ("lock", 36)):
+                        for _bk, _bl in _BADGES.items():
                             if _bk in _bset:
                                 if _prop == "hr":
                                     _meas.append({"k": _bk, "lab": _bk.upper(), "lift": _bl})
@@ -1533,7 +1631,7 @@ def build(date_str: str | None = None) -> dict:
                     _meas, _prov = [], []
                     _kh = _a.get("k_heat")
                     if _kh is not None:
-                        for _cut, _lift in ((70, 28), (55, 10)):
+                        for _cut, _lift in _K_BANDS:
                             if _kh >= _cut:
                                 _meas.append({"k": "heat", "lab": f"K-heat {int(_kh)}", "lift": _lift})
                                 break
@@ -1871,6 +1969,7 @@ def build(date_str: str | None = None) -> dict:
             "end": date_str,
         },
         "players": players,
+        "converge_lift": globals().get("_CONVERGE_LIFT"),   # lift convergence is CURRENTLY using
         "arsenals": arsenals,               # starter pitch usage % split by batter handedness
         "arm_tables": arm_tables,           # per-arm full BvP stat line by pitch type & batter hand
         "pitch_hist": pitch_hist,           # per-arm pitch usage per start (arsenal drift)
