@@ -92,6 +92,13 @@
   .cv-sigs{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
   .cv-sig{font-family:"IBM Plex Mono";font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;display:inline-flex;align-items:center;gap:3px}
   .cv-sig i{font-style:normal;font-weight:500;opacity:.75;font-size:8px}
+  .cv-sig b{font-weight:800;margin-left:3px;opacity:.8}
+  .cv-ev{margin-top:6px}
+  .cv-ev summary{font-family:"IBM Plex Mono";font-size:9.5px;color:var(--faint);cursor:pointer;list-style:none}
+  .cv-ev summary::-webkit-details-marker{display:none}
+  .cv-evr{display:flex;flex-wrap:wrap;gap:5px;align-items:baseline;padding:4px 0 2px}
+  .cv-evr>span{font-family:"IBM Plex Mono";font-size:9px;color:var(--seam);min-width:92px}
+  .cv-evr i{font-style:normal;font-size:10px;color:var(--muted);background:var(--panel-2);border-radius:4px;padding:1px 6px}
   .cv-sig.meas{background:var(--good-glow,rgba(127,180,145,.14));color:var(--good)}
   .cv-sig.prov{background:var(--panel-2);color:var(--muted);border:1px dashed var(--line-2)}
   .cv-r{flex:0 0 auto;text-align:center}
@@ -3235,7 +3242,7 @@ function pitchTableBlock(p){
 function _sigLabel(g){
   const m={zone:"Zone overlap", zone_edge:"Zone edge", arsenal_fit:"Arsenal fit",
     converge:"Convergence (with heat)", converge_noheat:"Convergence (no heat)",
-    converge_prov:"Convergence (provisional)", square_up:"Square Up", hr_power:"HR power",
+    converge_prov:"Convergence (provisional)", converge_families:"Convergence (all families)", square_up:"Square Up", hr_power:"HR power",
     grade:"Matchup grade", bomb:"Bomb Score", vuln:"Arm vulnerability"};
   return m[g] || (String(g).charAt(0).toUpperCase()+String(g).slice(1).replace(/_/g," "));
 }
@@ -3303,7 +3310,11 @@ function renderConverge(){
     return;
   }
   pool.sort((a,b)=>convergeVal(b)-convergeVal(a));
-  const chip=(s,cls)=>`<span class="cv-sig ${cls}">${s.lab}${s.lift?`<i>+${s.lift}%</i>`:""}</span>`;
+  const chip=(s,cls)=>{
+    const det=(s.detail&&s.detail.length)?s.detail.join(" · "):"";
+    const cnt=(s.n&&s.n>1)?`<b>${s.n}</b>`:"";
+    return `<span class="cv-sig ${cls}"${det?` title="${det.replace(/"/g,"&quot;")}"`:""}>${s.lab}${cnt}${s.lift?`<i>+${s.lift}%</i>`:""}</span>`;
+  };
   const rows=pool.slice(0,40).map((x,i)=>{
     const c=cvBlock(x), meas=cvMeasured(x), prov=c.provisional||[];
     let headline="", heatVal=null;
@@ -3326,6 +3337,9 @@ function renderConverge(){
       <div class="cv-main">
         <div class="cv-nm">${x.name}<span class="cv-meta">${sub}</span></div>
         <div class="cv-sigs">${meas.map(s=>chip(s,"meas")).join("")}${prov.map(s=>chip(s,"prov")).join("")}</div>
+        ${prov.some(s=>s.detail&&s.detail.length)?`<details class="cv-ev" onclick="event.stopPropagation()"><summary>what fired</summary>
+          ${prov.filter(s=>s.detail&&s.detail.length).map(s=>`<div class="cv-evr"><span>${s.lab}</span>${s.detail.map(d=>`<i>${d}</i>`).join("")}</div>`).join("")}
+        </details>`:""}
       </div>
       <div class="cv-r">${heatVal!=null?`<div class="cv-heat" style="background:${chipColor(heatVal)}">${Math.round(heatVal)}</div>`:""}<div class="cv-prob">${headline}</div></div>
     </div>`;
@@ -3347,7 +3361,7 @@ function renderConverge(){
       <span class="cv-sig prov">Provisional<i>not yet graded</i></span>
     </div>
     ${rows}
-    <div class="prop-note" style="margin-top:14px"><b>Read this honestly.</b> The bold number counts <b>measured</b> signals only — ones your own backtest graded for this prop. The small <b>+n</b> is provisional context that hasn't been graded. Crucially, the props are <b>not equally trustworthy</b> — the band lift shown above is pulled live from your latest backtest, and the HR model has historically separated far harder than 1+hit or H+R+RBI, so a "2-signal" hits play means less than a 2-signal HR play. Badges that stop clearing the lift threshold (DUE and COOL both have) are dropped automatically rather than padding the count. Signals also overlap, so agreeing reads aren't independent coin flips. A shortlist, not a verdict.</div>
+    <div class="prop-note" style="margin-top:14px"><b>Read this honestly.</b> The bold number counts <b>measured</b> signals only — ones your own backtest graded for this prop. The small <b>+n</b> is provisional context that hasn't been graded. Crucially, the props are <b>not equally trustworthy</b> — the band lift shown above is pulled live from your latest backtest, and the HR model has historically separated far harder than 1+hit or H+R+RBI, so a "2-signal" hits play means less than a 2-signal HR play. Badges that stop clearing the lift threshold (DUE and COOL both have) are dropped automatically rather than padding the count. Provisional reads are grouped into <b>families</b> — contact quality, form, zone matchup, arsenal matchup, opposing arm, environment, matchup grade — and each family counts <b>once</b>, no matter how many things fired inside it. That's deliberate: barrel rate, hard-hit%, EV percentile and Square Up all measure the same underlying thing, so counting them separately would let one piece of evidence pose as four. Tap "what fired" to see the detail. Families still overlap somewhat, so agreeing reads aren't independent coin flips. A shortlist, not a verdict.</div>
   </div>`;
 }
 
