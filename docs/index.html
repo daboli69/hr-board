@@ -47,6 +47,15 @@
   /* signal convergence */
   .cv-wrap{max-width:760px;margin:0 auto}
   .cv-key{display:flex;gap:8px;margin:10px 0 12px;flex-wrap:wrap}
+  .cv-props{display:flex;gap:5px;margin:10px 0 4px;flex-wrap:wrap}
+  .cv-pt{font-family:"IBM Plex Mono";font-size:11px;font-weight:600;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:6px 13px;cursor:pointer}
+  .cv-pt.on{background:var(--seam);border-color:var(--seam);color:#12140f}
+  .cv-lift{font-size:11px;color:var(--muted);line-height:1.5;background:var(--panel-2);border:1px solid var(--line);border-left:3px solid var(--seam);border-radius:8px;padding:9px 11px;margin-bottom:10px}
+  .cv-tog{display:flex;gap:5px;margin:10px 0 6px}
+  .cv-tog button{font-family:"IBM Plex Mono";font-size:11px;font-weight:600;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:6px 13px;cursor:pointer}
+  .cv-tog button.on{background:var(--seam-glow);border-color:var(--seam);color:var(--seam)}
+  .cv-note-sm{font-size:11px;color:var(--faint);line-height:1.5;margin-bottom:8px}
+  .cv-note-sm b{color:var(--muted)}
   .cv-row{display:flex;align-items:center;gap:11px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer}
   .cv-row:active{background:var(--panel-2)}
   .cv-rk{width:20px;color:var(--faint);font-size:12px;flex:0 0 auto}
@@ -3198,43 +3207,126 @@ function pitchTableBlock(p){
 // shown separately as provisional, because they haven't been graded yet. Keeping them apart is
 // the whole point — otherwise a hitter looks "five-signal strong" on evidence that's never been
 // tested. Ranking never touches the frozen heat model.
+// Friendly names for the replayed signal groups (raw keys are ETL-side identifiers).
+function _sigLabel(g){
+  const m={zone:"Zone overlap", zone_edge:"Zone edge", arsenal_fit:"Arsenal fit",
+    converge:"Convergence (with heat)", converge_noheat:"Convergence (no heat)",
+    converge_prov:"Convergence (provisional)", square_up:"Square Up", hr_power:"HR power",
+    grade:"Matchup grade", bomb:"Bomb Score", vuln:"Arm vulnerability"};
+  return m[g] || (String(g).charAt(0).toUpperCase()+String(g).slice(1).replace(/_/g," "));
+}
+let cvHeat=true;   // include the heat band as one of the measured signals?
+let cvProp="hr";   // hr | hit | hrr | ks   (ks ranks PITCHERS, the rest rank hitters)
+function setCvHeat(v){ cvHeat=v; renderConverge(); }
+function setCvProp(v){ cvProp=v; renderConverge(); }
+// Each prop has its own measured lift — the HR bands separate hard (+47/+30/+14%) while 1+hit
+// is only +11% at the very top. The copy below states each prop's real numbers rather than
+// implying they're all equally trustworthy.
+const CV_PROPS={
+  hr:  {label:"Home run",   who:"hitters"},
+  hit: {label:"1+ Hit",     who:"hitters"},
+  hrr: {label:"H+R+RBI",    who:"hitters"},
+  ks:  {label:"Pitcher Ks", who:"pitchers"}
+};
+// The lift text is generated from whatever the LAST BACKTEST measured, so re-running the
+// backtest updates both the ranking and the explanation — no stale numbers claiming an edge
+// the data no longer supports.
+function cvLiftNote(prop){
+  const L=BOARD.converge_lift;
+  if(!L) return "Lift values load from the backtest on the next ETL run.";
+  const fmt=b=>(b&&b.length)?b.map(([cut,lift])=>`${cut}+ <b>+${lift}%</b>`).join(" · "):null;
+  const src=L.source==="backtest"?"measured in your latest backtest":"fallback values — no backtest found";
+  if(prop==="ks"){
+    const k=fmt(L.k);
+    return k?`K-heat bands ${k} on average strikeouts (${src}). Lineup whiff rate and K-rank are provisional context, not graded signals.`
+            :`No K-heat band currently clears the lift threshold (${src}) — treat these as provisional.`;
+  }
+  const bands=fmt(L[prop]);
+  const badges=(prop==="hr"&&L.badges&&Object.keys(L.badges).length)
+    ? " " + Object.entries(L.badges).map(([k,v])=>`${k.toUpperCase()} (+${v}%)`).join(", ") + " count as measured — that lift was graded against HR outcomes."
+    : (prop!=="hr" ? " Badges stay provisional here: their lift was graded against home runs, not this prop." : "");
+  if(!bands) return `No heat band currently clears the lift threshold for this prop (${src}), so nothing counts as a measured signal — that's the honest read, not a bug.${badges}`;
+  return `Heat bands ${bands} (${src}). Bands that don't clear the threshold are excluded, so convergence never counts a band that stopped working.${badges}`;
+}
+// Heat correlates with almost everything else, so being able to drop it answers a different and
+// sharper question: do the OTHER reads agree on this hitter on their own?
+function cvBlock(p){
+  const c=p.converge; if(!c) return null;
+  return (c.measured||c.provisional) ? c : (c[cvProp]||null);   // pitchers flat, hitters per-prop
+}
+function cvMeasured(p){
+  const c=cvBlock(p); if(!c) return [];
+  return cvHeat ? (c.measured||[]) : (c.measured||[]).filter(s=>s.k!=="heat");
+}
 function convergeVal(p){
-  const c=p.converge; if(!c) return -1;
-  return c.n_measured*1000 + (c.lift||0) + c.n_provisional*0.5;
+  const c=cvBlock(p); if(!c) return -1;
+  const m=cvMeasured(p);
+  const lift=m.reduce((a,s)=>a+(s.lift||0),0);
+  return m.length*1000 + lift + ((c.provisional||[]).length)*0.5;
 }
 function renderConverge(){
   const main=document.getElementById("main");
-  const ps=(BOARD.players||[]).filter(p=>p.converge&&(p.converge.n_measured+p.converge.n_provisional)>0);
-  if(!ps.length){
+  const meta=CV_PROPS[cvProp]||CV_PROPS.hr;
+  const isK=(cvProp==="ks");
+  const pool=(isK?(BOARD.pitcher_props||[]):(BOARD.players||[]))
+    .filter(x=>{const c=cvBlock(x); return c&&(cvMeasured(x).length+((c.provisional||[]).length))>0;});
+  const propTabs=Object.entries(CV_PROPS).map(([k,v])=>
+    `<button class="cv-pt${cvProp===k?" on":""}" onclick="setCvProp('${k}')">${v.label}</button>`).join("");
+  if(!pool.length){
     main.innerHTML=`<div class="cv-wrap"><div class="q-head"><b>Signal Convergence</b></div>
-      <div class="prop-note">Convergence isn't in this board yet — it fills in on the next ETL run. It ranks hitters by how many independent reads agree, weighted by the lift each signal has actually shown in your backtest.</div></div>`;
+      <div class="cv-props">${propTabs}</div>
+      <div class="prop-note">Convergence isn't in this board yet — it fills in on the next ETL run. It ranks ${meta.who} by how many independent reads agree, weighted by the lift each signal has actually shown in your backtest for <b>this specific prop</b>.</div></div>`;
     return;
   }
-  ps.sort((a,b)=>convergeVal(b)-convergeVal(a));
+  pool.sort((a,b)=>convergeVal(b)-convergeVal(a));
   const chip=(s,cls)=>`<span class="cv-sig ${cls}">${s.lab}${s.lift?`<i>+${s.lift}%</i>`:""}</span>`;
-  const rows=ps.slice(0,40).map((p,i)=>{
-    const c=p.converge, prob=(()=>{try{const v=calibratedHRprob(p.heat);return v!=null?Math.round(v*100)+"%":"";}catch(e){return "";}})();
-    return `<div class="cv-row" onclick="scanToPlayer(${p.id})">
+  const rows=pool.slice(0,40).map((x,i)=>{
+    const c=cvBlock(x), meas=cvMeasured(x), prov=c.provisional||[];
+    let headline="", heatVal=null;
+    if(isK){
+      const proj=ksProjection(x);
+      heatVal=x.k_heat;
+      headline=proj!=null?`${proj.toFixed(1)}<span>est Ks</span>`:"";
+    }else{
+      heatVal=(cvProp==="hr")?x.heat:(cvProp==="hit"?x.hit_heat:x.hrr_heat);
+      let pr=null;
+      try{ pr=(cvProp==="hr")?calibratedHRprob(x.heat)
+             :(typeof smoothPropProb==="function"?smoothPropProb(cvProp==="hit"?"hit1":"hrr", heatVal):null); }catch(e){}
+      headline=pr!=null?`${Math.round(pr*100)}%<span>to hit</span>`:"";
+    }
+    const sub=isK?`${x.team||""} vs ${x.opp_team||""}`
+                 :`${x.lineup_spot?"#"+x.lineup_spot+" · ":""}${x.team}→${x.opp_team}`;
+    return `<div class="cv-row"${x.id&&!isK?` onclick="scanToPlayer(${x.id})"`:""}>
       <div class="cv-rk mono">${i+1}</div>
-      <div class="cv-cnt"><b>${c.n_measured}</b><span>+${c.n_provisional}</span></div>
+      <div class="cv-cnt"><b>${meas.length}</b><span>+${prov.length}</span></div>
       <div class="cv-main">
-        <div class="cv-nm">${p.name}<span class="cv-meta">${p.lineup_spot?"#"+p.lineup_spot+" · ":""}${p.team}→${p.opp_team}</span></div>
-        <div class="cv-sigs">${c.measured.map(s=>chip(s,"meas")).join("")}${c.provisional.map(s=>chip(s,"prov")).join("")}</div>
+        <div class="cv-nm">${x.name}<span class="cv-meta">${sub}</span></div>
+        <div class="cv-sigs">${meas.map(s=>chip(s,"meas")).join("")}${prov.map(s=>chip(s,"prov")).join("")}</div>
       </div>
-      <div class="cv-r"><div class="cv-heat" style="background:${chipColor(p.heat)}">${p.heat}</div><div class="cv-prob">${prob}</div></div>
+      <div class="cv-r">${heatVal!=null?`<div class="cv-heat" style="background:${chipColor(heatVal)}">${Math.round(heatVal)}</div>`:""}<div class="cv-prob">${headline}</div></div>
     </div>`;
   }).join("");
   main.innerHTML=`<div class="cv-wrap">
     <div class="q-head"><b>Signal Convergence</b></div>
-    <div class="q-sub">Ranked by how many <b>independent</b> reads point at the same hitter — heat band and the badges your backtest has actually validated first, then the newer matchup reads.</div>
+    <div class="q-sub">Ranked by how many <b>independent</b> reads point at the same ${isK?"arm":"hitter"} — weighted by the lift each signal actually showed in your backtest <b>for this prop</b>.</div>
+    <div class="cv-props">${propTabs}</div>
+    <div class="cv-tog">
+      <button class="${cvHeat?"on":""}" onclick="setCvHeat(true)">With heat</button>
+      <button class="${!cvHeat?"on":""}" onclick="setCvHeat(false)">Without heat</button>
+    </div>
+    <div class="cv-note-sm">${cvHeat
+      ? "Heat counts as one of the measured signals — the full picture."
+      : "Heat excluded. Because heat correlates with most other reads, this asks whether the <b>rest</b> of the evidence agrees on its own."}</div>
+    <div class="cv-lift">${cvLiftNote(cvProp)}</div>
     <div class="cv-key">
       <span class="cv-sig meas">Measured<i>backtested lift</i></span>
       <span class="cv-sig prov">Provisional<i>not yet graded</i></span>
     </div>
     ${rows}
-    <div class="prop-note" style="margin-top:14px"><b>How to read this honestly.</b> The bold number is how many <b>measured</b> signals fired — those carry the lift your own backtest recorded (heat bands +47/+30/+14%, POW +76%, LOCK +36%). The small <b>+n</b> is provisional reads — zone matchup, arsenal fit, arm vulnerability, park — which look sensible but <b>have not been graded yet</b>, so they're kept out of the main count on purpose. Two badges your model carries, <b>DUE</b> and <b>COOL</b>, are excluded entirely: measured at +1% and −2%, they're noise, and counting them would just inflate the number. Signals also overlap somewhat, so four agreeing reads aren't four independent coin flips. Treat this as a shortlist, not a verdict, until the tracker has graded it.</div>
+    <div class="prop-note" style="margin-top:14px"><b>Read this honestly.</b> The bold number counts <b>measured</b> signals only — ones your own backtest graded for this prop. The small <b>+n</b> is provisional context that hasn't been graded. Crucially, the props are <b>not equally trustworthy</b> — the band lift shown above is pulled live from your latest backtest, and the HR model has historically separated far harder than 1+hit or H+R+RBI, so a "2-signal" hits play means less than a 2-signal HR play. Badges that stop clearing the lift threshold (DUE and COOL both have) are dropped automatically rather than padding the count. Signals also overlap, so agreeing reads aren't independent coin flips. A shortlist, not a verdict.</div>
   </div>`;
 }
+
 // ---- Pitch usage over the season: is this arsenal actually shifting? ----
 const PT_COLORS={FF:"#E8604E",SI:"#E0A048",FC:"#4FC3D9",SL:"#5B8AA6",CU:"#9B8BD4",
   CH:"#6FBF87",FS:"#D98CC0",ST:"#7FB491",KC:"#B07FD4",SV:"#C08A5A",FA:"#E8604E",KN:"#888888"};
@@ -7670,7 +7762,7 @@ function signalLiftHTML(){
   const winners=rows.filter(r=>r.lift!=null&&r.lift>=1.15).slice(0,10);
   const losers=rows.filter(r=>r.lift!=null&&r.lift<=0.9).slice(-6).reverse();
   const row=r=>`<tr>
-      <td><b>${r.group}</b><span class="btg-b">${r.bucket}</span></td>
+      <td><b>${_sigLabel(r.group)}</b><span class="btg-b">${r.bucket}</span></td>
       <td class="btg-n">${pct(r.rate)}</td>
       <td class="btg-l" style="color:${r.lift>=1.3?"var(--hot)":r.lift>=1.1?"var(--seam)":r.lift<=0.9?"var(--cold)":"var(--muted)"}">${r.lift.toFixed(2)}×</td>
       <td class="btg-s">${r.n.toLocaleString()}<i>${r.src}</i></td>
@@ -8533,7 +8625,7 @@ function renderTracker(){
         const er=rows.filter(r=>r.src==="tracker"||r.src==="backtest");
         if(!er.length) return '<div class="ln" style="color:var(--muted)">— accumulating; each signal appears once it has sample —</div>';
         return er.slice(0,14).map(r=>`<div class="trk-row" style="grid-template-columns:1fr 58px 46px">
-          <div class="lab">${r.group} <span style="color:var(--faint)">${r.bucket}</span></div>
+          <div class="lab">${_sigLabel(r.group)} <span style="color:var(--faint)">${r.bucket}</span></div>
           <div style="font-family:'IBM Plex Mono';font-size:11px;color:var(--ink);text-align:right">${(r.rate*100).toFixed(1)}%</div>
           <div style="font-family:'IBM Plex Mono';font-size:11px;font-weight:800;text-align:right;color:${r.lift>=1.3?"var(--hot)":r.lift>=1.1?"var(--seam)":r.lift<=0.9?"var(--cold)":"var(--muted)"}">${r.lift!=null?r.lift.toFixed(2)+"×":"–"}</div>
         </div>`).join("");
