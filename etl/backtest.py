@@ -275,6 +275,7 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str) -> dict:
             "zone_edge": _zedge, "arsenal_fit": _afit,
             "cv_meas": _nm + _nmh, "cv_meas_noheat": _nm, "cv_prov": _np,
             "cv_hit": _cv_hit, "cv_hrr": _cv_hrr,
+            "cv_fams": (_nm + _nmh + _np),   # measured + provisional families, as the UI counts them
             "heat": float(heat), "hr": bid in hr_today,
             "hit_heat": float(hh) if hh is not None else None,
             "hrr_heat": float(hr_h) if hr_h is not None else None,
@@ -370,6 +371,10 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
             _cp = r.get("cv_prov")
             if _cp is not None:
                 _edge("converge_prov", f"{min(int(_cp),3)}{'+' if int(_cp)>=3 else ''} provisional", hit)
+            # total evidence families — the number the convergence board actually shows
+            _cf = r.get("cv_fams")
+            if _cf is not None:
+                _edge("converge_families", f"{min(int(_cf),5)}{'+' if int(_cf)>=5 else ''} families", hit)
             _sq = r.get("square_up")
             if _sq is not None:
                 _edge("square_up", "75+ elite" if _sq >= 75 else "60-74 strong" if _sq >= 60

@@ -1572,11 +1572,52 @@ def build(date_str: str | None = None) -> dict:
                 _HEAT_KEY = {"hr": "heat", "hit": "hit_heat", "hrr": "hrr_heat"}
                 for _p in players:
                     _bset = {str(b).lower() for b in (_p.get("badges") or [])}
-                    # shared provisional reads (same matchup context for every prop)
-                    _shared = []
-                    _ze = ((_p.get("features") or {}).get("zone_profile") or {}).get("zone_edge") or {}
+                    # ---- the full provisional evidence set ----
+                    # Grouped into FAMILIES because these reads are not independent: barrel rate,
+                    # hard-hit%, EV percentile and Square Up are all measuring the same thing.
+                    # Counting them separately would let one piece of evidence pose as four.
+                    # Each family contributes at most 1 to the count, and the detail is kept so
+                    # the card can show what fired inside it.
+                    _fam = {}                       # family -> [labels]
+                    def _add(family, label):
+                        _fam.setdefault(family, []).append(label)
+
+                    _F = _p.get("features") or {}
+                    # -- contact quality (raw power / earned contact) --
+                    _pc = _F.get("percentiles") or {}
+                    _hi_pctl = [f"{v.get('label') or k} P{v['pctl']}"
+                                for k, v in _pc.items()
+                                if isinstance(v, dict) and (v.get("pctl") or 0) >= 80]
+                    if _hi_pctl:
+                        _add("contact", "MLB pctl: " + ", ".join(sorted(_hi_pctl)[:3]))
+                    _sq = _F.get("square_up") or {}
+                    if (_sq.get("rating") or 0) >= 30:
+                        _add("contact", f"Square Up {_sq['rating']}")
+                    _hp = _F.get("hr_power") or {}
+                    if (_hp.get("barrel_pct") or 0) >= 10:
+                        _add("contact", f"Barrel {_hp['barrel_pct']}%")
+                    if (_hp.get("max_dist") or 0) >= 440:
+                        _add("contact", f"Ceiling {_hp['max_dist']}ft")
+                    # -- form: is the 2-week window beating his season baseline? --
+                    _m = _p.get("metrics") or {}
+                    _tr = []
+                    for _k, _lab, _min in (("barrel_pct", "barrel", 2.0), ("avg_ev", "EV", 1.0),
+                                           ("pull_air_pct", "pull-air", 4.0)):
+                        _v = _m.get(_k) or {}
+                        _r, _s = _v.get("recent"), _v.get("season")
+                        if _r is not None and _s is not None and (_r - _s) >= _min:
+                            _tr.append(f"{_lab} +{round(_r - _s, 1)}")
+                    if len(_tr) >= 2:               # need 2 of 3 rising, not one noisy metric
+                        _add("form", "2wk > season: " + ", ".join(_tr))
+                    # -- location: zone overlap --
+                    _ze = (_F.get("zone_profile") or {}).get("zone_edge") or {}
                     if _ze.get("edge_score") is not None and _ze["edge_score"] >= 62:
-                        _shared.append({"k": "zone", "lab": f"Zone {int(_ze['edge_score'])}"})
+                        _add("location", f"Zone edge {int(_ze['edge_score'])}"
+                             + (f" ({_ze.get('hot_in_top')}/{_ze.get('top_k')} hot)" if _ze.get("top_k") else ""))
+                    # -- arsenal: does he punish what this arm throws? --
+                    _pm = _F.get("pitch_matchup") or {}
+                    if (_pm.get("score") or 0) >= 65:
+                        _add("arsenal", f"Pitch matchup {round(_pm['score'])}")
                     _fit = None
                     try:
                         _arm = (_p.get("opp_pitcher") or {}).get("id")
@@ -1588,9 +1629,9 @@ def build(date_str: str | None = None) -> dict:
                         if _ars and _vp:
                             _num = _den = 0.0
                             for _pt, _pct, _n in _ars:
-                                _v = _vp.get(_pt)
-                                if _v and _v[4]:
-                                    _num += _pct * (100.0 * _v[7] / _v[4]); _den += _pct
+                                _v2 = _vp.get(_pt)
+                                if _v2 and _v2[4]:
+                                    _num += _pct * (100.0 * _v2[7] / _v2[4]); _den += _pct
                             if _den > 0:
                                 _fit = round(_num / _den, 1)
                     except Exception:
@@ -1598,13 +1639,43 @@ def build(date_str: str | None = None) -> dict:
                     if _fit is not None:
                         _p["arsenal_fit"] = _fit
                         if _fit >= 9.0:
-                            _shared.append({"k": "arsenal", "lab": f"Arsenal {_fit}%"})
-                    _as = (_p.get("opp_pitcher") or {}).get("hr_score")
-                    if _as is not None and _as >= 60:
-                        _shared.append({"k": "arm", "lab": f"Arm {int(_as)}"})
+                            _add("arsenal", f"Arsenal fit {_fit}% barrel")
+                    # -- opposing arm: vulnerability + the rate that matters, HR per 9 --
+                    _op = _p.get("opp_pitcher") or {}
+                    if (_op.get("hr_score") or 0) >= 60:
+                        _add("arm", f"Arm vuln {int(_op['hr_score'])}")
+                    try:
+                        _hpa = (_op.get("recent") or {}).get("hr_per_pa")
+                        if _hpa is not None:
+                            _hr9 = round(float(_hpa) / 100.0 * 38.0 * 9.0 / 9.0, 2)  # ~38 PA/9ip
+                            _p["opp_hr9"] = _hr9
+                            if _hr9 >= 1.4:
+                                _add("arm", f"Allows {_hr9} HR/9")
+                    except Exception:
+                        pass
+                    if str((_op.get("form") or {}).get("label") or "").upper() in ("SLIPPING", "SHELLABLE", "HITTABLE"):
+                        _add("arm", f"Arm {_op['form']['label'].title()}")
+                    # -- environment --
                     _pf = _p.get("park_hr_factor")
                     if _pf is not None and _pf >= 1.05:
-                        _shared.append({"k": "park", "lab": f"Park {_pf:.2f}x"})
+                        _add("env", f"Park {_pf:.2f}x")
+                    _mc = _F.get("microclimate") or {}
+                    if (_mc.get("boost") or 0) >= 5:
+                        _add("env", f"Wind/air +{int(_mc['boost'])}%")
+                    # -- overall matchup grade (a composite, so its own family) --
+                    _mg = _p.get("matchup_grade") or {}
+                    if str(_mg.get("grade") or "").upper() in ("ELITE", "STRONG"):
+                        _add("grade", f"Grade {_mg['grade'].title()}")
+                    _bs = _p.get("bomb_score") or {}
+                    if (_bs.get("score") or 0) >= 65:
+                        _add("grade", f"Bomb {int(_bs['score'])}")
+
+                    _FAM_LABEL = {"contact": "Contact quality", "form": "Form trending up",
+                                  "location": "Zone matchup", "arsenal": "Arsenal matchup",
+                                  "arm": "Opposing arm", "env": "Environment",
+                                  "grade": "Matchup grade"}
+                    _shared = [{"k": _k, "lab": _FAM_LABEL.get(_k, _k.title()),
+                                "detail": _v, "n": len(_v)} for _k, _v in _fam.items()]
                     _conv = {}
                     for _prop, _bands in _LIFT.items():
                         _h = _p.get(_HEAT_KEY[_prop])
