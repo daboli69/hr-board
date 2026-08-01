@@ -44,6 +44,60 @@
   .faq-item[open] summary .faq-cv{transform:rotate(90deg)}
   .faq-body{padding:0 14px 14px;font-size:12.5px;color:var(--muted);line-height:1.6}
   .faq-body b{color:var(--ink)}
+  /* signal convergence */
+  .cv-wrap{max-width:760px;margin:0 auto}
+  .cv-key{display:flex;gap:8px;margin:10px 0 12px;flex-wrap:wrap}
+  .cv-row{display:flex;align-items:center;gap:11px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer}
+  .cv-row:active{background:var(--panel-2)}
+  .cv-rk{width:20px;color:var(--faint);font-size:12px;flex:0 0 auto}
+  .cv-cnt{flex:0 0 auto;width:46px;text-align:center;background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:6px 0}
+  .cv-cnt b{display:block;font-family:"IBM Plex Mono";font-weight:700;font-size:18px;color:var(--seam);line-height:1}
+  .cv-cnt span{font-family:"IBM Plex Mono";font-size:9px;color:var(--faint)}
+  .cv-main{flex:1;min-width:0}
+  .cv-nm{font-weight:700;font-size:14px}
+  .cv-meta{font-family:"IBM Plex Mono";font-size:10.5px;color:var(--muted);margin-left:6px;font-weight:400}
+  .cv-sigs{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+  .cv-sig{font-family:"IBM Plex Mono";font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;display:inline-flex;align-items:center;gap:3px}
+  .cv-sig i{font-style:normal;font-weight:500;opacity:.75;font-size:8px}
+  .cv-sig.meas{background:var(--good-glow,rgba(127,180,145,.14));color:var(--good)}
+  .cv-sig.prov{background:var(--panel-2);color:var(--muted);border:1px dashed var(--line-2)}
+  .cv-r{flex:0 0 auto;text-align:center}
+  .cv-heat{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-family:"IBM Plex Mono";font-weight:700;font-size:14px;color:#12140f}
+  .cv-prob{font-family:"IBM Plex Mono";font-size:10px;color:var(--muted);margin-top:3px}
+  /* pitch-by-pitch BvP tables */
+  .pxt-legend{display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--muted);margin-bottom:8px;flex-wrap:wrap}
+  .pxt-lg{width:11px;height:11px;border-radius:2px;display:inline-block}
+  .pxt-lg.good{background:rgba(96,170,112,.55)} .pxt-lg.bad{background:rgba(200,80,64,.55)}
+  .pxt-h{display:flex;align-items:center;gap:8px;font-size:14px;margin:10px 0 6px;flex-wrap:wrap}
+  .pxt-h b{font-family:Archivo;font-weight:800}
+  .pxt-h span{font-family:"IBM Plex Mono";font-size:10px;color:var(--seam)}
+  .pxt-tog{display:flex;gap:4px;margin-left:auto}
+  .pxt-tog button,.pxt-tog-b{font-family:"IBM Plex Mono";font-size:10px;font-weight:600;color:var(--muted);background:var(--panel-2);border:1px solid var(--line);border-radius:14px;padding:4px 10px;cursor:pointer}
+  .pxt-tog button.on,.pxt-tog-b.on{background:var(--seam-glow);border-color:var(--seam);color:var(--seam)}
+  .pxt-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:9px}
+  .pxt-tbl{border-collapse:collapse;min-width:900px;width:100%;font-family:"IBM Plex Mono"}
+  .pxt-tbl th{font-size:8px;color:var(--faint);text-transform:uppercase;letter-spacing:.03em;padding:6px 7px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap;background:var(--panel)}
+  .pxt-tbl th:first-child{text-align:left}
+  .pxt-tbl th.pxt-g{font-size:7.5px;color:var(--seam);letter-spacing:.08em;border-bottom:none;padding-bottom:1px}
+  .pxt-tbl td{font-size:10.5px;padding:6px 7px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap;color:var(--ink)}
+  .pxt-tbl td.pxt-pt{text-align:left;font-family:Archivo;font-weight:600;font-size:11.5px}
+  /* pitch usage history chart */
+  .ph-tog{display:flex;gap:5px;margin-bottom:8px}
+  .ph-svg{width:100%;height:150px;display:block}
+  .ph-ax{font-family:"IBM Plex Mono";font-size:7px;fill:var(--faint)}
+  .ph-key{display:flex;flex-wrap:wrap;gap:9px;justify-content:center;margin-top:6px}
+  .ph-k{display:flex;align-items:center;gap:4px;font-family:"IBM Plex Mono";font-size:9px;color:var(--muted)}
+  .ph-k i{width:9px;height:3px;border-radius:2px;display:inline-block}
+  /* team strikeout profile */
+  .tk-det{margin-top:8px}
+  .tk-det summary{font-family:"IBM Plex Mono";font-size:10px;color:var(--seam);cursor:pointer}
+  .tk-wrap{margin-top:8px}
+  .tk-h{font-family:"IBM Plex Mono";font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+  .tk-tbl{border-collapse:collapse;width:100%;font-family:"IBM Plex Mono";max-width:340px}
+  .tk-tbl th{font-size:8px;color:var(--faint);text-transform:uppercase;padding:5px 7px;text-align:right;border-bottom:1px solid var(--line)}
+  .tk-tbl th:first-child{text-align:left}
+  .tk-tbl td{font-size:11px;padding:5px 7px;text-align:right;border-bottom:1px solid var(--line)}
+  .tk-tbl td:first-child{text-align:left;color:var(--muted);font-family:Archivo;font-size:11.5px}
   /* zone matchup view */
   .zx-wrap{padding:2px 0}
   .zx-stats{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
@@ -2112,6 +2166,7 @@
 
       <div class="nav-sec">TARGETS</div>
       <button class="nav-item" data-nav="toppicks" onclick="drawerGo('toppicks')">Top Picks<i>all props, most likely to hit first</i></button>
+      <button class="nav-item" data-nav="converge" onclick="drawerGo('converge')">Signal Convergence<i>where independent reads agree — measured lift first</i></button>
       <button class="nav-item" data-nav="sgp" onclick="drawerGo('sgp')">Parlay Builder<i>SGP generator — pick the mix &amp; goal</i></button>
       <button class="nav-item" data-nav="jackpot" onclick="drawerGo('jackpot')">Long Ball Jackpot<i>longest-HR contest — ceilings + leverage</i></button>
       <button class="nav-item" data-nav="ladder" onclick="drawerGo('ladder')">Ladder Challenge<i>roll a small stake up to a target, safest legs daily</i></button>
@@ -3045,10 +3100,191 @@ function percentileBars(p){
 }
 
 // B2 — strike-zone damage grid: xwOBA-tinted 3×3, the hitter's crushed cells flagged.
-// ---- Zone matchup view: the batter's damage map laid over where this arm actually lives ----
+// ---- Full BvP pitch tables: the batter's line by pitch type and the arm's line back at him ----
+// Column order mirrors the ETL's PITCH_TABLE_ORDER. `dir` is read from the BATTER's side:
+// +1 means a high number favours the hitter (green), -1 means it favours the pitcher (red).
+const PXT_COLS=[
+ {k:"n",label:"#",g:"USAGE",dec:0},
+ {k:"usage",label:"%",g:"USAGE",dec:1,suf:"%"},
+ {k:"bbe",label:"BBE",g:"USAGE",dec:0},
+ {k:"ba",label:"BA",g:"STATS",dec:3,dir:1,lo:.180,hi:.330},
+ {k:"woba",label:"wOBA",g:"STATS",dec:3,dir:1,lo:.260,hi:.430},
+ {k:"slg",label:"SLG",g:"STATS",dec:3,dir:1,lo:.280,hi:.600},
+ {k:"iso",label:"ISO",g:"STATS",dec:3,dir:1,lo:.080,hi:.300},
+ {k:"hr",label:"HR",g:"STATS",dec:0,dir:1,lo:0,hi:6},
+ {k:"bb_pct",label:"BB%",g:"STATS",dec:1,suf:"%",dir:1,lo:3,hi:14},
+ {k:"whiff_pct",label:"WHIFF%",g:"STATS",dec:1,suf:"%",dir:-1,lo:12,hi:40},
+ {k:"k_pct",label:"K%",g:"STATS",dec:1,suf:"%",dir:-1,lo:10,hi:35},
+ {k:"putaway_pct",label:"PUTAWAY%",g:"STATS",dec:1,suf:"%",dir:-1,lo:8,hi:26},
+ {k:"swstr_pct",label:"SWSTR%",g:"STATCAST",dec:1,suf:"%",dir:-1,lo:5,hi:22},
+ {k:"velo",label:"VELO",g:"STATCAST",dec:1},
+ {k:"ev",label:"EV",g:"STATCAST",dec:1,dir:1,lo:84,hi:95},
+ {k:"la",label:"LA",g:"STATCAST",dec:1,dir:1,lo:6,hi:22},
+ {k:"barrel_pct",label:"BARREL%",g:"STATCAST",dec:1,suf:"%",dir:1,lo:2,hi:16},
+ {k:"hh_pct",label:"HH%",g:"STATCAST",dec:1,suf:"%",dir:1,lo:25,hi:55},
+ {k:"pullbrl_pct",label:"PULLBRL%",g:"STATCAST",dec:1,suf:"%",dir:1,lo:0,hi:12},
+ {k:"pullair_pct",label:"PULLAIR%",g:"STATCAST",dec:1,suf:"%",dir:1,lo:8,hi:32},
+ {k:"fb_pct",label:"FB%",g:"STATCAST",dec:1,suf:"%",dir:1,lo:18,hi:45},
+ {k:"ld_pct",label:"LD%",g:"STATCAST",dec:1,suf:"%",dir:1,lo:14,hi:32},
+ {k:"gb_pct",label:"GB%",g:"STATCAST",dec:1,suf:"%",dir:-1,lo:28,hi:55},
+];
+function _pxtFmt(c,v){
+  if(v==null) return "—";
+  const s=c.dec===3?(+v).toFixed(3).replace(/^0/,""):(+v).toFixed(c.dec);
+  return s+(c.suf||"");
+}
+function _pxtCell(c,v){
+  if(v==null) return `<td>—</td>`;
+  if(!c.dir) return `<td>${_pxtFmt(c,v)}</td>`;
+  let t=(v-c.lo)/(c.hi-c.lo); t=Math.max(0,Math.min(1,t));
+  const good = c.dir>0 ? t : 1-t;                  // "good" always means good for the hitter
+  const a=Math.abs(good-0.5)*2;
+  const col = good>=0.5 ? `rgba(96,170,112,${(0.08+a*0.45).toFixed(2)})`
+                        : `rgba(200,80,64,${(0.08+a*0.42).toFixed(2)})`;
+  return `<td style="background:${col}">${_pxtFmt(c,v)}</td>`;
+}
+function pxtTable(byPitch){
+  if(!byPitch||!Object.keys(byPitch).length) return "";
+  const rows=Object.entries(byPitch)
+    .map(([pt,line])=>({pt,line,usage:line[1]||0}))
+    .sort((a,b)=>b.usage-a.usage)
+    .map(({pt,line})=>`<tr><td class="pxt-pt">${_ptName(pt)}</td>${PXT_COLS.map((c,i)=>_pxtCell(c,line[i])).join("")}</tr>`).join("");
+  let g=null, groups="";
+  PXT_COLS.forEach(c=>{ if(c.g!==g){ groups+=`<th class="pxt-g" colspan="1" data-g="${c.g}">${c.g}</th>`; g=c.g; } else groups+=`<th class="pxt-g"></th>`; });
+  return `<div class="pxt-scroll"><table class="pxt-tbl">
+    <thead><tr><th class="pxt-g"></th>${groups}</tr>
+    <tr><th>TYPE</th>${PXT_COLS.map(c=>`<th>${c.label}</th>`).join("")}</tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+}
+let pxtArmHand=null, pxtBatHand=null;
+function setPxtHand(which,h){
+  if(which==="arm") pxtArmHand=h; else pxtBatHand=h;
+  const host=document.getElementById("pxtHost");
+  if(host&&_curDetailPlayer) host.innerHTML=pxtInner(_curDetailPlayer);
+}
+function pxtInner(p){
+  const arm=p.opp_pitcher||{}, armId=arm.id;
+  const armT=armId?((BOARD.arm_tables||{})[String(armId)]||null):null;
+  const batT=p.pitch_table||null;
+  if(!armT&&!batT) return `<div class="zd-note">Pitch-level tables aren't in this board yet — they fill in on the next ETL run.</div>`;
+  const batSide=(p.bats==="S") ? ((arm.throws==="R")?"L":"R") : (p.bats||"R");
+  const aH=pxtArmHand||batSide;                      // arm's line vs the side this hitter bats from
+  const bH=pxtBatHand||(arm.throws||"R");            // hitter's line vs this arm's hand
+  const toggle=(which,cur,labs)=>`<div class="pxt-tog">${labs.map(([v,l])=>`<button class="${cur===v?"on":""}" onclick="setPxtHand('${which}','${v}')">${l}</button>`).join("")}</div>`;
+  let out=`<div class="pxt-legend"><span class="pxt-lg good"></span>Green = favorable for batter <span class="pxt-lg bad"></span>Red = favorable for pitcher</div>`;
+  if(armT){
+    out+=`<div class="pxt-h"><b>${arm.name||"Opposing arm"}</b> <span>${arm.throws||"?"}HP</span>${toggle("arm",aH,[["L","vs LHB"],["R","vs RHB"]])}</div>`;
+    out+= armT[aH] ? pxtTable(armT[aH]) : `<div class="zd-note">No sample vs ${aH}HB.</div>`;
+  }
+  if(batT){
+    out+=`<div class="pxt-h" style="margin-top:14px"><b>${p.name}</b> <span>${p.bats||"?"}HB</span>${toggle("bat",bH,[["L","vs LHP"],["R","vs RHP"]])}</div>`;
+    out+= batT[bH] ? pxtTable(batT[bH]) : `<div class="zd-note">No sample vs ${bH}HP.</div>`;
+  }
+  out+=`<div class="zd-note">Season-long, by pitch type. The arm's table is what he does to hitters from this side; the hitter's is what he does to that pitch from arms of this hand — so you can read both halves of tonight's matchup on the same pitch.</div>`;
+  return out;
+}
+function pitchTableBlock(p){
+  const arm=p.opp_pitcher||{};
+  const has=(p.pitch_table)||(arm.id&&(BOARD.arm_tables||{})[String(arm.id)]);
+  if(!has) return "";
+  return `<details class="sec"><summary>Pitch-by-pitch matchup — his line vs the arm's</summary>
+    <div id="pxtHost">${pxtInner(p)}</div></details>`;
+}
 // Statcast zones 1-9 are the strike zone; 11-14 are the four quadrants outside it (roughly half
 // of all pitches), so both grids show the full 13 cells. Every metric here is a display lens —
 // none of it touches the frozen heat model.
+// ---- Signal convergence: how many INDEPENDENT reads agree on a hitter tonight ----
+// Measured signals carry their real backtest lift; the newer zone/arsenal/environment reads are
+// shown separately as provisional, because they haven't been graded yet. Keeping them apart is
+// the whole point — otherwise a hitter looks "five-signal strong" on evidence that's never been
+// tested. Ranking never touches the frozen heat model.
+function convergeVal(p){
+  const c=p.converge; if(!c) return -1;
+  return c.n_measured*1000 + (c.lift||0) + c.n_provisional*0.5;
+}
+function renderConverge(){
+  const main=document.getElementById("main");
+  const ps=(BOARD.players||[]).filter(p=>p.converge&&(p.converge.n_measured+p.converge.n_provisional)>0);
+  if(!ps.length){
+    main.innerHTML=`<div class="cv-wrap"><div class="q-head"><b>Signal Convergence</b></div>
+      <div class="prop-note">Convergence isn't in this board yet — it fills in on the next ETL run. It ranks hitters by how many independent reads agree, weighted by the lift each signal has actually shown in your backtest.</div></div>`;
+    return;
+  }
+  ps.sort((a,b)=>convergeVal(b)-convergeVal(a));
+  const chip=(s,cls)=>`<span class="cv-sig ${cls}">${s.lab}${s.lift?`<i>+${s.lift}%</i>`:""}</span>`;
+  const rows=ps.slice(0,40).map((p,i)=>{
+    const c=p.converge, prob=(()=>{try{const v=calibratedHRprob(p.heat);return v!=null?Math.round(v*100)+"%":"";}catch(e){return "";}})();
+    return `<div class="cv-row" onclick="scanToPlayer(${p.id})">
+      <div class="cv-rk mono">${i+1}</div>
+      <div class="cv-cnt"><b>${c.n_measured}</b><span>+${c.n_provisional}</span></div>
+      <div class="cv-main">
+        <div class="cv-nm">${p.name}<span class="cv-meta">${p.lineup_spot?"#"+p.lineup_spot+" · ":""}${p.team}→${p.opp_team}</span></div>
+        <div class="cv-sigs">${c.measured.map(s=>chip(s,"meas")).join("")}${c.provisional.map(s=>chip(s,"prov")).join("")}</div>
+      </div>
+      <div class="cv-r"><div class="cv-heat" style="background:${chipColor(p.heat)}">${p.heat}</div><div class="cv-prob">${prob}</div></div>
+    </div>`;
+  }).join("");
+  main.innerHTML=`<div class="cv-wrap">
+    <div class="q-head"><b>Signal Convergence</b></div>
+    <div class="q-sub">Ranked by how many <b>independent</b> reads point at the same hitter — heat band and the badges your backtest has actually validated first, then the newer matchup reads.</div>
+    <div class="cv-key">
+      <span class="cv-sig meas">Measured<i>backtested lift</i></span>
+      <span class="cv-sig prov">Provisional<i>not yet graded</i></span>
+    </div>
+    ${rows}
+    <div class="prop-note" style="margin-top:14px"><b>How to read this honestly.</b> The bold number is how many <b>measured</b> signals fired — those carry the lift your own backtest recorded (heat bands +47/+30/+14%, POW +76%, LOCK +36%). The small <b>+n</b> is provisional reads — zone matchup, arsenal fit, arm vulnerability, park — which look sensible but <b>have not been graded yet</b>, so they're kept out of the main count on purpose. Two badges your model carries, <b>DUE</b> and <b>COOL</b>, are excluded entirely: measured at +1% and −2%, they're noise, and counting them would just inflate the number. Signals also overlap somewhat, so four agreeing reads aren't four independent coin flips. Treat this as a shortlist, not a verdict, until the tracker has graded it.</div>
+  </div>`;
+}
+// ---- Pitch usage over the season: is this arsenal actually shifting? ----
+const PT_COLORS={FF:"#E8604E",SI:"#E0A048",FC:"#4FC3D9",SL:"#5B8AA6",CU:"#9B8BD4",
+  CH:"#6FBF87",FS:"#D98CC0",ST:"#7FB491",KC:"#B07FD4",SV:"#C08A5A",FA:"#E8604E",KN:"#888888"};
+let phHand="all";
+function setPhHand(h){ phHand=h; const host=document.getElementById("phHost"); if(host) host.innerHTML=pitchHistoryInner(); }
+function pitchHistoryInner(){
+  const H=(BOARD.pitch_hist||{})[String(pmPitcher)];
+  if(!H) return `<div class="zd-note">No per-start history for this arm yet — it fills in on the next ETL run.</div>`;
+  const starts=H[phHand]||H.all||[];
+  if(starts.length<2) return `<div class="zd-note">Not enough starts logged for this split.</div>`;
+  const types=[...new Set(starts.flatMap(s=>Object.keys(s.mix||{})))]
+    .map(pt=>({pt,tot:starts.reduce((a,s)=>a+((s.mix||{})[pt]||0),0)}))
+    .sort((a,b)=>b.tot-a.tot).slice(0,7).map(x=>x.pt);
+  const W=320,HH=150,PL=28,PB=26;
+  const maxY=Math.max(20,Math.ceil(Math.max(...starts.flatMap(s=>types.map(x=>(s.mix||{})[x]||0)))/10)*10);
+  const X=i=>PL+(i/((starts.length-1)||1))*(W-PL-6);
+  const Y=v=>(HH-PB)-(v/maxY)*(HH-PB-8);
+  const grid=[0,.25,.5,.75,1].map(f=>{const v=maxY*f;
+    return `<line x1="${PL}" y1="${Y(v).toFixed(1)}" x2="${W-6}" y2="${Y(v).toFixed(1)}" stroke="var(--line)" stroke-width="1"/>`+
+           `<text x="${PL-4}" y="${(Y(v)+3).toFixed(1)}" class="ph-ax" text-anchor="end">${Math.round(v)}%</text>`;}).join("");
+  const lines=types.map(pt=>{
+    const pts=starts.map((s,i)=>((s.mix||{})[pt]==null?null:`${X(i).toFixed(1)},${Y(s.mix[pt]).toFixed(1)}`)).filter(Boolean).join(" ");
+    return pts?`<polyline points="${pts}" fill="none" stroke="${PT_COLORS[pt]||"#999"}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>`:"";
+  }).join("");
+  const step=Math.max(1,Math.ceil(starts.length/5));
+  const xlab=starts.map((s,i)=>(i%step===0)?`<text x="${X(i).toFixed(1)}" y="${HH-8}" class="ph-ax" text-anchor="middle">${s.d}</text>`:"").join("");
+  const key=types.map(pt=>`<span class="ph-k"><i style="background:${PT_COLORS[pt]||"#999"}"></i>${_ptName(pt)}</span>`).join("");
+  const tog=[["all","vs All"],["L","vs LHB"],["R","vs RHB"]].map(([v,l])=>`<button class="pxt-tog-b${phHand===v?" on":""}" onclick="setPhHand('${v}')">${l}</button>`).join("");
+  return `<div class="ph-tog">${tog}</div>
+    <svg viewBox="0 0 ${W} ${HH}" class="ph-svg">${grid}${lines}${xlab}</svg>
+    <div class="ph-key">${key}</div>
+    <div class="zd-note">Each line is one pitch type's share of that start. A steady climb or drop is a real arsenal change — often before the market prices it.</div>`;
+}
+
+// ---- How strikeout-prone is tonight's lineup, and in what context? ----
+function teamKPanel(team){
+  const tk=(BOARD.team_ks||{})[team];
+  if(!tk) return "";
+  const order=[["season","Season"],["l15","L15 days"],["l30","L30 days"],["home","Home"],["away","Away"],["vs_rhp","vs RHP"],["vs_lhp","vs LHP"]];
+  const rows=order.filter(([k])=>tk[k]).map(([k,l])=>{
+    const v=tk[k], tt=Math.max(0,Math.min(1,(v.rank-1)/29));
+    const bg=`rgba(96,170,112,${(0.06+tt*0.45).toFixed(2)})`;
+    return `<tr><td>${l}</td><td>${v.k}</td><td>${v.pct}%</td><td style="background:${bg}">${v.rank}</td></tr>`;
+  }).join("");
+  if(!rows) return "";
+  return `<div class="tk-wrap"><div class="tk-h">${team} strikeouts — how often this lineup whiffs</div>
+    <table class="tk-tbl"><thead><tr><th>SPLIT</th><th>K</th><th>K%</th><th>RANK</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="zd-note">Rank 1 = whiffs least, 30 = most. A high rank in the split that matches tonight (home/away, this arm's hand) is real support for a strikeout over.</div></div>`;
+}
+
 const ZSTATS={
   pw:{label:"Power Score",lo:0,hi:100,dec:0},
   hr:{label:"HR Rate",lo:0,hi:12,dec:1,suf:"%"},
@@ -3343,6 +3579,7 @@ function buildDetail(p){
       ${collapseWrap(pitchBlock(p))}
       ${percentileBars(p)}
       ${zoneDamageGrid(p)}
+      ${pitchTableBlock(p)}
       ${collapseWrap(featureBlock(p))}
       ${collapseWrap(luckBlock(p))}
       ${flagChips?`<div class="bd" style="margin-top:12px">${flagChips}</div>`:""}
@@ -4200,6 +4437,8 @@ function renderPitchMix(){
         ${starters.map(a=>`<option value="${a.id}"${a.id===arm.id?" selected":""}>${a.name} (${a.throws||"?"}HP) — ${a.team} vs ${a.opp_team}</option>`).join("")}
       </select>
     </div>
+    <details class="sec" style="margin-top:12px"><summary>Pitch usage history — has the arsenal changed?</summary>
+      <div id="phHost">${pitchHistoryInner()}</div></details>
     ${section("R")}${section("L")}
     <div class="prop-note" style="margin-top:14px">Green = more damage by the hitter; red on K%/SwStr% = the pitch beats him. Rates pool the raw counts across every pitch you select, so a big sample never gets outweighed by a tiny one. Splits are season-long and measured against all pitchers who throw that pitch (not just this arm), which keeps the samples usable. Tap a hitter for his full card.</div>
   </div>`;
@@ -4212,7 +4451,7 @@ function renderView(){
   // Weather is a live standalone view again (park + wind arrow, plus slate park ranking).
   if(view==="stacks"){ view="scan"; }
   else if(view==="matchup"){ view="edges"; }
-  if(view==="today") safe(renderToday); else if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else if(view==="weather") safe(renderWeather); else if(view==="qualified") safe(renderQualified); else if(view==="toppicks") safe(renderTopPicks); else if(view==="calendar") safe(renderCalendar); else if(view==="jackpot") safe(renderJackpot); else if(view==="sgp") safe(renderSGP); else if(view==="faq") safe(renderFaq); else if(view==="ladder") safe(renderLadder); else if(view==="pitchmix") safe(renderPitchMix); else safe(render);
+  if(view==="today") safe(renderToday); else if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else if(view==="weather") safe(renderWeather); else if(view==="qualified") safe(renderQualified); else if(view==="toppicks") safe(renderTopPicks); else if(view==="calendar") safe(renderCalendar); else if(view==="jackpot") safe(renderJackpot); else if(view==="sgp") safe(renderSGP); else if(view==="faq") safe(renderFaq); else if(view==="ladder") safe(renderLadder); else if(view==="pitchmix") safe(renderPitchMix); else if(view==="converge") safe(renderConverge); else safe(render);
 }
 
 // Weather dashboard: today's slate, one card per game — conditions, roof call,
@@ -7672,6 +7911,7 @@ function renderProps(){
       // Displayed prominently so users can eyeball against the book's posted line.
       const estK = ksProjection(a);
       const estLine = estK!=null ? `<span class="est-line">est. ${estK.toFixed(1)} Ks · line target O${kOverLine(estK).toFixed(1)}</span>` : "";
+      const kTeam = teamKPanel(a.opp_team);
       // Real book K line + EV: turn the model's estimate into P(over the book's line) via a
       // Poisson approximation (Ks are count data), then price the better side.
       const kOdds = fetchedPropFor("pk", a.name||"");
@@ -7696,6 +7936,7 @@ function renderProps(){
           ${estLine}
           <div class="prop-sub">${(kp+ss+oppK).replace(/^ · /,"")}</div>
           <div class="prop-tags"><span class="prop-tier">${tag}</span>${a.form?.label?` <span class="mstone" style="color:var(--muted);background:var(--panel);border-color:var(--line)">${a.form.label}</span>`:""}${kEV}</div>
+          ${kTeam?`<details class="tk-det"><summary>Opponent strikeout profile</summary>${kTeam}</details>`:""}
         </div>
       </div>`;
     }).join("");
@@ -8698,7 +8939,7 @@ document.getElementById("tabbar").addEventListener("click",async e=>{
 // Navigate to a view that lives in the "More" sheet (parlays/stacks/matchup/weather).
 // The More button in the tab bar lights up to show you're in a secondary view, since
 // none of the primary tabs own it.
-const MORE_VIEWS=new Set(["parlays","weather","qualified","toppicks","calendar","jackpot","sgp","faq","ladder","pitchmix"]);
+const MORE_VIEWS=new Set(["parlays","weather","qualified","toppicks","calendar","jackpot","sgp","faq","ladder","pitchmix","converge"]);
 // Drawer navigation — jumps to a view and optionally a sub-view, then closes the drawer.
 function renderFaq(){
   const main=document.getElementById("main");
