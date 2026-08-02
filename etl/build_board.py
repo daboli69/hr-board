@@ -1674,8 +1674,36 @@ def build(date_str: str | None = None) -> dict:
                                   "location": "Zone matchup", "arsenal": "Arsenal matchup",
                                   "arm": "Opposing arm", "env": "Environment",
                                   "grade": "Matchup grade"}
+                    # Families split into two kinds, because they answer different questions:
+                    #   HITTER families say "is this guy actually good/hot right now"
+                    #   CONTEXT families say "is tonight a good spot" — true of everyone in the game
+                    # A cold hitter in a great park facing a bad arm can rack up context families
+                    # while carrying no evidence that HE will do anything. Ranking on the combined
+                    # count rewarded exactly that, so the two are now tracked separately.
+                    _CONTEXT = {"arm", "env"}
                     _shared = [{"k": _k, "lab": _FAM_LABEL.get(_k, _k.title()),
-                                "detail": _v, "n": len(_v)} for _k, _v in _fam.items()]
+                                "detail": _v, "n": len(_v),
+                                "kind": ("context" if _k in _CONTEXT else "hitter")}
+                               for _k, _v in _fam.items()]
+
+                    # --- reliability: how much data is actually behind this hitter's signals? ---
+                    # Rate stats on a thin denominator are the classic way a nobody floats to the
+                    # top of a leaderboard. This is reported, not hidden, so you can filter on it.
+                    _bbe_season = ((_p.get("sample") or {}).get("season")
+                                   or (_F.get("hr_power") or {}).get("n") or 0)
+                    _bbe_recent = ((_p.get("sample") or {}).get("L15")
+                                   or (_p.get("sample") or {}).get("L14d") or 0)
+                    if _bbe_season >= 250:
+                        _rel, _rel_lab = 3, "Full season"
+                    elif _bbe_season >= 120:
+                        _rel, _rel_lab = 2, "Adequate"
+                    elif _bbe_season >= 60:
+                        _rel, _rel_lab = 1, "Thin"
+                    else:
+                        _rel, _rel_lab = 0, "Very thin"
+                    _p["reliability"] = {"score": _rel, "label": _rel_lab,
+                                         "bbe_season": int(_bbe_season), "bbe_recent": int(_bbe_recent),
+                                         "confirmed": (_p.get("lineup_status") == "confirmed")}
                     _conv = {}
                     for _prop, _bands in _LIFT.items():
                         _h = _p.get(_HEAT_KEY[_prop])
@@ -1691,9 +1719,12 @@ def build(date_str: str | None = None) -> dict:
                                     _meas.append({"k": _bk, "lab": _bk.upper(), "lift": _bl})
                                 else:
                                     _prov.append({"k": _bk, "lab": _bk.upper()})
+                        _n_hit = sum(1 for s in _prov if s.get("kind") != "context")
+                        _n_ctx = sum(1 for s in _prov if s.get("kind") == "context")
                         _conv[_prop] = {
                             "measured": _meas, "provisional": _prov,
                             "n_measured": len(_meas), "n_provisional": len(_prov),
+                            "n_hitter": _n_hit, "n_context": _n_ctx,
                             "lift": sum(m["lift"] for m in _meas),
                         }
                     _p["converge"] = _conv

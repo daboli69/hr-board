@@ -276,6 +276,7 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str) -> dict:
             "cv_meas": _nm + _nmh, "cv_meas_noheat": _nm, "cv_prov": _np,
             "cv_hit": _cv_hit, "cv_hrr": _cv_hrr,
             "cv_fams": (_nm + _nmh + _np),   # measured + provisional families, as the UI counts them
+            "bbe_season": int(len(past[past["batter"] == bid])) if bid is not None else None,
             "heat": float(heat), "hr": bid in hr_today,
             "hit_heat": float(hh) if hh is not None else None,
             "hrr_heat": float(hr_h) if hr_h is not None else None,
@@ -375,6 +376,11 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
             _cf = r.get("cv_fams")
             if _cf is not None:
                 _edge("converge_families", f"{min(int(_cf),5)}{'+' if int(_cf)>=5 else ''} families", hit)
+            # does sample size actually matter? grade thin vs full-season hitters directly
+            _bbe = r.get("bbe_season")
+            if _bbe is not None:
+                _edge("sample_size", "250+ BBE" if _bbe >= 250 else "120-249" if _bbe >= 120
+                      else "60-119 thin" if _bbe >= 60 else "<60 very thin", hit)
             _sq = r.get("square_up")
             if _sq is not None:
                 _edge("square_up", "75+ elite" if _sq >= 75 else "60-74 strong" if _sq >= 60
