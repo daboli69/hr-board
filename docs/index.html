@@ -75,6 +75,14 @@
   .cv-pt{font-family:"IBM Plex Mono";font-size:11px;font-weight:600;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:6px 13px;cursor:pointer}
   .cv-pt.on{background:var(--seam);border-color:var(--seam);color:#12140f}
   .cv-lift{font-size:11px;color:var(--muted);line-height:1.5;background:var(--panel-2);border:1px solid var(--line);border-left:3px solid var(--seam);border-radius:8px;padding:9px 11px;margin-bottom:10px}
+  .cv-filters{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin:8px 0}
+  .cv-filters>span{font-family:"IBM Plex Mono";font-size:10px;color:var(--faint);margin-right:2px}
+  .cv-fb{font-family:"IBM Plex Mono";font-size:10px;font-weight:600;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:5px 10px;cursor:pointer}
+  .cv-fb.on{background:var(--seam-glow);border-color:var(--seam);color:var(--seam)}
+  .cv-hid{font-family:"IBM Plex Mono";font-size:9.5px;color:var(--faint)}
+  .cv-thin{font-family:"IBM Plex Mono";font-size:8px;font-weight:800;background:rgba(224,160,72,.16);color:var(--warm);border-radius:4px;padding:1px 5px;margin-left:6px}
+  .cv-split{font-family:"IBM Plex Mono";font-size:9.5px;color:var(--faint);margin-top:3px}
+  .cv-split b{color:var(--muted)}
   .cv-tog{display:flex;gap:5px;margin:10px 0 6px}
   .cv-tog button{font-family:"IBM Plex Mono";font-size:11px;font-weight:600;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:6px 13px;cursor:pointer}
   .cv-tog button.on{background:var(--seam-glow);border-color:var(--seam);color:var(--seam)}
@@ -3242,7 +3250,7 @@ function pitchTableBlock(p){
 function _sigLabel(g){
   const m={zone:"Zone overlap", zone_edge:"Zone edge", arsenal_fit:"Arsenal fit",
     converge:"Convergence (with heat)", converge_noheat:"Convergence (no heat)",
-    converge_prov:"Convergence (provisional)", converge_families:"Convergence (all families)", square_up:"Square Up", hr_power:"HR power",
+    converge_prov:"Convergence (provisional)", converge_families:"Convergence (all families)", sample_size:"Sample size", square_up:"Square Up", hr_power:"HR power",
     grade:"Matchup grade", bomb:"Bomb Score", vuln:"Arm vulnerability"};
   return m[g] || (String(g).charAt(0).toUpperCase()+String(g).slice(1).replace(/_/g," "));
 }
@@ -3289,18 +3297,40 @@ function cvMeasured(p){
   const c=cvBlock(p); if(!c) return [];
   return cvHeat ? (c.measured||[]) : (c.measured||[]).filter(s=>s.k!=="heat");
 }
+let cvMinRel=1;      // 0 = show everyone, 1 = hide "very thin", 2 = adequate+, 3 = full season only
+let cvConfirmed=false;
+function setCvRel(v){ cvMinRel=+v; renderConverge(); }
+function toggleCvConfirmed(){ cvConfirmed=!cvConfirmed; renderConverge(); }
+// Context families (park, opposing arm) are true of EVERY hitter in that game — a cold bat in a
+// good spot was stacking them and out-ranking hitters with real evidence. They still count, but
+// at a third of the weight of a hitter-specific family, and the row shows the split so you can
+// see which kind of evidence you're actually looking at.
 function convergeVal(p){
   const c=cvBlock(p); if(!c) return -1;
   const m=cvMeasured(p);
   const lift=m.reduce((a,s)=>a+(s.lift||0),0);
-  return m.length*1000 + lift + ((c.provisional||[]).length)*0.5;
+  const prov=c.provisional||[];
+  const nHit=prov.filter(s=>s.kind!=="context").length;
+  const nCtx=prov.filter(s=>s.kind==="context").length;
+  const rel=(p.reliability&&p.reliability.score!=null)?p.reliability.score:3;
+  const relPenalty=(rel>=2)?1:(rel===1?0.75:0.5);   // thin evidence gets discounted, not hidden
+  return (m.length*1000 + lift + nHit*0.6 + nCtx*0.2) * relPenalty;
+}
+function cvPasses(p){
+  const rel=(p.reliability&&p.reliability.score!=null)?p.reliability.score:3;
+  if(rel<cvMinRel) return false;
+  if(cvConfirmed && p.reliability && p.reliability.confirmed===false) return false;
+  return true;
 }
 function renderConverge(){
   const main=document.getElementById("main");
   const meta=CV_PROPS[cvProp]||CV_PROPS.hr;
   const isK=(cvProp==="ks");
   const pool=(isK?(BOARD.pitcher_props||[]):(BOARD.players||[]))
-    .filter(x=>{const c=cvBlock(x); return c&&(cvMeasured(x).length+((c.provisional||[]).length))>0;});
+    .filter(x=>{const c=cvBlock(x); return c&&(cvMeasured(x).length+((c.provisional||[]).length))>0;})
+    .filter(x=>isK||cvPasses(x));
+  const hidden=isK?0:((BOARD.players||[]).filter(x=>{const c=cvBlock(x);
+    return c&&(cvMeasured(x).length+((c.provisional||[]).length))>0&&!cvPasses(x);}).length);
   const propTabs=Object.entries(CV_PROPS).map(([k,v])=>
     `<button class="cv-pt${cvProp===k?" on":""}" onclick="setCvProp('${k}')">${v.label}</button>`).join("");
   if(!pool.length){
@@ -3335,7 +3365,8 @@ function renderConverge(){
       <div class="cv-rk mono">${i+1}</div>
       <div class="cv-cnt"><b>${meas.length}</b><span>+${prov.length}</span></div>
       <div class="cv-main">
-        <div class="cv-nm">${x.name}<span class="cv-meta">${sub}</span></div>
+        <div class="cv-nm">${x.name}<span class="cv-meta">${sub}</span>${(!isK&&x.reliability&&x.reliability.score<=1)?`<span class="cv-thin" title="${x.reliability.bbe_season} batted balls this season — rate stats on a small denominator swing wildly">${x.reliability.label}</span>`:""}</div>
+        ${!isK?`<div class="cv-split"><b>${(prov.filter(s=>s.kind!=="context").length)}</b> about him · <b>${(prov.filter(s=>s.kind==="context").length)}</b> about the spot</div>`:""}
         <div class="cv-sigs">${meas.map(s=>chip(s,"meas")).join("")}${prov.map(s=>chip(s,"prov")).join("")}</div>
         ${prov.some(s=>s.detail&&s.detail.length)?`<details class="cv-ev" onclick="event.stopPropagation()"><summary>what fired</summary>
           ${prov.filter(s=>s.detail&&s.detail.length).map(s=>`<div class="cv-evr"><span>${s.lab}</span>${s.detail.map(d=>`<i>${d}</i>`).join("")}</div>`).join("")}
@@ -3352,6 +3383,13 @@ function renderConverge(){
       <button class="${cvHeat?"on":""}" onclick="setCvHeat(true)">With heat</button>
       <button class="${!cvHeat?"on":""}" onclick="setCvHeat(false)">Without heat</button>
     </div>
+    ${!isK?`<div class="cv-filters">
+      <span>Sample:</span>
+      ${[[0,"All"],[1,"60+ BBE"],[2,"120+ BBE"],[3,"250+ BBE"]].map(([v,l])=>
+        `<button class="cv-fb${cvMinRel===v?" on":""}" onclick="setCvRel(${v})">${l}</button>`).join("")}
+      <button class="cv-fb${cvConfirmed?" on":""}" onclick="toggleCvConfirmed()">Confirmed lineup</button>
+      ${hidden?`<span class="cv-hid">${hidden} filtered out</span>`:""}
+    </div>`:""}
     <div class="cv-note-sm">${cvHeat
       ? "Heat counts as one of the measured signals — the full picture."
       : "Heat excluded. Because heat correlates with most other reads, this asks whether the <b>rest</b> of the evidence agrees on its own."}</div>
@@ -3361,7 +3399,7 @@ function renderConverge(){
       <span class="cv-sig prov">Provisional<i>not yet graded</i></span>
     </div>
     ${rows}
-    <div class="prop-note" style="margin-top:14px"><b>Read this honestly.</b> The bold number counts <b>measured</b> signals only — ones your own backtest graded for this prop. The small <b>+n</b> is provisional context that hasn't been graded. Crucially, the props are <b>not equally trustworthy</b> — the band lift shown above is pulled live from your latest backtest, and the HR model has historically separated far harder than 1+hit or H+R+RBI, so a "2-signal" hits play means less than a 2-signal HR play. Badges that stop clearing the lift threshold (DUE and COOL both have) are dropped automatically rather than padding the count. Provisional reads are grouped into <b>families</b> — contact quality, form, zone matchup, arsenal matchup, opposing arm, environment, matchup grade — and each family counts <b>once</b>, no matter how many things fired inside it. That's deliberate: barrel rate, hard-hit%, EV percentile and Square Up all measure the same underlying thing, so counting them separately would let one piece of evidence pose as four. Tap "what fired" to see the detail. Families still overlap somewhat, so agreeing reads aren't independent coin flips. A shortlist, not a verdict.</div>
+    <div class="prop-note" style="margin-top:14px"><b>Read this honestly.</b> The bold number counts <b>measured</b> signals only — ones your own backtest graded for this prop. The small <b>+n</b> is provisional context that hasn't been graded. Crucially, the props are <b>not equally trustworthy</b> — the band lift shown above is pulled live from your latest backtest, and the HR model has historically separated far harder than 1+hit or H+R+RBI, so a "2-signal" hits play means less than a 2-signal HR play. Badges that stop clearing the lift threshold (DUE and COOL both have) are dropped automatically rather than padding the count. Two things shape this ranking beyond the raw count. <b>Context families</b> (opposing arm, environment) are true of every hitter in that game, so they carry a third of the weight of hitter-specific evidence — otherwise a cold bat in a good park out-ranks a hot hitter. And <b>thin samples are discounted</b>: rate stats on 40 batted balls swing wildly, so those players are down-weighted and flagged, with a filter to remove them entirely. Provisional reads are grouped into <b>families</b> — contact quality, form, zone matchup, arsenal matchup, opposing arm, environment, matchup grade — and each family counts <b>once</b>, no matter how many things fired inside it. That's deliberate: barrel rate, hard-hit%, EV percentile and Square Up all measure the same underlying thing, so counting them separately would let one piece of evidence pose as four. Tap "what fired" to see the detail. Families still overlap somewhat, so agreeing reads aren't independent coin flips. A shortlist, not a verdict.</div>
   </div>`;
 }
 
