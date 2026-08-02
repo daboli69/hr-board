@@ -251,62 +251,80 @@ def batter_hr_zones(rows) -> dict:
 
 
 def batter_zone_damage(rows, min_n: int = 6) -> dict:
-    """A hitter's contact quality by zone — now across all 13 cells (1-9 in the zone, 11-14
-    outside it) and with the full set of metrics the matchup view can switch between, not just
-    xwOBAcon: barrel rate, hard-hit rate, average exit velo, average distance on air balls,
-    HR rate, SLG and ISO on contact.
+    """A hitter's contact quality by zone — all 13 cells (1-9 in the zone, 11-14 outside it) with
+    the metrics the matchup view switches between: barrel rate, hard-hit rate, average exit velo,
+    average distance on air balls, HR rate, SLG and ISO on contact.
 
     `power` is a 0-100 composite built ONLY from the facts that predict home runs — barrel rate
-    weighted heaviest, then earned contact quality, exit velo and hard-hit rate. It's a display
-    lens for reading a zone at a glance; it never feeds the frozen heat model.
-    Requires min_n batted balls in a cell so a 2-3 ball fluke doesn't read as 'crushes this zone'.
+    weighted heaviest, then earned contact quality, exit velo and hard-hit rate. Display lens
+    only; it never feeds the frozen heat model. Requires min_n batted balls per cell so a 2-3
+    ball fluke can't read as 'crushes this zone'.
+
+    Implementation note: this runs once per batter per replayed day in the backtest (tens of
+    thousands of calls), so it does ONE groupby and vectorised aggregation rather than a boolean
+    mask per zone — the mask-per-zone version cost ~26ms a call and dominated the replay budget.
     """
     if pd is None or rows is None or rows.empty or "zone" not in rows.columns:
         return {}
     if "launch_speed" not in rows.columns:
         return {}
-    bb = rows[rows["launch_speed"].notna()].copy()
+    bb = rows[rows["launch_speed"].notna()]
     if bb.empty:
         return {}
-    bb["_z"] = pd.to_numeric(bb["zone"], errors="coerce")
+    z = pd.to_numeric(bb["zone"], errors="coerce")
+    keep = z.isin(ZONES_ALL)
+    if not keep.any():
+        return {}
+    bb = bb[keep]
+    z = z[keep].astype(int)
+
+    ls = pd.to_numeric(bb["launch_speed"], errors="coerce")
+    xw = pd.to_numeric(bb.get("estimated_woba_using_speedangle"), errors="coerce")
+    lsa = (pd.to_numeric(bb["launch_speed_angle"], errors="coerce")
+           if "launch_speed_angle" in bb.columns else pd.Series(index=bb.index, dtype=float))
+    la = (pd.to_numeric(bb["launch_angle"], errors="coerce")
+          if "launch_angle" in bb.columns else pd.Series(index=bb.index, dtype=float))
+    dist = (pd.to_numeric(bb["hit_distance_sc"], errors="coerce")
+            if "hit_distance_sc" in bb.columns else pd.Series(index=bb.index, dtype=float))
+    ev_s = bb["events"].astype(str) if "events" in bb.columns else pd.Series(index=bb.index, dtype=object)
     TB = {"single": 1, "double": 2, "triple": 3, "home_run": 4}
+
+    work = pd.DataFrame({
+        "_z": z.to_numpy(),
+        "ls": ls.to_numpy(), "xw": xw.to_numpy(),
+        "brl": (lsa == 6).to_numpy(),
+        "hard": (ls >= 95).to_numpy(),
+        "air_d": dist.where(la >= 10).to_numpy(),
+        "hr": (ev_s == "home_run").to_numpy(),
+        "tb": ev_s.map(TB).fillna(0).to_numpy(),
+        "hit": ev_s.isin(list(TB)).to_numpy(),
+    })
+    g = work.groupby("_z", sort=False)
+    agg = g.agg(n=("ls", "size"), xw=("xw", "mean"), xw_n=("xw", "count"),
+                ev=("ls", "mean"), ev_n=("ls", "count"), hard=("hard", "sum"),
+                brl=("brl", "sum"), dist=("air_d", "mean"),
+                hr=("hr", "sum"), tb=("tb", "sum"), hits=("hit", "sum"))
+
+    def _c(v, lo, hi):
+        if v is None or v != v:
+            return None
+        return max(0.0, min(1.0, (v - lo) / (hi - lo)))
+
     out = {}
-    for zone in ZONES_ALL:
-        sub = bb[bb["_z"] == zone]
-        n = len(sub)
-        if n < min_n:
+    for zone, r in agg.iterrows():
+        n = int(r["n"])
+        if n < min_n or not r["xw_n"] or r["xw"] != r["xw"]:
             continue
-        xw = pd.to_numeric(sub.get("estimated_woba_using_speedangle"), errors="coerce").dropna()
-        if not len(xw):
-            continue
-        entry = {"xwobacon": round(float(xw.mean()), 3), "n": int(n)}
-        ls = pd.to_numeric(sub["launch_speed"], errors="coerce")
-        ok = ls.notna()
-        if int(ok.sum()):
-            entry["avg_ev"] = round(float(ls[ok].mean()), 1)
-            entry["hh_pct"] = round(float(100.0 * (ls[ok] >= 95).sum() / int(ok.sum())), 1)
-        if "launch_speed_angle" in sub.columns:
-            lsa = pd.to_numeric(sub["launch_speed_angle"], errors="coerce")
-            entry["barrel_pct"] = round(float(100.0 * (lsa == 6).sum() / n), 1)
-        if "hit_distance_sc" in sub.columns and "launch_angle" in sub.columns:
-            la = pd.to_numeric(sub["launch_angle"], errors="coerce")
-            dist = pd.to_numeric(sub["hit_distance_sc"], errors="coerce")
-            air = dist[(la >= 10) & dist.notna()]
-            if len(air):
-                entry["avg_dist"] = int(round(float(air.mean())))
-        if "events" in sub.columns:
-            ev = sub["events"].astype(str)
-            hr = int((ev == "home_run").sum())
-            entry["hr_rate"] = round(100.0 * hr / n, 1)
-            tb = float(sum(TB.get(e, 0) for e in ev))
-            hits = int(ev.isin(list(TB)).sum())
-            entry["slg"] = round(tb / n, 3)
-            entry["iso"] = round((tb - hits) / n, 3)
-        # 0-100 power composite, barrel-weighted (HR-predictive first)
-        def _c(v, lo, hi):
-            if v is None:
-                return None
-            return max(0.0, min(1.0, (v - lo) / (hi - lo)))
+        entry = {"xwobacon": round(float(r["xw"]), 3), "n": n}
+        if r["ev_n"]:
+            entry["avg_ev"] = round(float(r["ev"]), 1)
+            entry["hh_pct"] = round(100.0 * float(r["hard"]) / float(r["ev_n"]), 1)
+        entry["barrel_pct"] = round(100.0 * float(r["brl"]) / n, 1)
+        if r["dist"] == r["dist"]:
+            entry["avg_dist"] = int(round(float(r["dist"])))
+        entry["hr_rate"] = round(100.0 * float(r["hr"]) / n, 1)
+        entry["slg"] = round(float(r["tb"]) / n, 3)
+        entry["iso"] = round((float(r["tb"]) - float(r["hits"])) / n, 3)
         parts, wts = [], []
         for val, lo, hi, w in ((entry.get("barrel_pct"), 0, 20, 0.35),
                                (entry.get("xwobacon"), 0.280, 0.650, 0.25),
@@ -317,7 +335,7 @@ def batter_zone_damage(rows, min_n: int = 6) -> dict:
                 parts.append(c * w); wts.append(w)
         if wts:
             entry["power"] = int(round(100.0 * sum(parts) / sum(wts)))
-        out[str(zone)] = entry
+        out[str(int(zone))] = entry
     return out
 
 

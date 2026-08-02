@@ -22,6 +22,14 @@ import json
 import os
 import sys
 
+# pybaseball warns on every large pull that caching should be on. With it enabled the season
+# fetch is written to disk, so a re-run (or a retry after a failure) skips the slowest step.
+try:
+    from pybaseball import cache as _pyb_cache
+    _pyb_cache.enable()
+except Exception:
+    pass
+
 import numpy as np
 import pandas as pd
 
@@ -140,6 +148,32 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str) -> dict:
             pitcher_scores[pid] = (float(k_sc), int(pit_ks_today.get(pid, 0)))
     # ---- NEW-SIGNAL replay: compute the ZONE signal AS OF this date from `past` only (no
     # leakage), so the backtest can prove or kill the newer edges the way it validates heat.
+    # Index `past` by batter and by pitcher ONCE per day. Previously each batter did its own
+    # boolean scan over the whole season-to-date frame — with ~250 batters x 131 days that was
+    # tens of billions of row comparisons, which is what pushed the workflow past 90 minutes.
+    # A groupby costs one pass and turns every lookup into a dict hit.
+    # A hitter's season-to-date zone profile barely moves in a day — a few batted balls added to
+    # a few hundred. Recomputing it for every batter on every replayed date was the single most
+    # expensive thing in the loop. Cache it and refresh on a cadence: the cached value is always
+    # built from data STRICTLY BEFORE the current date, so this is more conservative than daily
+    # recomputation, never leaky.
+    _ZCACHE = globals().setdefault("_BT_ZCACHE", {})
+    _zc_day = globals().get("_BT_ZCACHE_DAY")
+    _day_ix = globals().setdefault("_BT_DAY_IX", {"n": 0})
+    _day_ix["n"] += 1
+    if _day_ix["n"] % 7 == 1:            # refresh weekly
+        _ZCACHE.clear()
+
+    try:
+        _by_bat = {int(k): v for k, v in past.groupby("batter")} if len(past) else {}
+    except Exception:
+        _by_bat = {}
+    try:
+        _by_pit = {int(k): v for k, v in past.groupby("pitcher")} if len(past) else {}
+    except Exception:
+        _by_pit = {}
+    _EMPTY = past.iloc[0:0]
+
     _meat_by_sp = {}
     _grid_by_sp = {}      # (pid, batter_hand) -> zone usage grid
     _ars_by_sp = {}       # (pid, batter_hand) -> [(pitch_type, usage_pct), ...]
@@ -147,7 +181,7 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str) -> dict:
     try:
         from etl import features as _F
         for pid in sp_ids:
-            _prows = past[past["pitcher"] == pid]
+            _prows = _by_pit.get(int(pid), _EMPTY)
             if len(_prows) < 150:
                 continue
             _meat_by_sp[pid] = _F.pitcher_zone_damage(_prows)
@@ -213,7 +247,7 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str) -> dict:
         # ---- NEW SIGNALS, computed from `past` only (no leakage) ----
         _zone = None; _squp = None; _hrpow = None
         try:
-            _brows = past[past["batter"] == bid]
+            _brows = _by_bat.get(int(bid), _EMPTY)
             if len(_brows) >= 50:
                 _bhr = _F.batter_hr_zones(_brows)
                 _mb = _meat_by_sp.get(face.get(bid))
@@ -232,14 +266,17 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str) -> dict:
         try:
             _sp = face.get(bid)
             _bh = None
-            _bs = past[past["batter"] == bid]["stand"].dropna() if "stand" in past.columns else None
+            _brows2 = _by_bat.get(int(bid), _EMPTY)
+            _bs = _brows2["stand"].dropna() if "stand" in _brows2.columns else None
             if _bs is not None and len(_bs):
                 _bh = str(_bs.iloc[0])
             if _bh == "S":
                 _bh = "L" if _throws_by_sp.get(_sp) == "R" else "R"
-            _brows2 = past[past["batter"] == bid]
             if _sp and _bh and len(_brows2) >= 80:
-                _bz = _F.batter_zone_damage(_brows2)
+                _bz = _ZCACHE.get(bid)
+                if _bz is None:
+                    _bz = _F.batter_zone_damage(_brows2) or {}
+                    _ZCACHE[bid] = _bz
                 _g = _grid_by_sp.get((_sp, _bh))
                 if _bz and _g:
                     _ze = _F.zone_matchup_edges(_bz, _g)
@@ -276,7 +313,7 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str) -> dict:
             "cv_meas": _nm + _nmh, "cv_meas_noheat": _nm, "cv_prov": _np,
             "cv_hit": _cv_hit, "cv_hrr": _cv_hrr,
             "cv_fams": (_nm + _nmh + _np),   # measured + provisional families, as the UI counts them
-            "bbe_season": int(len(past[past["batter"] == bid])) if bid is not None else None,
+            "bbe_season": int(len(_by_bat.get(int(bid), _EMPTY))) if bid is not None else None,
             "heat": float(heat), "hr": bid in hr_today,
             "hit_heat": float(hh) if hh is not None else None,
             "hrr_heat": float(hr_h) if hr_h is not None else None,
