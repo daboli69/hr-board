@@ -8,20 +8,38 @@ on:
 jobs:
   backtest:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # The replay walks every game day of the season. 90 minutes was cutting it off partway
+    # through with nothing committed; 5 hours leaves real headroom as the season grows.
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.11" }
       - run: pip install pandas numpy pybaseball requests
+
+      # pybaseball itself asks for this — it caches the Statcast pull to disk, so a re-run
+      # skips the slowest step entirely instead of re-downloading the whole season.
+      - name: Cache Statcast pull
+        uses: actions/cache@v4
+        with:
+          path: ~/.pybaseball
+          key: pybaseball-${{ github.event.inputs.season_start }}-${{ github.run_id }}
+          restore-keys: |
+            pybaseball-${{ github.event.inputs.season_start }}-
+
       - name: Replay the season
         env:
           BT_SEASON_START: ${{ github.event.inputs.season_start }}
+          PYTHONUNBUFFERED: "1"
         run: python -m etl.backtest
+
       - name: Commit results
+        # `always()` so a partial/failed replay still commits whatever it managed to write,
+        # rather than throwing away the whole run the way the timeout did.
+        if: always()
         run: |
           git config user.name "backtest-bot"
           git config user.email "actions@github.com"
-          git add docs/backtest.json
+          git add docs/backtest.json || true
           git commit -m "backtest results" || echo "no changes"
-          git pull --rebase --autostash && git push
+          git pull --rebase --autostash && git push || echo "nothing to push"
