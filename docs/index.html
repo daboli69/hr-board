@@ -83,6 +83,13 @@
   .cv-thin{font-family:"IBM Plex Mono";font-size:8px;font-weight:800;background:rgba(224,160,72,.16);color:var(--warm);border-radius:4px;padding:1px 5px;margin-left:6px}
   .cv-split{font-family:"IBM Plex Mono";font-size:9.5px;color:var(--faint);margin-top:3px}
   .cv-split b{color:var(--muted)}
+  .cal-hr-main{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .cal-hr-x{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0 2px 34px}
+  .cal-rk{font-family:"IBM Plex Mono";font-size:8.5px;font-weight:800;background:var(--panel-3);color:var(--muted);border-radius:4px;padding:1.5px 5px}
+  .cal-rk.cv{background:var(--seam-glow);color:var(--seam)}
+  .cal-rk i{font-style:normal;opacity:.7;margin-left:2px}
+  .cal-bdg{font-family:"IBM Plex Mono";font-size:8px;font-weight:700;border-radius:4px;padding:1.5px 5px;background:var(--panel-2);color:var(--muted)}
+  .tf-alt{font-style:normal;font-size:7px;opacity:.55;margin-left:3px;letter-spacing:.04em}
   .cv-tog{display:flex;gap:5px;margin:10px 0 6px}
   .cv-tog button{font-family:"IBM Plex Mono";font-size:11px;font-weight:600;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:6px 13px;cursor:pointer}
   .cv-tog button.on{background:var(--seam-glow);border-color:var(--seam);color:var(--seam)}
@@ -1942,7 +1949,7 @@
             <button class="bdg bk-plat" data-trait="plat" aria-pressed="false">PLATOON</button>
             <button class="bdg bk-mix" data-trait="mix" aria-pressed="false">PITCH EDGE</button>
             <button class="bdg bk-pow" data-trait="pow" aria-pressed="false">POWER</button>
-            <button class="bdg bk-lock" data-trait="lock" aria-pressed="false">HOT</button>
+            <button class="bdg bk-lock" data-trait="lock" aria-pressed="false" title="Elite earned contact (~85th pct) — the signal shown as LOCK in the backtest">HOT<i class="tf-alt">lock</i></button>
             <button class="bdg bk-hot" data-trait="hot" aria-pressed="false">WARMING</button>
             <button class="bdg bk-due" data-trait="due" aria-pressed="false">DUE</button>
             <button class="bdg bk-cool" data-trait="cool" aria-pressed="false">MAY COOL</button>
@@ -3248,6 +3255,13 @@ function pitchTableBlock(p){
 // tested. Ranking never touches the frozen heat model.
 // Friendly names for the replayed signal groups (raw keys are ETL-side identifiers).
 function _sigLabel(g){
+  // badge groups arrive as raw ETL keys ("lock", "pow"); show the label the rest of the app uses
+  // so "Badge lock" doesn't read like a badge that exists nowhere else in the UI.
+  if(typeof g==="string" && g.indexOf("badge_")===0){
+    const bk=g.slice(6);
+    return "Badge " + ((typeof BKLABEL!=="undefined" && BKLABEL[bk]) || bk.toUpperCase());
+  }
+  if(typeof BKLABEL!=="undefined" && BKLABEL[g]) return "Badge " + BKLABEL[g];
   const m={zone:"Zone overlap", zone_edge:"Zone edge", arsenal_fit:"Arsenal fit",
     converge:"Convergence (with heat)", converge_noheat:"Convergence (no heat)",
     converge_prov:"Convergence (provisional)", converge_families:"Convergence (all families)", sample_size:"Sample size", square_up:"Square Up", hr_power:"HR power",
@@ -8559,10 +8573,17 @@ function renderCalendar(){
       const left = (!backfilled && x.heat!=null)
         ? `<span class="cal-hr-heat" style="background:${chipColor(x.heat||0)}">${x.heat}</span>`
         : `<span class="cal-hr-heat cal-hr-dist">${x.dist!=null?x.dist:"·"}</span>`;
+      // Ranks are captured at slate time, so this shows whether the boards actually surfaced
+      // the guy before he went deep — the only honest way to read a hit list after the fact.
+      const rk=[];
+      if(x.heat_rank!=null) rk.push(`<span class="cal-rk" title="his rank on the Heat board before first pitch">H#${x.heat_rank}</span>`);
+      if(x.cv_rank!=null) rk.push(`<span class="cal-rk cv" title="his rank on Signal Convergence with heat EXCLUDED — did the other evidence find him?">C#${x.cv_rank}${x.cv_fams!=null?`<i>${x.cv_fams}f</i>`:""}</span>`);
+      const bdg=(x.badges||[]).map(k=>`<span class="cal-bdg bk-${k}">${(typeof BKLABEL!=="undefined"&&BKLABEL[k])||k}</span>`).join("");
       const meta = backfilled
         ? `${x.dist!=null?x.dist+" ft":""}${x.ev!=null?" · "+x.ev+" mph":""}`
-        : `${x.tier||''}${x.off?' · off '+x.off:''}${(x.badges||[]).length?' · '+x.badges.join(' '):''}`;
-      return `<div class="cal-hr-row">${left}<b>${x.name}</b>${(x.hr||0)>1?` <span style="color:var(--hot)">×${x.hr}</span>`:''}<span class="cal-hr-meta">${meta}</span></div>`;
+        : `${x.tier||''}${x.off?' · off '+x.off:''}${x.dist!=null?' · '+x.dist+' ft':''}`;
+      const extra = (!backfilled && (rk.length||bdg)) ? `<div class="cal-hr-x">${rk.join("")}${bdg}</div>` : "";
+      return `<div class="cal-hr-row"><div class="cal-hr-main">${left}<b>${x.name}</b>${(x.hr||0)>1?` <span style="color:var(--hot)">×${x.hr}</span>`:''}<span class="cal-hr-meta">${meta}</span></div>${extra}</div>`;
     }).join("");
     detail=`<div class="cal-detail">
       <div class="cal-det-h">${dObj.toLocaleDateString('default',{weekday:'long',month:'short',day:'numeric'})} — <b style="color:${_hrColor(selRec.total_hr)}">${selRec.total_hr} HR</b> <span class="cal-det-sub">· ${selRec.hitters_homered||log.length} hitters · ${selRec.sp_hr||0} off SP / ${selRec.bp_hr||0} off pen${distBit}</span></div>
@@ -8756,6 +8777,7 @@ function renderTracker(){
     ${acc("HR rate by badge",`How often hitters carrying each badge homered, across every ranked hitter. Right column = lift vs the ${baseRate.toFixed(1)}% base rate. ${tot?`HR hitters carried ${avgBadgesHr.toFixed(1)} badges on average.`:""}`,
       badgeRows||'<div class="ln" style="color:var(--muted)">— needs a few graded days —</div>')}
     ${(()=>{ const s=parlaySection(days,baseRate); return s?acc("Best parlays &amp; combos","Tag pairings and combos that have actually converted in your graded data and bets.",s):""; })()}
+    ${(()=>{ const s=convergePropSection(); return s?acc("Convergence by prop","Does stacking signals help for hits and H+R+RBI the way it does for home runs? Graded on each prop's own outcome.",s):""; })()}
     ${(()=>{ const s=propsSection(days); return s?acc("Props tracking","How the hit, HRR, and pitcher-K prop models have graded out.",s):""; })()}
     ${acc("Daily log","Every graded slate, most recent first.",
       dayRows)}
@@ -8810,6 +8832,35 @@ function parlaySection(days, baseRate){
 // Aggregates by_props across HISTORY.days. Displays four prop types:
 // hit1 (1+ hit), hit2 (2+ hits), hrr (hits+runs+RBIs ≥ 2), pk (pitcher Ks over 5.5/6.5/7.5).
 // For each: tier conversion table + top-N + implied base rate. Flags thin samples.
+// Convergence graded against EACH prop's own outcome — produced by the backtest but never
+// rendered until now. This is the section that answers "does stacking signals help for hits
+// and HRR too, or only for home runs?"
+function convergePropSection(){
+  const cp=(BACKTEST&&BACKTEST.by_converge_prop)||null;
+  if(!cp||!Object.keys(cp).length) return "";
+  const NAME={hit1:"1+ Hit", hit2:"2+ Hits", hrr:"H+R+RBI"};
+  let out="";
+  Object.entries(cp).forEach(([prop,buckets])=>{
+    const rows=Object.entries(buckets||{})
+      .map(([b,v])=>({b, n:v.n||0, hit:v.hit||0}))
+      .filter(r=>r.n>=100);
+    if(!rows.length) return;
+    const tn=rows.reduce((a,r)=>a+r.n,0), th=rows.reduce((a,r)=>a+r.hit,0);
+    const base=tn?th/tn:0;
+    if(!base) return;
+    const body=rows.sort((a,b)=>(b.hit/b.n)-(a.hit/a.n)).map(r=>{
+      const rate=r.hit/r.n, lift=rate/base;
+      return `<div class="trk-row" style="grid-template-columns:1fr 58px 46px">
+        <div class="lab">${r.b}</div>
+        <div style="font-family:'IBM Plex Mono';font-size:11px;text-align:right">${(100*rate).toFixed(1)}%</div>
+        <div style="font-family:'IBM Plex Mono';font-size:11px;font-weight:800;text-align:right;color:${lift>=1.15?"var(--hot)":lift>=1.05?"var(--seam)":lift<=0.9?"var(--cold)":"var(--muted)"}">${lift.toFixed(2)}×</div></div>`;
+    }).join("");
+    out+=`<div style="margin-top:10px"><div style="font-family:'IBM Plex Mono';font-size:10px;color:var(--seam);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">${NAME[prop]||prop} <span style="color:var(--faint)">base ${(100*base).toFixed(1)}%</span></div>${body}</div>`;
+  });
+  if(!out) return "";
+  return out+`<div class="btg-note">Each prop is graded on its OWN outcome — a hit-model signal is scored against whether he got a hit, not whether he homered. If a prop shows no separation between 0 and 1+ measured signals, convergence isn't adding anything there, and that's worth knowing before you bet it.</div>`;
+}
+
 function propsSection(days){
   // aggregate
   const agg={hit1:{tiers:{},topN:{}}, hit2:{tiers:{},topN:{}}, hrr:{tiers:{},topN:{}}, pk:{tiers:{},topN:{}}, bku:{tiers:{},topN:{}}};
