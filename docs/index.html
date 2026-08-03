@@ -3279,7 +3279,8 @@ const CV_PROPS={
   hr:  {label:"Home run",   who:"hitters"},
   hit: {label:"1+ Hit",     who:"hitters"},
   hrr: {label:"H+R+RBI",    who:"hitters"},
-  ks:  {label:"Pitcher Ks", who:"pitchers"}
+  ks:  {label:"Pitcher Ks", who:"pitchers"},
+  ml:  {label:"Moneyline",  who:"teams"}
 };
 // The lift text is generated from whatever the LAST BACKTEST measured, so re-running the
 // backtest updates both the ranking and the explanation — no stale numbers claiming an edge
@@ -3336,10 +3337,66 @@ function cvPasses(p){
   if(cvConfirmed && p.reliability && p.reliability.confirmed===false) return false;
   return true;
 }
+// Moneyline convergence — teams, not players. Framed more carefully than the hitter boards:
+// the ML is the sharpest market in baseball, so our own sub-models agreeing is evidence about
+// the SIDE, not proof of an edge over the posted price.
+function renderConvergeML(){
+  const main=document.getElementById("main");
+  const rows=[];
+  (BOARD.game_projections||[]).forEach(g=>{
+    ["home","away"].forEach(side=>{
+      const c=g[side+"_converge"]; if(!c) return;
+      const meas=cvHeat?(c.measured||[]):(c.measured||[]).filter(s=>s.k!=="runmodel");
+      const prov=c.provisional||[];
+      if(!(meas.length+prov.length)) return;
+      rows.push({g,side,c,meas,prov,
+        team:g[side], opp:g[side==="home"?"away":"home"],
+        wp:g[side+"_wp"], fair:g[side+"_fair"],
+        score:meas.length*1000+meas.reduce((a,s)=>a+(s.lift||0),0)+prov.length*0.6});
+    });
+  });
+  const propTabs=Object.entries(CV_PROPS).map(([k,v])=>
+    `<button class="cv-pt${cvProp===k?" on":""}" onclick="setCvProp('${k}')">${v.label}</button>`).join("");
+  const head=`<div class="q-head"><b>Signal Convergence</b></div>
+    <div class="q-sub">Ranked by how many independent reads back the same side.</div>
+    <div class="cv-props">${propTabs}</div>
+    <div class="cv-tog">
+      <button class="${cvHeat?"on":""}" onclick="setCvHeat(true)">With model</button>
+      <button class="${!cvHeat?"on":""}" onclick="setCvHeat(false)">Without model</button>
+    </div>`;
+  if(!rows.length){
+    main.innerHTML=`<div class="cv-wrap">${head}<div class="prop-note">Moneyline convergence isn't in this board yet — it fills in on the next ETL run.</div></div>`;
+    return;
+  }
+  rows.sort((a,b)=>b.score-a.score);
+  const chip=(s,cls)=>{
+    const det=(s.detail&&s.detail.length)?s.detail.join(" · "):"";
+    return `<span class="cv-sig ${cls}"${det?` title="${det.replace(/"/g,"&quot;")}"`:""}>${s.lab}${s.n>1?`<b>${s.n}</b>`:""}${s.lift?`<i>+${s.lift}%</i>`:""}</span>`;
+  };
+  const body=rows.slice(0,30).map((r,i)=>`<div class="cv-row">
+    <div class="cv-rk mono">${i+1}</div>
+    <div class="cv-cnt"><b>${r.meas.length}</b><span>+${r.prov.length}</span></div>
+    <div class="cv-main">
+      <div class="cv-nm">${r.team}<span class="cv-meta">vs ${r.opp}${r.side==="home"?" (home)":" (away)"}</span></div>
+      <div class="cv-sigs">${r.meas.map(s=>chip(s,"meas")).join("")}${r.prov.map(s=>chip(s,"prov")).join("")}</div>
+      ${r.prov.some(s=>s.detail&&s.detail.length)?`<details class="cv-ev"><summary>what fired</summary>
+        ${r.prov.filter(s=>s.detail&&s.detail.length).map(s=>`<div class="cv-evr"><span>${s.lab}</span>${s.detail.map(d=>`<i>${d}</i>`).join("")}</div>`).join("")}
+      </details>`:""}
+    </div>
+    <div class="cv-r"><div class="cv-prob" style="font-size:14px;color:var(--ink)">${r.wp!=null?Math.round(100*r.wp)+"%":""}</div>
+      <div class="cv-prob">${r.fair!=null?fmtAm(r.fair):""}</div></div>
+  </div>`).join("");
+  main.innerHTML=`<div class="cv-wrap">${head}
+    <div class="cv-lift">The run model itself is graded: it beats a naive baseline on Brier score with tight calibration, so its win probability counts as measured. The starter, bullpen, defense, platoon and run-margin reads are provisional — they feed the same model, so they're partly restating it rather than confirming it independently.</div>
+    ${body}
+    <div class="prop-note" style="margin-top:14px"><b>Read this differently than the hitter boards.</b> The moneyline is the <b>sharpest market in baseball</b>. Several of our sub-models agreeing tells you which side the model likes — it does <b>not</b> tell you the price is wrong, and these inputs overlap heavily (a starter edge is already inside the win probability). Treat convergence here as a confidence read on the model's own opinion, then check that opinion against the posted number in Game Lines before betting anything.</div>
+  </div>`;
+}
 function renderConverge(){
   const main=document.getElementById("main");
   const meta=CV_PROPS[cvProp]||CV_PROPS.hr;
-  const isK=(cvProp==="ks");
+  const isK=(cvProp==="ks"), isML=(cvProp==="ml");
+  if(isML) return renderConvergeML();
   const pool=(isK?(BOARD.pitcher_props||[]):(BOARD.players||[]))
     .filter(x=>{const c=cvBlock(x); return c&&(cvMeasured(x).length+((c.provisional||[]).length))>0;})
     .filter(x=>isK||cvPasses(x));
