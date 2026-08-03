@@ -1570,6 +1570,16 @@ def build(date_str: str | None = None) -> dict:
                     "source": ("backtest" if _BT else "fallback"),
                 }
                 _HEAT_KEY = {"hr": "heat", "hit": "hit_heat", "hrr": "hrr_heat"}
+                # 75th percentile of tonight's zone-edge scores — "clearly better than the rest
+                # of this slate" rather than an absolute number that may not match the scale.
+                def _ze_of(x):
+                    return (((x.get("features") or {}).get("zone_profile") or {}).get("zone_edge") or {}).get("edge_score")
+                _zevals = sorted(v for v in (_ze_of(x) for x in players) if v is not None)
+                _ZE_CUT = (_zevals[int(0.75 * (len(_zevals) - 1))] if len(_zevals) >= 12 else 1e9)
+                if _zevals:
+                    print(f"[build] zone-edge gate (p75 of slate) = {_ZE_CUT} "
+                          f"(range {_zevals[0]}-{_zevals[-1]}, n={len(_zevals)})")
+
                 for _p in players:
                     _bset = {str(b).lower() for b in (_p.get("badges") or [])}
                     # ---- the full provisional evidence set ----
@@ -1611,8 +1621,12 @@ def build(date_str: str | None = None) -> dict:
                         _add("form", "2wk > season: " + ", ".join(_tr))
                     # -- location: zone overlap --
                     _ze = (_F.get("zone_profile") or {}).get("zone_edge") or {}
-                    if _ze.get("edge_score") is not None and _ze["edge_score"] >= 62:
-                        _add("location", f"Zone edge {int(_ze['edge_score'])}"
+                    # Gate RELATIVE to tonight's slate. A fixed cutoff of 62 was used here
+                    # originally, but edge_score is a usage-weighted average of zone power and
+                    # actually ranges ~1-33 — so the gate never once fired and this family was
+                    # dead. A percentile gate is also self-correcting if the scale ever changes.
+                    if _ze.get("edge_score") is not None and _ze["edge_score"] >= _ZE_CUT:
+                        _add("location", f"Zone edge {round(_ze['edge_score'],1)}"
                              + (f" ({_ze.get('hot_in_top')}/{_ze.get('top_k')} hot)" if _ze.get("top_k") else ""))
                     # -- arsenal: does he punish what this arm throws? --
                     _pm = _F.get("pitch_matchup") or {}
