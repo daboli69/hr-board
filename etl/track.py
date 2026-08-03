@@ -382,6 +382,12 @@ def grade_date(date):
                            "arm_form": p.get("opp_form"),
                            "off": "SP" if res["sp"] else "BP", "hr": res["hr"],
                            "dist": res.get("dist"), "ev": res.get("ev"),
+                           # where he ranked on the slate BEFORE the games — the honest test of
+                           # whether the boards actually surfaced him. cv_rank is convergence
+                           # WITHOUT heat, so it answers "did the non-heat evidence find him?"
+                           "heat_rank": _heat_rank.get(p.get("id")),
+                           "cv_rank": _cv_rank.get(p.get("id")),
+                           "cv_fams": _cv_fams.get(p.get("id")),
                            "badges": badges, "n_badges": len(badges)})
 
     # ---- the validation that matters: does Heat beat simple baselines? ----
@@ -395,6 +401,39 @@ def grade_date(date):
     ranked = sorted(players, key=lambda p: (p.get("heat") or 0), reverse=True)
     topN = {str(n): {"n": min(n, len(ranked)), "hr": sum(1 for p in ranked[:n] if homered(p))}
             for n in (5, 10, 25)}
+
+    # Rank every ranked hitter on the slate as the boards would have shown them, so each HR can
+    # be tagged with where it actually appeared. Convergence rank uses the NO-HEAT count first
+    # (then measured lift), matching the "Without heat" view — that's the interesting question:
+    # did evidence independent of the core model point at this guy?
+    _heat_rank, _cv_rank, _cv_fams = {}, {}, {}
+    try:
+        _hs = sorted([p for p in players if p.get("heat") is not None],
+                     key=lambda x: -(x.get("heat") or 0))
+        for i, p in enumerate(_hs):
+            _heat_rank[p.get("id")] = i + 1
+
+        def _cvkey(p):
+            c = (p.get("converge") or {})
+            c = c.get("hr") if isinstance(c.get("hr"), dict) else c
+            if not isinstance(c, dict):
+                return (0, 0, 0)
+            meas = [m for m in (c.get("measured") or []) if m.get("k") != "heat"]
+            prov = c.get("provisional") or []
+            n_hit_fam = sum(1 for s in prov if s.get("kind") != "context")
+            n_ctx = sum(1 for s in prov if s.get("kind") == "context")
+            lift = sum(m.get("lift") or 0 for m in meas)
+            return (len(meas), lift + n_hit_fam * 0.6 + n_ctx * 0.2, 0)
+        _cv = sorted([p for p in players if p.get("converge")], key=_cvkey, reverse=True)
+        for i, p in enumerate(_cv):
+            _cv_rank[p.get("id")] = i + 1
+            c = (p.get("converge") or {})
+            c = c.get("hr") if isinstance(c.get("hr"), dict) else c
+            if isinstance(c, dict):
+                _cv_fams[p.get("id")] = len([m for m in (c.get("measured") or [])
+                                             if m.get("k") != "heat"]) + len(c.get("provisional") or [])
+    except Exception as _e:
+        print(f"[track] rank capture skipped (non-fatal): {_e}")
 
     n_hit = sum(1 for p in players if homered(p))
     ranks = {
