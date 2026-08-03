@@ -89,6 +89,7 @@
   .cal-rk.cv{background:var(--seam-glow);color:var(--seam)}
   .cal-rk i{font-style:normal;opacity:.7;margin-left:2px}
   .cal-bdg{font-family:"IBM Plex Mono";font-size:8px;font-weight:700;border-radius:4px;padding:1.5px 5px;background:var(--panel-2);color:var(--muted)}
+  .traitf .is-noise{opacity:.55}
   .tf-alt{font-style:normal;font-size:7px;opacity:.55;margin-left:3px;letter-spacing:.04em}
   .cv-tog{display:flex;gap:5px;margin:10px 0 6px}
   .cv-tog button{font-family:"IBM Plex Mono";font-size:11px;font-weight:600;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:6px 13px;cursor:pointer}
@@ -1951,8 +1952,8 @@
             <button class="bdg bk-pow" data-trait="pow" aria-pressed="false">POWER</button>
             <button class="bdg bk-lock" data-trait="lock" aria-pressed="false" title="Elite earned contact (~85th pct) — the signal shown as LOCK in the backtest">HOT<i class="tf-alt">lock</i></button>
             <button class="bdg bk-hot" data-trait="hot" aria-pressed="false">WARMING</button>
-            <button class="bdg bk-due" data-trait="due" aria-pressed="false">DUE</button>
-            <button class="bdg bk-cool" data-trait="cool" aria-pressed="false">MAY COOL</button>
+            <button class="bdg bk-due is-noise" data-trait="due" aria-pressed="false" title="Measured at 1.01x over 6,646 graded player-games — no edge. Kept as a descriptor, not a signal.">DUE<i class="tf-alt">~</i></button>
+            <button class="bdg bk-cool is-noise" data-trait="cool" aria-pressed="false" title="Measured at 1.00x over 5,039 graded player-games — no edge. Kept as a descriptor, not a signal.">MAY COOL<i class="tf-alt">~</i></button>
             <button class="bdg bk-hrsp" data-trait="hrsp" aria-pressed="false">HR vs SP</button>
             <button class="bdg bk-hrbp" data-trait="hrbp" aria-pressed="false">HR vs PEN</button>
           </div>
@@ -3312,7 +3313,10 @@ function cvMeasured(p){
   const c=cvBlock(p); if(!c) return [];
   return cvHeat ? (c.measured||[]) : (c.measured||[]).filter(s=>s.k!=="heat");
 }
-let cvMinRel=1;      // 0 = show everyone, 1 = hide "very thin", 2 = adequate+, 3 = full season only
+// Default to 250+ BBE. The backtest is unambiguous: every band below it underperforms the
+// base rate (120-249 -> 0.71x, 60-119 -> 0.52x), so surfacing those hitters by default was
+// actively working against you. The filter is still there to open it back up.
+let cvMinRel=3;      // 0 = everyone, 1 = 60+, 2 = 120+, 3 = 250+ BBE
 let cvConfirmed=false;
 function setCvRel(v){ cvMinRel=+v; renderConverge(); }
 function toggleCvConfirmed(){ cvConfirmed=!cvConfirmed; renderConverge(); }
@@ -3327,8 +3331,12 @@ function convergeVal(p){
   const prov=c.provisional||[];
   const nHit=prov.filter(s=>s.kind!=="context").length;
   const nCtx=prov.filter(s=>s.kind==="context").length;
+  // Penalties are now the MEASURED lift ratios from the backtest, not a guess. Thin-sample
+  // hitters don't just carry noisy rates — they actually homer far less often (60-119 BBE
+  // graded at 0.52x the base rate, 120-249 at 0.71x, 250+ at 1.07x over 28k player-games).
+  // The old prior (1 / 0.75 / 0.5) was much too gentle on the middle band in particular.
   const rel=(p.reliability&&p.reliability.score!=null)?p.reliability.score:3;
-  const relPenalty=(rel>=2)?1:(rel===1?0.75:0.5);   // thin evidence gets discounted, not hidden
+  const relPenalty=(rel>=3)?1.0:(rel===2?0.66:(rel===1?0.49:0.63));
   return (m.length*1000 + lift + nHit*0.6 + nCtx*0.2) * relPenalty;
 }
 function cvPasses(p){
@@ -3456,7 +3464,7 @@ function renderConverge(){
     </div>
     ${!isK?`<div class="cv-filters">
       <span>Sample:</span>
-      ${[[0,"All"],[1,"60+ BBE"],[2,"120+ BBE"],[3,"250+ BBE"]].map(([v,l])=>
+      ${[[0,"All"],[1,"60+ BBE"],[2,"120+ BBE"],[3,"250+ BBE ✓"]].map(([v,l])=>
         `<button class="cv-fb${cvMinRel===v?" on":""}" onclick="setCvRel(${v})">${l}</button>`).join("")}
       <button class="cv-fb${cvConfirmed?" on":""}" onclick="toggleCvConfirmed()">Confirmed lineup</button>
       ${hidden?`<span class="cv-hid">${hidden} filtered out</span>`:""}
@@ -3470,7 +3478,7 @@ function renderConverge(){
       <span class="cv-sig prov">Provisional<i>not yet graded</i></span>
     </div>
     ${rows}
-    <div class="prop-note" style="margin-top:14px"><b>Read this honestly.</b> The bold number counts <b>measured</b> signals only — ones your own backtest graded for this prop. The small <b>+n</b> is provisional context that hasn't been graded. Crucially, the props are <b>not equally trustworthy</b> — the band lift shown above is pulled live from your latest backtest, and the HR model has historically separated far harder than 1+hit or H+R+RBI, so a "2-signal" hits play means less than a 2-signal HR play. Badges that stop clearing the lift threshold (DUE and COOL both have) are dropped automatically rather than padding the count. Two things shape this ranking beyond the raw count. <b>Context families</b> (opposing arm, environment) are true of every hitter in that game, so they carry a third of the weight of hitter-specific evidence — otherwise a cold bat in a good park out-ranks a hot hitter. And <b>thin samples are discounted</b>: rate stats on 40 batted balls swing wildly, so those players are down-weighted and flagged, with a filter to remove them entirely. Provisional reads are grouped into <b>families</b> — contact quality, form, zone matchup, arsenal matchup, opposing arm, environment, matchup grade — and each family counts <b>once</b>, no matter how many things fired inside it. That's deliberate: barrel rate, hard-hit%, EV percentile and Square Up all measure the same underlying thing, so counting them separately would let one piece of evidence pose as four. Tap "what fired" to see the detail. Families still overlap somewhat, so agreeing reads aren't independent coin flips. A shortlist, not a verdict.</div>
+    <div class="prop-note" style="margin-top:14px"><b>Read this honestly.</b> The bold number counts <b>measured</b> signals only — ones your own backtest graded for this prop. The small <b>+n</b> is provisional context that hasn't been graded. Crucially, the props are <b>not equally trustworthy</b> — the band lift shown above is pulled live from your latest backtest, and the HR model has historically separated far harder than 1+hit or H+R+RBI, so a "2-signal" hits play means less than a 2-signal HR play. Badges that stop clearing the lift threshold (DUE and COOL both have) are dropped automatically rather than padding the count. Two things shape this ranking beyond the raw count. <b>Context families</b> (opposing arm, environment) are true of every hitter in that game, so they carry a third of the weight of hitter-specific evidence — otherwise a cold bat in a good park out-ranks a hot hitter. And <b>thin samples are discounted</b>: rate stats on 40 batted balls swing wildly, so those players are down-weighted and flagged, with a filter to remove them entirely. Sample size is now weighted by <b>measured</b> lift, not a guess: across 28k graded player-games, hitters with 250+ batted balls homered at 1.07× the base rate while those at 60–119 managed only 0.52×. The board therefore defaults to <b>250+ BBE</b> — every thinner band has underperformed. Provisional reads are grouped into <b>families</b> — contact quality, form, zone matchup, arsenal matchup, opposing arm, environment, matchup grade — and each family counts <b>once</b>, no matter how many things fired inside it. That's deliberate: barrel rate, hard-hit%, EV percentile and Square Up all measure the same underlying thing, so counting them separately would let one piece of evidence pose as four. Tap "what fired" to see the detail. Families still overlap somewhat, so agreeing reads aren't independent coin flips. A shortlist, not a verdict.</div>
   </div>`;
 }
 
