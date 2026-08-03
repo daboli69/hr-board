@@ -8671,13 +8671,19 @@ function renderTracker(){
   }).join("");
 
   // Badge -> HR correlation (across ALL ranked hitters, every day — high power)
-  const baseRate=players?100*homered/players:0;
+  // Base rate must come from the SAME pool the badge/tier buckets are counted over, otherwise
+  // every lift is measured against a different denominator. It previously used the day record's
+  // `players` field, which can drift out of step with the graded buckets — that's what produced
+  // an impossible ~43.8% base and made every badge look like a huge negative.
+  const _poolN=Object.values(tiers).reduce((a,o)=>a+(o.n||0),0);
+  const _poolHR=Object.values(tiers).reduce((a,o)=>a+(o.hr||0),0);
+  const baseRate=_poolN?100*_poolHR/_poolN:(players?100*homered/players:0);
   const badgeOrder=Object.entries(badgeAgg).filter(([k,o])=>o.n).sort((a,b)=>rate(b[1])-rate(a[1]));
   const maxBadgeRate=Math.max(1,baseRate,...badgeOrder.map(([k,o])=>rate(o)));
   let badgeRows=badgeOrder.map(([k,o])=>{
-    const lift=rate(o)-baseRate;
+    const lift=baseRate?rate(o)/baseRate:null;   // ratio, matching the x-multiplier used elsewhere
     return `<div class="trk-row"><div class="lab"><span class="bdg bk-${k}">${(typeof BKLABEL!=="undefined"&&BKLABEL[k])||k}</span></div>${bar(o,maxBadgeRate)}
-      <div class="val" style="color:${lift>=0?'var(--good)':'var(--bad)'};font-weight:700;min-width:42px">${lift>=0?"+":""}${lift.toFixed(1)}</div></div>`;
+      <div class="val" style="color:${lift==null?'var(--muted)':lift>=1.15?'var(--hot)':lift>=1.05?'var(--seam)':lift<=0.9?'var(--cold)':'var(--muted)'};font-weight:700;min-width:46px">${lift==null?"–":lift.toFixed(2)+"\u00d7"}</div></div>`;
   }).join("");
   const avgBadgesHr = tot ? (badgesOnHr/tot) : 0;
 
