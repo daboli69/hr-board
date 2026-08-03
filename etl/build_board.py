@@ -1728,32 +1728,6 @@ def build(date_str: str | None = None) -> dict:
                             "lift": sum(m["lift"] for m in _meas),
                         }
                     _p["converge"] = _conv
-                # ---- pitchers: strikeout convergence ----
-                for _a in pitcher_props:
-                    _meas, _prov = [], []
-                    _kh = _a.get("k_heat")
-                    if _kh is not None:
-                        for _cut, _lift in _K_BANDS:
-                            if _kh >= _cut:
-                                _meas.append({"k": "heat", "lab": f"K-heat {int(_kh)}", "lift": _lift})
-                                break
-                    _sw = _a.get("swstr_pct")
-                    if _sw is not None and _sw >= 13:
-                        _prov.append({"k": "swstr", "lab": f"SwStr {_sw}%"})
-                    _ol = _a.get("opp_lineup_k_pct")
-                    if _ol is not None and _ol >= 23:
-                        _prov.append({"k": "lineup", "lab": f"Lineup K {_ol}%"})
-                    try:
-                        _tk = (team_ks.get(_a.get("opp_team")) or {}).get("season") or {}
-                        if _tk.get("rank") and _tk["rank"] >= 20:
-                            _prov.append({"k": "krank", "lab": f"K-rank {_tk['rank']}/30"})
-                    except Exception:
-                        pass
-                    _a["converge"] = {
-                        "measured": _meas, "provisional": _prov,
-                        "n_measured": len(_meas), "n_provisional": len(_prov),
-                        "lift": sum(m["lift"] for m in _meas),
-                    }
             except Exception as _e:
                 print(f"[build] convergence scoring skipped (non-fatal): {_e}")
 
@@ -2260,6 +2234,94 @@ def build(date_str: str | None = None) -> dict:
                 "est_line_over": (float(np.ceil(est_ks - 0.5) - 0.5) if est_ks is not None else None),
             })
         pitcher_props.sort(key=lambda x: -(x["k_heat"] or 0))
+
+        # ---- STRIKEOUT CONVERGENCE ----
+        # Runs HERE, after pitcher_props exists — it was previously placed hundreds of lines
+        # earlier where the list was still undefined, so the Ks tab silently had nothing.
+        # Measured: only the K-heat bands the backtest actually graded. Provisional: the reads
+        # that make sense for a strikeout prop but haven't been graded yet — the arm's own whiff
+        # rate, and three things about the LINEUP he's facing (how much it whiffs, how little
+        # damage it does in his zones, how poorly the individual matchups grade).
+        try:
+            _K_BANDS_P = globals().get("_CONVERGE_LIFT", {}).get("k") or [(70, 28), (55, 10)]
+            _by_game_bat = {}
+            for _pl in board.get("players", []):
+                _by_game_bat.setdefault(_pl.get("game_pk"), []).append(_pl)
+            for _a in pitcher_props:
+                _meas, _prov = [], []
+                _kh = _a.get("k_heat")
+                if _kh is not None:
+                    for _cut, _lift in _K_BANDS_P:
+                        if _kh >= _cut:
+                            _meas.append({"k": "heat", "lab": f"K-heat {int(_kh)}", "lift": _lift})
+                            break
+                _fam = {}
+                def _addk(fam, lab):
+                    _fam.setdefault(fam, []).append(lab)
+                # -- the arm himself --
+                _sw = _a.get("swstr_pct")
+                if _sw is not None and _sw >= 12.5:
+                    _addk("stuff", f"SwStr {_sw}%")
+                _kp = _a.get("k_pct")
+                if _kp is not None and _kp >= 26:
+                    _addk("stuff", f"K% {round(_kp,1)}")
+                # -- the lineup he's facing --
+                _ol = _a.get("opp_lineup_k_pct")
+                if _ol is not None and _ol >= 23:
+                    _addk("lineup", f"Lineup K {round(_ol,1)}%")
+                try:
+                    _tk = (team_ks.get(_a.get("opp_team")) or {})
+                    _season = _tk.get("season") or {}
+                    if _season.get("rank") and _season["rank"] >= 20:
+                        _addk("lineup", f"K-rank {_season['rank']}/30")
+                    _hand_key = "vs_rhp" if (_a.get("throws") == "R") else "vs_lhp"
+                    _hs = _tk.get(_hand_key) or {}
+                    if _hs.get("rank") and _hs["rank"] >= 20:
+                        _addk("lineup", f"{'vs RHP' if _a.get('throws')=='R' else 'vs LHP'} rank {_hs['rank']}/30")
+                except Exception:
+                    pass
+                # -- do the individual matchups grade badly for the hitters? --
+                # A lineup that can't reach his zones, and grades poorly across the board, is a
+                # different (and better) K spot than one that just whiffs a lot in aggregate.
+                try:
+                    _opp = [x for x in _by_game_bat.get(_a.get("game_pk"), [])
+                            if x.get("team") == _a.get("opp_team") and x.get("lineup_spot")]
+                    if len(_opp) >= 5:
+                        _zs, _gr = [], 0
+                        for _x in _opp:
+                            _ze2 = ((_x.get("features") or {}).get("zone_profile") or {}).get("zone_edge") or {}
+                            if _ze2.get("edge_score") is not None:
+                                _zs.append(float(_ze2["edge_score"]))
+                            _g = str(((_x.get("matchup_grade") or {}).get("grade") or "")).upper()
+                            if _g in ("ELITE", "STRONG"):
+                                _gr += 1
+                        if _zs and (sum(_zs) / len(_zs)) <= 48:
+                            _addk("zones", f"Lineup zone edge {round(sum(_zs)/len(_zs),1)} (weak)")
+                        if _gr == 0:
+                            _addk("matchups", "No hitter grades strong")
+                        elif _gr <= 1 and len(_opp) >= 7:
+                            _addk("matchups", f"Only {_gr} strong matchup")
+                        _cold = sum(1 for _x in _opp if (_x.get("heat") or 0) < 40)
+                        if _cold >= max(4, int(0.6 * len(_opp))):
+                            _addk("matchups", f"{_cold}/{len(_opp)} hitters cold")
+                except Exception:
+                    pass
+                _KFAM = {"stuff": "Arm's stuff", "lineup": "Lineup whiffs",
+                         "zones": "Lineup can't reach his zones", "matchups": "Matchups grade poorly"}
+                _prov = [{"k": _k, "lab": _KFAM.get(_k, _k), "detail": _v, "n": len(_v),
+                          "kind": ("context" if _k in ("lineup", "zones", "matchups") else "hitter")}
+                         for _k, _v in _fam.items()]
+                _a["converge"] = {
+                    "measured": _meas, "provisional": _prov,
+                    "n_measured": len(_meas), "n_provisional": len(_prov),
+                    "n_hitter": sum(1 for s in _prov if s["kind"] != "context"),
+                    "n_context": sum(1 for s in _prov if s["kind"] == "context"),
+                    "lift": sum(m["lift"] for m in _meas),
+                }
+            print(f"[build] K convergence attached to {len(pitcher_props)} arms")
+        except Exception as _e:
+            print(f"[build] K convergence skipped (non-fatal): {_e}")
+
         board["pitcher_props"] = pitcher_props
         print(f"[build] pitcher K props: {len(pitcher_props)} arms ranked "
               f"(out of {len(seen_pitcher)} distinct pitchers seen)")
@@ -2410,6 +2472,73 @@ def build(date_str: str | None = None) -> dict:
                 **proj,
             })
         game_projections.sort(key=lambda x: -(x.get("total") or 0))
+
+        # ---- MONEYLINE CONVERGENCE ----
+        # Deliberately more conservative than the hitter version. The backtest DOES grade the run
+        # model (Brier 0.2473 vs a 0.2497 baseline, calibration tight), so the win-probability
+        # edge counts as measured. Everything else stays provisional, and the honest framing
+        # matters here: the moneyline is the sharpest market in baseball, so agreement between
+        # our own sub-models is NOT the same as an edge over the price.
+        try:
+            _ml_lift = None
+            try:
+                _r = (globals().get("_BT_RUNS") or {})
+                if not _r:
+                    _btp2 = os.path.join(os.path.dirname(__file__), "..", "docs", "backtest.json")
+                    if os.path.exists(_btp2):
+                        with open(_btp2) as _f2:
+                            _r = (json.load(_f2) or {}).get("runs") or {}
+                        globals()["_BT_RUNS"] = _r
+                _br, _bb = _r.get("brier"), _r.get("baseline_brier")
+                if _br and _bb and _br < _bb:
+                    _ml_lift = int(round(100 * (_bb - _br) / _bb))   # % better than baseline
+            except Exception:
+                _ml_lift = None
+            for _g in game_projections:
+                for _side in ("home", "away"):
+                    _wp = _g.get(f"{_side}_wp")
+                    if _wp is None:
+                        continue
+                    _meas, _fam = [], {}
+                    def _addm(fam, lab):
+                        _fam.setdefault(fam, []).append(lab)
+                    if _wp >= 0.58 and _ml_lift:
+                        _meas.append({"k": "runmodel", "lab": f"Model {round(100*_wp)}%", "lift": _ml_lift})
+                    _bd = _g.get(f"{_side}_breakdown") or {}
+                    _obd = _g.get(f"{'away' if _side=='home' else 'home'}_breakdown") or {}
+                    # starter edge
+                    _sx, _ox = _bd.get("sp_xwoba_allowed"), _obd.get("sp_xwoba_allowed")
+                    if _sx is not None and _ox is not None and (_ox - _sx) >= 0.020:
+                        _addm("starter", f"SP edge {round(_ox-_sx,3)} xwOBA")
+                    # bullpen edge
+                    _px, _opx = _bd.get("pen_xwoba_allowed"), _obd.get("pen_xwoba_allowed")
+                    if _px is not None and _opx is not None and (_opx - _px) >= 0.020:
+                        _addm("bullpen", f"Pen edge {round(_opx-_px,3)}")
+                    # defense
+                    _df = _obd.get("opp_def")
+                    if _df is not None and _df >= 0.2:
+                        _addm("defense", f"Defense +{round(_df,2)} runs saved")
+                    # platoon
+                    if (_bd.get("platoon_spots") or 0) >= 5:
+                        _addm("platoon", f"{_bd['platoon_spots']} platoon spots")
+                    # run margin
+                    _rr, _orr = _g.get(f"{_side}_runs"), _g.get(f"{'away' if _side=='home' else 'home'}_runs")
+                    if _rr is not None and _orr is not None and (_rr - _orr) >= 0.6:
+                        _addm("runs", f"+{round(_rr-_orr,2)} run edge")
+                    _MLFAM = {"starter": "Starter edge", "bullpen": "Bullpen edge",
+                              "defense": "Defense", "platoon": "Platoon", "runs": "Run margin"}
+                    _prov = [{"k": _k, "lab": _MLFAM.get(_k, _k), "detail": _v, "n": len(_v),
+                              "kind": "hitter"} for _k, _v in _fam.items()]
+                    _g[f"{_side}_converge"] = {
+                        "measured": _meas, "provisional": _prov,
+                        "n_measured": len(_meas), "n_provisional": len(_prov),
+                        "n_hitter": len(_prov), "n_context": 0,
+                        "lift": sum(m["lift"] for m in _meas),
+                    }
+            print(f"[build] ML convergence attached to {len(game_projections)} games")
+        except Exception as _e:
+            print(f"[build] ML convergence skipped (non-fatal): {_e}")
+
         board["game_projections"] = game_projections
         print(f"[build] game projections: {len(game_projections)} games modeled")
     except Exception as e:
