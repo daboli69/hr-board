@@ -312,6 +312,7 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str) -> dict:
             "zone_edge": _zedge, "arsenal_fit": _afit,
             "cv_meas": _nm + _nmh, "cv_meas_noheat": _nm, "cv_prov": _np,
             "cv_hit": _cv_hit, "cv_hrr": _cv_hrr,
+            "pull_air": (recent or {}).get("pull_air_pct"),
             "cv_fams": (_nm + _nmh + _np),   # measured + provisional families, as the UI counts them
             "bbe_season": int(len(_by_bat.get(int(bid), _EMPTY))) if bid is not None else None,
             "heat": float(heat), "hr": bid in hr_today,
@@ -396,6 +397,10 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
             if _ze is not None:
                 _edge("zone_edge", "70+ strong" if _ze >= 70 else "62-69 good" if _ze >= 62
                       else "50-61 avg" if _ze >= 50 else "<50 weak", hit)
+            _pa2 = r.get("pull_air")
+            if _pa2 is not None:
+                _edge("pull_air", "50+ elite" if _pa2 >= 50 else "40-49 good" if _pa2 >= 40
+                      else "30-39 avg" if _pa2 >= 30 else "<30 weak", hit)
             _af = r.get("arsenal_fit")
             if _af is not None:
                 _edge("arsenal_fit", "11+ punishes" if _af >= 11 else "9-10.9 good" if _af >= 9

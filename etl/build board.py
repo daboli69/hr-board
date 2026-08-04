@@ -144,6 +144,16 @@ def build(date_str: str | None = None) -> dict:
     bb_samples = statcast_data.batted_ball_sample(df, batter_ids)
     bb_logs = statcast_data.batted_ball_log(df, batter_ids)
     try:
+        bat_tables = statcast_data.batter_pitch_tables(df, batter_ids)     # full BvP line by pitch
+        arm_tables = statcast_data.pitcher_pitch_tables(df, pitcher_ids)
+        pitch_hist = statcast_data.pitch_history(df, pitcher_ids)          # usage per start
+        team_ks = statcast_data.team_k_splits(df)                          # lineup K% by context
+        print(f"[build] bvp tables: {len(bat_tables)} hitters, {len(arm_tables)} arms, "
+              f"{len(pitch_hist)} histories, {len(team_ks)} team K splits")
+    except Exception as e:
+        print(f"[build] BvP tables skipped (non-fatal): {e}")
+        bat_tables, arm_tables, pitch_hist, team_ks = {}, {}, {}, {}
+    try:
         arsenals = statcast_data.pitcher_arsenal(df, pitcher_ids)     # usage % by batter hand
         vs_pitch = statcast_data.batter_vs_pitch(df, batter_ids)      # hitter vs specific pitch types
         print(f"[build] pitch mix: {len(arsenals)} arsenals, {len(vs_pitch)} hitter splits")
@@ -816,6 +826,7 @@ def build(date_str: str | None = None) -> dict:
             "traded": traded.get(bid),
             "pitch_splits": prof.get("pitch_splits"),
             "vs_pitch": vs_pitch.get(int(bid)) if vs_pitch else None,
+            "pitch_table": bat_tables.get(int(bid)) if bat_tables else None,
             "pitch_usage": pprof.get("usage"),
             "pitch_matchup": pmatch,
             "features": feat,          # parallel edges: pitch_matchup, late_hr (never touch heat)
@@ -1403,6 +1414,22 @@ def build(date_str: str | None = None) -> dict:
                     except Exception:
                         _hot_spots = []
 
+                    # per-hand zone usage + damage-allowed, computed from this arm's own rows
+                    _zgrid_hand, _pzd_hand = {}, {}
+                    try:
+                        for _h in ("R", "L"):
+                            _rh = arows[arows["stand"] == _h] if "stand" in arows.columns else None
+                            if _rh is None or len(_rh) < 150:
+                                continue
+                            _g = features.pitcher_zone_grid(_rh, hand=_h)
+                            if _g:
+                                _zgrid_hand[_h] = _g
+                            _d = features.pitcher_zone_damage(_rh)
+                            if _d:
+                                _pzd_hand[_h] = _d
+                    except Exception:
+                        _zgrid_hand, _pzd_hand = {}, {}
+
                     pitcher_edges.append({
                         "id": pid, "name": meta.get("name") or f"#{pid}",
                         "team": g["home"] if p_side == "home" else g["away"],
@@ -1410,6 +1437,14 @@ def build(date_str: str | None = None) -> dict:
                         "game_pk": g["game_pk"], "time": g["time"], "park": g["park"],
                         "throws": (hands.get(pid, {}) or {}).get("throws", ""),
                         "arsenal": ars, "zone_grid": zgrid,
+                        # per-hand usage grids (13 cells incl. the chase quadrants) + the pitch
+                        # mix he throws each side, so the heatmap can answer "where does he live
+                        # against THIS batter's side, and with what?"
+                        "zone_grid_R": _zgrid_hand.get("R"),
+                        "zone_grid_L": _zgrid_hand.get("L"),
+                        "meatball_R": _pzd_hand.get("R"),
+                        "meatball_L": _pzd_hand.get("L"),
+                        "arsenal_hand": (arsenals.get(int(pid)) if arsenals else None),
                         "meatball_zones": pzdmg,     # per-zone damage allowed (darkest = meatball)
                         "season": pstats.get(pid),   # ERA / WHIP / IP / HR allowed
                         "vuln": vuln,                # 0-100 HR vulnerability composite
@@ -1445,6 +1480,377 @@ def build(date_str: str | None = None) -> dict:
                             "arm_throws": pe.get("throws"),
                             "meatball_zones": pe.get("meatball_zones"),  # for the amber-dot map
                         }
+
+            # ---- SIGNAL CONVERGENCE, per prop type ----
+            # Weighted by what the backtest ACTUALLY measured for each prop, which differs a lot:
+            # the HR heat bands separate hard (+47/+30/+14%), but 1+hit is only +11% at the very
+            # top and flat below it. So a band only counts as a "measured signal" for a prop where
+            # it showed real lift — otherwise convergence would just be counting noise.
+            # Badge lift (POW +76%, LOCK +36%) was measured against HR outcomes only, so badges
+            # count as measured for HR and stay provisional everywhere else. DUE (+1%) and COOL
+            # (-2%) are excluded from every prop. Parallel lens; never feeds any heat model.
+            try:
+                # Lift is READ FROM THE LATEST BACKTEST, not hardcoded — so when you re-run the
+                # backtest, convergence re-weights itself automatically. A band only counts as a
+                # measured signal if it CURRENTLY shows real lift (>=8% over the pool base rate);
+                # if a re-run flattens a band, it silently stops counting instead of quietly
+                # asserting a number that's no longer true. Falls back to the last-known values
+                # only when a backtest file isn't present at all.
+                def _lift_bands(block, key="hit", min_lift=8.0):
+                    """[(heat_cut, lift_pct)] for bands that currently beat the base rate."""
+                    try:
+                        bt_ = (block or {}).get("by_tier") or {}
+                        tot_n = sum(v.get("n", 0) for v in bt_.values())
+                        tot_h = sum(v.get(key, 0) for v in bt_.values())
+                        if not tot_n or not tot_h:
+                            return None
+                        base = tot_h / tot_n
+                        cuts = {"70+": 70, "55-69": 55, "40-54": 40}
+                        out = []
+                        for tier, cut in cuts.items():
+                            v = bt_.get(tier) or {}
+                            if v.get("n", 0) < 150:
+                                continue
+                            rate = v.get(key, 0) / v["n"]
+                            lift = 100.0 * (rate / base - 1) if base else 0
+                            if lift >= min_lift:
+                                out.append((cut, int(round(lift))))
+                        return sorted(out, key=lambda x: -x[0]) or None
+                    except Exception:
+                        return None
+                _BT = {}
+                try:
+                    _btp = os.path.join(os.path.dirname(__file__), "..", "docs", "backtest.json")
+                    if os.path.exists(_btp):
+                        with open(_btp) as _f:
+                            _BT = json.load(_f) or {}
+                except Exception:
+                    _BT = {}
+                _props_bt = _BT.get("props") or {}
+                _LIFT = {
+                    "hr":  _lift_bands({"by_tier": _BT.get("by_tier")}, key="hr") or [(70, 47), (55, 30), (40, 14)],
+                    "hit": _lift_bands(_props_bt.get("hit1")) or [(70, 11)],
+                    "hrr": _lift_bands(_props_bt.get("hrr")) or [(70, 13)],
+                }
+                # badge lift, likewise read live from the backtest's measured table
+                _BADGES = {}
+                try:
+                    for _k, _v in (_BT.get("by_badge") or {}).items():
+                        _l = _v.get("lift")
+                        if _v.get("n", 0) >= 300 and _l and _l >= 1.15:
+                            _BADGES[str(_k).lower()] = int(round(100 * (_l - 1)))
+                except Exception:
+                    pass
+                if not _BADGES:
+                    _BADGES = {"pow": 76, "lock": 36}
+                # pitcher K bands, same treatment
+                _K_BANDS = None
+                try:
+                    _pk = (_props_bt.get("pk") or {}).get("by_tier") or {}
+                    _tn = sum(v.get("n", 0) for v in _pk.values())
+                    _tk = sum(v.get("total_ks", 0) for v in _pk.values())
+                    if _tn and _tk:
+                        _kbase = _tk / _tn
+                        _K_BANDS = []
+                        for _tier, _cut in (("70+", 70), ("55-69", 55)):
+                            _v = _pk.get(_tier) or {}
+                            if _v.get("n", 0) >= 150:
+                                _l = 100.0 * ((_v["total_ks"] / _v["n"]) / _kbase - 1)
+                                if _l >= 8:
+                                    _K_BANDS.append((_cut, int(round(_l))))
+                except Exception:
+                    _K_BANDS = None
+                if not _K_BANDS:
+                    _K_BANDS = [(70, 28), (55, 10)]
+                print(f"[build] convergence lift from backtest: hr={_LIFT['hr']} hit={_LIFT['hit']} "
+                      f"hrr={_LIFT['hrr']} badges={_BADGES} k={_K_BANDS}")
+                globals()["_CONVERGE_LIFT"] = {
+                    "hr": _LIFT["hr"], "hit": _LIFT["hit"], "hrr": _LIFT["hrr"],
+                    "badges": _BADGES, "k": _K_BANDS,
+                    "source": ("backtest" if _BT else "fallback"),
+                }
+                _HEAT_KEY = {"hr": "heat", "hit": "hit_heat", "hrr": "hrr_heat"}
+                # 75th percentile of tonight's zone-edge scores — "clearly better than the rest
+                # of this slate" rather than an absolute number that may not match the scale.
+                def _ze_of(x):
+                    return (((x.get("features") or {}).get("zone_profile") or {}).get("zone_edge") or {}).get("edge_score")
+                _zevals = sorted(v for v in (_ze_of(x) for x in players) if v is not None)
+                _ZE_CUT = (_zevals[int(0.75 * (len(_zevals) - 1))] if len(_zevals) >= 12 else 1e9)
+
+                # Launch-profile gates at the 85th percentile of tonight's board. Fixed cutoffs
+                # fired for ~90% of hitters, which is decoration; p85 keeps it to the genuine top.
+                def _pctl_cut(_vals, _q=0.85):
+                    _v = sorted(x for x in _vals if x is not None)
+                    return _v[int(_q * (len(_v) - 1))] if len(_v) >= 20 else 1e9
+                _LAUNCH_CUT = {}
+                for _mk in ("pull_air_pct", "ideal_aa_pct"):
+                    _LAUNCH_CUT[_mk] = _pctl_cut([
+                        ((x.get("metrics") or {}).get(_mk) or {}).get("recent")
+                        or ((x.get("metrics") or {}).get(_mk) or {}).get("season")
+                        for x in players])
+                _pbvals = []
+                for _x in players:
+                    _v2 = _x.get("vs_pitch") or {}
+                    _pn = sum((_r[8] or 0) for _r in _v2.values() if len(_r) == 12)
+                    _bn = sum((_r[4] or 0) for _r in _v2.values() if len(_r) == 12)
+                    if _bn >= 60:
+                        _pbvals.append(100.0 * _pn / _bn)
+                _LAUNCH_CUT["pull_barrel"] = _pctl_cut(_pbvals)
+                print(f"[build] launch gates (p85): {_LAUNCH_CUT}")
+                if _zevals:
+                    print(f"[build] zone-edge gate (p75 of slate) = {_ZE_CUT} "
+                          f"(range {_zevals[0]}-{_zevals[-1]}, n={len(_zevals)})")
+
+                for _p in players:
+                    _bset = {str(b).lower() for b in (_p.get("badges") or [])}
+                    # ---- the full provisional evidence set ----
+                    # Grouped into FAMILIES because these reads are not independent: barrel rate,
+                    # hard-hit%, EV percentile and Square Up are all measuring the same thing.
+                    # Counting them separately would let one piece of evidence pose as four.
+                    # Each family contributes at most 1 to the count, and the detail is kept so
+                    # the card can show what fired inside it.
+                    _fam = {}                       # family -> [labels]
+                    def _add(family, label):
+                        _fam.setdefault(family, []).append(label)
+
+                    _F = _p.get("features") or {}
+                    # -- contact quality (raw power / earned contact) --
+                    _pc = _F.get("percentiles") or {}
+                    _hi_pctl = [f"{v.get('label') or k} P{v['pctl']}"
+                                for k, v in _pc.items()
+                                if isinstance(v, dict) and (v.get("pctl") or 0) >= 80]
+                    if _hi_pctl:
+                        _add("contact", "MLB pctl: " + ", ".join(sorted(_hi_pctl)[:3]))
+                    _sq = _F.get("square_up") or {}
+                    if (_sq.get("rating") or 0) >= 30:
+                        _add("contact", f"Square Up {_sq['rating']}")
+                    _hp = _F.get("hr_power") or {}
+                    if (_hp.get("barrel_pct") or 0) >= 10:
+                        _add("contact", f"Barrel {_hp['barrel_pct']}%")
+                    if (_hp.get("max_dist") or 0) >= 440:
+                        _add("contact", f"Ceiling {_hp['max_dist']}ft")
+                    # -- launch profile: does he actually get the ball AIRBORNE TO THE PULL SIDE? --
+                    # Kept as its own family on purpose. Measured across tonight's board, pull-air
+                    # correlates r=-0.11 with exit velo and r=-0.01 with barrel rate, and ideal
+                    # launch angle r=+0.01 with EV — i.e. launch geometry is nearly INDEPENDENT of
+                    # raw contact quality. (Hard-hit%, by contrast, is r=+0.81 with EV, which is
+                    # why it belongs inside "contact" rather than here.) The classic failure mode
+                    # this separates: the guy who scorches everything into the ground.
+                    _mm = _p.get("metrics") or {}
+                    def _lv(_k):
+                        _v = _mm.get(_k) or {}
+                        return _v.get("recent") if _v.get("recent") is not None else _v.get("season")
+                    _pa = _lv("pull_air_pct")
+                    if _pa is not None and _pa >= _LAUNCH_CUT.get("pull_air_pct", 1e9):
+                        _add("launch", f"Pull-air {round(_pa,1)}%")
+                    _ia = _lv("ideal_aa_pct")
+                    if _ia is not None and _ia >= _LAUNCH_CUT.get("ideal_aa_pct", 1e9):
+                        _add("launch", f"Ideal angle {round(_ia,1)}%")
+                    # Batted-ball profile: a fly-ball hitter is a different animal from a
+                    # ground-ball hitter no matter how hard either one hits it. Tracked at 1.30x
+                    # over 576 player-games (z=+2.31). It belongs here rather than in "contact"
+                    # because it describes HOW he launches the ball, not how hard.
+                    _hl = str(_p.get("hit_label") or "").lower()
+                    if _hl == "fb":
+                        _add("launch", "Fly-ball hitter")
+                    elif _hl == "ld":
+                        _add("launch", "Line-drive hitter")
+
+                    # pull-BARREL: a barrel hit to the pull side is about as close to a guaranteed
+                    # home run as a batted ball gets. Aggregated across every pitch type he's seen.
+                    try:
+                        _vp2 = _p.get("vs_pitch") or {}
+                        _pb = sum((_v[8] or 0) for _v in _vp2.values() if len(_v) == 12)
+                        _bb2 = sum((_v[4] or 0) for _v in _vp2.values() if len(_v) == 12)
+                        if _bb2 >= 60:
+                            _pbr = round(100.0 * _pb / _bb2, 1)
+                            _p["pull_barrel_pct"] = _pbr
+                            if _pbr >= _LAUNCH_CUT.get("pull_barrel", 1e9):
+                                _add("launch", f"Pull-barrel {_pbr}%")
+                    except Exception:
+                        pass
+
+                    # -- form: is the 2-week window beating his season baseline? --
+                    _m = _p.get("metrics") or {}
+                    _tr = []
+                    for _k, _lab, _min in (("barrel_pct", "barrel", 2.0), ("avg_ev", "EV", 1.0),
+                                           ("pull_air_pct", "pull-air", 4.0),
+                                           ("ideal_aa_pct", "ideal-angle", 4.0),
+                                           ("hardhit_pct", "hard-hit", 4.0),
+                                           ("iso", "ISO", 0.040)):
+                        _v = _m.get(_k) or {}
+                        _r, _s = _v.get("recent"), _v.get("season")
+                        if _r is not None and _s is not None and (_r - _s) >= _min:
+                            _tr.append(f"{_lab} +{round(_r - _s, 1)}")
+                    if len(_tr) >= 2:               # need 2 of 3 rising, not one noisy metric
+                        _add("form", "2wk > season: " + ", ".join(_tr))
+                    # -- location: zone overlap --
+                    _ze = (_F.get("zone_profile") or {}).get("zone_edge") or {}
+                    # Gate RELATIVE to tonight's slate. A fixed cutoff of 62 was used here
+                    # originally, but edge_score is a usage-weighted average of zone power and
+                    # actually ranges ~1-33 — so the gate never once fired and this family was
+                    # dead. A percentile gate is also self-correcting if the scale ever changes.
+                    if _ze.get("edge_score") is not None and _ze["edge_score"] >= _ZE_CUT:
+                        _add("location", f"Zone edge {round(_ze['edge_score'],1)}"
+                             + (f" ({_ze.get('hot_in_top')}/{_ze.get('top_k')} hot)" if _ze.get("top_k") else ""))
+                    # -- arsenal: does he punish what this arm throws? --
+                    _pm = _F.get("pitch_matchup") or {}
+                    if (_pm.get("score") or 0) >= 65:
+                        _add("arsenal", f"Pitch matchup {round(_pm['score'])}")
+                    _fit = None
+                    try:
+                        _arm = (_p.get("opp_pitcher") or {}).get("id")
+                        _hand = _p.get("bats")
+                        if _hand == "S":
+                            _hand = "L" if (_p.get("opp_pitcher") or {}).get("throws") == "R" else "R"
+                        _ars = (arsenals.get(int(_arm)) or {}).get(_hand) if _arm else None
+                        _vp = _p.get("vs_pitch") or {}
+                        if _ars and _vp:
+                            _num = _den = 0.0
+                            for _pt, _pct, _n in _ars:
+                                _v2 = _vp.get(_pt)
+                                if _v2 and _v2[4]:
+                                    _num += _pct * (100.0 * _v2[7] / _v2[4]); _den += _pct
+                            if _den > 0:
+                                _fit = round(_num / _den, 1)
+                    except Exception:
+                        _fit = None
+                    if _fit is not None:
+                        _p["arsenal_fit"] = _fit
+                        if _fit >= 9.0:
+                            _add("arsenal", f"Arsenal fit {_fit}% barrel")
+                    # -- opposing arm: vulnerability + the rate that matters, HR per 9 --
+                    _op = _p.get("opp_pitcher") or {}
+                    if (_op.get("hr_score") or 0) >= 60:
+                        _add("arm", f"Arm vuln {int(_op['hr_score'])}")
+                    try:
+                        _hpa = (_op.get("recent") or {}).get("hr_per_pa")
+                        if _hpa is not None:
+                            _hr9 = round(float(_hpa) / 100.0 * 38.0 * 9.0 / 9.0, 2)  # ~38 PA/9ip
+                            _p["opp_hr9"] = _hr9
+                            if _hr9 >= 1.4:
+                                _add("arm", f"Allows {_hr9} HR/9")
+                    except Exception:
+                        pass
+                    if str((_op.get("form") or {}).get("label") or "").upper() in ("SLIPPING", "SHELLABLE", "HITTABLE"):
+                        _add("arm", f"Arm {_op['form']['label'].title()}")
+                    # -- opportunity: how many cracks at it does he actually get? --
+                    # Spots 1-4 all tracked 1.23-1.30x (z = +2.1 to +2.7) while spot 9 sat at 7%.
+                    # This is NOT a hitter-quality proxy: median heat is essentially flat across
+                    # spots 1-7 on the board, so the effect is the extra plate appearance, which
+                    # is genuinely independent evidence. Counted as CONTEXT, since it describes
+                    # the slot rather than the hitter.
+                    _sp2 = _p.get("lineup_spot")
+                    if _sp2 and int(_sp2) <= 4:
+                        _sfx = {1: "1st", 2: "2nd", 3: "3rd", 4: "4th"}[int(_sp2)]
+                        _add("opportunity", f"Bats {_sfx}")
+
+                    # -- environment --
+                    _pf = _p.get("park_hr_factor")
+                    if _pf is not None and _pf >= 1.05:
+                        _add("env", f"Park {_pf:.2f}x")
+                    _mc = _F.get("microclimate") or {}
+                    if (_mc.get("boost") or 0) >= 5:
+                        _add("env", f"Wind/air +{int(_mc['boost'])}%")
+                    # -- overall matchup grade (a composite, so its own family) --
+                    _mg = _p.get("matchup_grade") or {}
+                    if str(_mg.get("grade") or "").upper() in ("ELITE", "STRONG"):
+                        _add("grade", f"Grade {_mg['grade'].title()}")
+                    _bs = _p.get("bomb_score") or {}
+                    if (_bs.get("score") or 0) >= 65:
+                        _add("grade", f"Bomb {int(_bs['score'])}")
+
+                    _FAM_LABEL = {"contact": "Contact quality", "launch": "Launch profile",
+                                  "opportunity": "Top of the order", "form": "Form trending up",
+                                  "location": "Zone matchup", "arsenal": "Arsenal matchup",
+                                  "arm": "Opposing arm", "env": "Environment",
+                                  "grade": "Matchup grade"}
+                    # Families split into two kinds, because they answer different questions:
+                    #   HITTER families say "is this guy actually good/hot right now"
+                    #   CONTEXT families say "is tonight a good spot" — true of everyone in the game
+                    # A cold hitter in a great park facing a bad arm can rack up context families
+                    # while carrying no evidence that HE will do anything. Ranking on the combined
+                    # count rewarded exactly that, so the two are now tracked separately.
+                    _CONTEXT = {"arm", "env", "opportunity"}
+                    _shared = [{"k": _k, "lab": _FAM_LABEL.get(_k, _k.title()),
+                                "detail": _v, "n": len(_v),
+                                "kind": ("context" if _k in _CONTEXT else "hitter")}
+                               for _k, _v in _fam.items()]
+
+                    # --- reliability: how much data is actually behind this hitter's signals? ---
+                    # Rate stats on a thin denominator are the classic way a nobody floats to the
+                    # top of a leaderboard. This is reported, not hidden, so you can filter on it.
+                    _bbe_season = ((_p.get("sample") or {}).get("season")
+                                   or (_F.get("hr_power") or {}).get("n") or 0)
+                    _bbe_recent = ((_p.get("sample") or {}).get("L15")
+                                   or (_p.get("sample") or {}).get("L14d") or 0)
+                    if _bbe_season >= 250:
+                        _rel, _rel_lab = 3, "Full season"
+                    elif _bbe_season >= 120:
+                        _rel, _rel_lab = 2, "Adequate"
+                    elif _bbe_season >= 60:
+                        _rel, _rel_lab = 1, "Thin"
+                    else:
+                        _rel, _rel_lab = 0, "Very thin"
+                    _p["reliability"] = {"score": _rel, "label": _rel_lab,
+                                         "bbe_season": int(_bbe_season), "bbe_recent": int(_bbe_recent),
+                                         "confirmed": (_p.get("lineup_status") == "confirmed")}
+                    _conv = {}
+                    for _prop, _bands in _LIFT.items():
+                        _h = _p.get(_HEAT_KEY[_prop])
+                        _meas, _prov = [], list(_shared)
+                        if _h is not None:
+                            for _cut, _lift in _bands:
+                                if _h >= _cut:
+                                    _meas.append({"k": "heat", "lab": f"Heat {int(_h)}", "lift": _lift})
+                                    break
+                        for _bk, _bl in _BADGES.items():
+                            if _bk in _bset:
+                                if _prop == "hr":
+                                    _meas.append({"k": _bk, "lab": _bk.upper(), "lift": _bl})
+                                else:
+                                    _prov.append({"k": _bk, "lab": _bk.upper()})
+                        _n_hit = sum(1 for s in _prov if s.get("kind") != "context")
+                        _n_ctx = sum(1 for s in _prov if s.get("kind") == "context")
+                        _conv[_prop] = {
+                            "measured": _meas, "provisional": _prov,
+                            "n_measured": len(_meas), "n_provisional": len(_prov),
+                            "n_hitter": _n_hit, "n_context": _n_ctx,
+                            "lift": sum(m["lift"] for m in _meas),
+                        }
+                    _p["converge"] = _conv
+                # ---- COV rank: position on the Signal Convergence board with HEAT EXCLUDED ----
+                # Ranked here (not just at grading time) so the live board can badge it. Heat is
+                # dropped from the ordering on purpose: COV answers "what does the evidence
+                # OUTSIDE the core model like tonight", which is the whole point of the no-heat
+                # view. Reliability is applied the same way the board applies it, so a thin-sample
+                # hitter can't take COV1 on 40 batted balls.
+                try:
+                    _REL_W = {3: 1.0, 2: 0.66, 1: 0.49, 0: 0.63}   # measured lift by sample band
+
+                    def _covscore(_x):
+                        _c = (_x.get("converge") or {}).get("hr") or {}
+                        _m = [s for s in (_c.get("measured") or []) if s.get("k") != "heat"]
+                        _pv = _c.get("provisional") or []
+                        _nh = sum(1 for s in _pv if s.get("kind") != "context")
+                        _nc = sum(1 for s in _pv if s.get("kind") == "context")
+                        _lift = sum(s.get("lift") or 0 for s in _m)
+                        _rel = ((_x.get("reliability") or {}).get("score"))
+                        _rel = 3 if _rel is None else _rel
+                        return (len(_m) * 1000 + _lift + _nh * 0.6 + _nc * 0.2) * _REL_W.get(_rel, 1.0)
+
+                    _ranked = sorted(
+                        [x for x in players if (x.get("converge") or {}).get("hr")],
+                        key=_covscore, reverse=True)
+                    for _i, _x in enumerate(_ranked):
+                        if _covscore(_x) <= 0:
+                            break
+                        _x["cov_rank"] = _i + 1
+                    print(f"[build] COV ranks assigned to {sum(1 for x in players if x.get('cov_rank'))} hitters")
+                except Exception as _e:
+                    print(f"[build] COV rank skipped (non-fatal): {_e}")
+            except Exception as _e:
+                print(f"[build] convergence scoring skipped (non-fatal): {_e}")
 
             # ---- BOMB SCORE: the composite batter-vs-pitcher matchup score (replaces the old
             # max-EV "Bomb" sort). Needs zone overlap, so it runs after the edges block. ----
@@ -1760,7 +2166,11 @@ def build(date_str: str | None = None) -> dict:
             "end": date_str,
         },
         "players": players,
+        "converge_lift": globals().get("_CONVERGE_LIFT"),   # lift convergence is CURRENTLY using
         "arsenals": arsenals,               # starter pitch usage % split by batter handedness
+        "arm_tables": arm_tables,           # per-arm full BvP stat line by pitch type & batter hand
+        "pitch_hist": pitch_hist,           # per-arm pitch usage per start (arsenal drift)
+        "team_ks": team_ks,                 # lineup strikeout rate + league rank by context
         "pitcher_edges": pitcher_edges,     # Edges tab: per-arm zone heatmap + ranked batters
         "bullpen_rankings": bullpen_rankings,   # slate-wide pen ranking, worst to best
         "park_source": ("ballparkpal" if BPP.get("ok") else "local"),
@@ -1945,6 +2355,94 @@ def build(date_str: str | None = None) -> dict:
                 "est_line_over": (float(np.ceil(est_ks - 0.5) - 0.5) if est_ks is not None else None),
             })
         pitcher_props.sort(key=lambda x: -(x["k_heat"] or 0))
+
+        # ---- STRIKEOUT CONVERGENCE ----
+        # Runs HERE, after pitcher_props exists — it was previously placed hundreds of lines
+        # earlier where the list was still undefined, so the Ks tab silently had nothing.
+        # Measured: only the K-heat bands the backtest actually graded. Provisional: the reads
+        # that make sense for a strikeout prop but haven't been graded yet — the arm's own whiff
+        # rate, and three things about the LINEUP he's facing (how much it whiffs, how little
+        # damage it does in his zones, how poorly the individual matchups grade).
+        try:
+            _K_BANDS_P = globals().get("_CONVERGE_LIFT", {}).get("k") or [(70, 28), (55, 10)]
+            _by_game_bat = {}
+            for _pl in board.get("players", []):
+                _by_game_bat.setdefault(_pl.get("game_pk"), []).append(_pl)
+            for _a in pitcher_props:
+                _meas, _prov = [], []
+                _kh = _a.get("k_heat")
+                if _kh is not None:
+                    for _cut, _lift in _K_BANDS_P:
+                        if _kh >= _cut:
+                            _meas.append({"k": "heat", "lab": f"K-heat {int(_kh)}", "lift": _lift})
+                            break
+                _fam = {}
+                def _addk(fam, lab):
+                    _fam.setdefault(fam, []).append(lab)
+                # -- the arm himself --
+                _sw = _a.get("swstr_pct")
+                if _sw is not None and _sw >= 12.5:
+                    _addk("stuff", f"SwStr {_sw}%")
+                _kp = _a.get("k_pct")
+                if _kp is not None and _kp >= 26:
+                    _addk("stuff", f"K% {round(_kp,1)}")
+                # -- the lineup he's facing --
+                _ol = _a.get("opp_lineup_k_pct")
+                if _ol is not None and _ol >= 23:
+                    _addk("lineup", f"Lineup K {round(_ol,1)}%")
+                try:
+                    _tk = (team_ks.get(_a.get("opp_team")) or {})
+                    _season = _tk.get("season") or {}
+                    if _season.get("rank") and _season["rank"] >= 20:
+                        _addk("lineup", f"K-rank {_season['rank']}/30")
+                    _hand_key = "vs_rhp" if (_a.get("throws") == "R") else "vs_lhp"
+                    _hs = _tk.get(_hand_key) or {}
+                    if _hs.get("rank") and _hs["rank"] >= 20:
+                        _addk("lineup", f"{'vs RHP' if _a.get('throws')=='R' else 'vs LHP'} rank {_hs['rank']}/30")
+                except Exception:
+                    pass
+                # -- do the individual matchups grade badly for the hitters? --
+                # A lineup that can't reach his zones, and grades poorly across the board, is a
+                # different (and better) K spot than one that just whiffs a lot in aggregate.
+                try:
+                    _opp = [x for x in _by_game_bat.get(_a.get("game_pk"), [])
+                            if x.get("team") == _a.get("opp_team") and x.get("lineup_spot")]
+                    if len(_opp) >= 5:
+                        _zs, _gr = [], 0
+                        for _x in _opp:
+                            _ze2 = ((_x.get("features") or {}).get("zone_profile") or {}).get("zone_edge") or {}
+                            if _ze2.get("edge_score") is not None:
+                                _zs.append(float(_ze2["edge_score"]))
+                            _g = str(((_x.get("matchup_grade") or {}).get("grade") or "")).upper()
+                            if _g in ("ELITE", "STRONG"):
+                                _gr += 1
+                        if _zs and (sum(_zs) / len(_zs)) <= 48:
+                            _addk("zones", f"Lineup zone edge {round(sum(_zs)/len(_zs),1)} (weak)")
+                        if _gr == 0:
+                            _addk("matchups", "No hitter grades strong")
+                        elif _gr <= 1 and len(_opp) >= 7:
+                            _addk("matchups", f"Only {_gr} strong matchup")
+                        _cold = sum(1 for _x in _opp if (_x.get("heat") or 0) < 40)
+                        if _cold >= max(4, int(0.6 * len(_opp))):
+                            _addk("matchups", f"{_cold}/{len(_opp)} hitters cold")
+                except Exception:
+                    pass
+                _KFAM = {"stuff": "Arm's stuff", "lineup": "Lineup whiffs",
+                         "zones": "Lineup can't reach his zones", "matchups": "Matchups grade poorly"}
+                _prov = [{"k": _k, "lab": _KFAM.get(_k, _k), "detail": _v, "n": len(_v),
+                          "kind": ("context" if _k in ("lineup", "zones", "matchups") else "hitter")}
+                         for _k, _v in _fam.items()]
+                _a["converge"] = {
+                    "measured": _meas, "provisional": _prov,
+                    "n_measured": len(_meas), "n_provisional": len(_prov),
+                    "n_hitter": sum(1 for s in _prov if s["kind"] != "context"),
+                    "n_context": sum(1 for s in _prov if s["kind"] == "context"),
+                    "lift": sum(m["lift"] for m in _meas),
+                }
+            print(f"[build] K convergence attached to {len(pitcher_props)} arms")
+        except Exception as _e:
+            print(f"[build] K convergence skipped (non-fatal): {_e}")
+
         board["pitcher_props"] = pitcher_props
         print(f"[build] pitcher K props: {len(pitcher_props)} arms ranked "
               f"(out of {len(seen_pitcher)} distinct pitchers seen)")
@@ -2095,6 +2593,73 @@ def build(date_str: str | None = None) -> dict:
                 **proj,
             })
         game_projections.sort(key=lambda x: -(x.get("total") or 0))
+
+        # ---- MONEYLINE CONVERGENCE ----
+        # Deliberately more conservative than the hitter version. The backtest DOES grade the run
+        # model (Brier 0.2473 vs a 0.2497 baseline, calibration tight), so the win-probability
+        # edge counts as measured. Everything else stays provisional, and the honest framing
+        # matters here: the moneyline is the sharpest market in baseball, so agreement between
+        # our own sub-models is NOT the same as an edge over the price.
+        try:
+            _ml_lift = None
+            try:
+                _r = (globals().get("_BT_RUNS") or {})
+                if not _r:
+                    _btp2 = os.path.join(os.path.dirname(__file__), "..", "docs", "backtest.json")
+                    if os.path.exists(_btp2):
+                        with open(_btp2) as _f2:
+                            _r = (json.load(_f2) or {}).get("runs") or {}
+                        globals()["_BT_RUNS"] = _r
+                _br, _bb = _r.get("brier"), _r.get("baseline_brier")
+                if _br and _bb and _br < _bb:
+                    _ml_lift = int(round(100 * (_bb - _br) / _bb))   # % better than baseline
+            except Exception:
+                _ml_lift = None
+            for _g in game_projections:
+                for _side in ("home", "away"):
+                    _wp = _g.get(f"{_side}_wp")
+                    if _wp is None:
+                        continue
+                    _meas, _fam = [], {}
+                    def _addm(fam, lab):
+                        _fam.setdefault(fam, []).append(lab)
+                    if _wp >= 0.58 and _ml_lift:
+                        _meas.append({"k": "runmodel", "lab": f"Model {round(100*_wp)}%", "lift": _ml_lift})
+                    _bd = _g.get(f"{_side}_breakdown") or {}
+                    _obd = _g.get(f"{'away' if _side=='home' else 'home'}_breakdown") or {}
+                    # starter edge
+                    _sx, _ox = _bd.get("sp_xwoba_allowed"), _obd.get("sp_xwoba_allowed")
+                    if _sx is not None and _ox is not None and (_ox - _sx) >= 0.020:
+                        _addm("starter", f"SP edge {round(_ox-_sx,3)} xwOBA")
+                    # bullpen edge
+                    _px, _opx = _bd.get("pen_xwoba_allowed"), _obd.get("pen_xwoba_allowed")
+                    if _px is not None and _opx is not None and (_opx - _px) >= 0.020:
+                        _addm("bullpen", f"Pen edge {round(_opx-_px,3)}")
+                    # defense
+                    _df = _obd.get("opp_def")
+                    if _df is not None and _df >= 0.2:
+                        _addm("defense", f"Defense +{round(_df,2)} runs saved")
+                    # platoon
+                    if (_bd.get("platoon_spots") or 0) >= 5:
+                        _addm("platoon", f"{_bd['platoon_spots']} platoon spots")
+                    # run margin
+                    _rr, _orr = _g.get(f"{_side}_runs"), _g.get(f"{'away' if _side=='home' else 'home'}_runs")
+                    if _rr is not None and _orr is not None and (_rr - _orr) >= 0.6:
+                        _addm("runs", f"+{round(_rr-_orr,2)} run edge")
+                    _MLFAM = {"starter": "Starter edge", "bullpen": "Bullpen edge",
+                              "defense": "Defense", "platoon": "Platoon", "runs": "Run margin"}
+                    _prov = [{"k": _k, "lab": _MLFAM.get(_k, _k), "detail": _v, "n": len(_v),
+                              "kind": "hitter"} for _k, _v in _fam.items()]
+                    _g[f"{_side}_converge"] = {
+                        "measured": _meas, "provisional": _prov,
+                        "n_measured": len(_meas), "n_provisional": len(_prov),
+                        "n_hitter": len(_prov), "n_context": 0,
+                        "lift": sum(m["lift"] for m in _meas),
+                    }
+            print(f"[build] ML convergence attached to {len(game_projections)} games")
+        except Exception as _e:
+            print(f"[build] ML convergence skipped (non-fatal): {_e}")
+
         board["game_projections"] = game_projections
         print(f"[build] game projections: {len(game_projections)} games modeled")
     except Exception as e:
