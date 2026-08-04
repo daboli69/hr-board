@@ -89,6 +89,10 @@
   .cal-rk.cv{background:var(--seam-glow);color:var(--seam)}
   .cal-rk i{font-style:normal;opacity:.7;margin-left:2px}
   .cal-bdg{font-family:"IBM Plex Mono";font-size:8px;font-weight:700;border-radius:4px;padding:1.5px 5px;background:var(--panel-2);color:var(--muted)}
+  .cov-chip{font-family:"IBM Plex Mono";font-size:8.5px;font-weight:800;letter-spacing:.02em;
+    padding:1.5px 6px;border-radius:4px;background:var(--panel-3);color:var(--muted);border:1px solid var(--line-2)}
+  .cov-chip.cov-strong{background:var(--seam-glow);color:var(--seam);border-color:rgba(224,100,47,.4)}
+  .cov-chip.cov-elite{background:var(--seam);color:#12140f;border-color:var(--seam)}
   .traitf .is-noise{opacity:.55}
   .tf-alt{font-style:normal;font-size:7px;opacity:.55;margin-left:3px;letter-spacing:.04em}
   .cv-tog{display:flex;gap:5px;margin:10px 0 6px}
@@ -3265,7 +3269,7 @@ function _sigLabel(g){
   if(typeof BKLABEL!=="undefined" && BKLABEL[g]) return "Badge " + BKLABEL[g];
   const m={zone:"Zone overlap", zone_edge:"Zone edge", arsenal_fit:"Arsenal fit",
     converge:"Convergence (with heat)", converge_noheat:"Convergence (no heat)",
-    converge_prov:"Convergence (provisional)", converge_families:"Convergence (all families)", sample_size:"Sample size", square_up:"Square Up", hr_power:"HR power",
+    converge_prov:"Convergence (provisional)", converge_families:"Convergence (all families)", pull_air:"Pull-air rate", sample_size:"Sample size", square_up:"Square Up", hr_power:"HR power",
     grade:"Matchup grade", bomb:"Bomb Score", vuln:"Arm vulnerability"};
   return m[g] || (String(g).charAt(0).toUpperCase()+String(g).slice(1).replace(/_/g," "));
 }
@@ -3444,7 +3448,7 @@ function renderConverge(){
       <div class="cv-rk mono">${i+1}</div>
       <div class="cv-cnt"><b>${meas.length}</b><span>+${prov.length}</span></div>
       <div class="cv-main">
-        <div class="cv-nm">${x.name}<span class="cv-meta">${sub}</span>${(!isK&&x.reliability&&x.reliability.score<=1)?`<span class="cv-thin" title="${x.reliability.bbe_season} batted balls this season — rate stats on a small denominator swing wildly">${x.reliability.label}</span>`:""}</div>
+        <div class="cv-nm">${x.name}${(!isK&&!cvHeat&&x.cov_rank)?` <span class="cov-chip${x.cov_rank<=3?" cov-elite":(x.cov_rank<=8?" cov-strong":"")}">COV${x.cov_rank}</span>`:""}<span class="cv-meta">${sub}</span>${(!isK&&x.reliability&&x.reliability.score<=1)?`<span class="cv-thin" title="${x.reliability.bbe_season} batted balls this season — rate stats on a small denominator swing wildly">${x.reliability.label}</span>`:""}</div>
         ${!isK?`<div class="cv-split"><b>${(prov.filter(s=>s.kind!=="context").length)}</b> about him · <b>${(prov.filter(s=>s.kind==="context").length)}</b> about the spot</div>`:""}
         <div class="cv-sigs">${meas.map(s=>chip(s,"meas")).join("")}${prov.map(s=>chip(s,"prov")).join("")}</div>
         ${prov.some(s=>s.detail&&s.detail.length)?`<details class="cv-ev" onclick="event.stopPropagation()"><summary>what fired</summary>
@@ -3478,7 +3482,7 @@ function renderConverge(){
       <span class="cv-sig prov">Provisional<i>not yet graded</i></span>
     </div>
     ${rows}
-    <div class="prop-note" style="margin-top:14px"><b>Read this honestly.</b> The bold number counts <b>measured</b> signals only — ones your own backtest graded for this prop. The small <b>+n</b> is provisional context that hasn't been graded. Crucially, the props are <b>not equally trustworthy</b> — the band lift shown above is pulled live from your latest backtest, and the HR model has historically separated far harder than 1+hit or H+R+RBI, so a "2-signal" hits play means less than a 2-signal HR play. Badges that stop clearing the lift threshold (DUE and COOL both have) are dropped automatically rather than padding the count. Two things shape this ranking beyond the raw count. <b>Context families</b> (opposing arm, environment) are true of every hitter in that game, so they carry a third of the weight of hitter-specific evidence — otherwise a cold bat in a good park out-ranks a hot hitter. And <b>thin samples are discounted</b>: rate stats on 40 batted balls swing wildly, so those players are down-weighted and flagged, with a filter to remove them entirely. Sample size is now weighted by <b>measured</b> lift, not a guess: across 28k graded player-games, hitters with 250+ batted balls homered at 1.07× the base rate while those at 60–119 managed only 0.52×. The board therefore defaults to <b>250+ BBE</b> — every thinner band has underperformed. Provisional reads are grouped into <b>families</b> — contact quality, form, zone matchup, arsenal matchup, opposing arm, environment, matchup grade — and each family counts <b>once</b>, no matter how many things fired inside it. That's deliberate: barrel rate, hard-hit%, EV percentile and Square Up all measure the same underlying thing, so counting them separately would let one piece of evidence pose as four. Tap "what fired" to see the detail. Families still overlap somewhat, so agreeing reads aren't independent coin flips. A shortlist, not a verdict.</div>
+    <div class="prop-note" style="margin-top:14px"><b>Read this honestly.</b> The bold number counts <b>measured</b> signals only — ones your own backtest graded for this prop. The small <b>+n</b> is provisional context that hasn't been graded. Crucially, the props are <b>not equally trustworthy</b> — the band lift shown above is pulled live from your latest backtest, and the HR model has historically separated far harder than 1+hit or H+R+RBI, so a "2-signal" hits play means less than a 2-signal HR play. Badges that stop clearing the lift threshold (DUE and COOL both have) are dropped automatically rather than padding the count. Two things shape this ranking beyond the raw count. <b>Context families</b> (opposing arm, environment) are true of every hitter in that game, so they carry a third of the weight of hitter-specific evidence — otherwise a cold bat in a good park out-ranks a hot hitter. And <b>thin samples are discounted</b>: rate stats on 40 batted balls swing wildly, so those players are down-weighted and flagged, with a filter to remove them entirely. Signals only join the count once they clear a <b>significance</b> bar, not just a good-looking number. PITCH EDGE currently shows the highest badge lift on the Trends page (1.47×) but sits on <b>80 tracked player-games</b> — z=+1.32, which is not distinguishable from chance, so it stays out. Same for WEAK ARM (1.20×, z=+1.39) and SMASH (1.13×, n=82). What did clear the bar and is now counted: <b>fly-ball hitters</b> (1.30×, z=+2.31) and <b>batting 1st–4th</b> (1.23–1.30×, z=+2.1 to +2.7). <b>Launch profile</b> is tracked as its own family, separate from contact quality — measured on tonight's board, pull-air rate correlates <b>r=−0.11</b> with exit velo and <b>r=−0.01</b> with barrel rate, so how a hitter launches the ball is nearly independent of how hard he hits it. (Hard-hit% is r=+0.81 with EV, which is why it sits inside contact instead.) That separation is the point: a guy who scorches everything into the ground and a guy who lifts it to the pull side are different bets. Sample size is now weighted by <b>measured</b> lift, not a guess: across 28k graded player-games, hitters with 250+ batted balls homered at 1.07× the base rate while those at 60–119 managed only 0.52×. The board therefore defaults to <b>250+ BBE</b> — every thinner band has underperformed. Provisional reads are grouped into <b>families</b> — contact quality, form, zone matchup, arsenal matchup, opposing arm, environment, matchup grade — and each family counts <b>once</b>, no matter how many things fired inside it. That's deliberate: barrel rate, hard-hit%, EV percentile and Square Up all measure the same underlying thing, so counting them separately would let one piece of evidence pose as four. Tap "what fired" to see the detail. Families still overlap somewhat, so agreeing reads aren't independent coin flips. A shortlist, not a verdict.</div>
   </div>`;
 }
 
@@ -3677,6 +3681,15 @@ function zoneEdgeVal(p){
   const ze=(((p.features||{}).zone_profile)||{}).zone_edge;
   return (ze && ze.edge_score!=null) ? +ze.edge_score : -1;
 }
+// COV badge — where this hitter sits on Signal Convergence with HEAT EXCLUDED. COV1 = the
+// single hitter tonight with the most non-heat evidence behind him. Capped at the top 15 so the
+// badge means something; below that it's just "ranked", which isn't worth a chip.
+function covChip(p, max){
+  const r=p&&p.cov_rank;
+  if(!r || r>(max||15)) return "";
+  const tier = r<=3 ? " cov-elite" : (r<=8 ? " cov-strong" : "");
+  return `<span class="cov-chip${tier}" title="Signal Convergence rank #${r} with heat excluded — the non-heat evidence likes him ${r<=3?"more than almost anyone":"tonight"}">COV${r}</span>`;
+}
 function zoneEdgeChip(p){
   const ze=(((p.features||{}).zone_profile)||{}).zone_edge;
   if(!ze||ze.edge_score==null||ze.edge_score<60) return "";
@@ -3791,7 +3804,7 @@ function buildDetail(p){
         ${p.opp_bullpen.flags&&p.opp_bullpen.flags.length?`<div class="arm" style="margin-top:6px">pen flags: ${p.opp_bullpen.flags.join(' · ')}</div>`:''}`:''}
   ` : `<div class="arm"><b>Opposing arm:</b> ${op.name||'—'}</div>`;
   return `
-      <div class="dname"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span>${p.name}</span>${p.lineup_spot?`<span class="dspot">#${p.lineup_spot}</span>`:""}</div>
+      <div class="dname"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span>${p.name}</span>${covChip(p,25)}${p.lineup_spot?`<span class="dspot">#${p.lineup_spot}</span>`:""}</div>
       <button class="listbtn${listHas(p.id)?" on":""}" data-pid="${p.id}" data-nm="${encodeURIComponent(p.name)}" onclick="toggleListBtn(this,event)">${listHas(p.id)?"★ On your list — tap to remove":"☆ Add to my list"}</button>
       ${sm?`<div class="clearnote"><b>Everything's pointing here.</b> ${sm.reasons.length?sm.reasons.slice(0,5).join(" · ")+". ":""}The matchup's already priced into this number — trust it, don't talk yourself out of it over one cold reading.</div>`:""}
       ${(function(){const h=HLAB[p.hit_label];return h?`<div class="hlab-note"><span class="hlab ${h[1]}">${h[0]}</span> ${h[2]} over the trailing 2 weeks — same window as the model. One label max, FB outranks LD, none if any threshold missed.</div>`:"";})()}
@@ -4033,7 +4046,7 @@ function render(){
         <div class="hc" style="background:${chipColor(p.heat)}">${p.heat}</div>
         <div><span class="nm">${p.name}</span>${b2b}${p.lineup_spot?` <span class="spot">#${p.lineup_spot}</span>`:""}${bombBit}
           <span style="color:var(--muted);font-size:11px"> ${p.team}→${p.opp_team} · ${timeStr(p.time)}${armBit}</span>${extra||""}</div>
-      </div>${(sig.trim()||zoneEdgeChip(p))?`<div class="tp-sig">${sig}${zoneEdgeChip(p)}</div>`:""}<div class="why">${note||p.angle||p.why||""}</div></div>`;
+      </div>${(sig.trim()||zoneEdgeChip(p)||covChip(p))?`<div class="tp-sig">${covChip(p)}${sig}${zoneEdgeChip(p)}</div>`:""}<div class="why">${note||p.angle||p.why||""}</div></div>`;
     };
     const body=cats.map(c=>`<div class="tp-cat"><div class="tp-cat-h">${c.t}<span>${c.d}</span></div>${
       c.ps.map(p=>prow(p,c.mix?` <span class="mixd up">▲${mixGain(p)}</span>`:"",c.note?c.note(p):null)).join("")}</div>`).join("");
@@ -4260,7 +4273,7 @@ function render(){
           <div class="cheat" style="background:${col}">${H(p)}</div>
           <div class="cwho">
             <div class="name"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span class="nm-txt">${p.name}</span><span class="liststar"${listHas(p.id)?"":" hidden"}>★</span></div>
-            ${(()=>{const sig=`${gradePill(p)}${zoneBadgeInline(p)}${zoneEdgeChip(p)}${eliteChip(p)}${platoonChip(p)}${consistencyTag(p)}${disciplineIcons(p)}`;return sig.trim()?`<div class="csig">${sig}</div>`:"";})()}
+            ${(()=>{const sig=`${covChip(p)}${gradePill(p)}${zoneBadgeInline(p)}${zoneEdgeChip(p)}${eliteChip(p)}${platoonChip(p)}${consistencyTag(p)}${disciplineIcons(p)}`;return sig.trim()?`<div class="csig">${sig}</div>`:"";})()}
             <div class="cmini">${sm?'<span class="clearflag">SMASH</span> ':""}${hlabPill(p)}${p.robbed?robbedChip(p.robbed):""}${p.milestone?`<span class="mstone">${p.milestone.kind==="team"?`vs ${p.milestone.target.split(" ").pop()}: ${p.milestone.away===1?"1 HR":p.milestone.away+" HR"}`:`HR ${p.milestone.career_hr} → ${p.milestone.next}`}</span> `:""}${bpChip}${lbChip}${pkChip}${mdChip}${trendBadge(p.trend)?trendBadge(p.trend)+" ":""}${p.lineup_status==="projected"?`<span class="spot" style="color:var(--seam);border-color:var(--seam)">proj</span> `:""}${p.lineup_spot?`#${p.lineup_spot} · `:""}${p.team}→${p.opp_team} · ${timeStr(p.time)}${armSc!=null?` · arm <b style="color:${armCol}">${armSc}</b>`:""} · ${(p.windows&&p.windows.L14d&&p.windows.L14d.pa!=null)?`${p.windows.L14d.pa}PA`:"–"}</div>
           </div>
           <div class="cmetrics">${mini}</div>
@@ -8642,7 +8655,7 @@ function renderCalendar(){
       // the guy before he went deep — the only honest way to read a hit list after the fact.
       const rk=[];
       if(x.heat_rank!=null) rk.push(`<span class="cal-rk" title="his rank on the Heat board before first pitch">H#${x.heat_rank}</span>`);
-      if(x.cv_rank!=null) rk.push(`<span class="cal-rk cv" title="his rank on Signal Convergence with heat EXCLUDED — did the other evidence find him?">C#${x.cv_rank}${x.cv_fams!=null?`<i>${x.cv_fams}f</i>`:""}</span>`);
+      if(x.cv_rank!=null) rk.push(`<span class="cov-chip${x.cv_rank<=3?" cov-elite":(x.cv_rank<=8?" cov-strong":"")}" title="Signal Convergence rank #${x.cv_rank} with heat EXCLUDED, as of first pitch — did the non-heat evidence find him before he went deep?">COV${x.cv_rank}${x.cv_fams!=null?`<i style="font-style:normal;opacity:.7;margin-left:2px">${x.cv_fams}f</i>`:""}</span>`);
       const bdg=(x.badges||[]).map(k=>`<span class="cal-bdg bk-${k}">${(typeof BKLABEL!=="undefined"&&BKLABEL[k])||k}</span>`).join("");
       const meta = backfilled
         ? `${x.dist!=null?x.dist+" ft":""}${x.ev!=null?" · "+x.ev+" mph":""}`
