@@ -1596,6 +1596,7 @@ def build(date_str: str | None = None) -> dict:
                     if _bn >= 60:
                         _pbvals.append(100.0 * _pn / _bn)
                 _LAUNCH_CUT["pull_barrel"] = _pctl_cut(_pbvals)
+                _PARK_CUT = _pctl_cut([x.get("park_hr_factor") for x in players], 0.75)
                 _P30_CUT = _pctl_cut([(x.get("parks30") or {}).get("out_here") for x in players])
                 _AP_CUT  = _pctl_cut([(x.get("parks30") or {}).get("avg_parks") for x in players])
                 _VH_CUT  = _pctl_cut([(x.get("opp_pitcher") or {}).get("vs_hand_score") for x in players])
@@ -1626,7 +1627,7 @@ def build(date_str: str | None = None) -> dict:
                     _hi_pctl = [f"{v.get('label') or k} P{v['pctl']}"
                                 for k, v in _pc.items()
                                 if isinstance(v, dict) and (v.get("pctl") or 0) >= 80]
-                    if _hi_pctl:
+                    if len(_hi_pctl) >= 3:        # a cluster, not a single lucky metric
                         _add("contact", "MLB pctl: " + ", ".join(sorted(_hi_pctl)[:3]))
                     _sq = _F.get("square_up") or {}
                     if (_sq.get("rating") or 0) >= 30:
@@ -1776,13 +1777,13 @@ def build(date_str: str | None = None) -> dict:
                     # is genuinely independent evidence. Counted as CONTEXT, since it describes
                     # the slot rather than the hitter.
                     _sp2 = _p.get("lineup_spot")
-                    if _sp2 and int(_sp2) <= 4:
-                        _sfx = {1: "1st", 2: "2nd", 3: "3rd", 4: "4th"}[int(_sp2)]
+                    if _sp2 and int(_sp2) <= 3:
+                        _sfx = {1: "1st", 2: "2nd", 3: "3rd"}[int(_sp2)]
                         _add("opportunity", f"Bats {_sfx}")
 
                     # -- environment --
                     _pf = _p.get("park_hr_factor")
-                    if _pf is not None and _pf >= 1.05:
+                    if _pf is not None and _pf >= _PARK_CUT:
                         _add("env", f"Park {_pf:.2f}x")
                     _mc = _F.get("microclimate") or {}
                     if (_mc.get("boost") or 0) >= 5:
