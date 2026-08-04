@@ -1754,6 +1754,59 @@ def build(date_str: str | None = None) -> dict:
                                 _fit = _mixline["barrel_pct"]
                     except Exception:
                         _fit = None
+                    # ---- PUNISH SCORE: green-on-green overlap ----
+                    # vs_mix above weights purely by how OFTEN he throws a pitch. This asks the
+                    # sharper question: does the hitter mash the pitches this arm both throws a
+                    # lot AND gets hurt on? A pitch thrown 40% of the time that nobody touches is
+                    # worth far less than one thrown 25% that leaves the yard.
+                    # weight(pitch) = usage x vulnerability(SLG + HR rate + barrel allowed)
+                    # score        = weighted average of the hitter's damage on those same pitches
+                    # 50 = neutral. Both sides are handedness-correct: the arm's line vs THIS
+                    # batter's side, and the batter's line vs pitches from THIS arm's side.
+                    try:
+                        _at = (arm_tables.get(int(_arm)) or {}).get(_hand) if _arm else None
+                        _vp3 = _p.get("vs_pitch") or {}
+                        if _at and _vp3:
+                            _num = _den = 0.0
+                            _drivers = []
+                            for _pt, _line in _at.items():
+                                if not _line or len(_line) < 23:
+                                    continue
+                                _usage = _line[1] or 0.0
+                                if _usage < 8.0:
+                                    continue
+                                # how badly does he get hurt on this pitch (0-1)
+                                _vSlg = min(1.0, max(0.0, ((_line[5] or 0.35) - 0.330) / 0.320))
+                                _vBrl = min(1.0, max(0.0, ((_line[16] or 6.0) - 5.0) / 13.0))
+                                _vHr  = min(1.0, (float(_line[7] or 0) / max(1.0, float(_line[2] or 1))) / 0.06)
+                                _vuln = 0.45 * _vSlg + 0.35 * _vBrl + 0.20 * _vHr
+                                _w = (_usage / 100.0) * (0.35 + 0.65 * _vuln)
+                                # how well does the hitter do on that same pitch (0-1)
+                                _bv = _vp3.get(_pt)
+                                if not _bv or len(_bv) < 18 or (_bv[4] or 0) < 8:
+                                    continue
+                                _bSlg = (_bv[14] / _bv[13]) if _bv[13] else None
+                                _bBrl = (100.0 * _bv[7] / _bv[4]) if _bv[4] else None
+                                _bHard = (100.0 * _bv[11] / _bv[5]) if _bv[5] else None
+                                _sS = min(1.0, max(0.0, ((_bSlg or 0.38) - 0.330) / 0.320))
+                                _sB = min(1.0, max(0.0, ((_bBrl or 6.0) - 4.0) / 14.0))
+                                _sH = min(1.0, max(0.0, ((_bHard or 35.0) - 30.0) / 25.0))
+                                _strength = 0.40 * _sS + 0.35 * _sB + 0.25 * _sH
+                                _num += _w * _strength
+                                _den += _w
+                                _drivers.append((_pt, round(_usage, 1), round(100 * _vuln),
+                                                 round(100 * _strength), int(_bv[12] or 0)))
+                            if _den > 0 and len(_drivers) >= 2:
+                                _score = int(round(100.0 * _num / _den))
+                                _drivers.sort(key=lambda d: -(d[1] * d[2] * d[3]))
+                                _p["mix_punish"] = {
+                                    "score": _score,
+                                    "drivers": [{"pt": d[0], "usage": d[1], "vuln": d[2],
+                                                 "strength": d[3], "hr": d[4]} for d in _drivers[:4]],
+                                }
+                    except Exception:
+                        pass
+
                     if _fit is not None:
                         _p["arsenal_fit"] = _fit
                         _vm = _p.get("vs_mix") or {}
@@ -1899,6 +1952,43 @@ def build(date_str: str | None = None) -> dict:
                             "lift": sum(m["lift"] for m in _meas),
                         }
                     _p["converge"] = _conv
+                # ---- second pass: the punish score needs the whole slate before it can be
+                # gated, since "punishes his mix" only means something relative to the other
+                # matchups on the board tonight. Runs here, after every player has a score.
+                try:
+                    _pvals = sorted(v for v in
+                                    ((x.get("mix_punish") or {}).get("score") for x in players)
+                                    if v is not None)
+                    if len(_pvals) >= 20:
+                        _PUNISH_CUT = _pvals[int(0.75 * (len(_pvals) - 1))]
+                        print(f"[build] punish-score gate (p75 of slate) = {_PUNISH_CUT} "
+                              f"(range {_pvals[0]}-{_pvals[-1]}, n={len(_pvals)})")
+                        for _p in players:
+                            _mp = (_p.get("mix_punish") or {}).get("score")
+                            if _mp is None or _mp < _PUNISH_CUT:
+                                continue
+                            _c2 = (_p.get("converge") or {}).get("hr")
+                            if not isinstance(_c2, dict):
+                                continue
+                            _drv = (_p.get("mix_punish") or {}).get("drivers") or []
+                            _lab = ", ".join(f"{d['pt']} {d['usage']}%" for d in _drv[:2])
+                            _entry = {"k": "arsenal", "lab": "Arsenal matchup",
+                                      "detail": [f"Punishes his mix {_mp}/100"
+                                                 + (f" (on {_lab})" if _lab else "")],
+                                      "n": 1, "kind": "hitter"}
+                            _existing = next((s for s in _c2.get("provisional") or []
+                                              if s.get("k") == "arsenal"), None)
+                            if _existing:
+                                _existing.setdefault("detail", []).append(_entry["detail"][0])
+                                _existing["n"] = len(_existing["detail"])
+                            else:
+                                _c2.setdefault("provisional", []).append(_entry)
+                                _c2["n_provisional"] = len(_c2["provisional"])
+                                _c2["n_hitter"] = sum(1 for s in _c2["provisional"]
+                                                      if s.get("kind") != "context")
+                except Exception as _e:
+                    print(f"[build] punish gate skipped (non-fatal): {_e}")
+
                 # ---- COV rank: position on the Signal Convergence board with HEAT EXCLUDED ----
                 # Ranked here (not just at grading time) so the live board can badge it. Heat is
                 # dropped from the ordering on purpose: COV answers "what does the evidence
