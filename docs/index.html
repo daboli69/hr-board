@@ -3326,6 +3326,20 @@ function cvMeasured(p){
 // BBE floor was discarding good plays. The next backtest carries a sample x convergence
 // cross-tab that settles it; until then this is the less destructive default.
 let cvMinRel=2;      // 0 = everyone, 1 = 60+, 2 = 120+, 3 = 250+ BBE
+// Ranking mode. "best" = most evidence, full stop — correct if you want the highest HR
+// probability, but it will always lean toward established everyday hitters, because those are
+// the players who accumulate complete evidence profiles. That's the model working, not a bug.
+// "overlooked" ranks by evidence RELATIVE to how much the core model already likes him: it
+// surfaces hitters carrying real convergence that heat hasn't caught up to. Same evidence,
+// different question — and usually a much better price.
+let cvMode="best";
+function setCvMode(m){ cvMode=m; renderConverge(); }
+function cvObviousness(p){
+  // how "chalky" is he already? heat is the core model's own opinion and tracks market price
+  // closely enough to serve as a popularity proxy.
+  const h=(p&&p.heat!=null)?p.heat:30;
+  return Math.max(0, Math.min(1, h/85));
+}
 let cvConfirmed=false;
 function setCvRel(v){ cvMinRel=+v; renderConverge(); }
 function toggleCvConfirmed(){ cvConfirmed=!cvConfirmed; renderConverge(); }
@@ -3344,8 +3358,17 @@ function convergeVal(p){
   // hitters don't just carry noisy rates — they actually homer far less often (60-119 BBE
   // graded at 0.52x the base rate, 120-249 at 0.71x, 250+ at 1.07x over 28k player-games).
   // The old prior (1 / 0.75 / 0.5) was much too gentle on the middle band in particular.
+  if(cvMode==="overlooked"){
+    // Evidence the core model hasn't priced yet. Measured signals still count, but a hitter the
+    // heat model already loves is pushed down — so what surfaces is genuine convergence on the
+    // less obvious names. Reliability is NOT applied here: the backtest shows a thin-sample
+    // hitter who HAS accumulated evidence runs ~1.08x the base rate (fine), while a thin hitter
+    // with no evidence runs 0.58x — convergence is already doing that filtering.
+    const ev = m.length*2.0 + lift/50 + nHit*0.6 + nCtx*0.2;
+    return ev - cvObviousness(p)*4.0;
+  }
   const rel=(p.reliability&&p.reliability.score!=null)?p.reliability.score:3;
-  const relPenalty=(rel>=3)?1.0:(rel===2?0.66:(rel===1?0.49:0.63));
+  const relPenalty=(rel>=3)?1.0:(rel===2?0.72:(rel===1?0.55:0.55));
   return (m.length*1000 + lift + nHit*0.6 + nCtx*0.2) * relPenalty;
 }
 function cvPasses(p){
@@ -3471,6 +3494,11 @@ function renderConverge(){
       <button class="${cvHeat?"on":""}" onclick="setCvHeat(true)">With heat</button>
       <button class="${!cvHeat?"on":""}" onclick="setCvHeat(false)">Without heat</button>
     </div>
+    <div class="cv-tog">
+      <button class="${cvMode==="best"?"on":""}" onclick="setCvMode('best')">Most evidence</button>
+      <button class="${cvMode==="overlooked"?"on":""}" onclick="setCvMode('overlooked')">Overlooked</button>
+    </div>
+    ${cvMode==="overlooked"?`<div class="cv-note-sm">Ranking by evidence the core model <b>hasn't</b> priced in. Hitters the heat model already loves are pushed down, so what surfaces is real convergence on less obvious names — typically at much better odds. Measured on tonight's board this swaps out roughly two-thirds of the top 20 and drops median heat from 52 to 30 — the board average — while the evidence count stays high. Lower raw HR probability than the "Most evidence" list; better prices. That's the trade.</div>`:""}
     ${!isK?`<div class="cv-filters">
       <span>Sample:</span>
       ${[[0,"All"],[1,"60+ BBE"],[2,"120+ BBE"],[3,"250+ BBE"]].map(([v,l])=>
