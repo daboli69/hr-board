@@ -3269,7 +3269,7 @@ function _sigLabel(g){
   if(typeof BKLABEL!=="undefined" && BKLABEL[g]) return "Badge " + BKLABEL[g];
   const m={zone:"Zone overlap", zone_edge:"Zone edge", arsenal_fit:"Arsenal fit",
     converge:"Convergence (with heat)", converge_noheat:"Convergence (no heat)",
-    converge_prov:"Convergence (provisional)", converge_families:"Convergence (all families)", pull_air:"Pull-air rate", sample_size:"Sample size", square_up:"Square Up", hr_power:"HR power",
+    converge_prov:"Convergence (provisional)", converge_families:"Convergence (all families)", sample_x_converge:"Sample x convergence", pull_air:"Pull-air rate", sample_size:"Sample size", square_up:"Square Up", hr_power:"HR power",
     grade:"Matchup grade", bomb:"Bomb Score", vuln:"Arm vulnerability"};
   return m[g] || (String(g).charAt(0).toUpperCase()+String(g).slice(1).replace(/_/g," "));
 }
@@ -3320,7 +3320,12 @@ function cvMeasured(p){
 // Default to 250+ BBE. The backtest is unambiguous: every band below it underperforms the
 // base rate (120-249 -> 0.71x, 60-119 -> 0.52x), so surfacing those hitters by default was
 // actively working against you. The filter is still there to open it back up.
-let cvMinRel=3;      // 0 = everyone, 1 = 60+, 2 = 120+, 3 = 250+ BBE
+// Default relaxed to 120+. The 250+ default came from a sample-size lift table measured across
+// ALL hitters, which can't tell "thin hitters are bad" apart from "thin hitters rarely
+// accumulate evidence in the first place". If convergence is already doing that filtering, the
+// BBE floor was discarding good plays. The next backtest carries a sample x convergence
+// cross-tab that settles it; until then this is the less destructive default.
+let cvMinRel=2;      // 0 = everyone, 1 = 60+, 2 = 120+, 3 = 250+ BBE
 let cvConfirmed=false;
 function setCvRel(v){ cvMinRel=+v; renderConverge(); }
 function toggleCvConfirmed(){ cvConfirmed=!cvConfirmed; renderConverge(); }
@@ -3468,7 +3473,7 @@ function renderConverge(){
     </div>
     ${!isK?`<div class="cv-filters">
       <span>Sample:</span>
-      ${[[0,"All"],[1,"60+ BBE"],[2,"120+ BBE"],[3,"250+ BBE ✓"]].map(([v,l])=>
+      ${[[0,"All"],[1,"60+ BBE"],[2,"120+ BBE"],[3,"250+ BBE"]].map(([v,l])=>
         `<button class="cv-fb${cvMinRel===v?" on":""}" onclick="setCvRel(${v})">${l}</button>`).join("")}
       <button class="cv-fb${cvConfirmed?" on":""}" onclick="toggleCvConfirmed()">Confirmed lineup</button>
       ${hidden?`<span class="cv-hid">${hidden} filtered out</span>`:""}
