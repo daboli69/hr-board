@@ -415,6 +415,13 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
             if _cp is not None:
                 _edge("converge_prov", f"{min(int(_cp),3)}{'+' if int(_cp)>=3 else ''} provisional", hit)
             # total evidence families — the number the convergence board actually shows
+            # cross-tab: sample size WITHIN each convergence level. If "thin + converged" is
+            # fine, the BBE penalty is removing good plays rather than bad ones.
+            _bbe2 = r.get("bbe_season"); _cvn = r.get("cv_meas_noheat")
+            if _bbe2 is not None and _cvn is not None:
+                _sz = "250+" if _bbe2 >= 250 else ("120-249" if _bbe2 >= 120 else "<120")
+                _cv2 = "conv1+" if _cvn >= 1 else "conv0"
+                _edge("sample_x_converge", f"{_cv2} / {_sz}", hit)
             _cf = r.get("cv_fams")
             if _cf is not None:
                 _edge("converge_families", f"{min(int(_cf),5)}{'+' if int(_cf)>=5 else ''} families", hit)

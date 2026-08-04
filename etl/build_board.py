@@ -1576,6 +1576,34 @@ def build(date_str: str | None = None) -> dict:
                     return (((x.get("features") or {}).get("zone_profile") or {}).get("zone_edge") or {}).get("edge_score")
                 _zevals = sorted(v for v in (_ze_of(x) for x in players) if v is not None)
                 _ZE_CUT = (_zevals[int(0.75 * (len(_zevals) - 1))] if len(_zevals) >= 12 else 1e9)
+
+                # Launch-profile gates at the 85th percentile of tonight's board. Fixed cutoffs
+                # fired for ~90% of hitters, which is decoration; p85 keeps it to the genuine top.
+                def _pctl_cut(_vals, _q=0.85):
+                    _v = sorted(x for x in _vals if x is not None)
+                    return _v[int(_q * (len(_v) - 1))] if len(_v) >= 20 else 1e9
+                _LAUNCH_CUT = {}
+                for _mk in ("pull_air_pct", "ideal_aa_pct"):
+                    _LAUNCH_CUT[_mk] = _pctl_cut([
+                        ((x.get("metrics") or {}).get(_mk) or {}).get("recent")
+                        or ((x.get("metrics") or {}).get(_mk) or {}).get("season")
+                        for x in players])
+                _pbvals = []
+                for _x in players:
+                    _v2 = _x.get("vs_pitch") or {}
+                    _pn = sum((_r[8] or 0) for _r in _v2.values() if len(_r) == 12)
+                    _bn = sum((_r[4] or 0) for _r in _v2.values() if len(_r) == 12)
+                    if _bn >= 60:
+                        _pbvals.append(100.0 * _pn / _bn)
+                _LAUNCH_CUT["pull_barrel"] = _pctl_cut(_pbvals)
+                _P30_CUT = _pctl_cut([(x.get("parks30") or {}).get("out_here") for x in players])
+                _AP_CUT  = _pctl_cut([(x.get("parks30") or {}).get("avg_parks") for x in players])
+                _VH_CUT  = _pctl_cut([(x.get("opp_pitcher") or {}).get("vs_hand_score") for x in players])
+                _BPH_CUT = _pctl_cut([(x.get("opp_bullpen") or {}).get("vs_hand") for x in players])
+                _LATE_CUT= _pctl_cut([((x.get("features") or {}).get("late_hr") or {}).get("score") for x in players])
+                print(f"[build] launch gates (p85): {_LAUNCH_CUT}")
+                print(f"[build] new gates (p85): parks30={_P30_CUT} avg_parks={_AP_CUT} "
+                      f"vs_hand={_VH_CUT} pen_hand={_BPH_CUT} late={_LATE_CUT}")
                 if _zevals:
                     print(f"[build] zone-edge gate (p75 of slate) = {_ZE_CUT} "
                           f"(range {_zevals[0]}-{_zevals[-1]}, n={len(_zevals)})")
@@ -1608,11 +1636,55 @@ def build(date_str: str | None = None) -> dict:
                         _add("contact", f"Barrel {_hp['barrel_pct']}%")
                     if (_hp.get("max_dist") or 0) >= 440:
                         _add("contact", f"Ceiling {_hp['max_dist']}ft")
+                    # -- launch profile: does he actually get the ball AIRBORNE TO THE PULL SIDE? --
+                    # Kept as its own family on purpose. Measured across tonight's board, pull-air
+                    # correlates r=-0.11 with exit velo and r=-0.01 with barrel rate, and ideal
+                    # launch angle r=+0.01 with EV — i.e. launch geometry is nearly INDEPENDENT of
+                    # raw contact quality. (Hard-hit%, by contrast, is r=+0.81 with EV, which is
+                    # why it belongs inside "contact" rather than here.) The classic failure mode
+                    # this separates: the guy who scorches everything into the ground.
+                    _mm = _p.get("metrics") or {}
+                    def _lv(_k):
+                        _v = _mm.get(_k) or {}
+                        return _v.get("recent") if _v.get("recent") is not None else _v.get("season")
+                    _pa = _lv("pull_air_pct")
+                    if _pa is not None and _pa >= _LAUNCH_CUT.get("pull_air_pct", 1e9):
+                        _add("launch", f"Pull-air {round(_pa,1)}%")
+                    _ia = _lv("ideal_aa_pct")
+                    if _ia is not None and _ia >= _LAUNCH_CUT.get("ideal_aa_pct", 1e9):
+                        _add("launch", f"Ideal angle {round(_ia,1)}%")
+                    # Batted-ball profile: a fly-ball hitter is a different animal from a
+                    # ground-ball hitter no matter how hard either one hits it. Tracked at 1.30x
+                    # over 576 player-games (z=+2.31). It belongs here rather than in "contact"
+                    # because it describes HOW he launches the ball, not how hard.
+                    _hl = str(_p.get("hit_label") or "").lower()
+                    if _hl == "fb":
+                        _add("launch", "Fly-ball hitter")
+                    elif _hl == "ld":
+                        _add("launch", "Line-drive hitter")
+
+                    # pull-BARREL: a barrel hit to the pull side is about as close to a guaranteed
+                    # home run as a batted ball gets. Aggregated across every pitch type he's seen.
+                    try:
+                        _vp2 = _p.get("vs_pitch") or {}
+                        _pb = sum((_v[8] or 0) for _v in _vp2.values() if len(_v) == 12)
+                        _bb2 = sum((_v[4] or 0) for _v in _vp2.values() if len(_v) == 12)
+                        if _bb2 >= 60:
+                            _pbr = round(100.0 * _pb / _bb2, 1)
+                            _p["pull_barrel_pct"] = _pbr
+                            if _pbr >= _LAUNCH_CUT.get("pull_barrel", 1e9):
+                                _add("launch", f"Pull-barrel {_pbr}%")
+                    except Exception:
+                        pass
+
                     # -- form: is the 2-week window beating his season baseline? --
                     _m = _p.get("metrics") or {}
                     _tr = []
                     for _k, _lab, _min in (("barrel_pct", "barrel", 2.0), ("avg_ev", "EV", 1.0),
-                                           ("pull_air_pct", "pull-air", 4.0)):
+                                           ("pull_air_pct", "pull-air", 4.0),
+                                           ("ideal_aa_pct", "ideal-angle", 4.0),
+                                           ("hardhit_pct", "hard-hit", 4.0),
+                                           ("iso", "ISO", 0.040)):
                         _v = _m.get(_k) or {}
                         _r, _s = _v.get("recent"), _v.get("season")
                         if _r is not None and _s is not None and (_r - _s) >= _min:
@@ -1625,6 +1697,8 @@ def build(date_str: str | None = None) -> dict:
                     # originally, but edge_score is a usage-weighted average of zone power and
                     # actually ranges ~1-33 — so the gate never once fired and this family was
                     # dead. A percentile gate is also self-correcting if the scale ever changes.
+                    if ((_F.get("discipline") or {}).get("crosshair")) is True:
+                        _add("location", "Crosshair: his zones = the arm's meatballs")
                     if _ze.get("edge_score") is not None and _ze["edge_score"] >= _ZE_CUT:
                         _add("location", f"Zone edge {round(_ze['edge_score'],1)}"
                              + (f" ({_ze.get('hot_in_top')}/{_ze.get('top_k')} hot)" if _ze.get("top_k") else ""))
@@ -1656,8 +1730,21 @@ def build(date_str: str | None = None) -> dict:
                             _add("arsenal", f"Arsenal fit {_fit}% barrel")
                     # -- opposing arm: vulnerability + the rate that matters, HR per 9 --
                     _op = _p.get("opp_pitcher") or {}
-                    if (_op.get("hr_score") or 0) >= 60:
+                    # Prefer the arm's vulnerability TO THIS BATTER'S SIDE over his overall score.
+                    # It's the sharper number (wider spread on the board: max 70 vs 58) and it's
+                    # the one that actually applies to this matchup.
+                    _vh = _op.get("vs_hand_score")
+                    if _vh is not None and _vh >= _VH_CUT:
+                        _add("arm", f"Arm vuln vs {_op.get('vs_hand') or 'hand'} {int(_vh)}")
+                    elif (_op.get("hr_score") or 0) >= 60:
                         _add("arm", f"Arm vuln {int(_op['hr_score'])}")
+                    # bullpen he'd meet late, and whether it's exploitable tonight
+                    _bp = _p.get("opp_bullpen") or {}
+                    if (_bp.get("vs_hand") or 0) >= _BPH_CUT:
+                        _add("arm", f"Pen weak vs {_bp.get('hand') or 'hand'} {int(_bp['vs_hand'])}")
+                    _lh = (_F.get("late_hr") or {})
+                    if (_lh.get("score") or 0) >= _LATE_CUT:
+                        _add("arm", f"Late-game pen edge {round(_lh['score'],1)}")
                     try:
                         _hpa = (_op.get("recent") or {}).get("hr_per_pa")
                         if _hpa is not None:
@@ -1669,6 +1756,30 @@ def build(date_str: str | None = None) -> dict:
                         pass
                     if str((_op.get("form") or {}).get("label") or "").upper() in ("SLIPPING", "SHELLABLE", "HITTABLE"):
                         _add("arm", f"Arm {_op['form']['label'].title()}")
+                    # -- park fit: would his OWN recent contact leave THIS yard? --
+                    # park_hr_factor says "this park is friendly"; parks30 says "these specific
+                    # batted balls clear this specific fence", which is a hitter x park
+                    # interaction rather than a property of the park. Kept separate from
+                    # Environment for exactly that reason.
+                    _p30 = _p.get("parks30") or {}
+                    _oh = _p30.get("out_here")
+                    if _oh is not None and _oh >= _P30_CUT:
+                        _add("parkfit", f"{int(_oh)} recent balls clear this park")
+                    _ap = _p30.get("avg_parks")
+                    if _ap is not None and _ap >= _AP_CUT:
+                        _add("parkfit", f"Avg ball clears {round(_ap,1)}/30 parks")
+
+                    # -- opportunity: how many cracks at it does he actually get? --
+                    # Spots 1-4 all tracked 1.23-1.30x (z = +2.1 to +2.7) while spot 9 sat at 7%.
+                    # This is NOT a hitter-quality proxy: median heat is essentially flat across
+                    # spots 1-7 on the board, so the effect is the extra plate appearance, which
+                    # is genuinely independent evidence. Counted as CONTEXT, since it describes
+                    # the slot rather than the hitter.
+                    _sp2 = _p.get("lineup_spot")
+                    if _sp2 and int(_sp2) <= 4:
+                        _sfx = {1: "1st", 2: "2nd", 3: "3rd", 4: "4th"}[int(_sp2)]
+                        _add("opportunity", f"Bats {_sfx}")
+
                     # -- environment --
                     _pf = _p.get("park_hr_factor")
                     if _pf is not None and _pf >= 1.05:
@@ -1676,6 +1787,9 @@ def build(date_str: str | None = None) -> dict:
                     _mc = _F.get("microclimate") or {}
                     if (_mc.get("boost") or 0) >= 5:
                         _add("env", f"Wind/air +{int(_mc['boost'])}%")
+                    # this hitter is personally temp-sensitive AND tonight's air suits him
+                    if str(_mc.get("flag") or "") in ("WARM BOOST", "COLD BOOST"):
+                        _add("env", f"{_mc['flag'].title()} ({int(_mc.get('today_temp') or 0)}F)")
                     # -- overall matchup grade (a composite, so its own family) --
                     _mg = _p.get("matchup_grade") or {}
                     if str(_mg.get("grade") or "").upper() in ("ELITE", "STRONG"):
@@ -1684,7 +1798,9 @@ def build(date_str: str | None = None) -> dict:
                     if (_bs.get("score") or 0) >= 65:
                         _add("grade", f"Bomb {int(_bs['score'])}")
 
-                    _FAM_LABEL = {"contact": "Contact quality", "form": "Form trending up",
+                    _FAM_LABEL = {"contact": "Contact quality", "launch": "Launch profile",
+                                  "parkfit": "Fits this park", "opportunity": "Top of the order",
+                                  "form": "Form trending up",
                                   "location": "Zone matchup", "arsenal": "Arsenal matchup",
                                   "arm": "Opposing arm", "env": "Environment",
                                   "grade": "Matchup grade"}
@@ -1694,7 +1810,9 @@ def build(date_str: str | None = None) -> dict:
                     # A cold hitter in a great park facing a bad arm can rack up context families
                     # while carrying no evidence that HE will do anything. Ranking on the combined
                     # count rewarded exactly that, so the two are now tracked separately.
-                    _CONTEXT = {"arm", "env"}
+                    # parkfit is a hitter x park interaction, so it counts as hitter evidence,
+                    # unlike raw park factor which is true of everyone in the game.
+                    _CONTEXT = {"arm", "env", "opportunity"}
                     _shared = [{"k": _k, "lab": _FAM_LABEL.get(_k, _k.title()),
                                 "detail": _v, "n": len(_v),
                                 "kind": ("context" if _k in _CONTEXT else "hitter")}
@@ -1742,6 +1860,36 @@ def build(date_str: str | None = None) -> dict:
                             "lift": sum(m["lift"] for m in _meas),
                         }
                     _p["converge"] = _conv
+                # ---- COV rank: position on the Signal Convergence board with HEAT EXCLUDED ----
+                # Ranked here (not just at grading time) so the live board can badge it. Heat is
+                # dropped from the ordering on purpose: COV answers "what does the evidence
+                # OUTSIDE the core model like tonight", which is the whole point of the no-heat
+                # view. Reliability is applied the same way the board applies it, so a thin-sample
+                # hitter can't take COV1 on 40 batted balls.
+                try:
+                    _REL_W = {3: 1.0, 2: 0.66, 1: 0.49, 0: 0.63}   # measured lift by sample band
+
+                    def _covscore(_x):
+                        _c = (_x.get("converge") or {}).get("hr") or {}
+                        _m = [s for s in (_c.get("measured") or []) if s.get("k") != "heat"]
+                        _pv = _c.get("provisional") or []
+                        _nh = sum(1 for s in _pv if s.get("kind") != "context")
+                        _nc = sum(1 for s in _pv if s.get("kind") == "context")
+                        _lift = sum(s.get("lift") or 0 for s in _m)
+                        _rel = ((_x.get("reliability") or {}).get("score"))
+                        _rel = 3 if _rel is None else _rel
+                        return (len(_m) * 1000 + _lift + _nh * 0.6 + _nc * 0.2) * _REL_W.get(_rel, 1.0)
+
+                    _ranked = sorted(
+                        [x for x in players if (x.get("converge") or {}).get("hr")],
+                        key=_covscore, reverse=True)
+                    for _i, _x in enumerate(_ranked):
+                        if _covscore(_x) <= 0:
+                            break
+                        _x["cov_rank"] = _i + 1
+                    print(f"[build] COV ranks assigned to {sum(1 for x in players if x.get('cov_rank'))} hitters")
+                except Exception as _e:
+                    print(f"[build] COV rank skipped (non-fatal): {_e}")
             except Exception as _e:
                 print(f"[build] convergence scoring skipped (non-fatal): {_e}")
 
