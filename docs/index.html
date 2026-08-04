@@ -93,6 +93,15 @@
     padding:1.5px 6px;border-radius:4px;background:var(--panel-3);color:var(--muted);border:1px solid var(--line-2)}
   .cov-chip.cov-strong{background:var(--seam-glow);color:var(--seam);border-color:rgba(224,100,47,.4)}
   .cov-chip.cov-elite{background:var(--seam);color:#12140f;border-color:var(--seam)}
+  .vm-wrap{padding:2px 0}
+  .vm-line{font-size:13px;line-height:1.6;color:var(--muted);background:var(--panel-2);border:1px solid var(--line);border-left:3px solid var(--seam);border-radius:9px;padding:11px 13px;margin-bottom:10px}
+  .vm-line b{color:var(--ink)}
+  .vm-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(76px,1fr));gap:6px}
+  .vm-s{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:8px 6px;text-align:center}
+  .vm-s.hot{border-color:rgba(224,100,47,.45);background:var(--seam-glow)}
+  .vm-sl{font-family:"IBM Plex Mono";font-size:8.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.03em}
+  .vm-sv{font-family:"IBM Plex Mono";font-weight:700;font-size:15px;margin-top:3px}
+  .vm-s.hot .vm-sv{color:var(--seam)}
   .traitf .is-noise{opacity:.55}
   .tf-alt{font-style:normal;font-size:7px;opacity:.55;margin-left:3px;letter-spacing:.04em}
   .cv-tog{display:flex;gap:5px;margin:10px 0 6px}
@@ -3243,6 +3252,48 @@ function pxtInner(p){
   out+=`<div class="zd-note">Season-long, by pitch type. The arm's table is what he does to hitters from this side; the hitter's is what he does to that pitch from arms of this hand — so you can read both halves of tonight's matchup on the same pitch.</div>`;
   return out;
 }
+// "Built to punish this arsenal" — the batter's line against ONLY the pitches tonight's
+// starter actually throws his side (>=10% usage). This is the claim a good write-up makes:
+// not "he hits well", but "he hits well against exactly what this guy is going to throw".
+// Near misses are counted deliberately: a ball hit 350+ that stayed in is contact that would
+// have left a lot of parks, and it says the swing is there even when the result wasn't.
+function vsMixBlock(p){
+  const m=p.vs_mix; if(!m||!m.bbe) return "";
+  const arm=p.opp_pitcher||{};
+  const names=(m.pitches||[]).map(_ptName).join(", ");
+  const stat=(lab,val,fmt,hot)=>val==null?"":`<div class="vm-s${hot?" hot":""}"><div class="vm-sl">${lab}</div><div class="vm-sv">${fmt(val)}</div></div>`;
+  const sl=v=>v.toFixed(3).replace(/^0/,"");
+  // headline sentence, generated from the same numbers shown below it
+  const bits=[];
+  if(m.hr) bits.push(`<b>${m.hr}</b> home run${m.hr===1?"":"s"}`);
+  if(m.near) bits.push(`<b>${m.near}</b> near miss${m.near===1?"":"es"}`);
+  if(m.slg!=null) bits.push(`a <b>${sl(m.slg)}</b> slug`);
+  if(m.hard_pct!=null) bits.push(`<b>${Math.round(m.hard_pct)}%</b> hard-hit`);
+  if(m.d350) bits.push(`<b>${m.d350}</b> balls hit 350+ ft`);
+  const line = bits.length
+    ? `Against the pitches <b>${arm.name||"this arm"}</b> actually lives on (${names} — ${Math.round(m.usage)}% of his mix vs ${p.bats==="S"?(arm.throws==="R"?"L":"R"):(p.bats||"?")}HB), ${p.name} has ${bits.slice(0,-1).join(", ")}${bits.length>1?" and ":""}${bits[bits.length-1]}.`
+    : "";
+  return `<details class="sec"><summary>Built to punish this arsenal?</summary>
+    <div class="vm-wrap">
+      <div class="vm-line">${line}</div>
+      <div class="vm-stats">
+        ${stat("HR", m.hr, v=>v, m.hr>=3)}
+        ${stat("Near miss", m.near, v=>v, m.near>=4)}
+        ${stat("350+ ft", m.d350, v=>v, m.d350>=6)}
+        ${stat("SLG", m.slg, sl, m.slg>=.500)}
+        ${stat("ISO", m.iso, sl, m.iso>=.250)}
+        ${stat("Barrel%", m.barrel_pct, v=>v.toFixed(1)+"%", m.barrel_pct>=12)}
+        ${stat("Hard-hit%", m.hard_pct, v=>v.toFixed(1)+"%", m.hard_pct>=45)}
+        ${stat("Pull-air%", m.pullair_pct, v=>v.toFixed(1)+"%", m.pullair_pct>=28)}
+        ${stat("Avg EV", m.avg_ev, v=>v.toFixed(1), m.avg_ev>=92)}
+        ${stat("K%", m.k_pct, v=>v.toFixed(1)+"%", false)}
+      </div>
+      <div class="zd-note">Counts are pooled across every pitch in his mix and divided once, so a
+      pitch he throws 200 times isn't outweighed by one he throws 20 times. <b>Near miss</b> = a
+      ball hit 350+ feet that didn't leave — warning-track contact that clears in a lot of parks.
+      Sample: ${m.bbe} batted balls.</div>
+    </div></details>`;
+}
 function pitchTableBlock(p){
   const arm=p.opp_pitcher||{};
   const has=(p.pitch_table)||(arm.id&&(BOARD.arm_tables||{})[String(arm.id)]);
@@ -3872,6 +3923,7 @@ function buildDetail(p){
       ${collapseWrap(pitchBlock(p))}
       ${percentileBars(p)}
       ${zoneDamageGrid(p)}
+      ${vsMixBlock(p)}
       ${pitchTableBlock(p)}
       ${collapseWrap(featureBlock(p))}
       ${collapseWrap(luckBlock(p))}
