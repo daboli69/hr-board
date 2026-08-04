@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import os
 import time
-from datetime import datetime, timedelta
+from datetime import date as date_cls, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -611,6 +611,27 @@ def grade():
             added.append(date)
 
     if not added:
+        # Distinguish "genuinely caught up" from "stuck". This matters: a code error inside
+        # grade_date is swallowed by the try/except above, so for three days this printed a
+        # reassuring message and exited 0 while grading nothing at all — the workflow showed a
+        # green check the whole time. If snapshots exist for days that still aren't graded,
+        # that is a FAILURE and the run must go red so it gets noticed.
+        import glob as _glob
+        stuck = []
+        for _s in sorted(_glob.glob(os.path.join(SNAP_DIR, "20*.json"))):
+            _d = os.path.basename(_s)[:-5]
+            if _d in graded:
+                continue
+            if _d >= today.strftime("%Y-%m-%d"):
+                continue                      # today isn't finished yet; not a failure
+            _age = (today - date_cls.fromisoformat(_d)).days
+            if 1 <= _age <= LOOKBACK_DAYS:
+                stuck.append(_d)
+        if stuck:
+            print(f"[track] STUCK: {len(stuck)} day(s) have snapshots but did not grade: "
+                  f"{', '.join(stuck)}")
+            print("[track] this is a real failure, not a wait — check the per-day errors above.")
+            raise SystemExit(1)
         print("[track] nothing new to grade — all caught up (or snapshots not ready).")
         return
 
