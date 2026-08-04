@@ -93,6 +93,21 @@
     padding:1.5px 6px;border-radius:4px;background:var(--panel-3);color:var(--muted);border:1px solid var(--line-2)}
   .cov-chip.cov-strong{background:var(--seam-glow);color:var(--seam);border-color:rgba(224,100,47,.4)}
   .cov-chip.cov-elite{background:var(--seam);color:#12140f;border-color:var(--seam)}
+  .pz-wrap{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+  .pz-head{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+  .pz-score{font-family:"IBM Plex Mono";font-weight:800;font-size:30px;line-height:1}
+  .pz-score span{font-size:12px;opacity:.6;font-weight:500}
+  .pz-verdict{font-size:13px;font-weight:600}
+  .pz-verdict i{display:block;font-style:normal;font-family:"IBM Plex Mono";font-size:10px;color:var(--faint);font-weight:400;margin-top:2px}
+  .pz-key{display:flex;gap:14px;font-family:"IBM Plex Mono";font-size:9px;color:var(--faint);margin-bottom:6px}
+  .pz-key i{display:inline-block;width:9px;height:4px;border-radius:2px;margin-right:4px}
+  .pz-row{display:flex;align-items:center;gap:8px;padding:4px 0}
+  .pz-pt{font-size:11.5px;min-width:88px}
+  .pz-u{font-family:"IBM Plex Mono";font-size:9.5px;color:var(--faint);min-width:62px}
+  .pz-bars{flex:1;display:flex;flex-direction:column;gap:2px}
+  .pz-b{height:4px;background:var(--panel-3);border-radius:3px;overflow:hidden}
+  .pz-b i{display:block;height:100%;border-radius:3px}
+  .pz-hr{font-family:"IBM Plex Mono";font-size:9.5px;color:var(--seam);min-width:34px;text-align:right}
   .vm-wrap{padding:2px 0}
   .vm-line{font-size:13px;line-height:1.6;color:var(--muted);background:var(--panel-2);border:1px solid var(--line);border-left:3px solid var(--seam);border-radius:9px;padding:11px 13px;margin-bottom:10px}
   .vm-line b{color:var(--ink)}
@@ -3257,8 +3272,33 @@ function pxtInner(p){
 // not "he hits well", but "he hits well against exactly what this guy is going to throw".
 // Near misses are counted deliberately: a ball hit 350+ that stayed in is contact that would
 // have left a lot of parks, and it says the swing is there even when the result wasn't.
+// Green-on-green: how well the hitter does on the pitches this arm both THROWS most and GETS
+// HURT ON. Usage alone isn't enough — a pitch thrown 40% that nobody touches matters less than
+// one thrown 25% that leaves the yard, so each pitch is weighted by usage x vulnerability.
+function punishBlock(p){
+  const mp=p.mix_punish; if(!mp||mp.score==null) return "";
+  const arm=p.opp_pitcher||{}, s=mp.score;
+  const tone = s>=70?"var(--hot)":s>=55?"var(--seam)":s>=45?"var(--muted)":"var(--cold)";
+  const verdict = s>=70?"Built to punish this arm"
+                : s>=55?"Good overlap with where this arm gets hurt"
+                : s>=45?"Neutral overlap" : "His damage doesn't line up with this arm's weak spots";
+  const rows=(mp.drivers||[]).map(d=>`<div class="pz-row">
+    <span class="pz-pt">${_ptName(d.pt)}</span>
+    <span class="pz-u">${d.usage}% thrown</span>
+    <div class="pz-bars">
+      <div class="pz-b" title="how badly this arm gets hurt on it"><i style="width:${Math.max(3,d.vuln)}%;background:var(--warm)"></i></div>
+      <div class="pz-b" title="how much damage this hitter does on it"><i style="width:${Math.max(3,d.strength)}%;background:var(--hot)"></i></div>
+    </div>
+    <span class="pz-hr">${d.hr?d.hr+" HR":""}</span></div>`).join("");
+  return `<div class="pz-wrap">
+    <div class="pz-head"><div class="pz-score" style="color:${tone}">${s}<span>/100</span></div>
+      <div class="pz-verdict">${verdict}<i>vs ${arm.name||"this arm"}</i></div></div>
+    ${rows?`<div class="pz-key"><span><i style="background:var(--warm)"></i>arm's vulnerability</span><span><i style="background:var(--hot)"></i>hitter's damage</span></div>${rows}`:""}
+    <div class="zd-note">Each pitch is weighted by <b>how often he throws it x how badly he gets hurt on it</b>, then scored by what this hitter actually does to that pitch. Both sides are handedness-correct. 50 is neutral — a hitter can rate low here and still be good, it just means his damage doesn't land where this particular arm is exposed.</div>
+  </div>`;
+}
 function vsMixBlock(p){
-  const m=p.vs_mix; if(!m||!m.bbe) return "";
+  const m=p.vs_mix; if(!m||!m.bbe) return punishBlock(p)?`<details class="sec"><summary>Built to punish this arsenal?</summary>${punishBlock(p)}</details>`:"";
   const arm=p.opp_pitcher||{};
   const names=(m.pitches||[]).map(_ptName).join(", ");
   const stat=(lab,val,fmt,hot)=>val==null?"":`<div class="vm-s${hot?" hot":""}"><div class="vm-sl">${lab}</div><div class="vm-sv">${fmt(val)}</div></div>`;
@@ -3292,6 +3332,7 @@ function vsMixBlock(p){
       pitch he throws 200 times isn't outweighed by one he throws 20 times. <b>Near miss</b> = a
       ball hit 350+ feet that didn't leave — warning-track contact that clears in a lot of parks.
       Sample: ${m.bbe} batted balls.</div>
+      ${punishBlock(p)}
     </div></details>`;
 }
 function pitchTableBlock(p){
