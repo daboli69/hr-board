@@ -1716,19 +1716,57 @@ def build(date_str: str | None = None) -> dict:
                         _ars = (arsenals.get(int(_arm)) or {}).get(_hand) if _arm else None
                         _vp = _p.get("vs_pitch") or {}
                         if _ars and _vp:
-                            _num = _den = 0.0
-                            for _pt, _pct, _n in _ars:
+                            # The full line against THIS ARM'S ACTUAL MIX — every pitch he throws
+                            # this hand >=10% of the time. Counts are summed first and divided
+                            # once, so a 200-pitch sample can't be outweighed by a 20-pitch one.
+                            # This is the number the write-up is really making: "against the
+                            # pitches he lives on, this hitter owns N homers and a .xxx SLG".
+                            _mix = [(pt, pct) for pt, pct, _n in _ars if pct >= 10.0]
+                            _T = [0.0] * 18
+                            _used = []
+                            for _pt, _pct in _mix:
                                 _v2 = _vp.get(_pt)
-                                if _v2 and _v2[4]:
-                                    _num += _pct * (100.0 * _v2[7] / _v2[4]); _den += _pct
-                            if _den > 0:
-                                _fit = round(_num / _den, 1)
+                                if _v2 and len(_v2) >= 18:
+                                    _used.append((_pt, _pct))
+                                    for _i in range(18):
+                                        _T[_i] += (_v2[_i] or 0)
+                            if _used and _T[4] >= 25:          # need real batted-ball volume
+                                (_pit, _wh, _pa3, _k3, _bbe3, _nev, _evs,
+                                 _brl3, _pbrl, _air3, _pair, _hard3,
+                                 _hr3, _ab3, _tb3, _hits3, _d350, _near) = _T
+                                _slg = (_tb3 / _ab3) if _ab3 else None
+                                _iso = ((_tb3 - _hits3) / _ab3) if _ab3 else None   # SLG - AVG
+                                _mixline = {
+                                    "pitches": [f"{_ptn}" for _ptn, _ in _used],
+                                    "usage": round(sum(_p2 for _, _p2 in _used), 1),
+                                    "bbe": int(_bbe3), "hr": int(_hr3),
+                                    "near": int(_near), "d350": int(_d350),
+                                    "slg": round(_slg, 3) if _slg is not None else None,
+                                    "iso": round(_iso, 3) if _iso is not None else None,
+                                    "avg": round(_hits3 / _ab3, 3) if _ab3 else None,
+                                    "avg_ev": round(_evs / _nev, 1) if _nev else None,
+                                    "hard_pct": round(100.0 * _hard3 / _nev, 1) if _nev else None,
+                                    "barrel_pct": round(100.0 * _brl3 / _bbe3, 1) if _bbe3 else None,
+                                    "pullair_pct": round(100.0 * _pair / _air3, 1) if _air3 else None,
+                                    "k_pct": round(100.0 * _k3 / _pa3, 1) if _pa3 else None,
+                                }
+                                _p["vs_mix"] = _mixline
+                                _fit = _mixline["barrel_pct"]
                     except Exception:
                         _fit = None
                     if _fit is not None:
                         _p["arsenal_fit"] = _fit
+                        _vm = _p.get("vs_mix") or {}
                         if _fit >= 9.0:
-                            _add("arsenal", f"Arsenal fit {_fit}% barrel")
+                            _bits = []
+                            if _vm.get("hr"):
+                                _bits.append(f"{_vm['hr']} HR")
+                            if _vm.get("near"):
+                                _bits.append(f"{_vm['near']} near")
+                            if _vm.get("slg") is not None:
+                                _bits.append(f"{_vm['slg']:.3f}".replace("0.", ".") + " SLG")
+                            _add("arsenal", "vs his mix: " + (", ".join(_bits) if _bits
+                                                              else f"{_fit}% barrel"))
                     # -- opposing arm: vulnerability + the rate that matters, HR per 9 --
                     _op = _p.get("opp_pitcher") or {}
                     # Prefer the arm's vulnerability TO THIS BATTER'S SIDE over his overall score.

@@ -236,7 +236,12 @@ def pitcher_arsenal(df: pd.DataFrame, pitcher_ids, min_pitches: int = 60) -> dic
 # Raw per-pitch-type counts, in this fixed order, so the UI can COMBINE several pitch types
 # correctly (sum the counts, then divide) instead of averaging percentages — which would be wrong.
 VS_PITCH_ORDER = ("pitches", "whiffs", "pa", "k", "bbe", "n_ev", "ev_sum",
-                  "barrels", "pull_brl", "air", "pull_air", "hard_hit")
+                  "barrels", "pull_brl", "air", "pull_air", "hard_hit",
+                  # -- added so a batter's line vs a pitcher's ACTUAL MIX can be stated the way
+                  # a human would write it: "10 homers and 14 near misses, .593 SLG, .322 ISO,
+                  # 55% hard-hit, 15 balls hit 350+". All raw counts so several pitch types can
+                  # be summed and only then divided.
+                  "hr", "ab", "tb", "hits", "d350", "near")
 
 
 def batter_vs_pitch(df: pd.DataFrame, batter_ids, min_pitches: int = 25) -> dict:
@@ -292,8 +297,28 @@ def batter_vs_pitch(df: pd.DataFrame, batter_ids, min_pitches: int = 25) -> dict
                         brl_loc = ((loc["launch_speed_angle"] == 6).to_numpy()
                                    if "launch_speed_angle" in loc else np.zeros(len(loc), bool))
                         pull_brl = int((pulled & brl_loc).sum())
+            # slash-line counts + the two "how close was it" measures
+            _TB = {"single": 1, "double": 2, "triple": 3, "home_run": 4}
+            _NON_AB = {"walk", "intent_walk", "hit_by_pitch", "sac_fly", "sac_bunt",
+                       "catcher_interf", "sac_fly_double_play", "sac_bunt_double_play"}
+            ev_s = gp["events"].astype(str)
+            hr = int((ev_s == "home_run").sum())
+            tb = int(sum(_TB.get(e, 0) for e in ev_s))
+            hits = int(ev_s.isin(list(_TB)).sum())          # for a correct ISO (SLG - AVG)
+            ab = max(0, pa - int(ev_s.isin(_NON_AB).sum()))
+            d350 = near = 0
+            if bbe and "hit_distance_sc" in bb.columns:
+                _d = pd.to_numeric(bb["hit_distance_sc"], errors="coerce")
+                _isHR = (bb["events"].astype(str) == "home_run").to_numpy()
+                _far = (_d >= 350).fillna(False).to_numpy()
+                d350 = int(_far.sum())
+                # "near miss": hit far enough to leave a lot of parks but didn't go out.
+                # Warning-track power is real signal — it says the contact was there and the
+                # result was park/wind, which is exactly what changes on a different night.
+                near = int((_far & ~_isHR).sum())
             rec[str(pt)] = [n, whiffs, pa, k, bbe, n_ev, ev_sum,
-                            barrels, pull_brl, air, pull_air, hard]
+                            barrels, pull_brl, air, pull_air, hard,
+                            hr, ab, tb, hits, d350, near]
         if rec:
             out[int(bid)] = rec
     return out
