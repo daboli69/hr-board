@@ -89,6 +89,14 @@
   .cal-rk.cv{background:var(--seam-glow);color:var(--seam)}
   .cal-rk i{font-style:normal;opacity:.7;margin-left:2px}
   .cal-bdg{font-family:"IBM Plex Mono";font-size:8px;font-weight:700;border-radius:4px;padding:1.5px 5px;background:var(--panel-2);color:var(--muted)}
+  /* COV rank badges — pink = with heat, neon green = without heat */
+  .lv-cov{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0 2px}
+  .cov2{display:inline-flex;align-items:center;font-family:"IBM Plex Mono";font-size:9px;
+    font-weight:800;letter-spacing:.02em;padding:2px 6px;border-radius:4px;white-space:nowrap;
+    line-height:1.35;border:1px solid transparent}
+  .cov2-heat{background:rgba(236,72,153,.16);color:#F472B6;border-color:rgba(236,72,153,.42)}
+  .cov2-noheat{background:rgba(57,255,136,.14);color:#39FF88;border-color:rgba(57,255,136,.38)}
+  .cov2-none{background:var(--panel-2);color:var(--faint);border-color:var(--line)}
   .cov-chip{font-family:"IBM Plex Mono";font-size:8.5px;font-weight:800;letter-spacing:.02em;
     padding:1.5px 6px;border-radius:4px;background:var(--panel-3);color:var(--muted);border:1px solid var(--line-2)}
   .cov-chip.cov-strong{background:var(--seam-glow);color:var(--seam);border-color:rgba(224,100,47,.4)}
@@ -3809,6 +3817,21 @@ function zoneEdgeVal(p){
 // COV badge — where this hitter sits on Signal Convergence with HEAT EXCLUDED. COV1 = the
 // single hitter tonight with the most non-heat evidence behind him. Capped at the top 15 so the
 // badge means something; below that it's just "ranked", which isn't worth a chip.
+// COV badge pair, used anywhere a player is listed.
+//   PINK  = convergence rank WITH heat  (all the evidence together)
+//   GREEN = convergence rank WITHOUT heat (evidence the core model isn't already using)
+// Shown for every player who has a rank; unranked players get a muted dash so the column
+// never looks broken or half-populated.
+function covPair(p, opts){
+  opts=opts||{};
+  const H=p&&p.cov_rank_heat, N=p&&p.cov_rank;
+  if(H==null && N==null) return opts.blankIfNone?"":`<span class="cov2 cov2-none" title="not ranked on the convergence board">COV –</span>`;
+  const cap=opts.max||999;
+  const bits=[];
+  if(H!=null && H<=cap) bits.push(`<span class="cov2 cov2-heat" title="Signal Convergence rank #${H} WITH heat — all evidence combined">COV${H}</span>`);
+  if(N!=null && N<=cap) bits.push(`<span class="cov2 cov2-noheat" title="Signal Convergence rank #${N} WITHOUT heat — evidence the core model isn't already using">COV${N}</span>`);
+  return bits.join("");
+}
 function covChip(p, max){
   const r=p&&p.cov_rank;
   if(!r || r>(max||15)) return "";
@@ -9416,6 +9439,21 @@ function renderFaq(){
     ${q("","Parlay Builder & Long Ball Jackpot",`<b>Parlay Builder</b> generates a same-game or cross-game parlay from your chosen prop mix, leg count, and goal (most likely, best value, or biggest payout). <b>Long Ball Jackpot</b> targets the "longest HR of the day" contest — it finds the highest distance ceilings and flags the under-the-radar ones that pay the most if they win.`)}
     ${q("","Game Lines (moneyline)",`A run model projects each game from lineups, starter and bullpen quality, park, weather, and handedness platoon, giving a win probability, total, and first-5 line. The moneyline is the <b>sharpest market in baseball</b>, so treat it as informational — the calibration backtest in Results is the honest verdict on its accuracy.`)}
     ${q("","How accurate is it, really?",`Everything is backtested and tracked. The <b>Tracker</b> shows whether hitters in each heat band homer at the predicted rate; the <b>backtests</b> show HR, prop, and moneyline accuracy across the season. The misses are shown too — an honest tool is the point.`)}
+    ${q("","Signal Convergence — what it is and why it works",`The single best-validated tool in the app. It counts how many <b>independent</b> reads point at the same hitter tonight, grouped into <b>families</b> so correlated evidence can't be counted twice. Across 28,000 graded player-games the backtest is clean and monotonic: <b>0 families 0.75x · 1 family 1.06x · 2 families 1.33x · 3 families 1.56x · 4 families 2.01x</b> the base HR rate. The families are Contact quality, Launch profile, Form, Zone matchup, Arsenal matchup, Fits this park, Top of the order, Opposing arm and Environment.`)}
+    ${q("","COV badges — the pink and green numbers",`Your convergence rank for tonight. <b class="cov2 cov2-heat" style="padding:1px 5px">COV#</b> in <b>pink</b> is the rank <b>with heat</b> — all evidence combined. <b class="cov2 cov2-noheat" style="padding:1px 5px">COV#</b> in <b>neon green</b> is the rank <b>without heat</b> — only evidence the core model isn't already using. COV1 green is the hitter tonight with the most non-heat evidence behind him. When a player is high on both, everything agrees; when the green rank is far better than the pink one, the market usually hasn't caught up, which is where the prices live.`)}
+    ${q("","'With heat' vs 'Without heat'",`Heat correlates with almost every other read, so it can drown them out. Excluding it asks a sharper question: does the <b>rest</b> of the evidence agree on its own? The backtest says yes — with heat removed, 1 measured signal still grades <b>1.44x</b> and 2+ grades <b>1.77x</b>. That's the proof the other signals carry real, independent information.`)}
+    ${q("","'Most evidence' vs 'Overlooked'",`<b>Most evidence</b> ranks by raw agreement — correct if you want the highest HR probability, but it leans toward established everyday hitters, because those are the players with complete evidence profiles. <b>Overlooked</b> ranks by evidence the core model <b>hasn't</b> priced in: hitters heat already loves get pushed down. On a typical slate that swaps roughly two-thirds of the top 20 and drops median heat from 52 to 30. Lower raw probability, better prices — that's the trade.`)}
+    ${q("","Measured vs Provisional signals",`The bold number counts only <b>measured</b> signals — ones your own backtest has graded (heat bands, POWER at 1.75x, HOT/LOCK at 1.36x). The small <b>+n</b> counts <b>provisional</b> families that look sensible but haven't been graded yet. They're kept separate on purpose so nothing looks stronger than the evidence supports. Two badges, <b>DUE</b> and <b>MAY COOL</b>, are excluded from counting entirely — measured at 1.01x and 1.00x over 11,000+ player-games, they're noise.`)}
+    ${q("","Launch profile — why it's separate from contact",`How hard a hitter hits the ball and whether he <b>lifts it to the pull side</b> are nearly unrelated: pull-air rate correlates just <b>-0.11</b> with exit velo and ideal launch angle <b>+0.01</b>. (Hard-hit% is +0.81 with EV, which is why that one sits inside Contact.) So launch geometry — pull-air, ideal angle, pull-barrel, fly-ball profile — gets its own family. The guy who scorches everything into the ground and the guy who lifts it are different bets.`)}
+    ${q("","Punish score — green-on-green",`On the player card: does this hitter mash the pitches this arm both <b>throws most</b> and <b>gets hurt on</b>? Each pitch is weighted by usage x vulnerability (SLG, barrel% and HR rate allowed), then scored by what the hitter actually does to that pitch. 50 is neutral. A low score doesn't mean a bad hitter — it means his damage doesn't land where <b>this particular arm</b> is exposed, which can flip completely tomorrow.`)}
+    ${q("","'Built to punish this arsenal' & near misses",`The hitter's full line against only the pitches tonight's starter actually throws his side: home runs, SLG, ISO, hard-hit%, barrel% and <b>near misses</b>. A near miss is a ball hit <b>350+ feet that didn't leave</b> — warning-track contact that clears in a lot of parks. It's valuable because it says the swing was there and the result was park or wind, which is exactly what changes on a different night.`)}
+    ${q("","Zone matchup — the 13-cell map",`The strike zone's nine cells <b>plus the four chase quadrants</b> outside it (Z11-Z14), which are roughly half of all pitches thrown. Your damage map is laid over where the arm actually lives, split by your handedness, with a stat selector (Power Score, HR rate, xwOBAcon, SLG, ISO, barrel%, hard-hit%, EV, distance). <b>Matchup edges</b> tells you how many of his most-used zones are ones you punish.`)}
+    ${q("","Team vs Pitch Mix",`The starter's arsenal split by batter handedness — most arms attack lefties and righties completely differently — with every hitter in the opposing lineup graded against those exact pitches. Tap pitches to filter. There's also a <b>pitch usage history</b> chart: an arm who has quietly doubled his slider usage is a different pitcher than his season line claims.`)}
+    ${q("","Batted-ball log",`Every recent batted ball on the player card: date, pitcher, arm, pitch type, exit velo, launch angle, distance, bat speed, pitch velo, result, trajectory, and <b>how many of the 30 MLB parks</b> that ball would have cleared.`)}
+    ${q("","Ladder Challenge",`Roll a small stake toward a target by a deadline, one bet a day, winnings rolled over. It computes the American odds you need each day, finds the <b>safest</b> leg or combo that clears it across HR/hits/HRR/Ks/moneyline, and lets you <b>edit each leg's odds</b> to match your book. A miss resets to your starting stake. It also shows your realistic chance of running the whole ladder — usually small, and it says so.`)}
+    ${q("","Strikeout props — read this before betting them",`These were recalibrated after the backtest showed the projections ran hot. Even a top-tier arm averages about <b>6.1</b> strikeouts and clears O6.5 only <b>44%</b> of the time. Probabilities now come from measured backtest outcomes rather than a Poisson guess, and the suggested line always sits <b>below</b> the projection — a previous bug could suggest a line the model itself expected to miss.`)}
+    ${q("","Team defense & the run model",`The moneyline model includes handedness platoon matchups and an <b>OAA-style team defense</b> read (how many hits each defense saves versus expected). It beats a naive baseline on Brier score with tight calibration. The <b>total</b> does not — its error is about a full run worse than the market, so treat game totals as informational only.`)}
+    ${q("","Is the ball changing?",`In the HR Calendar. Average HR distance barely moves even when the ball genuinely changes, because a deader ball means only the best-struck balls still clear — the pool re-selects itself. So this tracks <b>carry</b> instead: how far every well-struck ball (95+ mph, 20-35 degrees) actually travels versus what that contact should produce. If carry moves while exit velo stays flat, it's the ball. A slow seasonal drift is mostly weather; a sharp step-change is the real signal.`)}
     ${q("","Bankroll & responsible betting",`Set your bankroll in settings and the app sizes every bet with <b>half-Kelly</b> — never more than the math says. This is an analytics tool, not a guarantee; no model wins every night. Bet within your means, and only what you can afford to lose.`)}
     <div class="prop-note" style="margin-top:14px">Every feature in the app has an entry here. As new features ship, they get added — so anyone can always find out what something means.</div>
   </div>`;
@@ -9645,6 +9683,7 @@ function renderLivePanel(){
     return `<div class="lv-row">
       ${heatChip}
       <div class="lv-body"><b>${h.name}</b>${star} ${tierPill}<span class="lv-meta">${p?`${p.team} · board ${rk}`:""} · ${h.half==="top"?"T":"B"}${h.inning}</span>
+        ${p?`<div class="lv-cov">${covPair(p)}</div>`:""}
         ${badges}
         ${scores?`<div class="lv-scores">${scores}</div>`:""}
         ${tags?`<div class="lv-tags">${tags}</div>`:""}</div>
