@@ -2016,6 +2016,30 @@ def build(date_str: str | None = None) -> dict:
                         if _covscore(_x) <= 0:
                             break
                         _x["cov_rank"] = _i + 1
+
+                    # Heat-INCLUSIVE convergence rank. The no-heat rank above answers "what does
+                    # the evidence outside the core model like"; this one answers "what does all
+                    # the evidence together like". Both are worth showing side by side — when a
+                    # hitter is high on both, every read agrees; when the two diverge sharply,
+                    # that's the interesting case.
+                    def _covscore_heat(_x):
+                        _c = (_x.get("converge") or {}).get("hr") or {}
+                        _m = _c.get("measured") or []
+                        _pv = _c.get("provisional") or []
+                        _nh = sum(1 for s in _pv if s.get("kind") != "context")
+                        _nc = sum(1 for s in _pv if s.get("kind") == "context")
+                        _lift = sum(s.get("lift") or 0 for s in _m)
+                        _rel = ((_x.get("reliability") or {}).get("score"))
+                        _rel = 3 if _rel is None else _rel
+                        return (len(_m) * 1000 + _lift + _nh * 0.6 + _nc * 0.2) * _REL_W.get(_rel, 1.0)
+
+                    _rankedH = sorted(
+                        [x for x in players if (x.get("converge") or {}).get("hr")],
+                        key=_covscore_heat, reverse=True)
+                    for _i, _x in enumerate(_rankedH):
+                        if _covscore_heat(_x) <= 0:
+                            break
+                        _x["cov_rank_heat"] = _i + 1
                     print(f"[build] COV ranks assigned to {sum(1 for x in players if x.get('cov_rank'))} hitters")
                 except Exception as _e:
                     print(f"[build] COV rank skipped (non-fatal): {_e}")
