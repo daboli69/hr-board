@@ -135,6 +135,47 @@ def get_slate(date_str: str) -> dict:
     return {"games": games, "lineups": lineups, "pitchers": pitchers}
 
 
+def get_team_records(season: int | None = None) -> dict:
+    """{TEAM_ABBR: {w, l, rs, ra, pyth}} from the MLB standings endpoint.
+
+    Why Pythagorean rather than win-loss: a team's run differential predicts its FUTURE record
+    better than its own record does, because W-L bakes in bullpen sequencing and one-run-game
+    luck that don't repeat. Pythagorean expectation is RS^2 / (RS^2 + RA^2).
+
+    This is a team-season prior — it captures the things a lineup-plus-starter model can't see
+    (bench depth, baserunning, defense beyond the OAA term, manager), which is exactly why it's
+    worth blending in at modest weight rather than trusting the bottom-up projection alone.
+    Non-fatal: returns {} on any failure and the run model proceeds unchanged."""
+    import datetime as _dt
+    yr = season or _dt.date.today().year
+    try:
+        data = _get("https://statsapi.mlb.com/api/v1/standings",
+                    {"leagueId": "103,104", "season": yr, "standingsTypes": "regularSeason"})
+        out = {}
+        for rec in (data.get("records") or []):
+            for tr in (rec.get("teamRecords") or []):
+                team = ((tr.get("team") or {}).get("abbreviation")
+                        or (tr.get("team") or {}).get("teamName"))
+                if not team:
+                    continue
+                rs = tr.get("runsScored")
+                ra = tr.get("runsAllowed")
+                w = (tr.get("leagueRecord") or {}).get("wins") or tr.get("wins")
+                l = (tr.get("leagueRecord") or {}).get("losses") or tr.get("losses")
+                pyth = None
+                try:
+                    rs_f, ra_f = float(rs), float(ra)
+                    if rs_f > 0 and ra_f > 0:
+                        pyth = round(rs_f ** 2 / (rs_f ** 2 + ra_f ** 2), 4)
+                except Exception:
+                    pyth = None
+                out[str(team)] = {"w": w, "l": l, "rs": rs, "ra": ra, "pyth": pyth}
+        return out
+    except Exception as e:
+        print(f"[statsapi] team records unavailable (non-fatal): {e}")
+        return {}
+
+
 def get_pitcher_stats(pitcher_ids: list[int], season: int | None = None) -> dict:
     """Season ERA / WHIP / IP / HR-allowed for a list of pitchers, from the official API.
     Feeds the HR Vulnerability score and Bomb Score, which weight ERA and WHIP directly.

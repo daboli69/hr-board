@@ -560,6 +560,113 @@ def team_k_splits(df) -> dict:
     return out
 
 
+def fangraphs_pitching(season: int | None = None, qual: int = 20) -> dict:
+    """{pitcher_name_key: {xfip, siera, stuff_plus, location_plus, pitching_plus, k_bb_pct}}
+
+    Source: FanGraphs via pybaseball's `pitching_stats` — free, no key, no manual entry.
+    These are the run-prevention and pitch-quality metrics the raw Statcast pull can't give:
+      * xFIP / SIERA  — expected run prevention, stripped of defense and HR/FB luck
+      * Stuff+        — pitch quality from movement/velo, stabilises far faster than ERA
+      * Location+ / Pitching+ — command, and the two combined
+    Stuff+ matters most for a pitcher who has genuinely changed (new grip, velo jump): it moves
+    weeks before ERA does, which is exactly the window where the market hasn't adjusted.
+
+    Keyed by a normalised name because FanGraphs IDs don't match MLBAM. Non-fatal by design."""
+    import sys as _s
+    import datetime as _dt
+    try:
+        from pybaseball import pitching_stats
+        yr = season or _dt.date.today().year
+        df = pitching_stats(yr, qual=qual)
+        if df is None or df.empty:
+            return {}
+        cols = {c.lower().strip(): c for c in df.columns}
+
+        def col(*cands):
+            for c in cands:
+                if c.lower() in cols:
+                    return cols[c.lower()]
+            return None
+        c_name = col("Name")
+        if not c_name:
+            return {}
+        want = {"xfip": col("xFIP"), "siera": col("SIERA"),
+                "stuff_plus": col("Stuff+", "sp_stuff"),
+                "location_plus": col("Location+", "sp_location"),
+                "pitching_plus": col("Pitching+", "sp_pitching"),
+                "k_bb_pct": col("K-BB%"), "ip": col("IP")}
+        out = {}
+        for _, r in df.iterrows():
+            key = _norm_name(str(r[c_name]))
+            rec = {}
+            for k, c in want.items():
+                if not c:
+                    continue
+                v = r.get(c)
+                try:
+                    if v is not None and v == v:
+                        rec[k] = round(float(v), 2)
+                except Exception:
+                    continue
+            if rec:
+                out[key] = rec
+        return out
+    except Exception as e:
+        print(f"[fangraphs] pitching leaderboard unavailable (non-fatal): {e}", file=_s.stderr)
+        return {}
+
+
+def _norm_name(s: str) -> str:
+    """Lowercase, strip accents/punctuation — so 'Jesús Luzardo' matches 'Jesus Luzardo'."""
+    import unicodedata as _u
+    s = _u.normalize("NFKD", str(s or "")).encode("ascii", "ignore").decode()
+    return "".join(ch for ch in s.lower() if ch.isalnum() or ch == " ").strip()
+
+
+def first_inning_splits(df, pitcher_ids) -> dict:
+    """Per-pitcher first-inning performance, computed from the Statcast frame already in memory.
+
+    Needs no new source — the pull already keeps `inning`. This matters specifically for F3/F5
+    bets: some starters are genuinely worse in the first (slow starters who settle in), and a
+    full-game line hides that completely because it averages the first in with innings 2-6.
+
+    {pid: {"pa": n, "runs_pa": x, "k_pct": x, "bb_pct": x, "xwobacon": x, "vs_rest": delta}}"""
+    need = {"pitcher", "inning", "events"}
+    if df is None or df.empty or not need.issubset(df.columns):
+        return {}
+    d = df[df["events"].notna()]
+    d = d[d["events"].isin(PA_EVENTS)]
+    if d.empty:
+        return {}
+    inn = pd.to_numeric(d["inning"], errors="coerce")
+    wanted = {int(p) for p in pitcher_ids if p is not None}
+    K = {"strikeout", "strikeout_double_play"}
+    BB = {"walk", "intent_walk"}
+    out = {}
+    for pid, g in d.assign(_inn=inn).groupby("pitcher"):
+        if int(pid) not in wanted:
+            continue
+        f = g[g["_inn"] == 1]
+        rest = g[(g["_inn"] > 1) & (g["_inn"] <= 6)]
+        if len(f) < 25 or len(rest) < 50:
+            continue
+
+        def line(x):
+            n = len(x)
+            ev = x["events"].astype(str)
+            xw = pd.to_numeric(x.get("estimated_woba_using_speedangle"), errors="coerce").dropna()
+            return {"pa": n,
+                    "k_pct": round(100.0 * ev.isin(K).sum() / n, 1),
+                    "bb_pct": round(100.0 * ev.isin(BB).sum() / n, 1),
+                    "xwobacon": round(float(xw.mean()), 3) if len(xw) else None}
+        a, b = line(f), line(rest)
+        delta = None
+        if a["xwobacon"] is not None and b["xwobacon"] is not None:
+            delta = round(a["xwobacon"] - b["xwobacon"], 3)
+        out[int(pid)] = {**a, "rest_xwobacon": b["xwobacon"], "vs_rest": delta}
+    return out
+
+
 def sprint_speeds(year: int | None = None, min_opp: int = 5) -> dict:
     """{mlbam_id: sprint_speed_ft_per_sec} from Statcast's running leaderboard.
 

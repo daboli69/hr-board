@@ -149,11 +149,15 @@ def build(date_str: str | None = None) -> dict:
         pitch_hist = statcast_data.pitch_history(df, pitcher_ids)          # usage per start
         team_ks = statcast_data.team_k_splits(df)                          # lineup K% by context
         sprint = statcast_data.sprint_speeds()                             # hit model: infield singles
+        fg_pitch = statcast_data.fangraphs_pitching()                      # xFIP/SIERA/Stuff+
+        first_inn = statcast_data.first_inning_splits(df, pitcher_ids)     # F3/F5 slow starters
+        print(f"[build] fangraphs arms: {len(fg_pitch)} | first-inning splits: {len(first_inn)}")
         print(f"[build] bvp tables: {len(bat_tables)} hitters, {len(arm_tables)} arms, "
               f"{len(pitch_hist)} histories, {len(team_ks)} team K splits")
     except Exception as e:
         print(f"[build] BvP tables skipped (non-fatal): {e}")
         bat_tables, arm_tables, pitch_hist, team_ks, sprint = {}, {}, {}, {}, {}
+        fg_pitch, first_inn = {}, {}
     try:
         arsenals = statcast_data.pitcher_arsenal(df, pitcher_ids)     # usage % by batter hand
         vs_pitch = statcast_data.batter_vs_pitch(df, batter_ids)      # hitter vs specific pitch types
@@ -2545,6 +2549,8 @@ def build(date_str: str | None = None) -> dict:
                 "k_pct": pitcher_k_pct,
                 "swstr_pct": (pprof.get("recent") or {}).get("swstr_pct_allowed") or
                              (pprof.get("season") or {}).get("swstr_pct_allowed"),
+                "fg": (fg_pitch.get(statcast_data._norm_name(meta.get("name") or "")) or None),
+                "first_inn": (first_inn.get(int(pid)) if first_inn else None),
                 "est_ks": est_ks,
                 # the OVER target the model actually likes = the half-line just BELOW the estimate
                 "est_line_over": (float(np.ceil(est_ks - 0.5) - 0.5) if est_ks is not None else None),
@@ -2685,6 +2691,14 @@ def build(date_str: str | None = None) -> dict:
     # heat model and from props. INFORMATIONAL until backtested — the moneyline is
     # the sharpest market in baseball and this model has no defense, no true park
     # run factor, and no bullpen-availability data.
+    # Season-long team quality (run differential, not W-L) as a prior for the win model.
+    try:
+        _team_rec = statsapi.get_team_records()
+        if _team_rec:
+            print(f"[build] team records: {len(_team_rec)} teams (Pythagorean prior active)")
+    except Exception as _e:
+        print(f"[build] team records skipped (non-fatal): {_e}"); _team_rec = {}
+
     game_projections = []
     try:
         from etl import runs as RUNS
@@ -2762,6 +2776,19 @@ def build(date_str: str | None = None) -> dict:
                 park_src = "local"
             park_mult = max(0.82, min(1.28, park_mult))
 
+            def _pen_fatigue(team):
+                """0-1 how gassed this bullpen is, from the live pen tracker."""
+                try:
+                    for _pl in board.get("players", []):
+                        if _pl.get("opp_team") == team:
+                            _pl2 = _pl.get("opp_pen_live") or {}
+                            _f = _pl2.get("fatigue")
+                            if _f is not None:
+                                return max(0.0, min(1.0, float(_f)))
+                except Exception:
+                    pass
+                return None
+
             _dalias = {"AZ":"ARI","ARI":"AZ","CWS":"CHW","CHW":"CWS","WSH":"WSN","WSN":"WSH","SD":"SDP","SDP":"SD","SF":"SFG","SFG":"SF","TB":"TBR","TBR":"TB","KC":"KCR","KCR":"KC"}
             def _def_for(ab):
                 if not ab: return 0.0
@@ -2772,7 +2799,15 @@ def build(date_str: str | None = None) -> dict:
                 home_l, away_l, home_sp, away_sp, home_pen, away_pen,
                 home_bf=_bf(hp_id), away_bf=_bf(ap_id), park_mult=park_mult,
                 home_hands=home_hands, away_hands=away_hands,
-                home_def=_def_for(gm.get("home")), away_def=_def_for(gm.get("away")))
+                home_def=_def_for(gm.get("home")), away_def=_def_for(gm.get("away")),
+                home_pyth=(_team_rec.get(gm.get("home")) or {}).get("pyth"),
+                away_pyth=(_team_rec.get(gm.get("away")) or {}).get("pyth"),
+                home_fg=fg_pitch.get(statcast_data._norm_name(gm.get("home_sp") or "")),
+                away_fg=fg_pitch.get(statcast_data._norm_name(gm.get("away_sp") or "")),
+                home_first_inn=(first_inn.get(hp_id) if first_inn else None),
+                away_first_inn=(first_inn.get(ap_id) if first_inn else None),
+                home_pen_fatigue=_pen_fatigue(gm.get("home")),
+                away_pen_fatigue=_pen_fatigue(gm.get("away")))
             if not proj:
                 continue
             game_projections.append({

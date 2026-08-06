@@ -66,6 +66,9 @@ RUN_VAR_RATIO = 2.1
 #   shrunk = (n·observed + K·league) / (n + K)
 BATTER_REG_BBE = 60      # batted balls for a batter's xwOBAcon to get half weight
 PITCHER_REG_PA = 120     # PA for a pitcher's rates to get half weight
+PEN_REPLACEMENT_WOBA = 0.360   # what a 4th/5th reliever allows, roughly
+PEN_FATIGUE_WEIGHT = 0.65      # how far toward replacement a fully-gassed pen slides
+
 TEAM_RUNS_FLOOR = 1.6    # hard sanity clamp — no MLB team projects below this
 TEAM_RUNS_CEIL = 8.0     # or above this
 
@@ -241,7 +244,8 @@ def win_prob(home_runs, away_runs, kmax=25):
 
 
 def team_runs(lineup_recents, opp_sp_prof, opp_pen_prof, sp_bf=None,
-              park_mult=1.0, is_home=False, lineup_hands=None, opp_def=0.0):
+              park_mult=1.0, is_home=False, lineup_hands=None, opp_def=0.0, opp_fg=None,
+              opp_pen_fatigue=None):
     """Expected runs for one team.
 
     lineup_recents : list of trailing-14d batter profile dicts, in batting order
@@ -256,10 +260,21 @@ def team_runs(lineup_recents, opp_sp_prof, opp_pen_prof, sp_bf=None,
     """
     if not lineup_recents:
         return None, {}
-    sp_x_overall = _pitcher_xwoba_allowed(opp_sp_prof)
+    sp_x_overall = _siera_adjust(_pitcher_xwoba_allowed(opp_sp_prof), opp_fg)
     pen_x = _pitcher_xwoba_allowed(opp_pen_prof)
     if pen_x is None:
         pen_x = LG_WOBA                      # league-average pen if unknown
+    # Availability penalty. If the leverage arms threw the last two days they are effectively
+    # unavailable, and the innings they would have covered fall to the 4th and 5th men instead.
+    # Rather than model a depth chart, degrade the pen's expected wOBA allowed toward a
+    # replacement-level bullpen in proportion to how gassed it is. This is the spot the doc
+    # calls the sharp edge: books are slow to move on bullpen availability.
+    if opp_pen_fatigue is not None:
+        try:
+            _f = max(0.0, min(1.0, float(opp_pen_fatigue)))
+            pen_x = pen_x + _f * (PEN_REPLACEMENT_WOBA - pen_x) * PEN_FATIGUE_WEIGHT
+        except Exception:
+            pass
 
     bf = sp_bf if sp_bf else 24.0
     bf = max(4.0, min(30.0, bf))
@@ -272,7 +287,7 @@ def team_runs(lineup_recents, opp_sp_prof, opp_pen_prof, sp_bf=None,
     n = len(lineup_recents)
     runs = 0.0
     plat_used = 0
-    spot_pa = [total_pa / n] * n           # even split is close enough at 9 spots
+    spot_pa = _order_pa(total_pa, n)       # top of the order gets the extra trips
     for i, rec in enumerate(lineup_recents):
         b_x = _batter_xwoba(rec)
         hand = lineup_hands[i] if (lineup_hands and i < len(lineup_hands)) else None
@@ -282,8 +297,7 @@ def team_runs(lineup_recents, opp_sp_prof, opp_pen_prof, sp_bf=None,
                 plat_used += 1
         else:
             sp_x = sp_x_overall
-        if sp_x is None:
-            sp_x = sp_x_overall
+        sp_x = _siera_adjust(sp_x, opp_fg) if sp_x is not None else sp_x_overall
         pa_i = spot_pa[i]
         pa_sp = pa_i * (bf / total_pa)
         pa_pen = pa_i * (pen_pa / total_pa)
@@ -311,7 +325,64 @@ def team_runs(lineup_recents, opp_sp_prof, opp_pen_prof, sp_bf=None,
     }
 
 
-def first5_runs(lineup_recents, opp_sp_prof, park_mult=1.0, is_home=False, lineup_hands=None, opp_def=0.0):
+# Times-through-the-order penalty. A starter's wOBA allowed rises roughly .015-.020 the second
+# time a lineup sees him and again the third — hitters adjust, and the book's line often doesn't
+# fully price it. Applied per PLATE APPEARANCE rather than per inning, which is the mechanically
+# correct unit: the 10th batter he faces is the start of the 2nd time through regardless of
+# which inning it happens in.
+TTO_PENALTY = (0.000, 0.017, 0.034)     # 1st, 2nd, 3rd+ time through
+
+
+def _tto_for_pa(pa_index, lineup_n):
+    """wOBA-allowed penalty for the (0-based) pa_index-th batter this starter faces."""
+    if lineup_n <= 0:
+        return 0.0
+    turn = int(pa_index // lineup_n)
+    return TTO_PENALTY[min(turn, len(TTO_PENALTY) - 1)]
+
+
+def _order_pa(total_pa, n):
+    """Plate appearances by lineup spot, using how a batting order actually turns over.
+
+    The model previously split PAs evenly (total/9), which is fine over a full game but wrong
+    for F5: through five innings roughly 20 batters come up, so the top of the order bats a
+    third more often than the bottom. Spot 1 gets 3 PAs where spot 9 gets 2 — and those extra
+    trips go to the best hitters, which systematically understated good offenses in the F5
+    market. This returns the real per-spot counts rather than a flat average.
+    """
+    if n <= 0:
+        return []
+    base = int(total_pa // n)
+    extra = int(round(total_pa - base * n))
+    return [base + (1 if i < extra else 0) for i in range(n)]
+
+
+def _siera_adjust(xwoba, fg):
+    """Nudge the bottom-up pitcher number toward SIERA/xFIP, and reward genuine Stuff+.
+
+    The Statcast term is built from contact quality; SIERA and xFIP are built from strikeouts,
+    walks and batted-ball type with HR/FB luck stripped out. They disagree in useful ways, and
+    where they do, the truth is usually between them. Stuff+ earns a small separate nudge
+    because it stabilises weeks before results do — that lag is precisely when the market is
+    still pricing the old pitcher. Weights are small on purpose: this is a correction, not a
+    replacement for the matchup model."""
+    if not fg or xwoba is None:
+        return xwoba
+    LG_SIERA = 4.10
+    ra = fg.get("siera") if fg.get("siera") is not None else fg.get("xfip")
+    adj = 0.0
+    if ra is not None:
+        # +/-1.0 run of SIERA maps to roughly +/-0.020 xwOBA allowed, clamped
+        adj += max(-0.020, min(0.020, (float(ra) - LG_SIERA) * 0.020))
+    sp = fg.get("stuff_plus")
+    if sp is not None:
+        # 100 is average; elite stuff (120) is worth about 8 points of xwOBA allowed
+        adj += max(-0.010, min(0.010, -(float(sp) - 100.0) * 0.0005))
+    return max(0.230, min(0.480, xwoba + adj * 0.60))    # 60% weight on the correction
+
+
+def first5_runs(lineup_recents, opp_sp_prof, park_mult=1.0, is_home=False, lineup_hands=None,
+                opp_def=0.0, first_inn=None):
     """Expected runs through 5 innings — the starter faces roughly the first
     ~20 batters, so F5 is almost purely a starter-vs-lineup question. That makes
     it a cleaner read than the full game (no bullpen guesswork). Platoon matters most here."""
@@ -320,6 +391,13 @@ def first5_runs(lineup_recents, opp_sp_prof, park_mult=1.0, is_home=False, lineu
     sp_x_overall = _pitcher_xwoba_allowed(opp_sp_prof)
     pa_f5 = 20.0
     n = len(lineup_recents)
+    # Real order turnover, not a flat average: the top of the order gets the extra trips.
+    spot_pa = _order_pa(pa_f5, n)
+    # A starter who is measurably worse in the first inning costs runs specifically in the F5
+    # window, and the full-game line hides it by averaging the first in with innings 2-6.
+    _f1 = 0.0
+    if first_inn and first_inn.get("vs_rest") is not None and (first_inn.get("pa") or 0) >= 40:
+        _f1 = max(-0.35, min(0.35, float(first_inn["vs_rest"]) * 1.8))
     runs = 0.0
     for i, rec in enumerate(lineup_recents):
         b_x = _batter_xwoba(rec)
@@ -327,7 +405,11 @@ def first5_runs(lineup_recents, opp_sp_prof, park_mult=1.0, is_home=False, lineu
         sp_x = _pitcher_xwoba_allowed_vs(opp_sp_prof, hand) if hand else sp_x_overall
         if sp_x is None:
             sp_x = sp_x_overall
-        runs += (pa_f5 / n) * _woba_to_r_per_pa(_matchup(b_x, sp_x))
+        # each trip this spot takes is a separate time through the order
+        for _trip in range(int(spot_pa[i])):
+            _pen = _tto_for_pa(_trip * n + i, n)
+            runs += _woba_to_r_per_pa(_matchup(b_x, sp_x + _pen))
+    runs += _f1                              # first-inning penalty/credit, F5 only
     runs *= park_mult
     if is_home:
         runs += HOME_FIELD_RUNS * 0.55
@@ -345,25 +427,124 @@ def fair_american(p):
     return f"+{round((d - 1) * 100)}" if d >= 2 else f"-{round(100 / (d - 1))}"
 
 
+# How much weight the season-long Pythagorean prior gets against the bottom-up projection.
+# Deliberately modest: the lineup-and-starter model already sees most of what decides a game,
+# and the prior's job is only to catch the durable team quality it can't — bench depth,
+# baserunning, defense beyond the OAA term, manager. Too much weight here would just re-predict
+# the standings and blunt the matchup edge, which is the whole reason to build the model.
+# Two different weights, because the bet is a different question at each horizon.
+#
+# A caution on where these numbers came from: published guidance quotes ~35% (full game) and
+# ~25% (F5) as the FEATURE IMPORTANCE a gradient-boosted model assigns to macro team strength.
+# Feature importance and blend weight are not the same quantity — importance measures how often
+# a feature drives a split, not how far to average toward it — so those figures are treated as
+# direction, not gospel. They are set below the quoted values because this model is bottom-up:
+# lineups, starters, bullpen and defense already carry real team quality, so a heavy macro blend
+# would double-count it and blunt the matchup edge that is the entire point of building this.
+# The backtest's Brier score is the arbiter; these are the knobs to turn.
+PYTH_WEIGHT = 0.28        # full game
+PYTH_WEIGHT_F5 = 0.20     # F5 — the starter dominates, so the macro anchor matters less
+
+
+def _pyth_wp(home_pyth, away_pyth):
+    """Head-to-head win probability implied by two Pythagorean win percentages (log5)."""
+    if home_pyth is None or away_pyth is None:
+        return None
+    h = min(0.75, max(0.25, float(home_pyth)))
+    a = min(0.75, max(0.25, float(away_pyth)))
+    den = h * (1 - a) + a * (1 - h)
+    if den <= 0:
+        return None
+    return h * (1 - a) / den
+
+
 def project_game(home_lineup, away_lineup, home_sp, away_sp,
                  home_pen, away_pen, home_bf=None, away_bf=None, park_mult=1.0,
-                 home_hands=None, away_hands=None, home_def=0.0, away_def=0.0):
+                 home_hands=None, away_hands=None, home_def=0.0, away_def=0.0,
+                 home_pyth=None, away_pyth=None, home_fg=None, away_fg=None,
+                 home_first_inn=None, away_first_inn=None,
+                 home_pen_fatigue=None, away_pen_fatigue=None):
     """Full game projection. Returns runs, win prob, total, run line, F5.
     home_hands/away_hands: optional batter-hand lists (parallel to the lineups) for platoon.
     home_def/away_def: each team's defense in runs saved per game (OAA proxy); a team's fielding
     reduces the OTHER team's runs."""
     # away team bats against the HOME starter and HOME pen — and the HOME defense behind them
     away_r, away_bd = team_runs(away_lineup, home_sp, home_pen, home_bf,
-                                park_mult, is_home=False, lineup_hands=away_hands, opp_def=home_def)
+                                park_mult, is_home=False, lineup_hands=away_hands,
+                                opp_def=home_def, opp_fg=home_fg, opp_pen_fatigue=home_pen_fatigue)
     home_r, home_bd = team_runs(home_lineup, away_sp, away_pen, away_bf,
-                                park_mult, is_home=True, lineup_hands=home_hands, opp_def=away_def)
+                                park_mult, is_home=True, lineup_hands=home_hands,
+                                opp_def=away_def, opp_fg=away_fg, opp_pen_fatigue=away_pen_fatigue)
     if home_r is None or away_r is None:
         return None
     hwp = win_prob(home_r, away_r)
-    f5_home = first5_runs(home_lineup, away_sp, park_mult, is_home=True, lineup_hands=home_hands, opp_def=away_def)
-    f5_away = first5_runs(away_lineup, home_sp, park_mult, is_home=False, lineup_hands=away_hands, opp_def=home_def)
-    f5_hwp = win_prob(f5_home, f5_away) if (f5_home and f5_away) else None
+    # Blend toward the season-long team-quality prior (run differential, not W-L).
+    _pw = _pyth_wp(home_pyth, away_pyth)
+    _pyth_used = False
+    if _pw is not None:
+        _pw_home = _pw + (EXTRA_INNING_HOME_WP - 0.50) * 0.5   # prior is neutral-site
+        hwp = (1 - PYTH_WEIGHT) * hwp + PYTH_WEIGHT * min(0.85, max(0.15, _pw_home))
+        _pyth_used = True
+    f5_home = first5_runs(home_lineup, away_sp, park_mult, is_home=True, lineup_hands=home_hands,
+                          opp_def=away_def, first_inn=away_first_inn)
+    f5_away = first5_runs(away_lineup, home_sp, park_mult, is_home=False, lineup_hands=away_hands,
+                          opp_def=home_def, first_inn=home_first_inn)
+    # F5 win probability, with its own macro anchor. Previously F5 got no Pythagorean weight at
+    # all, which left the shortest-horizon market running purely on the bottom-up projection.
+    f5_hwp = win_prob(f5_home, f5_away) if (f5_home is not None and f5_away is not None) else None
+    if f5_hwp is not None and _pw is not None:
+        f5_hwp = (1 - PYTH_WEIGHT_F5) * f5_hwp + PYTH_WEIGHT_F5 * min(0.85, max(0.15, _pw_home))
+    # ---- WHY: local attribution by ablation ----
+    # Each factor is switched off and the model re-run; the shift in home win probability is
+    # that factor's contribution for THIS game. It's the same idea as a SHAP local explanation
+    # but computed exactly rather than approximated, which is affordable here because the model
+    # is cheap to evaluate. The point is to let you see whether a number comes from a real
+    # matchup edge or is just riding the macro anchor.
+    _why = []
+    try:
+        def _wp_without(drop):
+            _hs = home_sp if drop != "sp" else None
+            _as_ = away_sp if drop != "sp" else None
+            _hp = home_pen if drop != "pen" else None
+            _ap = away_pen if drop != "pen" else None
+            _hpf = None if drop in ("pen", "penfatigue") else home_pen_fatigue
+            _apf = None if drop in ("pen", "penfatigue") else away_pen_fatigue
+            _hd = 0.0 if drop == "def" else home_def
+            _ad = 0.0 if drop == "def" else away_def
+            _hh = None if drop == "platoon" else home_hands
+            _ah = None if drop == "platoon" else away_hands
+            _pm = 1.0 if drop == "park" else park_mult
+            _hfg = None if drop == "stuff" else home_fg
+            _afg = None if drop == "stuff" else away_fg
+            _ar, _ = team_runs(away_lineup, _hs, _hp, home_bf, _pm, False, _ah, _hd, _hfg, _hpf)
+            _hr, _ = team_runs(home_lineup, _as_, _ap, away_bf, _pm, True, _hh, _ad, _afg, _apf)
+            if _hr is None or _ar is None:
+                return None
+            _w = win_prob(_hr, _ar)
+            if drop != "macro" and _pw is not None:
+                _w = (1 - PYTH_WEIGHT) * _w + PYTH_WEIGHT * min(0.85, max(0.15, _pw_home))
+            return _w
+
+        for _key, _label in (("macro", "Team quality (Pythagorean)"),
+                             ("sp", "Starting pitching"),
+                             ("pen", "Bullpen"),
+                             ("penfatigue", "Bullpen availability"),
+                             ("platoon", "Platoon matchup"),
+                             ("def", "Defense"),
+                             ("stuff", "Stuff+/SIERA"),
+                             ("park", "Park & weather")):
+            _w0 = _wp_without(_key)
+            if _w0 is None:
+                continue
+            _delta = round(100.0 * (hwp - _w0), 1)
+            if abs(_delta) >= 0.1:
+                _why.append({"k": _key, "label": _label, "pts": _delta})
+        _why.sort(key=lambda x: -abs(x["pts"]))
+    except Exception:
+        _why = []
+
     return {
+        "why": _why,
         "home_runs": home_r,
         "away_runs": away_r,
         "total": round(home_r + away_r, 2),
