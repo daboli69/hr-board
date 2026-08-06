@@ -148,11 +148,12 @@ def build(date_str: str | None = None) -> dict:
         arm_tables = statcast_data.pitcher_pitch_tables(df, pitcher_ids)
         pitch_hist = statcast_data.pitch_history(df, pitcher_ids)          # usage per start
         team_ks = statcast_data.team_k_splits(df)                          # lineup K% by context
+        sprint = statcast_data.sprint_speeds()                             # hit model: infield singles
         print(f"[build] bvp tables: {len(bat_tables)} hitters, {len(arm_tables)} arms, "
               f"{len(pitch_hist)} histories, {len(team_ks)} team K splits")
     except Exception as e:
         print(f"[build] BvP tables skipped (non-fatal): {e}")
-        bat_tables, arm_tables, pitch_hist, team_ks = {}, {}, {}, {}
+        bat_tables, arm_tables, pitch_hist, team_ks, sprint = {}, {}, {}, {}, {}
     try:
         arsenals = statcast_data.pitcher_arsenal(df, pitcher_ids)     # usage % by batter hand
         vs_pitch = statcast_data.batter_vs_pitch(df, batter_ids)      # hitter vs specific pitch types
@@ -844,7 +845,7 @@ def build(date_str: str | None = None) -> dict:
             "score_breakdown": breakdown,
             # Props scores — parallel track for the Other Props tab, NEVER touch heat.
             # hrr_heat needs lineup_spot + HR heat; computed as a post-attach step.
-            "hit_heat": props.hit_heat(recent, pprof)[0],
+            "hit_heat": props.hit_heat(recent, pprof, sprint_speed=(sprint or {}).get(int(bid)))[0],
             "k_heat_bat": props.k_heat_hitter(recent, pprof)[0],
             "hrr_heat": props.hrr_heat(recent, pprof,
                 lineup_spot=spot_of_batter.get(bid), hr_heat=score)[0],

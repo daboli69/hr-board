@@ -46,6 +46,15 @@ _HIT_ANCHORS = {
     # pitcher side (season): worse for pitcher = better for hitter
     "opp_swstr":   {"floor": 15.0,  "good": 10.5,  "elite": 8.0},   # inverted: lower opp_swstr = better
     "opp_xba":     {"floor": 0.230, "good": 0.280, "elite": 0.320},
+    # --- hit-specific additions ---
+    # These target the HIT profile, which is close to the opposite of the HR profile: flatter
+    # contact, whole-field usage, and an arm who lets the ball get put in play.
+    "oppo":        {"floor": 18.0,  "good": 25.0,  "elite": 32.0},   # 24.6% is MLB average
+    "spray":       {"floor": 55.0,  "good": 42.0,  "elite": 30.0},   # inverted: lower = more even
+    "babip_la":    {"floor": 45.0,  "good": 58.0,  "elite": 68.0},   # share of contact -4..26 deg
+    "opp_k":       {"floor": 27.0,  "good": 21.0,  "elite": 17.0},   # inverted: low-K arm = more BIP
+    "opp_bb":      {"floor": 4.0,   "good": 7.5,   "elite": 10.0},   # inverted below
+    "sprint":      {"floor": 26.0,  "good": 28.0,  "elite": 29.5},   # ft/s; 29+ beats out infield hits
 }
 
 _K_ANCHORS = {
@@ -132,7 +141,7 @@ def _pitcher_2wk(pprof):
     }
 
 
-def hit_heat(batter_recent, pitcher_prof):
+def hit_heat(batter_recent, pitcher_prof, sprint_speed=None):
     """0-100 score for likelihood of at least one hit today. Returns (score, breakdown).
     Higher = better OVER 0.5 hits bet.
 
@@ -152,13 +161,33 @@ def hit_heat(batter_recent, pitcher_prof):
         "bb_minus_k":  _norm((b.get("bb_pct") or 0) - (b.get("k_pct") or 0),
                              _HIT_ANCHORS["bb_minus_k"]),
         "contact":     _norm(b.get("contact_pct"),  _HIT_ANCHORS["contact"]),
+        # --- whole-field usage: beats defensive positioning, and the single strongest
+        # batter-side feature in published hit models after xBA itself ---
+        "oppo":        _norm(b.get("oppo_pct"),     _HIT_ANCHORS["oppo"]),
+        "spray":       _norm(b.get("spray_score"),  _HIT_ANCHORS["spray"], invert=True),
+        # --- the launch window that actually produces hits (-4 to 26 deg), which is flatter
+        # than the HR power band. Without this the hit model quietly inherits the HR model's
+        # preference for lift, which costs batting average. ---
+        "babip_la":    _norm(b.get("babip_la_pct"), _HIT_ANCHORS["babip_la"]),
         "opp_swstr":   _norm(p.get("swstr_pct_allowed"), _HIT_ANCHORS["opp_swstr"], invert=True),
         "opp_xba":     _norm(p.get("xba_allowed"),  _HIT_ANCHORS["opp_xba"]),
+        # --- opportunity: a hitter cannot single if the at-bat ends in a strikeout or a walk.
+        # A low-K, low-walk arm puts the ball in play more often, which raises the ceiling on
+        # hit chances before any contact-quality question is asked. ---
+        "opp_k":       _norm(p.get("k_pct_allowed"),  _HIT_ANCHORS["opp_k"], invert=True),
+        "opp_bb":      _norm(p.get("bb_pct_allowed"), _HIT_ANCHORS["opp_bb"], invert=True),
+        # --- legs: turns topped and chopped ground balls into infield singles. Statcast folds
+        # this into its own xBA for weak contact, and it is purely a HIT signal — it does
+        # nothing for home runs. ---
+        "sprint":      _norm(sprint_speed, _HIT_ANCHORS["sprint"]),
     }
-    # Weights: xBA carries most weight (best proxy for hits), then contact/discipline,
-    # then pitcher hittability. All numbers derived from population plausibility, not tuned.
-    weights = {"xba": 2.2, "hardhit": 1.4, "ld_pct": 1.3, "bb_minus_k": 1.2,
-               "contact": 1.1, "opp_swstr": 1.4, "opp_xba": 1.4}
+    # xBA still carries the most weight — it is the closest single proxy for "did this become a
+    # hit". Whole-field usage and the BABIP launch window are next: both are about beating the
+    # defense rather than hitting the ball harder, which is what separates hit skill from power.
+    weights = {"xba": 2.2, "hardhit": 1.0, "ld_pct": 1.2, "bb_minus_k": 1.1,
+               "contact": 1.2, "oppo": 1.5, "spray": 1.0, "babip_la": 1.4,
+               "opp_swstr": 1.2, "opp_xba": 1.3, "opp_k": 1.2, "opp_bb": 0.8,
+               "sprint": 0.9}
     numer = 0.0; denom = 0.0
     for k, v in signals.items():
         if v is None: continue

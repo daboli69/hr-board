@@ -560,6 +560,41 @@ def team_k_splits(df) -> dict:
     return out
 
 
+def sprint_speeds(year: int | None = None, min_opp: int = 5) -> dict:
+    """{mlbam_id: sprint_speed_ft_per_sec} from Statcast's running leaderboard.
+
+    Why it matters for HITS specifically: on weakly-hit, topped and chopped ground balls the
+    batter's speed is what turns an out into an infield single — it is an input to Statcast's
+    own xBA for exactly that reason. Above roughly 29 ft/s the infield-single probability rises
+    meaningfully. It contributes nothing to home runs, which is why it belongs to the hit model
+    and nowhere else.
+
+    Non-fatal by design: this is a separate leaderboard fetch, so any failure returns {} and the
+    hit model simply runs without the term rather than breaking the build."""
+    import sys as _s
+    try:
+        from pybaseball import statcast_sprint_speed
+        from datetime import date as _d
+        yr = year or _d.today().year
+        df = statcast_sprint_speed(yr, min_opp)
+        if df is None or df.empty:
+            return {}
+        idcol = next((c for c in ("player_id", "playerid", "mlbam_id") if c in df.columns), None)
+        spcol = next((c for c in ("sprint_speed", "sprint_speed_ft_sec") if c in df.columns), None)
+        if not idcol or not spcol:
+            return {}
+        out = {}
+        for _, r in df.iterrows():
+            try:
+                out[int(r[idcol])] = round(float(r[spcol]), 1)
+            except Exception:
+                continue
+        return out
+    except Exception as e:
+        print(f"[sprint] leaderboard unavailable (non-fatal): {e}", file=_s.stderr)
+        return {}
+
+
 def team_defense(df: pd.DataFrame) -> dict:
     """Self-contained team-defense read — an OAA-style proxy: how many hits a team's fielders save
     versus expected on balls in play, converted to runs saved per game. Positive = good defense
@@ -617,7 +652,18 @@ def _pull_metrics(bb: pd.DataFrame) -> tuple:
     n_air = int(air.sum())
     pull_pct = round(100.0 * pulled.sum() / n, 1)
     pull_air_pct = round(100.0 * (pulled & air).sum() / n_air, 1) if n_air else None
-    return pull_pct, pull_air_pct
+    # --- hit-side spray metrics ---
+    # Pull is the HR signal; for HITS the reverse profile matters. A hitter who uses the whole
+    # field beats defensive positioning, which is why opposite-field rate grades as one of the
+    # strongest features in published hit models. Spray score measures evenness across the three
+    # fields (0 = a perfectly balanced, shift-proof distribution).
+    oppo = np.where(is_r, angle.values > 15, angle.values < -15)
+    oppo_pct = round(100.0 * oppo.sum() / n, 1)
+    # thirds from the batter's own perspective: pull / center / oppo
+    _cent = ~pulled & ~oppo
+    _shares = [pulled.sum() / n, _cent.sum() / n, oppo.sum() / n]
+    spray_score = round(float(sum(abs(s - 1 / 3) for s in _shares)) * 100.0 / 2.0, 1)
+    return pull_pct, pull_air_pct, oppo_pct, spray_score
 
 
 def _ideal_aa(rows: pd.DataFrame) -> tuple:
@@ -781,13 +827,18 @@ def _agg_metrics(rows: pd.DataFrame) -> dict:
             xba = round(float(xba_ser.mean()), 3)
     # line-drive % — highest BABIP bucket by launch angle
     ld_pct_hit = pct(((bb["launch_angle"] >= 10) & (bb["launch_angle"] < 25)).sum(), n_bb) if n_bb else None
+    # Share of batted balls in the BABIP window (-4 to 26 deg), where balls in play run a .300+
+    # average. Deliberately flatter than the HR power band (23-34 deg): the launch angles that
+    # generate hits are not the ones that generate home runs, and the hit model shouldn't
+    # inherit the HR model's preference for lift.
+    babip_la_pct = pct(((bb["launch_angle"] >= -4) & (bb["launch_angle"] <= 26)).sum(), n_bb) if n_bb else None
     # contact % = 100 - swinging strike %  (pitches where the batter didn't whiff)
     contact_pct = None
     if pitches:
         swstr = rows["description"].isin(SWING_STRIKE).sum()
         contact_pct = round(100.0 * (1 - swstr / pitches), 1)
 
-    pull_pct, pull_air_pct = _pull_metrics(bb)
+    pull_pct, pull_air_pct, oppo_pct, spray_score = _pull_metrics(bb)
     ideal_aa_pct, bat_speed = _ideal_aa(rows)
 
     # luck gap: expected vs actual on contact (Savant xwOBAcon vs wOBAcon)
@@ -813,6 +864,9 @@ def _agg_metrics(rows: pd.DataFrame) -> dict:
         "fb_pct": pct((bb["bb_type"] == "fly_ball").sum(), n_bb) if "bb_type" in bb else None,
         "pull_pct": pull_pct,
         "pull_air_pct": pull_air_pct,
+        "oppo_pct": oppo_pct,               # hit-side: uses the whole field, beats positioning
+        "spray_score": spray_score,         # 0 = perfectly balanced / shift-proof
+        "babip_la_pct": babip_la_pct,       # share of contact in the .300-BABIP launch window
         "ideal_aa_pct": ideal_aa_pct,
         "bat_speed": bat_speed,
         "iso": iso,
@@ -912,7 +966,7 @@ def _pitcher_metrics(rows: pd.DataFrame) -> dict:
     def pct(num, den):
         return round(100.0 * num / den, 1) if den else None
 
-    pull_pct, pull_air_pct = _pull_metrics(bb)
+    pull_pct, pull_air_pct, oppo_pct, spray_score = _pull_metrics(bb)
     ideal_aa_pct, _ = _ideal_aa(rows)
 
     # fastball velo (four-seam / sinker) for the fatigue/decline signal
