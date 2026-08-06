@@ -90,6 +90,17 @@
   .cal-rk i{font-style:normal;opacity:.7;margin-left:2px}
   .cal-bdg{font-family:"IBM Plex Mono";font-size:8px;font-weight:700;border-radius:4px;padding:1.5px 5px;background:var(--panel-2);color:var(--muted)}
   /* COV rank badges — pink = with heat, neon green = without heat */
+  .wy-wrap{margin:8px 0;background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:8px 10px}
+  .wy-wrap summary{font-family:"IBM Plex Mono";font-size:10px;color:var(--seam);cursor:pointer;list-style:none}
+  .wy-wrap summary::-webkit-details-marker{display:none}
+  .wy-row{display:flex;align-items:center;gap:8px;padding:3px 0}
+  .wy-l{font-size:11px;color:var(--muted);min-width:118px}
+  .wy-track{flex:1;height:5px;background:var(--panel-3);border-radius:3px;overflow:hidden;display:flex}
+  .wy-track i{display:block;height:100%;border-radius:3px}
+  .wy-track i.pos{background:var(--good)} .wy-track i.neg{background:var(--hot)}
+  .wy-v{font-family:"IBM Plex Mono";font-size:10.5px;font-weight:700;min-width:38px;text-align:right}
+  .wy-v.pos{color:var(--good)} .wy-v.neg{color:var(--hot)}
+  .wy-note{font-size:10px;color:var(--faint);line-height:1.5;margin-top:8px;padding-top:7px;border-top:1px solid var(--line)}
   .lv-cov{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0 2px}
   .cov2{display:inline-flex;align-items:center;font-family:"IBM Plex Mono";font-size:9px;
     font-weight:800;letter-spacing:.02em;padding:2px 6px;border-radius:4px;white-space:nowrap;
@@ -8297,6 +8308,27 @@ function propsScore(p,view){
   return view==="hit"?p.hit_heat: view==="hrr"?p.hrr_heat: null;
 }
 
+// Local attribution for a moneyline number. Each factor is switched off and the model re-run;
+// the shift is that factor's contribution for this specific game. Same idea as a SHAP local
+// explanation, computed exactly rather than sampled. The point is to see at a glance whether a
+// number reflects a real matchup edge or is just riding the macro anchor.
+function whyBlock(g){
+  const w=g&&g.why;
+  if(!w||!w.length) return "";
+  const mx=Math.max(...w.map(x=>Math.abs(x.pts)))||1;
+  const rows=w.filter(x=>Math.abs(x.pts)>=0.2).slice(0,7).map(x=>{
+    const pos=x.pts>=0, pct=Math.min(100,Math.abs(x.pts)/mx*100);
+    return `<div class="wy-row"><span class="wy-l">${x.label}</span>
+      <div class="wy-track"><i class="${pos?"pos":"neg"}" style="width:${pct.toFixed(0)}%"></i></div>
+      <span class="wy-v ${pos?"pos":"neg"}">${pos?"+":""}${x.pts.toFixed(1)}</span></div>`;
+  }).join("");
+  return `<details class="wy-wrap"><summary>Why this number</summary>${rows}
+    <div class="wy-note">Points of home win probability contributed by each factor, measured by
+    removing it and re-running the model. A number carried almost entirely by <b>team quality</b>
+    is the model riding the standings; a number driven by <b>starting pitching</b>, <b>platoon</b>
+    or <b>bullpen availability</b> is a genuine matchup read — and bullpen availability in
+    particular is the one books are slowest to price.</div></details>`;
+}
 function renderProps(){
   const main=document.getElementById("main");
   if(!BOARD||!BOARD.players){ main.innerHTML=`<div class="empty">Board not loaded.</div>`; return; }
@@ -8433,6 +8465,7 @@ function renderProps(){
       }
       return `<div class="ml-row" style="background:${bg}">
         <div class="ml-head"><b>${g.away} @ ${g.home}</b><span class="ml-time">${timeStr(g.time)}</span></div>
+        ${whyBlock(g)}
         <div class="ml-sp">${g.away_sp||"?"} vs ${g.home_sp||"?"}${g.park?` · ${g.park}`:""}${g.park_run_src?` · <span class="ml-src${g.park_run_src==='bpp_runs'?'':' est'}">${g.park_run_src==='bpp_runs'?'true run factor':'est. run factor'}</span>`:""}${(((g.home_breakdown||{}).platoon_spots||0)+((g.away_breakdown||{}).platoon_spots||0))>0?` <span class="ml-src">platoon-adj</span>`:""}${(Math.abs((g.home_breakdown||{}).opp_def||0)+Math.abs((g.away_breakdown||{}).opp_def||0))>0.15?` <span class="ml-src">defense-adj</span>`:""}</div>
         <div class="ml-grid">
           <div class="ml-cell"><span class="ml-lbl">Proj score</span><b>${g.away_runs} – ${g.home_runs}</b></div>
@@ -8452,7 +8485,7 @@ function renderProps(){
       <h2 class="prop-h">Game Lines</h2>
       <div class="prop-lead">Expected runs per side — each lineup's xwOBA against the opposing starter and bullpen, converted to runs by linear weights, then to a win probability by convolving two negative-binomial run distributions.</div>
       ${subTabs}
-      <div class="prop-note" style="border-color:rgba(200,71,43,.45)"><b>Read this before betting any of it.</b> The moneyline is the <b>sharpest market in baseball</b> — the opposite of HR props. The run model now uses BallparkPal's <b>true run park factor</b> (weather included) and <b>handedness platoon</b> — each batter is matched against the starter's split for his hand — plus an <b>OAA-style team-defense</b> adjustment (how many hits each defense saves vs expected). It still has <b>no umpire assignment</b>. A model-vs-book disagreement still usually means the model is missing what the market knows — treat the ML as informational; the <b>total and F5</b> are the softer outputs, and the <b>calibration backtest below is the real verdict</b> (defense is live-only, so re-run the backtest to see the platoon effect folded in).</div>
+      <div class="prop-note" style="border-color:rgba(200,71,43,.45)"><b>Read this before betting any of it.</b> The moneyline is the <b>sharpest market in baseball</b> — the opposite of HR props. The run model now uses BallparkPal's <b>true run park factor</b> (weather included) and <b>handedness platoon</b> — each batter is matched against the starter's split for his hand — plus an <b>OAA-style team-defense</b> adjustment (how many hits each defense saves vs expected). It now also blends a <b>Pythagorean team-quality prior</b> (run differential, not win-loss — differential predicts future record better) at modest weight, and distributes plate appearances by real batting-order turnover rather than an even split, which matters most for F5. It now also pulls <b>xFIP, SIERA and Stuff+/Location+/Pitching+</b> from FanGraphs — SIERA strips out defense and home-run luck, and Stuff+ stabilises weeks before ERA does, which is exactly the window where the market hasn't adjusted to a pitcher who genuinely changed. And it computes <b>first-inning splits</b> from Statcast, applied only to F5: some starters are measurably worse in the first, and a full-game line hides that by averaging it in with innings 2-6. The mechanics are modelled explicitly rather than learned: a <b>times-through-the-order penalty</b> (+.017 wOBA the second time a lineup sees the starter, +.034 the third, applied per plate appearance rather than per inning), and a <b>bullpen availability penalty</b> that slides a gassed pen toward replacement level — the spot books are slowest to move on. Each game also carries a <b>"Why this number"</b> breakdown showing how many points of win probability each factor contributed, measured by removing it and re-running the model, so you can tell a real matchup edge from the model just riding the standings. It still has <b>no umpire assignment</b>. A model-vs-book disagreement still usually means the model is missing what the market knows — treat the ML as informational; the <b>total and F5</b> are the softer outputs, and the <b>calibration backtest below is the real verdict</b> (defense is live-only, so re-run the backtest to see the platoon effect folded in).</div>
       ${rows||`<div class="empty">${
         BOARD.game_projections===undefined
           ? "Waiting for the next build — needs the updated <code>etl/build_board.py</code> and the new <code>etl/runs.py</code> deployed."
