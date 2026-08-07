@@ -278,15 +278,21 @@ def batter_zone_damage(rows, min_n: int = 6) -> dict:
     bb = bb[keep]
     z = z[keep].astype(int)
 
-    ls = pd.to_numeric(bb["launch_speed"], errors="coerce")
-    xw = pd.to_numeric(bb.get("estimated_woba_using_speedangle"), errors="coerce")
-    lsa = (pd.to_numeric(bb["launch_speed_angle"], errors="coerce")
-           if "launch_speed_angle" in bb.columns else pd.Series(index=bb.index, dtype=float))
-    la = (pd.to_numeric(bb["launch_angle"], errors="coerce")
-          if "launch_angle" in bb.columns else pd.Series(index=bb.index, dtype=float))
-    dist = (pd.to_numeric(bb["hit_distance_sc"], errors="coerce")
-            if "hit_distance_sc" in bb.columns else pd.Series(index=bb.index, dtype=float))
-    ev_s = bb["events"].astype(str) if "events" in bb.columns else pd.Series(index=bb.index, dtype=object)
+    # Always resolve to a Series aligned to bb. `bb.get(missing_col)` returns None, and
+    # pd.to_numeric(None) yields a numpy SCALAR rather than a Series — which then explodes on
+    # .to_numpy() further down. Centralising the fallback removes that whole class of bug.
+    def _num(col):
+        if col in bb.columns:
+            return pd.to_numeric(bb[col], errors="coerce")
+        return pd.Series([float("nan")] * len(bb), index=bb.index, dtype=float)
+
+    ls = _num("launch_speed")
+    xw = _num("estimated_woba_using_speedangle")
+    lsa = _num("launch_speed_angle")
+    la = _num("launch_angle")
+    dist = _num("hit_distance_sc")
+    ev_s = (bb["events"].astype(str) if "events" in bb.columns
+            else pd.Series([""] * len(bb), index=bb.index, dtype=object))
     TB = {"single": 1, "double": 2, "triple": 3, "home_run": 4}
 
     work = pd.DataFrame({

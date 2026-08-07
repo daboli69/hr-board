@@ -746,12 +746,16 @@ def _pull_metrics(bb: pd.DataFrame) -> tuple:
     spray angle = atan2(hc_x-125.42, 198.27-hc_y): negative=LF (3B side), positive=RF.
     RHB pulls to LF (negative), LHB to RF (positive). Pull threshold = beyond +/-15 deg.
     """
+    # NOTE: this returns FOUR values (pull, pull-air, oppo, spray). Every exit path must return
+    # four — the early guards previously returned two, which unpacked cleanly at the call site
+    # only when there was data, and blew up the whole build the moment a hitter had no batted
+    # balls with coordinates.
     if bb.empty or "hc_x" not in bb or "hc_y" not in bb:
-        return None, None
+        return None, None, None, None
     d = bb.dropna(subset=["hc_x", "hc_y"])
     n = len(d)
     if n == 0:
-        return None, None
+        return None, None, None, None
     angle = np.degrees(np.arctan2(d["hc_x"] - 125.42, 198.27 - d["hc_y"]))
     is_r = d["stand"].values == "R"
     pulled = np.where(is_r, angle.values < -15, angle.values > 15)
