@@ -135,6 +135,37 @@ def test_feature_modules():
     check("statcast_data: logs / arsenal / vs-pitch / defense / K splits", sc)
 
 
+def test_degenerate_inputs():
+    """Empty / partial frames must not raise.
+
+    This exists because a build died in Actions on `ValueError: not enough values to unpack`:
+    a helper's happy path was updated to return four values while its two early-exit guards
+    still returned two. Every pre-deploy check passed, because the guards only fire when a
+    hitter has no batted balls with coordinates — a case the normal test data never produced.
+    Feed each helper the degenerate inputs deliberately."""
+    import pandas as _pd
+    from etl import statcast_data as S
+    from etl import features as F
+
+    empties = [
+        ("empty frame", _pd.DataFrame()),
+        ("missing columns", _pd.DataFrame({"stand": ["R"]})),
+        ("all-NaN coords", _pd.DataFrame({"hc_x": [None], "hc_y": [None], "stand": ["R"],
+                                          "bb_type": ["fly_ball"], "launch_angle": [20.0],
+                                          "launch_speed": [95.0], "zone": [5]})),
+    ]
+    for label, frame in empties:
+        def run(frame=frame):
+            a, b, c, d = S._pull_metrics(frame)      # must always unpack to four
+            F.batter_zone_damage(frame)
+            F.pitcher_zone_grid(frame)
+            S.batted_ball_log(frame, [1])
+            S.batter_vs_pitch(frame, [1])
+            S.team_defense(frame)
+            S.first_inning_splits(frame, [1])
+        check(f"degenerate input: {label}", run)
+
+
 def test_imports():
     """Every ETL module must import cleanly."""
     import importlib
@@ -151,6 +182,9 @@ if __name__ == "__main__":
     test_imports()
     print("\nfeature modules:")
     test_feature_modules()
+
+    print("\ndegenerate inputs:")
+    test_degenerate_inputs()
     print("\ngrader:")
     test_grader()
 
