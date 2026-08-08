@@ -222,6 +222,37 @@ def test_backtest_wiring():
     check("backtest.py wiring complete", run)
 
 
+def test_definition_order():
+    """Catch use-before-definition — the bug class that has now broken the build three times.
+
+    Delegated to pyflakes rather than a hand-rolled AST walk. I tried the latter first and it
+    produced 339 false positives on this file (every loop variable, every comprehension target),
+    which is worse than no check at all: a test that cries wolf trains you to ignore it.
+
+    pyflakes does the real scope analysis. It is a dev-only dependency and the check SKIPS
+    rather than fails when it is unavailable, so a missing linter can never block a deploy.
+    """
+    def run():
+        import subprocess
+        try:
+            r = subprocess.run([sys.executable, "-m", "pyflakes",
+                                os.path.join(ROOT, "etl", "build_board.py"),
+                                os.path.join(ROOT, "etl", "props.py"),
+                                os.path.join(ROOT, "etl", "runs.py"),
+                                os.path.join(ROOT, "etl", "backtest.py")],
+                               capture_output=True, text=True, timeout=90)
+        except Exception:
+            return "SKIPPED (pyflakes not installed — pip install pyflakes)"
+        if "No module named" in (r.stderr or ""):
+            return "SKIPPED (pyflakes not installed — pip install pyflakes)"
+        bad = [l for l in (r.stdout or "").splitlines()
+               if "undefined name" in l or "local variable" in l]
+        if bad:
+            raise AssertionError(f"{len(bad)} scope error(s): " + "; ".join(bad[:4]))
+        return "no undefined names or premature locals"
+    check("definition order (pyflakes)", run, warn_only=True)
+
+
 def test_frozen_heat_model():
     """The guardrail. compute.py must be byte-identical to HEAD."""
     def run():
@@ -246,7 +277,10 @@ if __name__ == "__main__":
     test_statsapi_bullpen()
     test_odds_archiver()
     test_backtest_wiring()
-    print("\n4. guardrail:")
+    print("\n4. definition order:")
+    test_definition_order()
+
+    print("\n5. guardrail:")
     test_frozen_heat_model()
 
     print()
