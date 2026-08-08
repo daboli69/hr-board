@@ -367,6 +367,8 @@ def team_runs(lineup_recents, opp_sp_prof, opp_pen_prof, sp_bf=None,
         else:
             sp_x = sp_x_overall
         sp_x = _siera_adjust(sp_x, opp_fg) if sp_x is not None else sp_x_overall
+        if sp_x is None:                     # no probable starter announced yet
+            sp_x = LG_WOBA
         pa_i = spot_pa[i]
         pa_sp = pa_i * (bf / total_pa)
         pa_pen = pa_i * (pen_pa / total_pa)
@@ -474,6 +476,12 @@ def first5_runs(lineup_recents, opp_sp_prof, park_mult=1.0, is_home=False, lineu
         sp_x = _pitcher_xwoba_allowed_vs(opp_sp_prof, hand) if hand else sp_x_overall
         if sp_x is None:
             sp_x = sp_x_overall
+        # A probable starter is often not announced when the morning board builds, so sp_x can
+        # legitimately be None. The TTO penalty is an ADDITION to the pitcher's expected wOBA
+        # allowed, and adding to None raised a TypeError that killed every game projection on
+        # the slate. Fall back to league average and keep the penalty meaningful.
+        if sp_x is None:
+            sp_x = LG_WOBA
         # each trip this spot takes is a separate time through the order
         for _trip in range(int(spot_pa[i])):
             _pen = _tto_for_pa(_trip * n + i, n)
@@ -604,6 +612,16 @@ def project_game(home_lineup, away_lineup, home_sp, away_sp,
     # decides an over/under at a given line. Where the two disagree on the mean, the linear
     # number is kept and the disagreement is reported — a silent swap would invalidate the
     # existing calibration with no way to notice.
+    # Before lineups post, team_runs legitimately returns None. Everything below has to cope
+    # with that rather than raising, otherwise the board ships zero game projections for the
+    # entire morning — which is exactly what happened.
+    if home_r is None or away_r is None:
+        return {"pending": True,
+                "note": "awaiting confirmed lineups",
+                "home_runs": home_r, "away_runs": away_r,
+                "total": None, "home_wp": None, "away_wp": None,
+                "markov": None, "why": []}
+
     _mk = None
     try:
         _mk = markov_project(home_lineup, away_lineup, home_sp, away_sp,
@@ -689,8 +707,13 @@ def project_game(home_lineup, away_lineup, home_sp, away_sp,
                     "total_mean": round(_mk["home_mean"] + _mk["away_mean"], 2),
                     "home_wp": _mk["home_wp"],
                     "total_dist": {str(k): v for k, v in _mk["total_dist"].items() if v >= 1e-4},
-                    "markov_delta": round((_mk["home_mean"] + _mk["away_mean"])
-                                          - (home_r + away_r), 2)}
+                    # `markov_delta` is only meaningful when the linear engine also produced a
+                    # number. team_runs returns None for an empty lineup — which is the NORMAL
+                    # state before lineups post, not an error — so this must be guarded or the
+                    # whole projection dies every morning.
+                    "markov_delta": (round((_mk["home_mean"] + _mk["away_mean"])
+                                           - (home_r + away_r), 2)
+                                     if (home_r is not None and away_r is not None) else None)}
                    if _mk else None),
         "home_runs": home_r,
         "away_runs": away_r,
