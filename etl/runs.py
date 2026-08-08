@@ -46,6 +46,11 @@ lines are likely the more useful outputs.
 """
 from __future__ import annotations
 
+try:
+    from . import markov
+except ImportError:                       # standalone import (tests)
+    import markov
+
 # League constants (2024-ish; stable year to year, not tuned to any sample)
 LG_WOBA = 0.318
 WOBA_SCALE = 1.24
@@ -195,6 +200,68 @@ def _matchup(batter_xwoba, pitcher_xwoba):
     else:
         raw = batter_xwoba * pitcher_xwoba / LG_WOBA
     return LG_WOBA + MATCHUP_DAMP * (raw - LG_WOBA)
+
+
+# ---------------------------------------------------------------------------
+# Markov event rates
+# ---------------------------------------------------------------------------
+# The Markov engine needs discrete PA outcomes (1B/2B/3B/HR/BB/K/Out); the profiles only carry
+# rate stats. Rather than add a new ETL pull, the hit distribution is SOLVED from what is
+# already stored. Given hits, total bases and home runs:
+#     TB - H = 2B + 2*3B + 3*HR
+# and triples run roughly a tenth as often as doubles league-wide, which closes the system.
+# Deriving beats storing here: it stays consistent with the xBA/ISO/SLG the rest of the app
+# already trusts, instead of introducing a second set of numbers that can drift apart.
+TRIPLE_TO_DOUBLE = 0.10
+
+
+def event_rates_from_profile(prof, lg_pa=None):
+    """{1B,2B,3B,HR,BB,K} per PA from a stored batter window. None-safe."""
+    if not prof:
+        return None
+    pa = float(prof.get("pa") or 0)
+    ab = float(prof.get("ab") or 0)
+    if pa < 20 or ab <= 0:
+        return None
+    k = (prof.get("k_pct") or 0) / 100.0
+    bb = (prof.get("bb_pct") or 0) / 100.0
+    xba = prof.get("xba")
+    slg = prof.get("slg")
+    hr_ct = float(prof.get("hr") or 0)
+    if xba is None or slg is None:
+        return None
+    hits = float(xba) * ab
+    tb = float(slg) * ab
+    hr = hr_ct
+    xb_non_hr = max(0.0, tb - hits - 3.0 * hr)          # doubles + 2*triples
+    dbl = xb_non_hr / (1.0 + 2.0 * TRIPLE_TO_DOUBLE)
+    tpl = TRIPLE_TO_DOUBLE * dbl
+    sgl = max(0.0, hits - dbl - tpl - hr)
+    return {
+        "1B": sgl / pa, "2B": dbl / pa, "3B": tpl / pa, "HR": hr / pa,
+        "BB": bb, "K": k,
+    }
+
+
+def pitcher_event_rates(prof):
+    """Pitcher's allowed event rates per PA, from the stored profile."""
+    if not prof:
+        return None
+    src = prof.get("season") or prof.get("recent") or prof
+    pa = float(src.get("pa") or 0)
+    if pa < 50:
+        return None
+    k = (src.get("k_pct_allowed") or 22.0) / 100.0
+    bb = (src.get("bb_pct_allowed") or 8.5) / 100.0
+    hr = src.get("hr_per_pa")
+    hr = (float(hr) / 100.0) if hr is not None and hr > 1 else (float(hr) if hr else 0.032)
+    # contact quality sets the hit rates; xwOBAcon maps to a BABIP-like rate
+    xwc = src.get("xwobacon_allowed") or 0.360
+    scale = max(0.75, min(1.30, float(xwc) / 0.360))
+    return {
+        "1B": 0.142 * scale, "2B": 0.046 * scale, "3B": 0.004 * scale,
+        "HR": hr, "BB": bb, "K": k,
+    }
 
 
 def _woba_to_r_per_pa(xwoba):
@@ -458,6 +525,53 @@ def _pyth_wp(home_pyth, away_pyth):
     return h * (1 - a) / den
 
 
+# Simulations per game. 10,000 gives a stable tail; the whole slate is ~15 games x 2 teams,
+# so this is ~300k inning-simulations per ETL run — a few seconds, well inside the Actions
+# budget. Dropping to 4,000 halves the time and roughly doubles the noise in the extreme tail,
+# which is the part the engine exists to get right.
+MARKOV_SIMS = 10000
+
+
+def markov_project(home_lineup, away_lineup, home_sp, away_sp,
+                   home_pen, away_pen, park_mult=1.0, home_hands=None, away_hands=None,
+                   sp_bf_home=22, sp_bf_away=22, seed=None):
+    """Full run DISTRIBUTIONS for both sides via the inning-state simulation.
+
+    Returns None if the profiles cannot produce event rates, so the caller can fall back to the
+    linear engine rather than the board losing its game lines.
+    """
+    def side(lineup, opp_sp, opp_pen, hands, is_home, sp_bf):
+        sp_rates = pitcher_event_rates(opp_sp)
+        pen_rates = pitcher_event_rates(opp_pen) or sp_rates
+        if not sp_rates:
+            return None
+        sp_ev, pen_ev = [], []
+        for i, rec in enumerate(lineup or []):
+            br = event_rates_from_profile(rec)
+            if br is None:
+                br = dict(markov.LG)
+                br.pop("OUT", None)
+            sp_ev.append(markov.pa_event_probs(br, sp_rates, park_mult=park_mult))
+            pen_ev.append(markov.pa_event_probs(br, pen_rates, park_mult=park_mult))
+        if not sp_ev:
+            return None
+        mean, dist = markov.simulate_team_runs(
+            sp_ev, n_sims=MARKOV_SIMS, seed=seed,
+            pen_events=pen_ev, sp_batters=sp_bf)
+        if is_home:
+            mean += HOME_FIELD_RUNS
+        return mean, dist
+
+    h = side(home_lineup, away_sp, away_pen, home_hands, True, sp_bf_away)
+    a = side(away_lineup, home_sp, home_pen, away_hands, False, sp_bf_home)
+    if not h or not a:
+        return None
+    return {"home_mean": round(h[0], 2), "away_mean": round(a[0], 2),
+            "home_dist": h[1], "away_dist": a[1],
+            "total_dist": markov.game_totals(h[1], a[1]),
+            "home_wp": round(markov.win_prob_from_dists(h[1], a[1]), 4)}
+
+
 def project_game(home_lineup, away_lineup, home_sp, away_sp,
                  home_pen, away_pen, home_bf=None, away_bf=None, park_mult=1.0,
                  home_hands=None, away_hands=None, home_def=0.0, away_def=0.0,
@@ -477,6 +591,23 @@ def project_game(home_lineup, away_lineup, home_sp, away_sp,
                                 opp_def=away_def, opp_fg=away_fg, opp_pen_fatigue=away_pen_fatigue)
     if home_r is None or away_r is None:
         return None
+    # ---- Markov engine: the run DISTRIBUTION, not just the mean ----
+    # The linear projection above still runs and still supplies the mean, because it is what the
+    # calibrated win-probability path was validated on. The simulation adds what the linear
+    # model structurally cannot produce: the shape of the run distribution, which is what
+    # decides an over/under at a given line. Where the two disagree on the mean, the linear
+    # number is kept and the disagreement is reported — a silent swap would invalidate the
+    # existing calibration with no way to notice.
+    _mk = None
+    try:
+        _mk = markov_project(home_lineup, away_lineup, home_sp, away_sp,
+                             home_pen, away_pen, park_mult=park_mult,
+                             home_hands=home_hands, away_hands=away_hands,
+                             sp_bf_home=(home_bf or 22), sp_bf_away=(away_bf or 22))
+    except Exception as _e:
+        print(f"[runs] markov skipped (non-fatal): {_e}")
+        _mk = None
+
     hwp = win_prob(home_r, away_r)
     # Blend toward the season-long team-quality prior (run differential, not W-L).
     _pw = _pyth_wp(home_pyth, away_pyth)
@@ -545,6 +676,16 @@ def project_game(home_lineup, away_lineup, home_sp, away_sp,
 
     return {
         "why": _why,
+        # Distribution-based outputs. `total_dist` is the payload the over/under grader needs;
+        # `markov_delta` exposes how far the simulation's mean sits from the linear one, so a
+        # systematic divergence shows up in the backtest instead of hiding.
+        "markov": ({"home_mean": _mk["home_mean"], "away_mean": _mk["away_mean"],
+                    "total_mean": round(_mk["home_mean"] + _mk["away_mean"], 2),
+                    "home_wp": _mk["home_wp"],
+                    "total_dist": {str(k): v for k, v in _mk["total_dist"].items() if v >= 1e-4},
+                    "markov_delta": round((_mk["home_mean"] + _mk["away_mean"])
+                                          - (home_r + away_r), 2)}
+                   if _mk else None),
         "home_runs": home_r,
         "away_runs": away_r,
         "total": round(home_r + away_r, 2),

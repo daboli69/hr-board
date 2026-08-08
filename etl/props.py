@@ -33,6 +33,11 @@ Not touched by these functions:
 """
 from __future__ import annotations
 
+try:
+    from . import kengine, hitmodel
+except ImportError:                       # standalone import (tests)
+    import kengine, hitmodel
+
 
 # Population anchors — set from ~2015-2024 league distributions, not tracker data.
 # These are the "elite / good / average" cutoffs each signal maps against.
@@ -139,6 +144,41 @@ def _pitcher_2wk(pprof):
         "recent_pa":         recent_pa,
         "recent_weight":     round(conf, 2),
     }
+
+
+def hit_prob_gated(batter_recent, pitcher_prof, shapes=None, spray_profile=None,
+                   def_by_zone=None, sprint_speed=None, lineup_spot=None,
+                   implied_team_total=None):
+    """1+ hit probability via the contact gate, with the anchor model as fallback.
+
+    Returns (probability, breakdown). The gate is sequential, not additive: a hitter cannot get
+    a hit on a ball he never puts in play, so contact quality is only allowed to matter after
+    the at-bat survives the whiff. The old weighted-sum model ranked a .380-xBAcon/35%-whiff
+    hitter above a .320/16% hitter; gating correctly reverses that.
+    """
+    b = (batter_recent or {})
+    p = (pitcher_prof or {}).get("season") or (pitcher_prof or {}).get("recent") or {}
+    bat = {
+        "whiff": (b.get("whiff_pct") or 0) / 100.0 or None,
+        "k_pct": (b.get("k_pct") or 0) / 100.0 or None,
+        "xba_con": b.get("xba"),
+        "bb_pct": (b.get("bb_pct") or 0) / 100.0 or None,
+    }
+    pit = {
+        "whiff": (p.get("swstr_pct_allowed") or 0) / 100.0 or None,
+        "k_pct": (p.get("k_pct_allowed") or 0) / 100.0 or None,
+        "xba_con": p.get("xba_allowed"),
+        "bb_pct": (p.get("bb_pct_allowed") or 0) / 100.0 or None,
+    }
+    xpa = hitmodel.expected_pa(lineup_spot or 5, implied_team_total)
+    try:
+        res = hitmodel.contact_gated_hit_prob(
+            bat, pit, shapes=shapes, spray_profile=spray_profile,
+            def_by_zone=def_by_zone, sprint_speed=sprint_speed, xpa=xpa)
+        return res["p_hit"], res
+    except Exception as e:
+        score, bd = hit_heat(batter_recent, pitcher_prof, sprint_speed=sprint_speed)
+        return None, {"fallback": "anchor model", "hit_heat": score, "error": str(e), **bd}
 
 
 def hit_heat(batter_recent, pitcher_prof, sprint_speed=None):
@@ -286,6 +326,40 @@ def pitcher_k_heat(pitcher_prof, opp_lineup_k_pct=None, opener=False):
 # Legacy hitter K score kept as internal helper — not surfaced on the Props tab
 # (bettors bet pitcher K props, not hitter K props). Retained in case a future
 # feature wants it as a Bear-side signal ("this hitter is likely to K vs this arm").
+def pitcher_k_projection(pitcher_csw, lineup_k_rates, arsenal=None, framing_runs=None,
+                         pitch_limit=None, velo_drop=None, opener=False,
+                         trailing_k_pct=None):
+    """Expected strikeouts via CSW true-talent + dynamic xBF + arsenal-depth TTOP.
+
+    Replaces the static 22-batters-faced projection. That constant was the largest single source
+    of inflated K numbers: a 75-pitch arm at 4.3 pitches per PA faces 17 batters, not 22.
+    Returns the kengine payload, including the exact Poisson-binomial distribution.
+    """
+    return kengine.predict_pitcher_k_count(
+        pitcher_csw, lineup_k_rates, arsenal=arsenal, framing_runs=framing_runs,
+        pitch_limit=pitch_limit, velo_drop=velo_drop, opener=opener,
+        trailing_k_pct=trailing_k_pct)
+
+
+def k_prob_at_line(dist, line):
+    """P(Ks > line) from the exact distribution rather than a Poisson approximation."""
+    return kengine.prob_over_ks(dist, line)
+
+
+def hrr_projection(hit_result, lineup_spot, implied_team_total=None,
+                   batters_ahead=None, batters_behind=None, hr_rate_per_pa=0.032):
+    """Hits + Runs + RBIs: volume first (xPA scaled by the implied total), context second.
+
+    The ordering is deliberate — no amount of lineup context rescues a hitter who only gets
+    three trips to the plate, which is why bottom-of-the-order HRR tickets chronically
+    underperform their rate stats.
+    """
+    return hitmodel.hrr_projection(
+        hit_result, lineup_spot, implied_team_total=implied_team_total,
+        batters_ahead=batters_ahead, batters_behind=batters_behind,
+        hr_rate_per_pa=hr_rate_per_pa)
+
+
 def k_heat_hitter(batter_recent, pitcher_prof):
     """0-100 score for likelihood the hitter strikes out this game. Kept as
     internal helper; not exposed in the UI. See pitcher_k_heat for the actual

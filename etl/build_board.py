@@ -11,6 +11,7 @@ null rather than crashing the whole run, so an unattended cron keeps producing
 a board.
 """
 from __future__ import annotations
+from etl import kengine, hitmodel, arsenal as arsenal_mod, environment as env_mod
 import json
 import os
 import time
@@ -149,6 +150,29 @@ def build(date_str: str | None = None) -> dict:
         pitch_hist = statcast_data.pitch_history(df, pitcher_ids)          # usage per start
         team_ks = statcast_data.team_k_splits(df)                          # lineup K% by context
         sprint = statcast_data.sprint_speeds()                             # hit model: infield singles
+
+        # ---- Phase-2 dependencies ----
+        # CSW and pitches-per-PA come from the frame already in memory; framing is a separate
+        # leaderboard. Each is non-fatal on its own so one missing source cannot take the
+        # board down — the engines fall back to their league defaults.
+        csw_map = kengine.csw_from_statcast(df, pitcher_ids)
+        framing = kengine.catcher_framing()
+        pitch_limits, velo_drops = {}, {}
+        for _pid in pitcher_ids:
+            try:
+                pl = kengine.pitch_limit_from_starts(df, _pid)
+                if pl:
+                    pitch_limits[int(_pid)] = round(pl, 1)
+                vd, _flag = kengine.velocity_flag(df, _pid, date_str)
+                if vd is not None:
+                    velo_drops[int(_pid)] = vd
+            except Exception:
+                continue
+        # directional defense: expected hits vs actual hits allowed, by spray bucket
+        dir_def = env_mod.directional_defense_proxy(df, days=30, asof=date_str)
+        print(f"[build] CSW arms {len(csw_map)} | framing {len(framing)} | "
+              f"pitch limits {len(pitch_limits)} | velo drops {len(velo_drops)} | "
+              f"directional def {len(dir_def)} teams")
         fg_pitch = statcast_data.fangraphs_pitching()                      # xFIP/SIERA/Stuff+
         first_inn = statcast_data.first_inning_splits(df, pitcher_ids)     # F3/F5 slow starters
         print(f"[build] fangraphs arms: {len(fg_pitch)} | first-inning splits: {len(first_inn)}")
@@ -158,6 +182,7 @@ def build(date_str: str | None = None) -> dict:
         print(f"[build] BvP tables skipped (non-fatal): {e}")
         bat_tables, arm_tables, pitch_hist, team_ks, sprint = {}, {}, {}, {}, {}
         fg_pitch, first_inn = {}, {}
+        csw_map, framing, pitch_limits, velo_drops, dir_def = {}, {}, {}, {}, {}
     try:
         arsenals = statcast_data.pitcher_arsenal(df, pitcher_ids)     # usage % by batter hand
         vs_pitch = statcast_data.batter_vs_pitch(df, batter_ids)      # hitter vs specific pitch types
@@ -442,6 +467,79 @@ def build(date_str: str | None = None) -> dict:
 
     players = []
     _discipline_raw = {}      # {batter_id: {chase_pct, zcontact_pct...}} -> percentiled after loop
+    def _gated_hit_for(bid, recent, pprof, prow):
+        """Contact-gated 1+ hit probability with directional defense and pitch-shape splits."""
+        try:
+            bats = prow.get("bats") or "R"
+            throws = (prow.get("opp_pitcher") or {}).get("throws") or "R"
+            eff = arsenal_mod.effective_batter_hand(bats, throws)
+            # handedness FIRST, then the usage cutoff — a pitch that is 6% overall can be 22%
+            # to one side, and a usage-first filter would drop exactly that putaway pitch
+            arm_id = (prow.get("opp_pitcher") or {}).get("id")
+            by_hand = arsenals.get(int(arm_id)) if (arsenals and arm_id) else None
+            side = arsenal_mod.handedness_first_arsenal(by_hand or {}, eff) if by_hand else None
+            shapes = None
+            if side and prow.get("vs_pitch"):
+                shapes = hitmodel.PitchShapeSplits(side, prow["vs_pitch"])
+            # directional defense: stadium LF/CF/RF mapped onto this hitter's pull/oppo frame
+            team_def = dir_def.get(prow.get("opp_team")) if dir_def else None
+            spray = None
+            _w = (prow.get("windows") or {}).get("L14d") or {}
+            if _w.get("pull_pct") is not None and _w.get("oppo_pct") is not None:
+                pull = float(_w["pull_pct"]) / 100.0
+                oppo = float(_w["oppo_pct"]) / 100.0
+                spray = {"pull": pull, "oppo": oppo,
+                         "center": max(0.0, 1.0 - pull - oppo)}
+            zone_def = (env_mod.defense_for_hitter(team_def, spray, bats=eff)
+                        if (team_def and spray) else None)
+            prob, bd = props.hit_prob_gated(
+                recent, pprof, shapes=shapes, spray_profile=spray, def_by_zone=zone_def,
+                sprint_speed=(sprint or {}).get(int(bid)),
+                lineup_spot=prow.get("lineup_spot"),
+                implied_team_total=prow.get("implied_team_total"))
+            if prob is None:
+                return None
+            return {"p_hit": prob, "xpa": bd.get("xpa"), "bip_rate": bd.get("bip_rate"),
+                    "xba_con": bd.get("xba_con"), "xba_eff": bd.get("xba_eff"),
+                    "whiff": bd.get("whiff"), "shapes": bd.get("shapes")}
+        except Exception as _e:
+            print(f"[build] gated hit skipped for {bid}: {_e}")
+            return None
+
+    def _kengine_for(pid, meta):
+        """New K projection for one arm. Returns None if inputs are too thin to trust."""
+        try:
+            cs = csw_map.get(int(pid))
+            if not cs:
+                return None
+            lk = meta.get("opp_lineup_k_rates")
+            if not lk:
+                _lk = meta.get("opp_lineup_k_pct")
+                lk = [(_lk or 22.0) / 100.0] * 9
+            ars = (arsenals.get(int(pid)) or {}) if arsenals else {}
+            flat = []
+            for _h in ("R", "L"):
+                for _p in (ars.get(_h) or []):
+                    flat.append(_p)
+            res = kengine.predict_pitcher_k_count(
+                cs, lk, arsenal=flat or None,
+                framing_runs=framing.get(int(meta.get("catcher_id") or 0)),
+                pitch_limit=pitch_limits.get(int(pid)),
+                velo_drop=velo_drops.get(int(pid)),
+                trailing_k_pct=(meta.get("k_pct") or None))
+            return {"exp_k": res["exp_k"], "xbf": res["xbf"], "csw": res["csw"],
+                    "csw_adj": res["csw_adj"], "arsenal_depth": res["arsenal_depth"],
+                    "velo_drop": res["velo_drop"], "velo_flag": res["velo_flag"],
+                    "framing_runs": res["framing_runs"],
+                    "dist": {str(k): v for k, v in (res.get("dist") or {}).items()},
+                    "o45": kengine.prob_over_ks(res["dist"], 4.5),
+                    "o55": kengine.prob_over_ks(res["dist"], 5.5),
+                    "o65": kengine.prob_over_ks(res["dist"], 6.5),
+                    "o75": kengine.prob_over_ks(res["dist"], 7.5)}
+        except Exception as _e:
+            print(f"[build] kengine skipped for {pid}: {_e}")
+            return None
+
     for bid in batter_ids:
         prof = profiles.get(bid, {})
         recent = prof.get("recent", {})
@@ -850,6 +948,10 @@ def build(date_str: str | None = None) -> dict:
             # Props scores — parallel track for the Other Props tab, NEVER touch heat.
             # hrr_heat needs lineup_spot + HR heat; computed as a post-attach step.
             "hit_heat": props.hit_heat(recent, pprof, sprint_speed=(sprint or {}).get(int(bid)))[0],
+            # Contact-gated projection, emitted alongside the anchor score. Gating is
+            # sequential, not additive: contact quality only matters once the at-bat survives
+            # the whiff, which reverses the ranking on high-xBA/high-whiff hitters.
+            "hit_gated": _gated_hit_for(bid, recent, pprof, p),
             "k_heat_bat": props.k_heat_hitter(recent, pprof)[0],
             "hrr_heat": props.hrr_heat(recent, pprof,
                 lineup_spot=spot_of_batter.get(bid), hr_heat=score)[0],
@@ -2549,6 +2651,11 @@ def build(date_str: str | None = None) -> dict:
                 "k_pct": pitcher_k_pct,
                 "swstr_pct": (pprof.get("recent") or {}).get("swstr_pct_allowed") or
                              (pprof.get("season") or {}).get("swstr_pct_allowed"),
+                # kengine projection: CSW true-talent, dynamic xBF, arsenal-depth TTOP, and
+                # the exact Poisson-binomial distribution. Emitted alongside the legacy
+                # `est_ks` rather than replacing it, so the backtest can grade both on the same
+                # historical days and the swap is made on evidence rather than assumption.
+                "kengine": _kengine_for(pid, meta),
                 "fg": (fg_pitch.get(statcast_data._norm_name(meta.get("name") or "")) or None),
                 "first_inn": (first_inn.get(int(pid)) if first_inn else None),
                 "est_ks": est_ks,
