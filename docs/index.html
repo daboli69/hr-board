@@ -136,6 +136,7 @@
   .vm-sl{font-family:"IBM Plex Mono";font-size:8.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.03em}
   .vm-sv{font-family:"IBM Plex Mono";font-weight:700;font-size:15px;margin-top:3px}
   .vm-s.hot .vm-sv{color:var(--seam)}
+  .cov-fam-chip[aria-pressed="true"]{background:var(--seam);border-color:var(--seam);color:#12140f}
   .traitf .is-noise{opacity:.55}
   .tf-alt{font-style:normal;font-size:7px;opacity:.55;margin-left:3px;letter-spacing:.04em}
   .cv-tog{display:flex;gap:5px;margin:10px 0 6px}
@@ -1930,6 +1931,8 @@
     <button class="chip edge-chip" data-edge="climate" aria-pressed="false" title="Only hitters with a warm/cold climate BOOST tonight">☀ Climate+</button>
     <button class="chip edge-chip" data-edge="mix" aria-pressed="false" title="Only hitters with a favorable pitch-mix matchup (60+)">◎ Mix+</button>
     <button class="chip edge-chip" data-edge="late" aria-pressed="false" title="Only hitters in an elevated late-HR spot">⏱ Late-HR</button>
+    <button class="chip cov-fam-chip" id="covFam3" onclick="setCovFam(3)" aria-pressed="false" title="Only hitters with 3+ independent evidence families — backtested at 1.56x the base HR rate">◎ 3+ families</button>
+    <button class="chip cov-fam-chip" id="covFam4" onclick="setCovFam(4)" aria-pressed="false" title="Only hitters with 4+ independent evidence families — backtested at 2.01x the base HR rate, the strongest signal in the app">◎ 4+ families</button>
     <button class="chip edge-chip" data-edge="eye" aria-pressed="false" title="Only disciplined hitters (elite eye or in-zone contact)">👁 Discipline</button>
     <button class="chip edge-chip" data-edge="grade" aria-pressed="false" title="Only ELITE or STRONG matchup grades (4+ factors aligned)">Graded</button>
     <button id="listClearBtn" class="chip listclear" onclick="listClear()" title="Empty your list — asked automatically each new slate">Clear</button>
@@ -3436,6 +3439,16 @@ function cvMeasured(p){
 // accumulate evidence in the first place". If convergence is already doing that filtering, the
 // BBE floor was discarding good plays. The next backtest carries a sample x convergence
 // cross-tab that settles it; until then this is the less destructive default.
+let covFamMin=0;     // board filter: minimum total convergence families
+function setCovFam(n){ covFamMin=(covFamMin===n?0:n); updateFiltCount(); render(); }
+function covFamCount(p){
+  // Total evidence families behind this hitter: measured signals plus provisional families.
+  // Matches the number the Signal Convergence board shows, so a "4 families" filter here
+  // surfaces exactly the players sitting at the top of that board.
+  const c=(p&&p.converge&&p.converge.hr)||null;
+  if(!c) return 0;
+  return (c.measured||[]).length + (c.provisional||[]).length;
+}
 let cvMinRel=2;      // 0 = everyone, 1 = 60+, 2 = 120+, 3 = 250+ BBE
 // Ranking mode. "best" = most evidence, full stop — correct if you want the highest HR
 // probability, but it will always lean toward established everyday hitters, because those are
@@ -4030,6 +4043,9 @@ function render(){
   if(batFilter) players=players.filter(p=>(p.bats||"R")===batFilter);
   if(labSel.size){
     players=players.filter(p=>labSel.has(p.hit_label));   // OR: labels are one-per-hitter
+  }
+  if(covFamMin>0){
+    players=players.filter(p=>covFamCount(p)>=covFamMin);
   }
   if(traitSel.size){
     players=players.filter(p=>{
@@ -9350,6 +9366,12 @@ document.getElementById("teamList").addEventListener("click",e=>{
   populateTeams(); updateFiltCount(); render();
 });
 function updateFiltCount(){
+  // keep the family chips visually in sync with the filter state
+  try{
+    const b3=document.getElementById("covFam3"), b4=document.getElementById("covFam4");
+    if(b3) b3.setAttribute("aria-pressed", covFamMin===3);
+    if(b4) b4.setAttribute("aria-pressed", covFamMin===4);
+  }catch(e){}
   const n=activeFilterCount();
   const el=document.getElementById("filtCount");
   if(!el)return;
@@ -9357,12 +9379,12 @@ function updateFiltCount(){
 }
 // count every active filter (the old count missed zone/grade/bomb/vuln/edge)
 function activeFilterCount(){
-  return gameSel.size+teamSel.size+traitSel.size+labSel.size+drySel.size+tierSel.size+edgeSel.size
+  return (covFamMin>0?1:0)+gameSel.size+teamSel.size+traitSel.size+labSel.size+drySel.size+tierSel.size+edgeSel.size
     +(batFilter?1:0)+(minHeat>0?1:0)+(spFloor>0?1:0)+(hideThin?1:0)+(mixView?1:0)
     +(zoneMin>0?1:0)+(gradeMin?1:0)+(bombMin>0?1:0)+(vulnMin?1:0);
 }
 function clearFilters(){
-  gameSel.clear(); teamSel.clear(); batFilter=""; traitSel.clear(); labSel.clear(); drySel.clear(); tierSel.clear(); minHeat=0; spFloor=0; hideThin=false; mixView=false; edgeSel.clear();
+  covFamMin=0; gameSel.clear(); teamSel.clear(); batFilter=""; traitSel.clear(); labSel.clear(); drySel.clear(); tierSel.clear(); minHeat=0; spFloor=0; hideThin=false; mixView=false; edgeSel.clear();
   document.querySelectorAll(".edge-chip").forEach(b=>b.setAttribute("aria-pressed","false"));
   zoneMin=0; gradeMin=""; bombMin=0; vulnMin="";
   ["zoneMinRow","gradeRow","bombRow","vulnRow"].forEach(id=>{
