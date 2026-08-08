@@ -135,6 +135,63 @@ def get_slate(date_str: str) -> dict:
     return {"games": games, "lineups": lineups, "pitchers": pitchers}
 
 
+def get_reliever_pitch_logs(team_ids, date_str, days=3):
+    """{pitcher_id: [{"days_ago": n, "pitches": n, "date": "YYYY-MM-DD"}, ...]}
+
+    Feeds `environment.bullpen_state()`. Pitch counts are the only reliable public signal of
+    who a manager will actually use tonight: an arm at 35+ pitches yesterday is unavailable
+    regardless of how he feels, and modelling him as available means modelling a pitcher who
+    will not appear.
+
+    Walks each team's completed games over the trailing window and reads pitch counts from the
+    boxscore. Non-fatal per game, so one unavailable feed cannot take the board down.
+    """
+    import datetime as _dt
+    out = {}
+    try:
+        base = _dt.date.fromisoformat(date_str)
+    except Exception:
+        return out
+    for team_id in {int(t) for t in (team_ids or []) if t}:
+        for back in range(1, int(days) + 1):
+            day = (base - _dt.timedelta(days=back)).isoformat()
+            try:
+                sched = _get("https://statsapi.mlb.com/api/v1/schedule",
+                             {"sportId": 1, "teamId": team_id, "date": day})
+            except Exception:
+                continue
+            for d in (sched.get("dates") or []):
+                for g in (d.get("games") or []):
+                    if str((g.get("status") or {}).get("abstractGameState")) != "Final":
+                        continue
+                    gid = g.get("gamePk")
+                    if not gid:
+                        continue
+                    try:
+                        box = _get(f"https://statsapi.mlb.com/api/v1/game/{gid}/boxscore", {})
+                    except Exception:
+                        continue
+                    for side in ("home", "away"):
+                        tm = ((box.get("teams") or {}).get(side) or {})
+                        if int(((tm.get("team") or {}).get("id") or 0)) != team_id:
+                            continue
+                        players = tm.get("players") or {}
+                        # `pitchers` lists them in order used; the first is the starter, and a
+                        # starter's rest pattern is nothing like a reliever's, so he is skipped
+                        order = tm.get("pitchers") or []
+                        for idx, pid in enumerate(order):
+                            if idx == 0:
+                                continue
+                            rec = players.get(f"ID{pid}") or {}
+                            stats = ((rec.get("stats") or {}).get("pitching") or {})
+                            pitches = stats.get("numberOfPitches") or stats.get("pitchesThrown")
+                            if not pitches:
+                                continue
+                            out.setdefault(int(pid), []).append(
+                                {"days_ago": back, "pitches": int(pitches), "date": day})
+    return out
+
+
 def get_team_records(season: int | None = None) -> dict:
     """{TEAM_ABBR: {w, l, rs, ra, pyth}} from the MLB standings endpoint.
 

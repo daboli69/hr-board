@@ -170,6 +170,75 @@ def build(date_str: str | None = None) -> dict:
                 continue
         # directional defense: expected hits vs actual hits allowed, by spray bucket
         dir_def = env_mod.directional_defense_proxy(df, days=30, asof=date_str)
+
+        # Bat tracking per hitter (Statcast 2024+). Swings only — a null bat_speed means the
+        # batter did not swing, not that he swung slowly, so including them would drag every
+        # average toward zero.
+        bat_track = {}
+        try:
+            _bt = df[df["bat_speed"].notna()] if "bat_speed" in df.columns else None
+            if _bt is not None and not _bt.empty:
+                for _bid, _g in _bt.groupby("batter"):
+                    if int(_bid) not in set(batter_ids):
+                        continue
+                    prof = arsenal_mod.bat_tracking_profile(
+                        _g["bat_speed"].tolist(),
+                        _g["swing_length"].tolist() if "swing_length" in _g.columns else None)
+                    if prof and prof.get("n_swings", 0) >= 25:
+                        bat_track[int(_bid)] = prof
+        except Exception as _e:
+            print(f"[build] bat tracking skipped: {_e}")
+
+        # Geometry-aware near misses over the trailing 14 days
+        near_miss = {}
+        try:
+            near_miss = env_mod.near_miss_log(df, batter_ids, days=14, asof=date_str)
+        except Exception as _e:
+            print(f"[build] near-miss log skipped: {_e}")
+
+        # Trailing 3-day reliever pitch logs -> availability. Without this the fatigue model
+        # has no input and every bullpen looks fresh.
+        pen_logs, pen_state = {}, {}
+        try:
+            _tids = {g.get("home_id") for g in games} | {g.get("away_id") for g in games}
+            pen_logs = statsapi.get_reliever_pitch_logs(_tids, date_str, days=3)
+            print(f"[build] reliever pitch logs: {len(pen_logs)} arms")
+        except Exception as _e:
+            print(f"[build] reliever pitch logs skipped: {_e}")
+
+        # Aggregate each team's bullpen into usable rates + a blended pitch mix. Unavailable
+        # arms are dropped entirely rather than averaged down — those innings genuinely fall to
+        # someone else, so keeping them would describe a bullpen that will not appear.
+        try:
+            for _g in games:
+                for _side in ("home", "away"):
+                    _tm = _g.get(_side)
+                    if not _tm or _tm in pen_state:
+                        continue
+                    _arms = []
+                    for _pid, _log in (pen_logs or {}).items():
+                        _prof = (pstats or {}).get(int(_pid)) or {}
+                        if _prof.get("team") != _tm:
+                            continue
+                        _arms.append({"id": _pid, "pitch_log": _log,
+                                      "k_pct": (_prof.get("k_pct_allowed") or 22.5) / 100.0,
+                                      "bb_pct": (_prof.get("bb_pct_allowed") or 8.5) / 100.0,
+                                      "xwoba": _prof.get("xwobacon_allowed"),
+                                      "leverage": 2,
+                                      "arsenal": ((arsenals.get(int(_pid)) or {}).get("R") or [])})
+                    if _arms:
+                        _st = env_mod.bullpen_state(_arms)
+                        _st["arsenal"] = arsenal_mod.bullpen_arsenal(
+                            [a for a in _arms
+                             if env_mod.reliever_status(a["pitch_log"])[0] != env_mod.UNAVAILABLE])
+                        pen_state[_tm] = _st
+            if pen_state:
+                print(f"[build] bullpen state: {len(pen_state)} teams, "
+                      f"{sum(s.get('n_out', 0) for s in pen_state.values())} arms unavailable")
+        except Exception as _e:
+            print(f"[build] bullpen state skipped: {_e}")
+
+        print(f"[build] bat tracking {len(bat_track)} hitters | near-miss {len(near_miss)}")
         print(f"[build] CSW arms {len(csw_map)} | framing {len(framing)} | "
               f"pitch limits {len(pitch_limits)} | velo drops {len(velo_drops)} | "
               f"directional def {len(dir_def)} teams")
@@ -183,6 +252,7 @@ def build(date_str: str | None = None) -> dict:
         bat_tables, arm_tables, pitch_hist, team_ks, sprint = {}, {}, {}, {}, {}
         fg_pitch, first_inn = {}, {}
         csw_map, framing, pitch_limits, velo_drops, dir_def = {}, {}, {}, {}, {}
+        bat_track, near_miss, pen_logs, pen_state = {}, {}, {}, {}
     try:
         arsenals = statcast_data.pitcher_arsenal(df, pitcher_ids)     # usage % by batter hand
         vs_pitch = statcast_data.batter_vs_pitch(df, batter_ids)      # hitter vs specific pitch types
@@ -952,6 +1022,8 @@ def build(date_str: str | None = None) -> dict:
             # sequential, not additive: contact quality only matters once the at-bat survives
             # the whiff, which reverses the ranking on high-xBA/high-whiff hitters.
             "hit_gated": _gated_hit_for(bid, recent, pprof, p),
+            "bat_tracking": (bat_track.get(int(bid)) if bat_track else None),
+            "near_miss": (near_miss.get(int(bid)) if near_miss else None),
             "k_heat_bat": props.k_heat_hitter(recent, pprof)[0],
             "hrr_heat": props.hrr_heat(recent, pprof,
                 lineup_spot=spot_of_batter.get(bid), hr_heat=score)[0],
@@ -1744,6 +1816,24 @@ def build(date_str: str | None = None) -> dict:
                         _add("contact", f"Barrel {_hp['barrel_pct']}%")
                     if (_hp.get("max_dist") or 0) >= 440:
                         _add("contact", f"Ceiling {_hp['max_dist']}ft")
+                    # Bat tracking joins Contact Quality rather than forming its own family: it
+                    # measures the same underlying thing as exit velo and barrel rate — how well
+                    # this hitter strikes a baseball. A separate family would let one piece of
+                    # evidence count twice, which is the collinearity the family structure
+                    # exists to prevent. Credit is conditional on the arm's velocity, because a
+                    # compact 78-mph swing is an edge against 97 and irrelevant against 89.
+                    try:
+                        _bt = _p.get("bat_tracking")
+                        _fbv = ((_p.get("opp_pitcher") or {}).get("fb_velo")
+                                or (_p.get("opp_pitcher") or {}).get("season", {}).get("fb_velo"))
+                        _cred = arsenal_mod.bat_speed_vs_velocity_credit(_bt, _fbv)
+                        if _cred is not None and _cred >= 0.60:
+                            _lab = f"Bat speed {_bt.get('avg_bat_speed')} vs {float(_fbv):.0f} mph"
+                            if _bt.get("short_fast_rate") is not None:
+                                _lab += f" ({_bt['short_fast_rate']}% short+fast)"
+                            _add("contact", _lab)
+                    except Exception:
+                        pass
                     # -- launch profile: does he actually get the ball AIRBORNE TO THE PULL SIDE? --
                     # Kept as its own family on purpose. Measured across tonight's board, pull-air
                     # correlates r=-0.11 with exit velo and r=-0.01 with barrel rate, and ideal
@@ -1814,6 +1904,34 @@ def build(date_str: str | None = None) -> dict:
                     _pm = _F.get("pitch_matchup") or {}
                     if (_pm.get("score") or 0) >= 65:
                         _add("arsenal", f"Pitch matchup {round(_pm['score'])}")
+                    # Late-inning blend: plate appearances past the starter's xBF are faced
+                    # against the AVAILABLE bullpen's aggregate mix, not the starter's. A hitter
+                    # batting 2nd sees the starter three times and the pen once; a hitter batting
+                    # 8th may see the pen twice. Evaluating every PA against the starter
+                    # overstates the matchup for exactly the hitters who face him least.
+                    try:
+                        _armid = (_p.get("opp_pitcher") or {}).get("id")
+                        _xbf = ((_p.get("opp_pitcher") or {}).get("kengine") or {}).get("xbf")
+                        _spot = _p.get("lineup_spot")
+                        _penst = pen_state.get(_p.get("opp_team")) if pen_state else None
+                        if _armid and _xbf and _spot and _penst and _penst.get("arsenal"):
+                            _handk = _p.get("bats")
+                            if _handk == "S":
+                                _handk = "L" if (_p.get("opp_pitcher") or {}).get("throws") == "R" else "R"
+                            _sp_ars = arsenal_mod.handedness_first_arsenal(
+                                (arsenals.get(int(_armid)) or {}), _handk)
+                            # PAs this spot gets: 1st, 2nd, 3rd, 4th trip = spot, spot+9, ...
+                            _late = [i for i in range(int(_spot) - 1, 40, 9) if i >= _xbf]
+                            if _sp_ars and _late:
+                                _blend = arsenal_mod.blend_arsenal_for_pa(
+                                    _sp_ars, _penst["arsenal"], _late[0], _xbf)
+                                _top = ", ".join(f"{pt} {u}%" for pt, u, *_ in _blend[:2])
+                                _add("arsenal",
+                                     f"PA {_late[0]+1}+ vs bullpen mix ({_top})")
+                            if _penst.get("n_out"):
+                                _add("arm", f"{_penst['n_out']} pen arm(s) unavailable")
+                    except Exception:
+                        pass
                     _fit = None
                     try:
                         _arm = (_p.get("opp_pitcher") or {}).get("id")
@@ -1964,6 +2082,15 @@ def build(date_str: str | None = None) -> dict:
                     _oh = _p30.get("out_here")
                     if _oh is not None and _oh >= _P30_CUT:
                         _add("parkfit", f"{int(_oh)} recent balls clear this park")
+                    # Geometry-aware near misses: balls that died within 5 ft of the wall AT
+                    # THEIR OWN SPRAY ANGLE. This is contact that clears on a warmer night or in
+                    # a different park, which is exactly the part of a profile most likely to
+                    # convert — and a flat 350-ft rule cannot express it.
+                    _nm = (near_miss.get(int(bid)) if near_miss else None)
+                    if _nm and _nm.get("near", 0) >= 2:
+                        _add("parkfit", f"{_nm['near']} near misses (within 5ft of the wall)")
+                    if _nm and _nm.get("best_delta") is not None and _nm["best_delta"] >= -2.0:
+                        _add("parkfit", f"Best ball {_nm['best_delta']:+.0f}ft vs the wall")
                     _ap = _p30.get("avg_parks")
                     if _ap is not None and _ap >= _AP_CUT:
                         _add("parkfit", f"Avg ball clears {round(_ap,1)}/30 parks")

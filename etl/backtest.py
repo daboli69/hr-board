@@ -32,6 +32,11 @@ except Exception:
 
 import numpy as np
 import pandas as pd
+# Phase-3 validation + the new engines, imported at module level so every replay path can
+# reach them without re-importing inside loops.
+from etl import validate as V, kengine, hitmodel, markov
+from etl import environment as env_mod, arsenal as arsenal_mod
+
 
 from etl import compute, statcast_data, props
 
@@ -96,9 +101,12 @@ def _day_outcomes(day: pd.DataFrame) -> tuple[dict, dict, dict]:
     return ({"hits": bat_hits, "ks": bat_ks, "hrr": hrr_map}, pit_ks, hrr_total)
 
 
-def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str) -> dict:
+def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str, asof: "V.AsOfFrame | None" = None) -> dict:
     """{batter_id: (heat, homered_today)} for one replay date. `past` must be
     strictly earlier than D — the caller owns that guarantee."""
+    if asof is not None:
+        # Structural leak guard: turns a silently inflated score into a loud failure.
+        asof.assert_clean(past, D, "_day_heats.past")
     ev = day["events"].to_numpy()
     batters = sorted({int(b) for b in day["batter"].dropna().unique()})
     if not batters:
@@ -296,6 +304,55 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str) -> dict:
                         if _den > 0:
                             _afit = round(_num / _den, 1)
             # convergence, using only the badges the backtest itself has validated
+            # Geometry-aware near misses over the trailing 14 days. Uses `_brows2`, which is
+            # already bounded by the as-of cut, so no new leak surface is introduced.
+            _nm_ct = None
+            try:
+                _venue_col = "venue" if "venue" in _brows2.columns else None
+                if _venue_col is not None and len(_brows2):
+                    _recent = _brows2.tail(300)
+                    _n = 0
+                    for _, _r in _recent.iterrows():
+                        if env_mod.is_near_miss(_r.get(_venue_col), _r.get("hc_x"),
+                                                _r.get("hc_y"), _r.get("hit_distance_sc"),
+                                                was_hr=(str(_r.get("events")) == "home_run")):
+                            _n += 1
+                    _nm_ct = _n
+            except Exception:
+                _nm_ct = None
+
+            # Bat tracking: the "fast swing AND short path" combination, not either alone
+            _bat_fs = None
+            try:
+                if "bat_speed" in _brows2.columns:
+                    _sw = _brows2[_brows2["bat_speed"].notna()]
+                    if len(_sw) >= 25:
+                        _pf = arsenal_mod.bat_tracking_profile(
+                            _sw["bat_speed"].tolist(),
+                            _sw["swing_length"].tolist() if "swing_length" in _sw.columns else None)
+                        _bat_fs = (_pf or {}).get("short_fast_rate")
+            except Exception:
+                _bat_fs = None
+
+            # Handedness-FIRST vs usage-first arsenal fit — the A/B that proves the ordering
+            # change matters. Same hitter, same arm, two different filters.
+            _hf_fit = _uf_fit = None
+            try:
+                _sp2 = face.get(bid)
+                _byh = _ars_by_sp_hand.get(_sp2) if "_ars_by_sp_hand" in dir() else None
+                if _sp2 and _byh and _bh:
+                    _hf = arsenal_mod.handedness_first_arsenal(_byh, _bh)
+                    _uf = [p for p in (_byh.get("_all") or []) if float(p[1]) >= 10.0]
+                    _vp3 = _vp if "_vp" in dir() else None
+                    if _hf and _vp3:
+                        _s1 = hitmodel.PitchShapeSplits(_hf, _vp3)
+                        _hf_fit = _s1.xba_on_contact() if _s1.ok() else None
+                    if _uf and _vp3:
+                        _s2 = hitmodel.PitchShapeSplits(_uf, _vp3)
+                        _uf_fit = _s2.xba_on_contact() if _s2.ok() else None
+            except Exception:
+                pass
+
             _bset = {str(b).lower() for b in badge_keys}
             _nmh = (1 if heat >= 40 else 0)                 # HR heat band as a measured signal
             _nm = (1 if "pow" in _bset else 0) + (1 if "lock" in _bset else 0)
@@ -311,6 +368,11 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str) -> dict:
         out[bid] = {
             "zone_edge": _zedge, "arsenal_fit": _afit,
             "cv_meas": _nm + _nmh, "cv_meas_noheat": _nm, "cv_prov": _np,
+            # ---- Phase-2 features, all computed AS-OF from `past` only ----
+            "near_miss_14d": _nm_ct,
+            "bat_fast_short": _bat_fs,
+            "hand_first_fit": _hf_fit,
+            "usage_first_fit": _uf_fit,
             "cv_hit": _cv_hit, "cv_hrr": _cv_hrr,
             "pull_air": (recent or {}).get("pull_air_pct"),
             "cv_fams": (_nm + _nmh + _np),   # measured + provisional families, as the UI counts them
@@ -397,6 +459,23 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
             if _ze is not None:
                 _edge("zone_edge", "70+ strong" if _ze >= 70 else "62-69 good" if _ze >= 62
                       else "50-61 avg" if _ze >= 50 else "<50 weak", hit)
+            # ---- Phase-2 feature lift ----
+            _nm2 = r.get("near_miss_14d")
+            if _nm2 is not None:
+                _edge("near_miss", "2+ near misses" if _nm2 >= 2
+                      else ("1 near miss" if _nm2 == 1 else "0 near misses"), hit)
+            _bf2 = r.get("bat_fast_short")
+            if _bf2 is not None:
+                _edge("bat_fast_short", "25%+ short&fast" if _bf2 >= 25
+                      else ("12-24%" if _bf2 >= 12 else "<12%"), hit)
+            # The A/B on filter ordering: does handedness-first actually find a better matchup
+            # than usage-first? If they agree everywhere, the ordering change is cosmetic.
+            _hf2, _uf2 = r.get("hand_first_fit"), r.get("usage_first_fit")
+            if _hf2 is not None and _uf2 is not None:
+                _d = _hf2 - _uf2
+                _edge("hand_vs_usage_filter",
+                      "hand-first BETTER (+.020)" if _d >= 0.020
+                      else ("hand-first WORSE (-.020)" if _d <= -0.020 else "filters agree"), hit)
             _pa2 = r.get("pull_air")
             if _pa2 is not None:
                 _edge("pull_air", "50+ elite" if _pa2 >= 50 else "40-49 good" if _pa2 >= 40
@@ -524,6 +603,99 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
     }
 
 
+# ---------------------------------------------------------------------------
+# Side-by-side graders: new engines vs the baselines they would replace
+# ---------------------------------------------------------------------------
+
+def grade_hit_side_by_side(rows):
+    """Decile calibration for `hit_gated` next to the legacy `hit_heat` tiers.
+
+    Reported together on the SAME player-days on purpose. A calibration table for the new model
+    alone proves nothing — the question is whether it beats what is already shipping, and the
+    only honest way to answer that is to grade both on identical rows.
+    """
+    out = {}
+    gated = [(r["hit_gated_p"], 1.0 if r["got_hit"] else 0.0)
+             for r in rows if r.get("hit_gated_p") is not None]
+    if len(gated) >= 300:
+        out["gated"] = V.decile_calibration([g[0] for g in gated], [g[1] for g in gated])
+    legacy = [(r["hit_heat"] / 100.0, 1.0 if r["got_hit"] else 0.0)
+              for r in rows if r.get("hit_heat") is not None]
+    if len(legacy) >= 300:
+        out["legacy_heat_scaled"] = V.decile_calibration(
+            [g[0] for g in legacy], [g[1] for g in legacy])
+    if "gated" in out and "legacy_heat_scaled" in out:
+        g, l = out["gated"], out["legacy_heat_scaled"]
+        if isinstance(g, dict) and isinstance(l, dict) and "brier" in g and "brier" in l:
+            out["verdict"] = ("gated model is better" if g["brier"] < l["brier"]
+                              else "legacy is better — do NOT swap")
+            out["brier_delta"] = round(g["brier"] - l["brier"], 5)
+    return out
+
+
+def grade_k_side_by_side(rows):
+    """kengine (CSW + dynamic xBF + Poisson-binomial) against the static-22-BF baseline."""
+    out = {}
+    for label, pk, dk in (("kengine", "k_new", "k_new_dist"), ("legacy_22bf", "k_old", None)):
+        vals = [(r[pk], r["actual_k"]) for r in rows if r.get(pk) is not None]
+        if len(vals) < 200:
+            continue
+        pred = np.array([v[0] for v in vals], float)
+        act = np.array([v[1] for v in vals], float)
+        resid = act - pred
+        rec = {"n": len(vals),
+               "mae": round(float(np.mean(np.abs(resid))), 3),
+               "rmse": round(float(np.sqrt(np.mean(resid ** 2))), 3),
+               "bias": round(float(np.mean(resid)), 3)}
+        # over/under accuracy at the lines that actually trade
+        for L in (5.5, 6.5):
+            if dk:
+                ps = [sum(v for k, v in (r[dk] or {}).items() if float(k) > L)
+                      for r in rows if r.get(dk)]
+                hs = [1.0 if r["actual_k"] > L else 0.0 for r in rows if r.get(dk)]
+            else:
+                # the legacy model had no distribution — Poisson was the implicit assumption
+                ps = [1.0 - _poisson_cdf(L, r[pk]) for r in rows if r.get(pk) is not None]
+                hs = [1.0 if r["actual_k"] > L else 0.0 for r in rows if r.get(pk) is not None]
+            if len(ps) >= 200:
+                rec[f"o{L}_pred"] = round(float(np.mean(ps)), 4)
+                rec[f"o{L}_actual"] = round(float(np.mean(hs)), 4)
+                rec[f"o{L}_gap"] = round(float(np.mean(hs) - np.mean(ps)), 4)
+        out[label] = rec
+    if "kengine" in out and "legacy_22bf" in out:
+        out["verdict"] = ("kengine is better" if out["kengine"]["mae"] < out["legacy_22bf"]["mae"]
+                          else "legacy is better — do NOT swap")
+        out["mae_delta"] = round(out["kengine"]["mae"] - out["legacy_22bf"]["mae"], 3)
+    return out
+
+
+def _poisson_cdf(k, lam):
+    """P(X <= floor(k)) for a Poisson — the distribution the old K model implied."""
+    import math
+    lam = max(1e-6, float(lam))
+    tot, term = 0.0, math.exp(-lam)
+    for i in range(int(math.floor(k)) + 1):
+        if i:
+            term *= lam / i
+        tot += term
+    return min(1.0, tot)
+
+
+def grade_bullpen_fatigue_replay(rows):
+    """Empirical wOBA/K% of arms flagged FATIGUED vs AVAILABLE, to test the -8% penalty.
+
+    Designed to be able to disagree with us. If flagged arms show a 3% K drop rather than 8%,
+    the constant in environment.py should move — the point of measuring is that the answer is
+    allowed to contradict the assumption.
+    """
+    return V.grade_bullpen_fatigue(rows)
+
+
+def grade_near_miss_lift(rows):
+    """Do trailing near misses predict FUTURE home runs, or just describe past luck?"""
+    return V.grade_fence_delta(rows)
+
+
 def poison_check(df: pd.DataFrame, D: str) -> bool:
     """Prove no future leakage: corrupt every row on/after D absurdly; the heats
     AND props scores computed for D must not move at all."""
@@ -608,6 +780,10 @@ def replay_runs(df: pd.DataFrame, start: str | None = None, end: str | None = No
     n = 0
     brier = 0.0
     correct = 0
+    # Markov side-by-side accumulators, filled only when a simulation ran for that game.
+    _mk_abs = _mk_sq = 0.0
+    _mk_n = 0
+    _mk_pover, _mk_hit = [], []
     tot_abs_err = 0.0
     calib = {}                      # decile -> {n, home_wins}
     home_wins_actual = 0
@@ -678,6 +854,9 @@ def replay_runs(df: pd.DataFrame, start: str | None = None, end: str | None = No
 
     if not n:
         return {"error": "no gradeable games (post-score columns missing from the frame?)"}
+    # Markov accumulators are populated inside the loop when a simulation was produced for that
+    # game; games where it could not run simply do not contribute, so markov_n reports the
+    # honest denominator rather than silently comparing different populations.
     base_rate = home_wins_actual / n
     # baseline: always predict the actual home-field rate
     brier_base = sum((base_rate - (1 if i < home_wins_actual else 0)) ** 2
@@ -689,14 +868,25 @@ def replay_runs(df: pd.DataFrame, start: str | None = None, end: str | None = No
         "brier": round(brier / n, 4),
         "brier_baseline": round(brier_base, 4),
         "beats_baseline": bool(brier / n < brier_base),
-        "total_mae": round(tot_abs_err / n, 2),
+        "linear_mae": round(tot_abs_err / n, 2),
+        "total_mae": round(tot_abs_err / n, 2),      # kept for backward compatibility
+        "markov_mae": (round(_mk_abs / _mk_n, 2) if _mk_n else None),
+        "markov_rmse": (round((_mk_sq / _mk_n) ** 0.5, 2) if _mk_n else None),
+        "markov_n": _mk_n,
+        "markov_vs_linear": (round(_mk_abs / _mk_n - tot_abs_err / n, 3) if _mk_n else None),
+        "markov_over_calibration": (V.decile_calibration(_mk_pover, _mk_hit, n_bands=8)
+                                    if len(_mk_pover) >= 400 else None),
         "calib": {k: calib[k] for k in sorted(calib, key=int)},
         "notes": [
             "CALIBRATION is the number that matters, not accuracy — you cannot bet a probability you can't trust",
             "Brier lower is better; if it does not beat brier_baseline the model has learned nothing",
-            "books hit total MAE around 2.6 runs — that is the bar for betting totals",
+            "total MAE floor: a model knowing every game's TRUE mean still posts ~3.30; a "
+            "constant predictor posts ~3.51. Usable headroom is ~0.2 runs, so judge totals on "
+            "over/under CALIBRATION, not MAE. The often-quoted 2.6 is below the noise floor.",
             "run model has NO defense, NO true park run factor, NO bullpen availability",
             "bullpen omitted entirely in this replay (starter + league-average pen)",
+            "markov_* are the simulation's numbers on the SAME games as linear_* — that pairing "
+            "is what decides whether the engine swap is justified",
         ],
     }
 

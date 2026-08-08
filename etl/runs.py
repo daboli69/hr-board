@@ -46,6 +46,8 @@ lines are likely the more useful outputs.
 """
 from __future__ import annotations
 
+import os
+
 try:
     from . import markov
 except ImportError:                       # standalone import (tests)
@@ -529,7 +531,11 @@ def _pyth_wp(home_pyth, away_pyth):
 # so this is ~300k inning-simulations per ETL run — a few seconds, well inside the Actions
 # budget. Dropping to 4,000 halves the time and roughly doubles the noise in the extreme tail,
 # which is the part the engine exists to get right.
-MARKOV_SIMS = 10000
+# 2,500 is the live-board default: it holds the mean to about +/-0.06 runs and the body of the
+# distribution well, which is all the board needs. The tail (P of 11+ runs) is the part that
+# stays noisy at this count, so the backtest — where tail accuracy is the thing being graded —
+# raises it via MARKOV_SIMS rather than paying the cost on every six-hourly ETL run.
+MARKOV_SIMS = int(os.environ.get("MARKOV_SIMS", "2500"))
 
 
 def markov_project(home_lineup, away_lineup, home_sp, away_sp,

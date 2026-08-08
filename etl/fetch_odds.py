@@ -647,12 +647,52 @@ def _write(payload: dict) -> None:
         with open(tmp, "w") as f:
             json.dump(payload, f, separators=(",", ":"))
         os.replace(tmp, OUT_PATH)   # atomic on POSIX
+        _archive_odds_snapshot(payload)
     finally:
         try:
             if tmp.exists():
                 tmp.unlink()
         except Exception:
             pass
+
+
+def _archive_odds_snapshot(payload: dict) -> str | None:
+    """Persist each day's prices so ROI becomes gradeable later.
+
+    ROI against closing lines cannot be computed today for a simple reason: nothing retained
+    historical prices. odds.json is overwritten on every fetch and the daily board snapshots
+    carry no odds at all, so there is no record of what a bet would actually have paid.
+
+    This writes one file per slate date, overwriting through the day — the last fetch before
+    first pitch is the closest thing to a closing line the free feeds offer. After roughly six
+    weeks of accumulation `validate.grade_roi()` has real prices to work with. Until then any
+    ROI figure would be reconstructed rather than observed, which is worse than reporting none.
+
+    Deliberately non-fatal: an archive failure must never break the odds fetch the live board
+    depends on.
+    """
+    try:
+        date = payload.get("slate_date") or payload.get("date")
+        if not date:
+            return None
+        out_dir = OUT_PATH.parent / "odds_history"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        path = out_dir / f"{date}.json"
+        keep = {
+            "slate_date": date,
+            "captured_at": payload.get("updated"),
+            "market": payload.get("market"),
+            "books": payload.get("books"),
+            "prices": payload.get("prices"),
+            "props": payload.get("props"),
+            "game_lines": payload.get("game_lines"),
+        }
+        with open(path, "w") as f:
+            json.dump(keep, f, separators=(",", ":"))
+        return str(path)
+    except Exception as e:
+        print(f"[odds] archive skipped (non-fatal): {e}")
+        return None
 
 
 if __name__ == "__main__":
