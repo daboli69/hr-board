@@ -206,38 +206,6 @@ def build(date_str: str | None = None) -> dict:
         except Exception as _e:
             print(f"[build] reliever pitch logs skipped: {_e}")
 
-        # Aggregate each team's bullpen into usable rates + a blended pitch mix. Unavailable
-        # arms are dropped entirely rather than averaged down — those innings genuinely fall to
-        # someone else, so keeping them would describe a bullpen that will not appear.
-        try:
-            for _g in games:
-                for _side in ("home", "away"):
-                    _tm = _g.get(_side)
-                    if not _tm or _tm in pen_state:
-                        continue
-                    _arms = []
-                    for _pid, _log in (pen_logs or {}).items():
-                        _prof = (pstats or {}).get(int(_pid)) or {}
-                        if _prof.get("team") != _tm:
-                            continue
-                        _arms.append({"id": _pid, "pitch_log": _log,
-                                      "k_pct": (_prof.get("k_pct_allowed") or 22.5) / 100.0,
-                                      "bb_pct": (_prof.get("bb_pct_allowed") or 8.5) / 100.0,
-                                      "xwoba": _prof.get("xwobacon_allowed"),
-                                      "leverage": 2,
-                                      "arsenal": ((arsenals.get(int(_pid)) or {}).get("R") or [])})
-                    if _arms:
-                        _st = env_mod.bullpen_state(_arms)
-                        _st["arsenal"] = arsenal_mod.bullpen_arsenal(
-                            [a for a in _arms
-                             if env_mod.reliever_status(a["pitch_log"])[0] != env_mod.UNAVAILABLE])
-                        pen_state[_tm] = _st
-            if pen_state:
-                print(f"[build] bullpen state: {len(pen_state)} teams, "
-                      f"{sum(s.get('n_out', 0) for s in pen_state.values())} arms unavailable")
-        except Exception as _e:
-            print(f"[build] bullpen state skipped: {_e}")
-
         print(f"[build] bat tracking {len(bat_track)} hitters | near-miss {len(near_miss)}")
         print(f"[build] CSW arms {len(csw_map)} | framing {len(framing)} | "
               f"pitch limits {len(pitch_limits)} | velo drops {len(velo_drops)} | "
@@ -408,8 +376,45 @@ def build(date_str: str | None = None) -> dict:
                     _sp_ids.append(_g[_k])
         pstats = statsapi.get_pitcher_stats(_sp_ids) if _sp_ids else {}
         print(f"[build] pitcher season stats: {len(pstats)}/{len(_sp_ids)} starters (ERA/WHIP)")
+
+
+
+
     except Exception as e:
         pstats = {}; _hnote("pitcher stats", e); print(f"[build] pitcher stats skipped: {e}")
+
+    # Aggregate each team's bullpen into usable rates + a blended pitch mix. Unavailable
+    # arms are dropped entirely rather than averaged down — those innings genuinely fall to
+    # someone else, so keeping them would describe a bullpen that will not appear.
+    try:
+        for _g in games:
+            for _side in ("home", "away"):
+                _tm = _g.get(_side)
+                if not _tm or _tm in pen_state:
+                    continue
+                _arms = []
+                for _pid, _log in (pen_logs or {}).items():
+                    _prof = (pstats or {}).get(int(_pid)) or {}
+                    if _prof.get("team") != _tm:
+                        continue
+                    _arms.append({"id": _pid, "pitch_log": _log,
+                                  "k_pct": (_prof.get("k_pct_allowed") or 22.5) / 100.0,
+                                  "bb_pct": (_prof.get("bb_pct_allowed") or 8.5) / 100.0,
+                                  "xwoba": _prof.get("xwobacon_allowed"),
+                                  "leverage": 2,
+                                  "arsenal": ((arsenals.get(int(_pid)) or {}).get("R") or [])})
+                if _arms:
+                    _st = env_mod.bullpen_state(_arms)
+                    _st["arsenal"] = arsenal_mod.bullpen_arsenal(
+                        [a for a in _arms
+                         if env_mod.reliever_status(a["pitch_log"])[0] != env_mod.UNAVAILABLE])
+                    pen_state[_tm] = _st
+        if pen_state:
+            print(f"[build] bullpen state: {len(pen_state)} teams, "
+                  f"{sum(s.get('n_out', 0) for s in pen_state.values())} arms unavailable")
+    except Exception as _e:
+        print(f"[build] bullpen state skipped: {_e}")
+
 
 
     # ---- FEATURE EDGES (parallel track, never touches heat) ----
@@ -1018,10 +1023,6 @@ def build(date_str: str | None = None) -> dict:
             # Props scores — parallel track for the Other Props tab, NEVER touch heat.
             # hrr_heat needs lineup_spot + HR heat; computed as a post-attach step.
             "hit_heat": props.hit_heat(recent, pprof, sprint_speed=(sprint or {}).get(int(bid)))[0],
-            # Contact-gated projection, emitted alongside the anchor score. Gating is
-            # sequential, not additive: contact quality only matters once the at-bat survives
-            # the whiff, which reverses the ranking on high-xBA/high-whiff hitters.
-            "hit_gated": _gated_hit_for(bid, recent, pprof, p),
             "bat_tracking": (bat_track.get(int(bid)) if bat_track else None),
             "near_miss": (near_miss.get(int(bid)) if near_miss else None),
             "k_heat_bat": props.k_heat_hitter(recent, pprof)[0],
@@ -1031,6 +1032,22 @@ def build(date_str: str | None = None) -> dict:
             "windows": prof.get("windows", {}),
             "hr_recent": {w: prof.get("windows", {}).get(w, {}).get("hr") for w in ("L5", "L15", "L30")},
         })
+
+    # Contact-gated hit projection. Runs as a POST-ATTACH step because it needs the assembled
+    # row — handedness, opposing arm, lineup spot, vs_pitch and the trailing window all live on
+    # the player record, and none of them exist while the dict literal is still being built.
+    # (An earlier version tried to pass the row into its own literal, which is impossible and
+    # crashed the whole build with an UnboundLocalError.)
+    for _pl in players:
+        try:
+            _bid = int(_pl.get("id") or 0)
+            _rec = (_pl.get("windows") or {}).get("L14d") or {}
+            _pp = (_pl.get("opp_pitcher") or {}).get("profile") or {}
+            _pl["hit_gated"] = _gated_hit_for(_bid, _rec, _pp, _pl)
+        except Exception as _e:
+            _pl["hit_gated"] = None
+    _ng = sum(1 for _pl in players if _pl.get("hit_gated"))
+    print(f"[build] contact-gated hit projections: {_ng}/{len(players)}")
 
     players.sort(key=lambda p: p["heat"], reverse=True)
 
