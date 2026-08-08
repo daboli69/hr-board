@@ -23,6 +23,35 @@ except ImportError:                            # standalone / test import
 
 NEAR_MISS_FT = 5.0        # within 5 ft of the wall counts as a near miss
 
+# The Statcast frame carries `home_team` (a 3-letter abbreviation), not a park name — but the
+# fence geometry is keyed by park name. Without this bridge `near_miss_log` finds no venue on
+# any row and silently returns nothing, which is exactly what produced "near-miss 0" on a
+# build where every other geometry call worked.
+TEAM_PARK = {
+    "ARI": "Chase Field", "AZ": "Chase Field", "ATL": "Truist Park",
+    "BAL": "Oriole Park at Camden Yards", "BOS": "Fenway Park", "CHC": "Wrigley Field",
+    "CWS": "Rate Field", "CHW": "Rate Field", "CIN": "Great American Ball Park",
+    "CLE": "Progressive Field", "COL": "Coors Field", "DET": "Comerica Park",
+    "HOU": "Daikin Park", "KC": "Kauffman Stadium", "KCR": "Kauffman Stadium",
+    "LAA": "Angel Stadium", "LAD": "Dodger Stadium", "MIA": "loanDepot park",
+    "MIL": "American Family Field", "MIN": "Target Field", "NYM": "Citi Field",
+    "NYY": "Yankee Stadium", "OAK": "Sutter Health Park", "ATH": "Sutter Health Park",
+    "PHI": "Citizens Bank Park", "PIT": "PNC Park", "SD": "Petco Park", "SDP": "Petco Park",
+    "SF": "Oracle Park", "SFG": "Oracle Park", "SEA": "T-Mobile Park",
+    "STL": "Busch Stadium", "TB": "George M. Steinbrenner Field",
+    "TBR": "George M. Steinbrenner Field", "TEX": "Globe Life Field",
+    "TOR": "Rogers Centre", "WSH": "Nationals Park", "WSN": "Nationals Park",
+}
+
+
+def park_for_row(row, venue_col="venue"):
+    """Resolve a park name from a Statcast row: explicit venue first, else the home team."""
+    v = row.get(venue_col) if hasattr(row, "get") else None
+    if v:
+        return v
+    ht = row.get("home_team") if hasattr(row, "get") else None
+    return TEAM_PARK.get(str(ht).upper()) if ht else None
+
 
 def spray_angle_deg(hc_x, hc_y, stand=None):
     """Statcast hit coordinates -> spray angle in degrees.
@@ -75,7 +104,7 @@ def is_near_miss(venue, hc_x, hc_y, hit_distance, was_hr=False, tol=NEAR_MISS_FT
 
 def near_miss_log(df, batter_ids, venue_col="venue", days=14, asof=None):
     """{bid: {"near": n, "cleared": n, "avg_delta": x, "best_delta": x}} over a trailing window."""
-    need = {"batter", "hc_x", "hc_y", "hit_distance_sc"}
+    need = {"batter", "hc_x", "hc_y", "hit_distance_sc"}   # venue resolved via home_team
     if df is None or df.empty or not need.issubset(df.columns):
         return {}
     d = df[df["hit_distance_sc"].notna()]
@@ -91,7 +120,7 @@ def near_miss_log(df, batter_ids, venue_col="venue", days=14, asof=None):
             continue
         deltas, near, cleared = [], 0, 0
         for _, r in g.iterrows():
-            venue = r.get(venue_col)
+            venue = park_for_row(r, venue_col)
             if not venue:
                 continue
             dd = fence_delta(venue, r.get("hc_x"), r.get("hc_y"), r.get("hit_distance_sc"))

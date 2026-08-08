@@ -1787,8 +1787,8 @@ def build(date_str: str | None = None) -> dict:
                 _pbvals = []
                 for _x in players:
                     _v2 = _x.get("vs_pitch") or {}
-                    _pn = sum((_r[8] or 0) for _r in _v2.values() if len(_r) == 12)
-                    _bn = sum((_r[4] or 0) for _r in _v2.values() if len(_r) == 12)
+                    _pn = sum((_r[8] or 0) for _r in _v2.values() if len(_r) > 8)
+                    _bn = sum((_r[4] or 0) for _r in _v2.values() if len(_r) > 8)
                     if _bn >= 60:
                         _pbvals.append(100.0 * _pn / _bn)
                 _LAUNCH_CUT["pull_barrel"] = _pctl_cut(_pbvals)
@@ -1882,8 +1882,8 @@ def build(date_str: str | None = None) -> dict:
                     # home run as a batted ball gets. Aggregated across every pitch type he's seen.
                     try:
                         _vp2 = _p.get("vs_pitch") or {}
-                        _pb = sum((_v[8] or 0) for _v in _vp2.values() if len(_v) == 12)
-                        _bb2 = sum((_v[4] or 0) for _v in _vp2.values() if len(_v) == 12)
+                        _pb = sum((_v[8] or 0) for _v in _vp2.values() if len(_v) > 8)
+                        _bb2 = sum((_v[4] or 0) for _v in _vp2.values() if len(_v) > 8)
                         if _bb2 >= 60:
                             _pbr = round(100.0 * _pb / _bb2, 1)
                             _p["pull_barrel_pct"] = _pbr
