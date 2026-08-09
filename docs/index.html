@@ -136,6 +136,10 @@
   .vm-sl{font-family:"IBM Plex Mono";font-size:8.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.03em}
   .vm-sv{font-family:"IBM Plex Mono";font-weight:700;font-size:15px;margin-top:3px}
   .vm-s.hot .vm-sv{color:var(--seam)}
+  .f5-wrap{display:flex;gap:8px;align-items:baseline;margin:6px 0;font-size:12px}
+  .f5-tag{font-family:"IBM Plex Mono";font-size:9px;font-weight:800;background:var(--panel-3);color:var(--seam);border-radius:4px;padding:2px 6px}
+  .f5-txt{color:var(--muted);line-height:1.5} .f5-txt b{color:var(--ink)}
+  .f5-txt i{font-style:normal;color:var(--faint);font-family:"IBM Plex Mono";font-size:10px;margin-left:4px}
   .bt2-wrap{padding:2px 0 4px}
   .mk-wrap{margin:8px 0;background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:8px 10px}
   .mk-wrap summary{font-family:"IBM Plex Mono";font-size:10px;color:var(--seam);cursor:pointer;list-style:none}
@@ -8424,6 +8428,21 @@ function propsScore(p,view){
 // which is what actually decides an over/under at a posted line. Shown alongside the linear
 // total rather than replacing it, because the win-probability path is calibrated on the linear
 // number — a silent swap would invalidate that calibration with no way to notice.
+// First 5 innings. A separate market from the full game and a materially different question:
+// the bullpen is out of it, so the starter is the whole bet. The projections were being
+// computed and shipped but never displayed, which made F5 invisible in an app that models it.
+function f5Block(g){
+  if(g.f5_home==null||g.f5_away==null) return "";
+  const wp=g.f5_home_wp;
+  const tot=(g.f5_home+g.f5_away).toFixed(2);
+  const fav=g.f5_home>g.f5_away?g.home:g.away;
+  return `<div class="f5-wrap">
+    <span class="f5-tag">F5</span>
+    <span class="f5-txt">${g.away} <b>${g.f5_away.toFixed(2)}</b> — <b>${g.f5_home.toFixed(2)}</b> ${g.home}
+      · total <b>${tot}</b>${wp!=null?` · ${g.home} <b>${Math.round(100*wp)}%</b>`:""}
+      ${wp!=null?`<i>fair ${fmtAm(americanFair(g.f5_home>g.f5_away?wp:1-wp))}</i>`:""}</span>
+  </div>`;
+}
 function markovBlock(g){
   const m=g&&g.markov; if(!m||!m.total_dist) return "";
   const d={}; Object.keys(m.total_dist).forEach(k=>d[+k]=m.total_dist[k]);
@@ -8603,6 +8622,7 @@ function renderProps(){
       }
       return `<div class="ml-row" style="background:${bg}">
         <div class="ml-head"><b>${g.away} @ ${g.home}</b><span class="ml-time">${timeStr(g.time)}</span></div>
+        ${f5Block(g)}
         ${markovBlock(g)}
         ${whyBlock(g)}
         <div class="ml-sp">${g.away_sp||"?"} vs ${g.home_sp||"?"}${g.park?` · ${g.park}`:""}${g.park_run_src?` · <span class="ml-src${g.park_run_src==='bpp_runs'?'':' est'}">${g.park_run_src==='bpp_runs'?'true run factor':'est. run factor'}</span>`:""}${(((g.home_breakdown||{}).platoon_spots||0)+((g.away_breakdown||{}).platoon_spots||0))>0?` <span class="ml-src">platoon-adj</span>`:""}${(Math.abs((g.home_breakdown||{}).opp_def||0)+Math.abs((g.away_breakdown||{}).opp_def||0))>0.15?` <span class="ml-src">defense-adj</span>`:""}</div>
