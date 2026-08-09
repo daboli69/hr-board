@@ -228,7 +228,6 @@ def simulate_team_runs(lineup_events, n_sims=10000, innings=9, seed=None,
         for _ in range(innings):
             st.reset()
             while st.outs < 3:
-                turn = faced // n                       # times through the order
                 tbl = sp_cdf if faced < sp_batters else pen_cdf
                 keys, cum = tbl[spot]
                 r = rng.random()
@@ -248,8 +247,6 @@ def simulate_team_runs(lineup_events, n_sims=10000, innings=9, seed=None,
 
 def game_totals(home_dist, away_dist):
     """Convolve two independent team run distributions into the game total distribution."""
-    hk = max(home_dist) if home_dist else 0
-    ak = max(away_dist) if away_dist else 0
     out = {}
     for h, ph in home_dist.items():
         for a, pa in away_dist.items():

@@ -166,7 +166,6 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str, asof: "V.AsOfFrame
     # built from data STRICTLY BEFORE the current date, so this is more conservative than daily
     # recomputation, never leaky.
     _ZCACHE = globals().setdefault("_BT_ZCACHE", {})
-    _zc_day = globals().get("_BT_ZCACHE_DAY")
     _day_ix = globals().setdefault("_BT_DAY_IX", {"n": 0})
     _day_ix["n"] += 1
     if _day_ix["n"] % 7 == 1:            # refresh weekly
@@ -335,23 +334,47 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str, asof: "V.AsOfFrame
                 _bat_fs = None
 
             # Handedness-FIRST vs usage-first arsenal fit — the A/B that proves the ordering
-            # change matters. Same hitter, same arm, two different filters.
+            # change is real rather than cosmetic.
+            #
+            # The first version of this block guarded on `"_ars_by_sp_hand" in dir()`, which is
+            # always False inside a function: dir() with no argument returns the CURRENT local
+            # names, and that variable never existed. The guard silently swallowed the whole
+            # test, so it reported nothing while looking like it worked. pyflakes caught it.
+            #
+            # Rebuilt against `_ars_by_sp`, which is the per-(pitcher, batter-hand) usage table
+            # this replay actually populates.
             _hf_fit = _uf_fit = None
             try:
                 _sp2 = face.get(bid)
-                _byh = _ars_by_sp_hand.get(_sp2) if "_ars_by_sp_hand" in dir() else None
-                if _sp2 and _byh and _bh:
-                    _hf = arsenal_mod.handedness_first_arsenal(_byh, _bh)
-                    _uf = [p for p in (_byh.get("_all") or []) if float(p[1]) >= 10.0]
-                    _vp3 = _vp if "_vp" in dir() else None
-                    if _hf and _vp3:
-                        _s1 = hitmodel.PitchShapeSplits(_hf, _vp3)
-                        _hf_fit = _s1.xba_on_contact() if _s1.ok() else None
-                    if _uf and _vp3:
-                        _s2 = hitmodel.PitchShapeSplits(_uf, _vp3)
-                        _uf_fit = _s2.xba_on_contact() if _s2.ok() else None
+                if _sp2 and _bh:
+                    _side = _ars_by_sp.get((_sp2, _bh)) or []
+                    # usage-first: pool BOTH hands, then apply the 10% bar — this is the
+                    # ordering the change replaced, and it is what hides platoon-only pitches
+                    _pooled = {}
+                    for _h2 in ("R", "L"):
+                        for _pt2, _u2 in (_ars_by_sp.get((_sp2, _h2)) or []):
+                            _pooled[_pt2] = _pooled.get(_pt2, 0.0) + float(_u2)
+                    _tot2 = sum(_pooled.values()) or 1.0
+                    _uf = [(k, 100.0 * v / _tot2) for k, v in _pooled.items()
+                           if 100.0 * v / _tot2 >= 10.0]
+                    _hf = [(k, u) for k, u in _side if float(u) >= 10.0]
+                    def _fit_for(sel):
+                        """Batter's hits-per-ball-in-play on just these pitch types, as-of."""
+                        if not sel or "pitch_type" not in _brows2.columns:
+                            return None
+                        _pts = {p2[0] for p2 in sel}
+                        _sub = _brows2[_brows2["pitch_type"].isin(_pts)]
+                        if "bb_type" in _sub.columns:
+                            _sub = _sub[_sub["bb_type"].notna()]
+                        if len(_sub) < 25 or "events" not in _sub.columns:
+                            return None
+                        _ev2 = _sub["events"].astype(str)
+                        _hits2 = int(_ev2.isin({"single", "double", "triple", "home_run"}).sum())
+                        return round(_hits2 / len(_sub), 4)
+                    _hf_fit = _fit_for(_hf)
+                    _uf_fit = _fit_for(_uf)
             except Exception:
-                pass
+                _hf_fit = _uf_fit = None
 
             _bset = {str(b).lower() for b in badge_keys}
             _nmh = (1 if heat >= 40 else 0)                 # HR heat band as a measured signal

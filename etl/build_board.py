@@ -257,8 +257,8 @@ def build(date_str: str | None = None) -> dict:
         pen_avail = statcast_data.bullpen_availability(df, date_str, roles=p_roles)
         pens_avail = statcast_data.bullpen_profiles_available(df, date_str, pen_avail, roles=p_roles)
         _gassed = [t for t, v in pen_avail.items() if v.get("label") == "GASSED"]
-        print(f"[build] bullpen availability: {len(pen_avail)} pens analyzed"
-              f"{f' — GASSED: {', '.join(sorted(_gassed))}' if _gassed else ''}")
+        _gassed_txt = (" — GASSED: " + ", ".join(sorted(_gassed))) if _gassed else ""
+        print(f"[build] bullpen availability: {len(pen_avail)} pens analyzed{_gassed_txt}")
     except Exception as e:
         pen_avail, pens_avail = {}, {}
         _hnote("bullpen availability", e); print(f"[build] bullpen availability skipped: {e}")
@@ -1044,7 +1044,7 @@ def build(date_str: str | None = None) -> dict:
             _rec = (_pl.get("windows") or {}).get("L14d") or {}
             _pp = (_pl.get("opp_pitcher") or {}).get("profile") or {}
             _pl["hit_gated"] = _gated_hit_for(_bid, _rec, _pp, _pl)
-        except Exception as _e:
+        except Exception:
             _pl["hit_gated"] = None
     _ng = sum(1 for _pl in players if _pl.get("hit_gated"))
     print(f"[build] contact-gated hit projections: {_ng}/{len(players)}")

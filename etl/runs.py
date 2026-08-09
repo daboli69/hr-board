@@ -635,11 +635,9 @@ def project_game(home_lineup, away_lineup, home_sp, away_sp,
     hwp = win_prob(home_r, away_r)
     # Blend toward the season-long team-quality prior (run differential, not W-L).
     _pw = _pyth_wp(home_pyth, away_pyth)
-    _pyth_used = False
     if _pw is not None:
         _pw_home = _pw + (EXTRA_INNING_HOME_WP - 0.50) * 0.5   # prior is neutral-site
         hwp = (1 - PYTH_WEIGHT) * hwp + PYTH_WEIGHT * min(0.85, max(0.15, _pw_home))
-        _pyth_used = True
     f5_home = first5_runs(home_lineup, away_sp, park_mult, is_home=True, lineup_hands=home_hands,
                           opp_def=away_def, first_inn=away_first_inn)
     f5_away = first5_runs(away_lineup, home_sp, park_mult, is_home=False, lineup_hands=away_hands,
