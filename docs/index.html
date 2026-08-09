@@ -6836,6 +6836,27 @@ function _propTierName(score){
   for(const [n,lo,hi] of _PROP_TIERS){ if(score>=lo && score<hi) return n; }
   return "<40";
 }
+// Per-player probability for a prop, preferring the real model over the tier average.
+//
+// `calibratedPropProb` returns the whole TIER's historical rate, so every hitter in a band gets
+// an identical number — a Tier 1 board where all twenty players read 63% is not twenty
+// estimates, it is one estimate shown twenty times. That is fine as a calibration reference and
+// useless for choosing between hitters.
+//
+// The contact-gated model already produces a genuine per-player number (258 distinct values
+// across 270 hitters), so it is used when present. `smoothPropProb` is the fallback: it
+// interpolates the calibrated tier rates across the continuous score, which at least separates
+// players within a band. The flat tier rate is the last resort.
+function playerPropProb(kind, p, score){
+  if(kind==="hit1"){
+    const g = p && p.hit_gated && p.hit_gated.p_hit;
+    if(g!=null && isFinite(g)) return g;
+  }
+  const sm = smoothPropProb(kind, score);
+  if(sm!=null) return sm;
+  return calibratedPropProb(kind, score);
+}
+
 function calibratedPropProb(kind, score){
   if(score==null) return null;
   const P = BACKTEST && BACKTEST.props && BACKTEST.props[kind];
@@ -6990,7 +7011,7 @@ function allPropEV(){
   // HITS — calibrated P(1+ hit) vs the 0.5 line
   players.forEach(p=>{
     if(p.lineup_status==="out") return;
-    const pr=calibratedPropProb("hit1", p.hit_heat);
+    const pr=playerPropProb("hit1", p, p.hit_heat);
     const e=fetchedPropFor("hit", p.name);
     if(pr==null||!e) return;
     const best=propEV(pr, e.over, e.under);
@@ -8737,14 +8758,17 @@ function renderProps(){
     }[propsView];
     const rows=scored.map((p,i)=>{
       const sc=propsScore(p,propsView);
-      const prob=smoothPropProb(kind,sc);
+      // The headline number a person actually reads. It has to be the per-player estimate, not
+      // the tier average — otherwise the whole of Tier 1 shows one figure and the card cannot
+      // help you choose between the hitters in it.
+      const prob=playerPropProb(kind, p, sc);
       const bg=propsCardColor(sc);
       const tag = sc>=70?"TIER 1": sc>=55?"TIER 2": sc>=40?"TIER 3":"low";
       const armForm=(p.opp_pitcher&&p.opp_pitcher.form)?p.opp_pitcher.form.label:"";
       const whatFires = propsView==="hrr" ? "to clear 1.5 HRR" : "to get 1+ hit";
       // calibrated fair odds so you can compare to a book
-      const pr = propsView==="hit" ? calibratedPropProb("hit1", sc)
-               : propsView==="hrr" ? calibratedPropProb("hrr", sc) : null;
+      const pr = propsView==="hit" ? playerPropProb("hit1", p, sc)
+               : propsView==="hrr" ? playerPropProb("hrr", p, sc) : null;
       const fairLine = pr!=null
         ? `<div class="prop-fair">fair <b>${americanFair(pr)}</b> — bet the OVER only if the book pays longer</div>`
         : "";
