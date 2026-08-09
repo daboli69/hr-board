@@ -85,6 +85,18 @@ jobs:
           python tests/check_dead_fields.py 2>&1 | tee -a $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
+      # Renders every reachable screen against the live board and reports which ones show the
+      # same players for the same prop. The category that matters is CONFLICT: two screens
+      # ranking the same thing with different players means two probability functions and only
+      # one right answer. Non-blocking — this is a design report, not a correctness gate.
+      - name: View audit (duplicate / conflicting screens)
+        continue-on-error: true
+        run: |
+          echo "## View audit" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          node tests/audit_views.js 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
       - name: Fail if scope errors were found
         if: steps.flakes.outputs.scope_failed == 'true'
         run: |
