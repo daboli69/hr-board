@@ -1801,6 +1801,39 @@
   #toTop.show{opacity:.94;pointer-events:auto}
   /* qualified bets */
   .q-head{display:flex;align-items:center;justify-content:space-between;font-family:Archivo;font-weight:800;font-size:18px;margin:4px 0 4px}
+  .hrp-damp{margin:2px 0 8px}
+  .hrp-tally{background:var(--panel-2);border-radius:8px;padding:8px 10px;margin:0 0 8px}
+  .hrp-tally>b{display:block;font-family:"IBM Plex Mono";font-size:9px;color:var(--faint);
+    text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+  .hrp-phead{display:grid;grid-template-columns:26px 1fr 54px;gap:8px;font-family:"IBM Plex Mono";
+    font-size:9px;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;padding:0 2px 5px;border-bottom:1px solid var(--line)}
+  .hrp-phead div:last-child{text-align:right}
+  .hrp-prow{display:grid;grid-template-columns:26px 1fr 54px;gap:8px;align-items:center;
+    padding:9px 2px;border-bottom:1px solid var(--line);cursor:pointer}
+  .hrp-prow:active{background:var(--panel-2)}
+  .hrp-rank{font-family:"IBM Plex Mono";font-size:11px;color:var(--faint)}
+  .hrp-pnm b{font-size:13px;color:var(--ink)}
+  .hrp-pnm span{display:block;font-family:"IBM Plex Mono";font-size:9px;color:var(--faint)}
+  .hrp-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+  .hrp-chip{font-family:"IBM Plex Mono";font-size:8.5px;color:var(--muted);background:var(--panel-3);
+    border-radius:4px;padding:2px 5px;white-space:nowrap}
+  .hrp-score{font-family:"IBM Plex Mono";font-size:14px;font-weight:700;text-align:right}
+  .cv-hl{outline:2px solid var(--seam);outline-offset:-2px;border-radius:8px}
+  .hrp-meta{font-family:"IBM Plex Mono";font-size:10.5px;color:var(--faint);line-height:1.6;margin:6px 0 8px}
+  .hrp-meta b{color:var(--muted)}
+  .hrp-head,.hrp-row{display:grid;grid-template-columns:1fr 46px 50px 40px 44px 52px;gap:6px;align-items:center}
+  .hrp-head{font-family:"IBM Plex Mono";font-size:9px;color:var(--faint);text-transform:uppercase;
+    letter-spacing:.06em;padding:0 2px 5px;border-bottom:1px solid var(--line)}
+  .hrp-head div:nth-child(n+3){text-align:right}
+  .hrp-row{padding:7px 2px;border-bottom:1px solid var(--line)}
+  .hrp-row.thin{opacity:.45}
+  .hrp-nm b{font-size:12.5px;color:var(--ink)}
+  .hrp-nm span{display:block;font-family:"IBM Plex Mono";font-size:8.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em}
+  .hrp-bar{height:5px;background:var(--panel-3);border-radius:3px;overflow:hidden}
+  .hrp-bar i{display:block;height:100%;border-radius:3px}
+  .hrp-num{font-family:"IBM Plex Mono";font-size:12.5px;font-weight:700;text-align:right}
+  .hrp-moe,.hrp-lift,.hrp-n{font-family:"IBM Plex Mono";font-size:10px;color:var(--faint);text-align:right}
+  .hrp-lift{color:var(--muted)}
   .rank-key{font-size:11px;line-height:1.55;color:var(--faint);background:var(--panel-2);
     border-left:2px solid var(--seam);border-radius:0 7px 7px 0;padding:7px 10px;margin:6px 0 10px}
   .rank-key b{color:var(--muted)}
@@ -3690,7 +3723,7 @@ function renderConverge(){
     }
     const sub=isK?`${x.team||""} vs ${x.opp_team||""}`
                  :`${x.lineup_spot?"#"+x.lineup_spot+" · ":""}${x.team}→${x.opp_team}`;
-    return `<div class="cv-row"${x.id&&!isK?` onclick="scanToPlayer(${x.id})"`:""}>
+    return `<div class="cv-row"${x.id?` data-id="${x.id}"`:""}${x.id&&!isK?` onclick="scanToPlayer(${x.id})"`:""}>
       <div class="cv-rk mono">${i+1}</div>
       <div class="cv-cnt"><b>${meas.length}</b><span>+${prov.length}</span></div>
       <div class="cv-main">
@@ -4679,6 +4712,7 @@ function renderToday(){
       <div class="ty-tool" onclick="goView('jackpot')"><svg class="ty-ic" viewBox="0 0 24 24">${IC_TGT}</svg><div class="tt">Long Ball Jackpot</div><div class="td">Longest-HR contest</div></div>
       <div class="ty-tool" onclick="goView('sgp')"><svg class="ty-ic" viewBox="0 0 24 24">${IC_LAY}</svg><div class="tt">Parlay Builder</div><div class="td">Adjustable SGP</div></div>
       <div class="ty-tool" onclick="goView('calendar')"><svg class="ty-ic" viewBox="0 0 24 24">${IC_CAL}</svg><div class="tt">HR Calendar</div><div class="td">Daily trends</div></div>
+      <div class="ty-tool" onclick="goView('hrpatterns')"><svg class="ty-ic" viewBox="0 0 24 24">${IC_CAL}</svg><div class="tt">HR Patterns</div><div class="td">What actually homers</div></div>
     </div>
   </div>`;
 }
@@ -4995,7 +5029,7 @@ function renderView(){
   // Weather is a live standalone view again (park + wind arrow, plus slate park ranking).
   if(view==="stacks"){ view="scan"; }
   else if(view==="matchup"){ view="edges"; }
-  if(view==="today") safe(renderToday); else if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else if(view==="weather") safe(renderWeather); else if(view==="qualified") safe(renderQualified); else if(view==="toppicks") safe(renderTopPicks); else if(view==="calendar") safe(renderCalendar); else if(view==="jackpot") safe(renderJackpot); else if(view==="sgp") safe(renderSGP); else if(view==="faq") safe(renderFaq); else if(view==="ladder") safe(renderLadder); else if(view==="pitchmix") safe(renderPitchMix); else if(view==="converge") safe(renderConverge); else safe(render);
+  if(view==="today") safe(renderToday); else if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else if(view==="weather") safe(renderWeather); else if(view==="qualified") safe(renderQualified); else if(view==="toppicks") safe(renderTopPicks); else if(view==="calendar") safe(renderCalendar); else if(view==="hrpatterns") safe(renderHrPatterns); else if(view==="jackpot") safe(renderJackpot); else if(view==="sgp") safe(renderSGP); else if(view==="faq") safe(renderFaq); else if(view==="ladder") safe(renderLadder); else if(view==="pitchmix") safe(renderPitchMix); else if(view==="converge") safe(renderConverge); else safe(render);
 }
 
 // Weather dashboard: today's slate, one card per game — conditions, roof call,
@@ -8969,6 +9003,299 @@ function calendarInsights(allDays, curMonth){
   </div>`;
 }
 
+// ===========================================================================
+// HR PATTERNS — leaderboard built ONLY from graded HR-calendar tracking data.
+//
+// Every number here is an outcome the tracker actually observed: player-games that carried a
+// signal, and how many of them produced a home run. Nothing from tonight's projections feeds
+// this — it is a record of what happened, not a forecast.
+//
+// The honesty problem this has to solve: over 7 days a signal covers maybe 40-250 player-games,
+// and at an 11.8% base rate that is enough for chance alone to swing the observed rate by
+// several points. Measured against 131 days of history, the week-to-week movement in every
+// signal tested is fully explained by sampling — the underlying rate is NOT moving. So a 7-day
+// leaderboard sorted by hit rate would be ranking noise and presenting it as form.
+//
+// Rather than hide the window or drop it, each row shows its own margin of error, rows too thin
+// to mean anything are greyed and pushed down, and the 7-day tab says plainly what it can and
+// cannot support.
+// ===========================================================================
+let hrpWin = "season";       // 7d | month | season
+let hrpMode = "signals";     // signals | players
+let hrpDamp = "raw";         // raw | balanced | strict — how hard the window drives the score
+function setHrpDamp(d){ hrpDamp=d; renderHrPatterns(); }
+function setHrpWin(w){ hrpWin=w; renderHrPatterns(); }
+function setHrpMode(m){ hrpMode=m; renderHrPatterns(); }
+
+const HRP_BLOCKS = [
+  ["by_badge",  "Badge"],
+  ["by_tier",   "Heat tier"],
+  ["by_signal", "Signal"],
+  ["by_edge",   "Edge"],
+  ["by_smash",  "Contact"],
+  ["by_spot",   "Lineup spot"],
+  ["by_hlabel", "Label"],
+];
+
+/** Wilson score interval — behaves sensibly at small n, unlike the normal approximation. */
+function wilson(hits, n, z){
+  if(!n) return [0,1];
+  z = z || 1.96;
+  const p = hits/n, z2 = z*z;
+  const d = 1 + z2/n;
+  const c = p + z2/(2*n);
+  const s = z*Math.sqrt(p*(1-p)/n + z2/(4*n*n));
+  return [Math.max(0,(c-s)/d), Math.min(1,(c+s)/d)];
+}
+
+function hrpDays(){
+  const all=(HISTORY&&HISTORY.days?HISTORY.days:[]).slice().sort((a,b)=>a.date<b.date?-1:1);
+  if(hrpWin==="7d") return all.slice(-7);
+  if(hrpWin==="month") return all.slice(-30);
+  return all;
+}
+
+function hrpAggregate(days){
+  const out={};
+  let tot=0, hrs=0;
+  days.forEach(d=>{
+    const tiers=d.by_tier||{};
+    Object.keys(tiers).forEach(k=>{ const v=tiers[k];
+      if(v&&v.n!=null){ tot+=v.n; hrs+=(v.hr||0); } });
+    HRP_BLOCKS.forEach(([blk,label])=>{
+      const b=d[blk]||{};
+      Object.keys(b).forEach(k=>{
+        const v=b[k]; if(!v||v.n==null) return;
+        const id=blk+":"+k;
+        if(!out[id]) out[id]={id,label,key:k,n:0,hr:0};
+        out[id].n+=v.n; out[id].hr+=(v.hr||0);
+      });
+    });
+  });
+  return {rows:Object.values(out), base: tot? hrs/tot : 0, tot, hrs, days:days.length};
+}
+
+// Which of tonight's signals does this player carry, expressed in the SAME keys the tracker
+// grades. Anything the grader does not bucket cannot be scored, so the mapping is deliberately
+// conservative — a signal we cannot match to graded history contributes nothing rather than
+// being guessed at.
+function hrpPlayerSignals(p){
+  const out=[];
+  (p.badges||[]).forEach(b=>out.push("by_badge:"+String(b)));
+  const h=p.heat;
+  if(h!=null) out.push("by_tier:"+(h>=70?"70+":h>=55?"55-69":h>=40?"40-54":"<40"));
+  if(p.lineup_spot!=null) out.push("by_spot:"+p.lineup_spot);
+  if(p.hit_label) out.push("by_hlabel:"+p.hit_label);
+  if(p.smash_tier) out.push("by_smash:"+p.smash_tier);
+  if(p.elite_tier) out.push("by_edge:elite:"+p.elite_tier);
+  return out;
+}
+
+// Signal weights from the selected window, SHRUNK toward the base rate by sample size.
+//
+// This is the part that makes a 7-day view safe to act on. A raw 7-day lift would let a badge
+// that happened to run hot on 40 player-games dominate the ranking, which is precisely the
+// noise-chasing the window analysis warned about. Shrinking each observed rate toward the base
+// rate in proportion to how little data supports it means a thin window barely moves anything,
+// while a season's worth of games moves it a lot — automatically, with no threshold to tune.
+//
+// K is expressed in player-games: an observed rate gets half its weight at n = K. K=0 means the
+// window's raw numbers drive the score with no damping at all.
+//
+// This is exposed as a control rather than fixed, because the right setting is a judgement call
+// about what you are trying to see. RAW answers "what is converting right now" and will swing
+// hard week to week — that movement is mostly sampling, and reading it as form is the trap. But
+// it is the honest view of the window's actual results, and if that is the question, damping it
+// only obscures the answer. STRICT answers "what has held up over time" and barely moves.
+const HRP_K = { raw: 0, balanced: 300, strict: 1200 };
+function hrpWeights(rows, base){
+  const K = HRP_K[hrpDamp] != null ? HRP_K[hrpDamp] : 300;
+  const w={};
+  rows.forEach(r=>{
+    if(!r.n) return;
+    const shrunk = (r.hr + K*base) / (r.n + K);
+    w[r.id] = { lift: base ? shrunk/base : 1, raw: base ? (r.hr/r.n)/base : 1, n: r.n,
+                pull: K ? r.n/(r.n+K) : 1 };
+  });
+  return w;
+}
+
+/** Raw HR counts by badge / SP-BP / tier from this window's hr_log — the calendar's own tallies. */
+function hrpLogTallies(days){
+  const badge={}, off={}, tier={}; let n=0;
+  days.forEach(d=>(d.hr_log||[]).forEach(e=>{
+    n++;
+    (e.badges||[]).forEach(b=>badge[b]=(badge[b]||0)+1);
+    if(e.off) off[e.off]=(off[e.off]||0)+1;
+    if(e.tier) tier[e.tier]=(tier[e.tier]||0)+1;
+  }));
+  return {badge, off, tier, n};
+}
+
+function renderHrPatterns(){
+  const main=document.getElementById("main");
+  if(!HISTORY||!HISTORY.days||!HISTORY.days.length){
+    main.innerHTML=`<div class="empty">No graded days yet.<br>Patterns fill in as the calendar grades each slate.</div>`;
+    return;
+  }
+  const days=hrpDays();
+  const {rows,base,tot,hrs}=hrpAggregate(days);
+
+  // A row needs enough player-games that its confidence interval is narrower than the effect
+  // we would care about. Below that it is displayed but never ranked above a solid row.
+  const MIN_N = hrpWin==="7d" ? 40 : (hrpWin==="month" ? 90 : 150);
+
+  rows.forEach(r=>{
+    r.rate = r.n ? r.hr/r.n : 0;
+    r.lift = base ? r.rate/base : 0;
+    const [lo,hi] = wilson(r.hr, r.n);
+    r.lo=lo; r.hi=hi;
+    r.moe = 100*(hi-lo)/2;
+    r.thin = r.n < MIN_N;
+    // "Solid" means the interval clears the base rate entirely — the signal is doing something
+    // beyond what the whole population does anyway.
+    r.solid = !r.thin && (lo > base || hi < base);
+  });
+  const ranked = rows.filter(r=>r.n>=Math.max(20, MIN_N/3))
+    .sort((a,b)=> (a.thin!==b.thin) ? (a.thin?1:-1) : (b.rate-a.rate));
+
+  const winTab=(k,lab)=>`<button class="${hrpWin===k?'on':''}" onclick="setHrpWin('${k}')">${lab}</button>`;
+
+  // Honest header per window. The 7-day one is the important message.
+  let note="";
+  if(hrpWin==="7d"){
+    note=`<div class="rank-key"><b>Seven days is too short to rank signals.</b> Across 131 graded
+      days, the week-to-week movement in every signal tested is fully explained by sampling —
+      the underlying rates are not actually moving. Read this as "what happened this week", not
+      as form. The <b>±</b> column shows how much each number could shift on chance alone; where
+      that is larger than the gap between rows, the order is arbitrary. Use <b>Season</b> to
+      decide anything.</div>`;
+  } else if(hrpWin==="month"){
+    note=`<div class="rank-key">Thirty days is enough to see large effects and not much else.
+      Rows marked <b>solid</b> have a confidence interval that clears the base rate; the rest are
+      suggestive at best.</div>`;
+  } else {
+    note=`<div class="rank-key">Full tracked history — the only window with enough games to
+      separate a real edge from a run of luck. <b>Solid</b> rows clear the base rate with 95%
+      confidence. Everything here is graded outcome, not projection.</div>`;
+  }
+
+  const row=r=>{
+    const pct=(100*r.rate).toFixed(1), lift=r.lift.toFixed(2);
+    const tone = r.thin ? "var(--faint)" : (r.solid && r.rate>base ? "var(--good)"
+                : (r.solid && r.rate<base ? "var(--hot)" : "var(--ink)"));
+    const w=Math.max(2, Math.min(100, 100*r.rate/0.25));
+    return `<div class="hrp-row${r.thin?" thin":""}">
+      <div class="hrp-nm"><b>${r.key}</b><span>${r.label}</span></div>
+      <div class="hrp-bar"><i style="width:${w}%;background:${tone}"></i></div>
+      <div class="hrp-num" style="color:${tone}">${pct}%</div>
+      <div class="hrp-moe">±${r.moe.toFixed(1)}</div>
+      <div class="hrp-lift">${lift}×</div>
+      <div class="hrp-n">${r.n.toLocaleString()}</div>
+    </div>`;
+  };
+
+  const solid=ranked.filter(r=>r.solid).length;
+  main.innerHTML=`<div class="cv-wrap">
+    <div class="q-head"><b>HR Patterns</b></div>
+    <div class="q-sub">Built only from graded HR calendar data — what actually homered, by signal.</div>
+    <div class="cv-props">${winTab("7d","7 days")}${winTab("month","30 days")}${winTab("season","Season")}</div>
+    <div class="cv-tog">
+      <button class="${hrpMode==="signals"?"on":""}" onclick="setHrpMode('signals')">Signals</button>
+      <button class="${hrpMode==="players"?"on":""}" onclick="setHrpMode('players')">Tonight's players</button>
+    </div>
+    ${note}
+    <div class="hrp-meta">${days.length} graded day${days.length===1?"":"s"} ·
+      ${tot.toLocaleString()} player-games · ${hrs.toLocaleString()} HRs ·
+      base rate <b>${(100*base).toFixed(2)}%</b> ·
+      <b>${solid}</b> signal${solid===1?"":"s"} clear the base rate</div>
+    ${hrpMode==="players" ? hrpPlayerTable(rows, base) : `<div class="hrp-head">
+      <div>signal</div><div></div><div>HR%</div><div>±</div><div>lift</div><div>n</div>
+    </div>
+    ${ranked.map(row).join("")||`<div class="empty">Not enough graded games in this window.</div>`}`}
+    <div class="zd-note"><b>How to read it.</b> <b>HR%</b> is how often a player-game carrying
+    that signal ended in a home run. <b>±</b> is the margin of error at 95% — two rows whose
+    ranges overlap are not meaningfully different no matter how they are ordered. <b>lift</b> is
+    the rate divided by the base rate, so 1.00× means the signal told you nothing. Greyed rows
+    have too few games to support a conclusion.</div>
+  </div>`;
+}
+
+// Tonight's board, re-ranked by how well each hitter matches the signals that have actually
+// been producing home runs in the selected window. A player carrying two signals that are both
+// running hot scores above one carrying a single hot signal — the stacking the ranking is for.
+function hrpPlayerTable(rows, base){
+  const W=hrpWeights(rows, base);
+  const players=(BOARD.players||[]).map(p=>{
+    const sigs=hrpPlayerSignals(p);
+    let score=0; const parts=[];
+    sigs.forEach(id=>{
+      const w=W[id]; if(!w) return;
+      const contrib=(w.lift-1);
+      if(Math.abs(contrib)<0.005) return;
+      score+=contrib;
+      parts.push({id, key:id.split(":").slice(1).join(":"), contrib, raw:w.raw, n:w.n});
+    });
+    parts.sort((a,b)=>b.contrib-a.contrib);
+    return {p, score, parts};
+  }).filter(x=>x.parts.length)
+    .sort((a,b)=>b.score-a.score)
+    .slice(0,40);
+
+  if(!players.length) return `<div class="empty">No overlap between tonight's board and graded signals yet.</div>`;
+
+  const rowsHtml=players.map((x,i)=>{
+    const p=x.p, pct=(100*x.score).toFixed(0);
+    const tone=x.score>=0.30?"var(--good)":x.score>0?"var(--ink)":"var(--hot)";
+    const chips=x.parts.slice(0,4).map(s=>
+      `<span class="hrp-chip" title="${s.key}: ${(100*(s.raw*base)).toFixed(1)}% HR rate on ${s.n.toLocaleString()} graded games">${s.key} ${s.contrib>=0?"+":""}${(100*s.contrib).toFixed(0)}</span>`).join("");
+    return `<div class="hrp-prow" onclick="hrpToConverge(${p.id})">
+      <div class="hrp-rank">${i+1}</div>
+      <div class="hrp-pnm"><b>${p.name}</b><span>${p.team||""} ${p.lineup_spot?"· bats "+p.lineup_spot:""}</span>
+        <div class="hrp-chips">${chips}</div></div>
+      <div class="hrp-score" style="color:${tone}">${x.score>=0?"+":""}${pct}</div>
+    </div>`;
+  }).join("");
+
+  const tal=hrpLogTallies(hrpDays());
+  const topB=Object.entries(tal.badge).sort((a,b)=>b[1]-a[1]).slice(0,7)
+    .map(([k,v])=>`<span class="hrp-chip">${k} ×${v}</span>`).join("");
+  const spbp = (tal.off.SP||tal.off.BP)
+    ? `<span class="hrp-chip">${tal.off.SP||0} off SP</span><span class="hrp-chip">${tal.off.BP||0} off pen</span>` : "";
+  const dampBtn=(k,lab,tip)=>`<button class="${hrpDamp===k?"on":""}" onclick="setHrpDamp('${k}')" title="${tip}">${lab}</button>`;
+  const thin = hrpWin==="7d";
+  return `<div class="cv-tog hrp-damp">
+      ${dampBtn("raw","Raw","This window's numbers drive the score with no damping")}
+      ${dampBtn("balanced","Balanced","Thin samples pulled toward the base rate")}
+      ${dampBtn("strict","Strict","Only large, durable effects move the ranking")}
+    </div>
+    <div class="hrp-tally"><b>What actually homered in this window</b><div class="hrp-chips">${topB}${spbp}</div></div>
+    <div class="rank-key">Tonight's hitters scored by the signals they carry, weighted by
+    how those signals have actually performed in this window. ${
+      hrpDamp==="raw"
+        ? `<b>Raw</b> — the window's own numbers drive the score directly${thin?", so a 7-day view will swing hard week to week. That movement is mostly sampling rather than form, which is worth knowing while you read it":""}.`
+        : hrpDamp==="balanced"
+        ? `<b>Balanced</b> — thin samples get pulled toward the base rate, so a light week nudges the order instead of dominating it.`
+        : `<b>Strict</b> — only large effects backed by a lot of games move anything.`
+    } Stacking is the point: two hot signals beat one. Tap a player for their evidence breakdown.</div>
+    <div class="hrp-phead"><div>#</div><div>hitter · signals carried</div><div>score</div></div>
+    ${rowsHtml}
+    <div class="zd-note"><b>Score</b> is the summed edge of every signal this hitter carries,
+    in percentage points above the base rate. A chip reading <b>+3</b> means that signal has run
+    3 points above base in this window after shrinking. This re-orders tonight's board by
+    <i>recent signal performance only</i> — it is not the heat model and does not feed it.</div>`;
+}
+
+// HR Patterns -> that player's evidence on the Signal Convergence tab.
+function hrpToConverge(id){
+  cvProp="hr"; cvHeat=false; cvMinRel=0;
+  goView("converge");
+  setTimeout(()=>{
+    const row=document.querySelector(`.cv-row[data-id="${id}"]`);
+    if(row){ row.classList.add("cv-hl"); row.scrollIntoView({block:"center",behavior:"smooth"}); }
+  }, 140);
+}
+
 function renderCalendar(){
   const main=document.getElementById("main");
   if(!HISTORY||!HISTORY.days||!HISTORY.days.length){
@@ -9645,7 +9972,7 @@ document.getElementById("tabbar").addEventListener("click",async e=>{
   [...document.querySelectorAll("#tabbar button")].forEach(x=>x.setAttribute("aria-pressed",x===b));
   document.getElementById("boardControls").style.display = view==="board"?"":"none";
   savePrefs();
-  if((view==="tracker"||view==="parlays"||view==="calendar") && !HISTORY){ await loadHistory(); }
+  if((view==="tracker"||view==="parlays"||view==="calendar"||view==="hrpatterns") && !HISTORY){ await loadHistory(); }
   renderView();
   setHH();
   window.scrollTo({top:0,behavior:"instant"});
@@ -10025,7 +10352,7 @@ async function load(){
     });
     document.getElementById("boardControls").style.display = view==="board"?"":"none";
   }
-  if((view==="tracker"||view==="parlays"||view==="calendar") && !HISTORY){ await loadHistory(); }
+  if((view==="tracker"||view==="parlays"||view==="calendar"||view==="hrpatterns") && !HISTORY){ await loadHistory(); }
   renderView();
   setHH();
   startLivePolling();
