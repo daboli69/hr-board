@@ -116,21 +116,43 @@ function buildSandbox(board, backtest, history) {
 /** What does this rendered screen actually put in front of a person? */
 function fingerprint(html, board) {
   const names = new Set();
+  const order = [];
   const byName = {};
   (board.players || []).forEach((p) => { if (p.name) byName[p.name] = p.id; });
   (board.pitcher_props || []).forEach((a) => { if (a.name) byName[a.name] = "P" + a.id; });
+  // Record the order names appear in the rendered HTML — that IS the ranking a person sees.
+  const hits = [];
   Object.keys(byName).forEach((n) => {
-    // word-boundary match so "Jose Ramirez" doesn't also match a longer name
-    if (html.includes(">" + n + "<") || html.includes(n + "<") || html.includes(">" + n)) {
-      names.add(byName[n]);
+    let idx = -1;
+    for (const pat of [">" + n + "<", n + "<", ">" + n]) {
+      const i = html.indexOf(pat);
+      if (i >= 0 && (idx < 0 || i < idx)) idx = i;
     }
+    if (idx >= 0) { names.add(byName[n]); hits.push([idx, byName[n]]); }
   });
+  hits.sort((a, b) => a[0] - b[0]).forEach(([, id]) => order.push(id));
   const props = new Set();
   [["HR", /Home Run|\bHR\b/], ["Hit", /1\+ Hits?|\bHits?\b/], ["HRR", /H\+R\+RBI|HRR/],
    ["Ks", /\bKs\b|Strikeout/], ["ML", /Moneyline|win prob|Game Lines/]].forEach(([k, re]) => {
     if (re.test(html)) props.add(k);
   });
-  return { entities: names, props, size: html.length };
+  return { entities: names, order, props, size: html.length };
+}
+
+/** Spearman-style rank agreement over the entities both screens show. */
+function rankAgreement(orderA, orderB) {
+  const posB = new Map(orderB.map((id, i) => [id, i]));
+  const pairs = [];
+  orderA.forEach((id, i) => { if (posB.has(id)) pairs.push([i, posB.get(id)]); });
+  if (pairs.length < 4) return null;
+  const n = pairs.length;
+  const mx = (n - 1) / 2;
+  let num = 0, dx = 0, dy = 0;
+  pairs.forEach(([a, b]) => {
+    const ra = a - mx, rb = b - mx;   // ranks are already 0..n-1 within each list
+    num += ra * rb; dx += ra * ra; dy += rb * rb;
+  });
+  return dx && dy ? num / Math.sqrt(dx * dy) : null;
 }
 
 function jaccard(a, b) {
@@ -200,7 +222,8 @@ function main() {
       const mixed = a.ranks === "MIXED" || b.ranks === "MIXED";
       if (!comparable && !mixed) continue;
       const sim = jaccard(a.fp.entities, b.fp.entities);
-      pairs.push({ a, b, sim, sharedProps: [comparable ? a.ranks : "MIXED"], mixed });
+      const rho = rankAgreement(a.fp.order, b.fp.order);
+      pairs.push({ a, b, sim, rho, sharedProps: [comparable ? a.ranks : "MIXED"], mixed });
     }
   }
   pairs.sort((x, y) => y.sim - x.sim);
@@ -208,10 +231,12 @@ function main() {
   const DUP = [], CONFLICT = [], DISTINCT = [];
   for (const p of pairs) {
     if (p.mixed) { DISTINCT.push(p); continue; }        // a mixed list is meant to differ
-    if (p.sim >= 0.60) DUP.push(p);
-    // The category that matters: both rank the SAME prop, yet return largely different
-    // players. That means two different probability functions, and only one can be right.
-    else if (p.sim < 0.35) CONFLICT.push(p);
+    // Two screens are only truly duplicated when they show the same people AND put them in
+    // roughly the same order. Same membership with a different order is not redundancy — it is
+    // two different rankings, which is the more interesting case.
+    if (p.sim >= 0.60 && p.rho != null && p.rho >= 0.80) DUP.push(p);
+    else if (p.sim >= 0.60) CONFLICT.push(p);          // same people, different order
+    else if (p.sim < 0.35) CONFLICT.push(p);           // different people entirely
     else DISTINCT.push(p);
   }
 
@@ -219,7 +244,9 @@ function main() {
     console.log(`   ${title}  (${list.length})`);
     if (note) console.log(`   ${note}`);
     list.slice(0, 12).forEach((p) => {
-      console.log(`     ${(100 * p.sim).toFixed(0).padStart(3)}% same players  ` +
+      const rhoTxt = p.rho == null ? "order n/a"
+        : `order ${p.rho >= 0 ? "+" : ""}${p.rho.toFixed(2)}`;
+      console.log(`     ${(100 * p.sim).toFixed(0).padStart(3)}% same players, ${rhoTxt}  ` +
         `${p.a.label} <-> ${p.b.label}   [${p.sharedProps.join(",") || "-"}]`);
     });
     if (list.length > 12) console.log(`     ... and ${list.length - 12} more`);
