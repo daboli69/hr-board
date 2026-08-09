@@ -136,6 +136,22 @@
   .vm-sl{font-family:"IBM Plex Mono";font-size:8.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.03em}
   .vm-sv{font-family:"IBM Plex Mono";font-weight:700;font-size:15px;margin-top:3px}
   .vm-s.hot .vm-sv{color:var(--seam)}
+  .bt2-wrap{padding:2px 0 4px}
+  .mk-wrap{margin:8px 0;background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:8px 10px}
+  .mk-wrap summary{font-family:"IBM Plex Mono";font-size:10px;color:var(--seam);cursor:pointer;list-style:none}
+  .mk-wrap summary::-webkit-details-marker{display:none}
+  .mk-head{font-family:"IBM Plex Mono";font-size:11px;color:var(--muted);margin:6px 0}
+  .mk-head b{color:var(--ink);font-size:14px}
+  .mk-d{color:var(--faint);font-size:10px}
+  .mk-chart{display:flex;align-items:flex-end;gap:2px;height:46px;margin:6px 0}
+  .mk-b{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end}
+  .mk-b i{display:block;width:100%;background:var(--seam);border-radius:2px 2px 0 0;opacity:.8}
+  .mk-b span{font-family:"IBM Plex Mono";font-size:7px;color:var(--faint);margin-top:2px}
+  .mk-lines{display:flex;flex-wrap:wrap;gap:10px;font-family:"IBM Plex Mono";font-size:10px;color:var(--muted)}
+  .mk-o b{color:var(--seam)}
+  .fi-wrap{display:flex;gap:8px;align-items:flex-start;margin-top:8px;font-size:11px;line-height:1.5}
+  .fi-tag{font-family:"IBM Plex Mono";font-size:8.5px;font-weight:800;border:1px solid;border-radius:4px;padding:2px 6px;white-space:nowrap}
+  .fi-txt{color:var(--muted)} .fi-txt b{color:var(--ink)}
   .cov-fam-chip[aria-pressed="true"]{background:var(--seam);border-color:var(--seam);color:#12140f}
   .traitf .is-noise{opacity:.55}
   .tf-alt{font-style:normal;font-size:7px;opacity:.55;margin-left:3px;letter-spacing:.04em}
@@ -3319,6 +3335,50 @@ function punishBlock(p){
     <div class="zd-note">Each pitch is weighted by <b>how often he throws it x how badly he gets hurt on it</b>, then scored by what this hitter actually does to that pitch. Both sides are handedness-correct. 50 is neutral — a hitter can rate low here and still be good, it just means his damage doesn't land where this particular arm is exposed.</div>
   </div>`;
 }
+// Bat tracking and pull-barrel: both were reaching the board and neither was displayed.
+// Bat speed is only meaningful against velocity, so the credit is stated in those terms rather
+// than as a context-free number.
+function batTrackBlock(p){
+  const b=p.bat_tracking; if(!b||!b.avg_bat_speed) return "";
+  const arm=p.opp_pitcher||{};
+  const velo=arm.fb_velo||(arm.season||{}).fb_velo;
+  const stat=(lab,v,suf,hot)=>v==null?"":`<div class="vm-s${hot?" hot":""}"><div class="vm-sl">${lab}</div><div class="vm-sv">${v}${suf||""}</div></div>`;
+  const pb=p.pull_barrel_pct;
+  return `<div class="bt2-wrap">
+    <div class="vm-stats">
+      ${stat("Bat speed", b.avg_bat_speed, " mph", b.avg_bat_speed>=73)}
+      ${stat("Fast swing%", b.fast_swing_rate, "%", b.fast_swing_rate>=40)}
+      ${stat("Swing length", b.avg_swing_length, " ft", b.avg_swing_length!=null&&b.avg_swing_length<=7.0)}
+      ${stat("Short+fast", b.short_fast_rate, "%", b.short_fast_rate>=25)}
+      ${stat("Pull-barrel", pb, "%", pb>=5.5)}
+      ${stat("Swings", b.n_swings, "", false)}
+    </div>
+    <div class="zd-note">A fast bat matters against velocity and barely at all against soft
+    stuff${velo?` — this arm sits at <b>${Math.round(velo)} mph</b>`:""}. <b>Short+fast</b> is the
+    combination worth having: 75+ mph on a compact path is what catches up to a good fastball.
+    <b>Pull-barrel</b> is the share of batted balls that were both barrelled and pulled — about
+    as close to a guaranteed home run as contact gets.</div>
+  </div>`;
+}
+
+// Geometry-aware near misses: balls that died within 5 ft of the wall AT THEIR OWN SPRAY ANGLE.
+function nearMissBlock(p){
+  const n=p.near_miss; if(!n||!n.n) return "";
+  const stat=(lab,v,suf,hot)=>v==null?"":`<div class="vm-s${hot?" hot":""}"><div class="vm-sl">${lab}</div><div class="vm-sv">${v}${suf||""}</div></div>`;
+  return `<div class="bt2-wrap">
+    <div class="vm-stats">
+      ${stat("Near misses", n.near, "", n.near>=2)}
+      ${stat("Cleared", n.cleared, "", n.cleared>=2)}
+      ${stat("Best ball", n.best_delta, " ft", n.best_delta>=-2)}
+      ${stat("Avg vs wall", n.avg_delta, " ft", false)}
+      ${stat("Tracked", n.n, "", false)}
+    </div>
+    <div class="zd-note">Measured against the fence distance at the exact angle each ball was
+    hit, not a flat 350 ft — the same 355-ft fly is a home run down the line at Fenway and 50 ft
+    short in the gap. A <b>near miss</b> is contact that clears on a warmer night or in a
+    different park, which is the part of a profile most likely to convert next time.</div>
+  </div>`;
+}
 function vsMixBlock(p){
   const m=p.vs_mix; if(!m||!m.bbe) return punishBlock(p)?`<details class="sec"><summary>Built to punish this arsenal?</summary>${punishBlock(p)}</details>`:"";
   const arm=p.opp_pitcher||{};
@@ -3678,6 +3738,18 @@ function pitchHistoryInner(){
 }
 
 // ---- How strikeout-prone is tonight's lineup, and in what context? ----
+// First-inning split. Matters specifically for F3/F5 bets: some starters are measurably worse
+// in the first and settle in after, and a full-game line hides that by averaging it away.
+function firstInnBlock(a){
+  const f=a&&a.first_inn; if(!f||f.vs_rest==null||(f.pa||0)<40) return "";
+  const worse=f.vs_rest>0.02, better=f.vs_rest<-0.02;
+  if(!worse&&!better) return "";
+  const tone=worse?"var(--hot)":"var(--good)";
+  return `<div class="fi-wrap"><span class="fi-tag" style="color:${tone};border-color:${tone}">
+    ${worse?"SLOW STARTER":"STRONG 1st"}</span>
+    <span class="fi-txt">1st inning xwOBAcon <b>${f.xwobacon}</b> vs <b>${f.rest_xwobacon}</b> in
+    innings 2-6 (${f.vs_rest>0?"+":""}${f.vs_rest}) — ${worse?"an F5 fade":"an F5 edge"}, invisible in the full-game line.</span></div>`;
+}
 function teamKPanel(team){
   const tk=(BOARD.team_ks||{})[team];
   if(!tk) return "";
@@ -4011,6 +4083,7 @@ function buildDetail(p){
       ${collapseWrap(pitchBlock(p))}
       ${percentileBars(p)}
       ${zoneDamageGrid(p)}
+      ${(batTrackBlock(p)||nearMissBlock(p))?`<details class="sec"><summary>Bat tracking &amp; near misses</summary>${batTrackBlock(p)}${nearMissBlock(p)}</details>`:""}
       ${vsMixBlock(p)}
       ${pitchTableBlock(p)}
       ${collapseWrap(featureBlock(p))}
@@ -4777,7 +4850,7 @@ function pmClear(hand){ pmSel[hand]=new Set(); renderPitchMix(); }
 // across pitches would silently weight a 20-pitch sample the same as a 200-pitch one.
 function pmAgg(vs, pts){
   const t=new Array(12).fill(0); let any=false;
-  (pts||[]).forEach(pt=>{ const v=vs&&vs[pt]; if(v&&v.length===12){ any=true; for(let i=0;i<12;i++) t[i]+=v[i]; } });
+  (pts||[]).forEach(pt=>{ const v=vs&&vs[pt]; if(v&&v.length>=12){ any=true; for(let i=0;i<12;i++) t[i]+=(v[i]||0); } });
   if(!any) return null;
   const [p,wh,pa,k,bbe,nev,evs,brl,pbrl,air,pair,hh]=t;
   return {pitches:p, bbe,
@@ -4845,7 +4918,7 @@ function renderPitchMix(){
     }).join("");
     // team average = pooled counts across everyone listed (not an average of averages)
     const pooled=new Array(12).fill(0); let anyP=false;
-    hitters.forEach(p=>sel.forEach(pt=>{ const v=p.vs_pitch&&p.vs_pitch[pt]; if(v&&v.length===12){anyP=true; for(let i=0;i<12;i++)pooled[i]+=v[i];} }));
+    hitters.forEach(p=>sel.forEach(pt=>{ const v=p.vs_pitch&&p.vs_pitch[pt]; if(v&&v.length>=12){anyP=true; for(let i=0;i<12;i++)pooled[i]+=(v[i]||0);} }));
     let avgRow="";
     if(anyP){ const [pp,wh,pa,k,bbe,nev,evs,brl,pbrl,air,pair,hh]=pooled;
       const g=(n,d)=>d?100*n/d:null, f=(v,d,s)=>v==null?"–":(v.toFixed(d)+(s||""));
@@ -7017,15 +7090,34 @@ function unifiedPicks(filter){
       out.push({id:p.id, name:p.name, team:p.team, opp:p.opp_team, typeKey, label, prob,
         conf:prob*(0.82+0.30*c.conv), conv:c.conv, bits:c.bits, bestLift:c.bestLift, bestLabel:c.bestLabel, isArm:false}); };
     add("HR","Home Run", calibratedHRprob(p.heat));
-    add("Hit","1+ Hits", smoothPropProb("hit1", p.hit_heat));
+    // Contact-gated model when the ETL produced it, otherwise the legacy anchor score. The
+    // gated number is already a PROBABILITY (not a 0-100 heat), so it is used directly rather
+    // than pushed through the tier smoother, which would double-transform it.
+    const _hg = p.hit_gated && p.hit_gated.p_hit;
+    add("Hit","1+ Hits", _hg!=null ? _hg : smoothPropProb("hit1", p.hit_heat));
     add("HRR","HRR 1.5", smoothPropProb("hrr", p.hrr_heat));
   });
   (BOARD.pitcher_props||[]).forEach(a=>{
-    if(a.est_ks==null) return;
-    const _kp=ksProjection(a);
-    const ac=armConv(a), prob=kOverProb(_kp, a.k_heat); if(prob==null) return;
+    // kengine first: its probability comes from the exact Poisson-binomial over the nine
+    // individual matchups, which is a real distribution rather than a Poisson approximation
+    // fitted to a point estimate. Falls back to the legacy projection when absent.
+    const _ke = a.kengine;
+    let _kp, prob, _line;
+    if(_ke && _ke.exp_k!=null && _ke.dist){
+      _kp = _ke.exp_k;
+      _line = Math.max(0.5, Math.ceil(_kp-0.5)-0.5);
+      const _d = _ke.dist;
+      prob = Object.keys(_d).reduce((s,k)=> s + (Number(k)>_line ? _d[k] : 0), 0);
+    }else{
+      if(a.est_ks==null) return;
+      _kp = ksProjection(a);
+      _line = kOverLine(_kp);
+      prob = kOverProb(_kp, a.k_heat);
+    }
+    if(prob==null) return;
+    const ac=armConv(a);
     out.push({id:null, name:a.name, team:a.team, opp:a.opp_team, typeKey:"Ks",
-      label:`Over ${kOverLine(_kp).toFixed(1)} Ks`, prob, conf:prob*(0.82+0.30*ac.conv),
+      label:`Over ${_line.toFixed(1)} Ks`, prob, conf:prob*(0.82+0.30*ac.conv),
       conv:ac.conv, bits:ac.bits, est:_kp, isArm:true});
   });
   let list=out;
@@ -8328,6 +8420,35 @@ function propsScore(p,view){
 // the shift is that factor's contribution for this specific game. Same idea as a SHAP local
 // explanation, computed exactly rather than sampled. The point is to see at a glance whether a
 // number reflects a real matchup edge or is just riding the macro anchor.
+// The simulated run distribution. The linear engine gives one number; this gives the SHAPE,
+// which is what actually decides an over/under at a posted line. Shown alongside the linear
+// total rather than replacing it, because the win-probability path is calibrated on the linear
+// number — a silent swap would invalidate that calibration with no way to notice.
+function markovBlock(g){
+  const m=g&&g.markov; if(!m||!m.total_dist) return "";
+  const d={}; Object.keys(m.total_dist).forEach(k=>d[+k]=m.total_dist[k]);
+  const ks=Object.keys(d).map(Number).sort((a,b)=>a-b);
+  if(!ks.length) return "";
+  const mx=Math.max(...ks.map(k=>d[k]));
+  const lo=Math.max(0,Math.min(...ks)), hi=Math.min(20,Math.max(...ks));
+  const bars=[];
+  for(let k=lo;k<=hi;k++){
+    const pv=d[k]||0, ht=Math.max(2,Math.round(38*pv/mx));
+    bars.push(`<div class="mk-b" title="${k} runs: ${(100*pv).toFixed(1)}%"><i style="height:${ht}px"></i><span>${k}</span></div>`);
+  }
+  const over=L=>{const o=ks.reduce((s,k)=>s+(k>L?d[k]:0),0),pu=d[L]||0;return pu>=0.999?null:o/(1-pu);};
+  const lines=[7.5,8.5,9.5,10.5].map(L=>{const o=over(L);
+    return o==null?"":`<span class="mk-o">O${L} <b>${(100*o).toFixed(0)}%</b></span>`;}).join("");
+  const delta=m.markov_delta;
+  return `<details class="mk-wrap"><summary>Run distribution (simulated)</summary>
+    <div class="mk-head">sim total <b>${m.total_mean}</b>${delta!=null?` <span class="mk-d">${delta>=0?"+":""}${delta} vs linear</span>`:""}</div>
+    <div class="mk-chart">${bars.join("")}</div>
+    <div class="mk-lines">${lines}</div>
+    <div class="wy-note">Each bar is the share of 2,500 simulated games landing on that total. The
+    over/under percentages come from this distribution rather than from a fixed variance
+    assumption — which understates blowup games by roughly 30% in weak-arm spots.</div>
+  </details>`;
+}
 function whyBlock(g){
   const w=g&&g.why;
   if(!w||!w.length) return "";
@@ -8425,6 +8546,7 @@ function renderProps(){
           <div class="prop-sub">${(kp+ss+oppK).replace(/^ · /,"")}</div>
           <div class="prop-tags"><span class="prop-tier">${tag}</span>${a.form?.label?` <span class="mstone" style="color:var(--muted);background:var(--panel);border-color:var(--line)">${a.form.label}</span>`:""}${kEV}</div>
           ${kTeam?`<details class="tk-det"><summary>Opponent strikeout profile</summary>${kTeam}</details>`:""}
+          ${firstInnBlock(a)}
         </div>
       </div>`;
     }).join("");
@@ -8481,6 +8603,7 @@ function renderProps(){
       }
       return `<div class="ml-row" style="background:${bg}">
         <div class="ml-head"><b>${g.away} @ ${g.home}</b><span class="ml-time">${timeStr(g.time)}</span></div>
+        ${markovBlock(g)}
         ${whyBlock(g)}
         <div class="ml-sp">${g.away_sp||"?"} vs ${g.home_sp||"?"}${g.park?` · ${g.park}`:""}${g.park_run_src?` · <span class="ml-src${g.park_run_src==='bpp_runs'?'':' est'}">${g.park_run_src==='bpp_runs'?'true run factor':'est. run factor'}</span>`:""}${(((g.home_breakdown||{}).platoon_spots||0)+((g.away_breakdown||{}).platoon_spots||0))>0?` <span class="ml-src">platoon-adj</span>`:""}${(Math.abs((g.home_breakdown||{}).opp_def||0)+Math.abs((g.away_breakdown||{}).opp_def||0))>0.15?` <span class="ml-src">defense-adj</span>`:""}</div>
         <div class="ml-grid">
