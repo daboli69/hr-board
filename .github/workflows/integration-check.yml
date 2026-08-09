@@ -24,7 +24,10 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          # MUST match update-board.yml. Pinning 3.11 here while production ran 3.12 produced a
+          # false SyntaxError on a nested f-string that is legal in 3.12 (PEP 701) — the check
+          # reported a bug that did not exist in production, which is its own kind of damage.
+          python-version: "3.12"
 
       - name: Install dependencies
         run: |
