@@ -1,0 +1,89 @@
+name: Integration Check
+
+# Two ways in:
+#   - "Run workflow" button in the Actions tab (manual, any time)
+#   - automatically on any push that touches the ETL, the frontend, or the tests
+#
+# Results land in three places: the step log, the run SUMMARY page (rendered, easiest to read
+# on a phone), and the job's pass/fail status.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'etl/**'
+      - 'docs/index.html'
+      - 'tests/**'
+      - 'requirements.txt'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pyflakes
+
+      # pyflakes catches use-before-definition, which py_compile cannot see because Python only
+      # raises UnboundLocalError at runtime. That exact bug class has broken this build four
+      # separate times, so it runs first and its output goes straight to the summary.
+      - name: Scope check (pyflakes)
+        id: flakes
+        continue-on-error: true
+        run: |
+          echo "## Scope check" >> $GITHUB_STEP_SUMMARY
+          if python -m pyflakes etl/*.py > /tmp/flakes.txt 2>&1; then
+            echo "No undefined names or premature locals." >> $GITHUB_STEP_SUMMARY
+          else
+            SCOPE=$(grep -E "undefined name|local variable" /tmp/flakes.txt || true)
+            if [ -n "$SCOPE" ]; then
+              echo "**SCOPE ERRORS — these crash at runtime, not at compile time:**" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo "$SCOPE" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo "scope_failed=true" >> $GITHUB_OUTPUT
+            else
+              echo "No scope errors (other lint notes ignored)." >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+
+      - name: Smoke test (ETL runs against stubbed Statcast)
+        continue-on-error: true
+        run: |
+          echo "## Smoke test" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          python tests/smoke.py 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Integration verification
+        id: integ
+        run: |
+          echo "## Integration verification" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          set -o pipefail
+          python tests/test_integration.py 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      # The check that would have caught the seven dead fields: every field the ETL writes into
+      # board.json must actually be read somewhere in the frontend. Data landing in the JSON is
+      # not the same as it reaching a screen.
+      - name: Dead-field check (ETL output vs frontend reads)
+        continue-on-error: true
+        run: |
+          echo "## Dead-field check" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          python tests/check_dead_fields.py 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Fail if scope errors were found
+        if: steps.flakes.outputs.scope_failed == 'true'
+        run: |
+          echo "Scope errors present — these will crash the live build." >&2
+          exit 1
