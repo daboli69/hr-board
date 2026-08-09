@@ -1648,7 +1648,6 @@ def build(date_str: str | None = None) -> dict:
                         "tto": tto_by_pid.get(pid),  # times-through-order vulnerability
                         "profile": _arm_profile,     # GB/FB/EV/barrel/hardhit allowed + velo
                         "hand_splits": (hand2yr.get(pid) or {}),   # HR allowed by batter hand
-                        "hr_hot_spots": _hot_spots,  # batters who've taken him deep
                         "park_hr_factor": round(_pf, 2) if _pf else None,
                         "fatigue": fat, "exploit_score": exploit,
                         "batters": opp_batters,
