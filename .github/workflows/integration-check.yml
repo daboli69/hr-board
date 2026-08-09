@@ -82,7 +82,11 @@ jobs:
         run: |
           echo "## Dead-field check" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          python tests/check_dead_fields.py 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+          if [ -f tests/check_dead_fields.py ]; then
+            python tests/check_dead_fields.py 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+          else
+            echo "SKIPPED — tests/check_dead_fields.py is not in the repo yet." | tee -a $GITHUB_STEP_SUMMARY
+          fi
           echo '```' >> $GITHUB_STEP_SUMMARY
 
       # Renders every reachable screen against the live board and reports which ones show the
@@ -94,7 +98,13 @@ jobs:
         run: |
           echo "## View audit" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          node tests/audit_views.js 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+          if [ -f tests/audit_views.js ]; then
+            node tests/audit_views.js 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+          else
+            # A missing optional check should say so in one line, not dump a Node stack trace.
+            # An unreadable failure trains you to skip the whole report.
+            echo "SKIPPED — tests/audit_views.js is not in the repo yet." | tee -a $GITHUB_STEP_SUMMARY
+          fi
           echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Fail if scope errors were found
