@@ -1801,6 +1801,9 @@
   #toTop.show{opacity:.94;pointer-events:auto}
   /* qualified bets */
   .q-head{display:flex;align-items:center;justify-content:space-between;font-family:Archivo;font-weight:800;font-size:18px;margin:4px 0 4px}
+  .rank-key{font-size:11px;line-height:1.55;color:var(--faint);background:var(--panel-2);
+    border-left:2px solid var(--seam);border-radius:0 7px 7px 0;padding:7px 10px;margin:6px 0 10px}
+  .rank-key b{color:var(--muted)}
   .q-sub{font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:10px}
   .q-ctrl{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
   .q-ctrl label{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px}
@@ -3077,6 +3080,12 @@ function bullBear(p){
   if(tr.dir==="up") bull.push("form rising"+(tr.pct?` (+${tr.pct}%)`:" (new-hot)"));
   if(ks.has("due")) bull.push("hitting it harder than results show — due");
   if(pk!=null&&pk>=6) bull.push(`park + weather lean +${pk}%`);
+  // League HR/9 sits near 1.1; a starter at 1.4+ is genuinely leaky, one at 0.8 suppresses.
+  if(p.opp_hr9!=null){
+    const h9=+p.opp_hr9;
+    if(h9>=1.40) bull.push(`tonight's arm gives up ${h9.toFixed(2)} HR/9 — well above league`);
+    else if(h9<=0.80) bull.push(`tonight's arm suppresses homers (${h9.toFixed(2)} HR/9)`);
+  }
   if(ks.has("hrsp")&&!op.opener) bull.push("owns tonight's starter");
   if(ks.has("hrbp")) bull.push("has taken their pen deep");
   if(p.robbed) bull.push(`${p.robbed.n} recent ball${p.robbed.n>1?"s":""} that clear${p.robbed.n>1?"":"s"} this park`);
@@ -3587,6 +3596,7 @@ function renderConvergeML(){
     `<button class="cv-pt${cvProp===k?" on":""}" onclick="setCvProp('${k}')">${v.label}</button>`).join("");
   const head=`<div class="q-head"><b>Signal Convergence</b></div>
     <div class="q-sub">Ranked by how many independent reads back the same side.</div>
+    ${cvRankKey()}
     <div class="cv-props">${propTabs}</div>
     <div class="cv-tog">
       <button class="${cvHeat?"on":""}" onclick="setCvHeat(true)">With model</button>
@@ -3619,6 +3629,26 @@ function renderConvergeML(){
     ${body}
     <div class="prop-note" style="margin-top:14px"><b>Read this differently than the hitter boards.</b> The moneyline is the <b>sharpest market in baseball</b>. Several of our sub-models agreeing tells you which side the model likes — it does <b>not</b> tell you the price is wrong, and these inputs overlap heavily (a starter edge is already inside the win probability). Treat convergence here as a confidence read on the model's own opinion, then check that opinion against the posted number in Game Lines before betting anything.</div>
   </div>`;
+}
+// Why this screen can disagree with the Props tab, stated on the screen itself. Two lists
+// titled "Hits" that differ on 85% of players read as a bug even when both are correct.
+// Convergence also reports when it CANNOT rank — if nearly every arm has the same family count
+// the order collapses onto the projection and this tab adds nothing.
+function cvRankKey(){
+  let flat="";
+  if(cvProp==="ks"){
+    const arms=(BOARD.pitcher_props||[]).filter(a=>a.converge);
+    const zero=arms.filter(a=>(((a.converge||{}).measured)||[]).length===0).length;
+    if(arms.length && zero/arms.length>=0.6){
+      flat=`<div class="rank-key"><b>${zero} of ${arms.length} arms have no K convergence
+        families tonight</b>, so this list closely tracks the Props · Ks order rather than being
+        an independent read. Strikeout evidence is thin by nature — the projection carries the
+        signal. Treat <b>Props · Ks</b> as the primary K view.</div>`;
+    }
+  }
+  return flat+`<div class="rank-key">Ranked by <b>agreeing evidence</b>, not probability — this
+    list will differ from the Props tab, which ranks the same props by <b>modelled chance</b>.
+    Neither is wrong: Props finds the likeliest bet, this finds the best-supported one.</div>`;
 }
 function renderConverge(){
   const main=document.getElementById("main");
@@ -3678,6 +3708,7 @@ function renderConverge(){
     <div class="q-head"><b>Signal Convergence</b></div>
     <div class="q-sub">Ranked by how many <b>independent</b> reads point at the same ${isK?"arm":"hitter"} — weighted by the lift each signal actually showed in your backtest <b>for this prop</b>.</div>
     <div class="cv-props">${propTabs}</div>
+    ${cvRankKey()}
     <div class="cv-tog">
       <button class="${cvHeat?"on":""}" onclick="setCvHeat(true)">With heat</button>
       <button class="${!cvHeat?"on":""}" onclick="setCvHeat(false)">Without heat</button>
@@ -5444,6 +5475,9 @@ function renderEdges(){
       </div>`;
     }).join("");
     main.innerHTML=`<div class="edges-wrap">${hd}${subTabs}
+      <div class="rank-key">Ranked by <b>lineup slot damage</b> — which spot in the order hurts
+        this arm. The Arms tab ranks the same pitchers by <b>overall HR vulnerability</b>, so the
+        two orders differ on purpose.</div>
       <div class="edges-intro"><b>Quick Target</b> — the batting-order spots that have done the most damage against each arm (2-season HR + ISO + SLG at that slot). Check which spot is hot, then look at who's actually hitting there today. Tap a name to open their card.</div>
       ${rows}
       ${note}</div>`;
