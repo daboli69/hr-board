@@ -286,10 +286,32 @@ def pitcher_event_rates(prof):
     # contact quality sets the hit rates; xwOBAcon maps to a BABIP-like rate
     xwc = src.get("xwobacon_allowed") or 0.360
     scale = max(0.75, min(1.30, float(xwc) / 0.360))
-    return {
+    raw = {
         "1B": 0.142 * scale, "2B": 0.046 * scale, "3B": 0.004 * scale,
         "HR": hr, "BB": bb, "K": k,
     }
+
+    # Cap and regress the PITCHER side too.
+    #
+    # The batter side got this treatment and the pitcher side did not, which is why the backtest
+    # still showed a heavy right tail after the first fix: 11.9% of games projected above 15
+    # runs, with the worst misses clustered in mid-April. Early in a season a starter has barely
+    # cleared the 50-PA gate, so one bad outing dominates his profile — 4 home runs in 55 plate
+    # appearances reads as a 0.073 HR rate, more than double league. Log5 then multiplies that
+    # against the batter's rate and a single team projects 24 runs.
+    #
+    # Same shape as the batter fix: clip physically implausible rates first, then pull what is
+    # left toward league in proportion to how little data supports it. A full season barely
+    # moves; an April sample stays close to average, which is the honest read of what is known.
+    CAP = {"1B": 2.5, "2B": 3.0, "3B": 5.0, "HR": 3.0, "BB": 3.0, "K": 2.2}
+    for ev in raw:
+        lg = markov.LG.get(ev, 0.0)
+        if lg > 0:
+            raw[ev] = min(raw[ev], lg * CAP.get(ev, 2.5))
+
+    K_PA = 300.0                      # half weight at 300 batters faced
+    w = pa / (pa + K_PA)
+    return {ev: w * raw[ev] + (1.0 - w) * markov.LG.get(ev, 0.0) for ev in raw}
 
 
 def _woba_to_r_per_pa(xwoba):
