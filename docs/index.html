@@ -6852,6 +6852,10 @@ function playerPropProb(kind, p, score){
     const g = p && p.hit_gated && p.hit_gated.p_hit;
     if(g!=null && isFinite(g)) return g;
   }
+  if(kind==="hrr"){
+    const g = p && p.hrr_proj && p.hrr_proj.p_over15;
+    if(g!=null && isFinite(g)) return g;
+  }
   const sm = smoothPropProb(kind, score);
   if(sm!=null) return sm;
   return calibratedPropProb(kind, score);
