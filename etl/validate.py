@@ -394,35 +394,14 @@ def grade_fence_delta(rows):
 # ---------------------------------------------------------------------------
 
 
-def archive_odds_snapshot(odds_path="docs/odds.json", out_dir="docs/odds_history"):
-    """Persist today's prices so ROI becomes gradeable later.
-
-    ROI against closing lines cannot be computed today because nothing retains historical
-    prices: odds.json is overwritten each run and the daily snapshots carry no odds at all.
-    Calling this at the END of each odds fetch (last run of the night is closest to closing)
-    builds the archive. After roughly six weeks there is enough to grade ROI honestly.
-
-    Until then, every ROI figure would be reconstructed rather than observed, which is worse
-    than reporting none.
-    """
-    try:
-        with open(odds_path) as f:
-            data = json.load(f)
-    except Exception as e:
-        print(f"[odds-archive] cannot read {odds_path}: {e}")
-        return None
-    date = data.get("slate_date") or data.get("date")
-    if not date:
-        return None
-    os.makedirs(out_dir, exist_ok=True)
-    path = os.path.join(out_dir, f"{date}.json")
-    keep = {"slate_date": date, "updated": data.get("updated"),
-            "prices": data.get("prices"), "props": data.get("props"),
-            "game_lines": data.get("game_lines")}
-    with open(path, "w") as f:
-        json.dump(keep, f, separators=(",", ":"))
-    return path
-
+# archive_odds_snapshot() used to live here and has been REMOVED, not lost.
+#
+# fetch_odds._archive_odds_snapshot() does the same job better: it writes from the in-memory
+# payload inside _write(), so the archive is atomic with the file it mirrors and cannot capture
+# a half-written odds.json. This version re-read from disk and was never called by anything.
+#
+# Two implementations of one behaviour drift — one gets a bug fix, the other does not, and the
+# archive silently disagrees with itself across a season. Keeping the called one.
 
 def grade_roi(rows, stake=1.0):
     """ROI given historical prices. rows: [{prob, american, won}]

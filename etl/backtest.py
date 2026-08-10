@@ -630,6 +630,24 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
 # Side-by-side graders: new engines vs the baselines they would replace
 # ---------------------------------------------------------------------------
 
+def grade_hit_props_calibrated(rows):
+    """Decile calibration for the contact-gated hit model, via validate.grade_hit_props.
+
+    The shared grader is used rather than a local reimplementation so the backtest and any other
+    caller cannot drift apart on how calibration is measured.
+    """
+    r2 = [{"p_hit": r["hit_gated_p"], "got_hit": r["got_hit"]}
+          for r in rows if r.get("hit_gated_p") is not None and r.get("got_hit") is not None]
+    return V.grade_hit_props(r2) if len(r2) >= 300 else None
+
+
+def grade_strikeouts_calibrated(rows):
+    """Poisson-binomial K counts vs actual, via validate.grade_strikeouts."""
+    r2 = [{"exp_k": r["k_new"], "dist": r.get("k_new_dist"), "actual_k": r["actual_k"]}
+          for r in rows if r.get("k_new") is not None and r.get("actual_k") is not None]
+    return V.grade_strikeouts(r2) if len(r2) >= 200 else None
+
+
 def grade_hit_side_by_side(rows):
     """Decile calibration for `hit_gated` next to the legacy `hit_heat` tiers.
 
@@ -807,6 +825,7 @@ def replay_runs(df: pd.DataFrame, start: str | None = None, end: str | None = No
     _mk_abs = _mk_sq = 0.0
     _mk_n = 0
     _mk_pover, _mk_hit = [], []
+    _tot_rows = []
     tot_abs_err = 0.0
     calib = {}                      # decile -> {n, home_wins}
     home_wins_actual = 0
@@ -869,6 +888,10 @@ def replay_runs(df: pd.DataFrame, start: str | None = None, end: str | None = No
             brier += (p - (1.0 if home_won else 0.0)) ** 2
             correct += 1 if ((p >= 0.5) == home_won) else 0
             tot_abs_err += abs(proj["total"] - (hs + as_))
+            # Row shape validate.grade_totals expects. Collected here rather than recomputed
+            # later so the grader sees exactly the games this replay actually scored.
+            _tot_rows.append({"pred_mean": proj["total"], "actual": hs + as_,
+                              "pred_dist": ((proj.get("markov") or {}).get("total_dist") or None)})
             b = int(min(max(p, 0.0), 0.999) * 10) * 10
             c = calib.setdefault(str(b), {"n": 0, "home_wins": 0})
             c["n"] += 1; c["home_wins"] += 1 if home_won else 0
@@ -899,6 +922,10 @@ def replay_runs(df: pd.DataFrame, start: str | None = None, end: str | None = No
         "markov_vs_linear": (round(_mk_abs / _mk_n - tot_abs_err / n, 3) if _mk_n else None),
         "markov_over_calibration": (V.decile_calibration(_mk_pover, _mk_hit, n_bands=8)
                                     if len(_mk_pover) >= 400 else None),
+        # validate.grade_totals was written and never called — the MAE-floor context it carries
+        # (a perfect model still posts ~3.30) never reached the output, so a 3.6 looked like a
+        # failure when it is close to the ceiling.
+        "totals_graded": (V.grade_totals(_tot_rows) if len(_tot_rows) >= 100 else None),
         "calib": {k: calib[k] for k in sorted(calib, key=int)},
         "notes": [
             "CALIBRATION is the number that matters, not accuracy — you cannot bet a probability you can't trust",
