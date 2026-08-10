@@ -1834,6 +1834,7 @@
   .hrp-num{font-family:"IBM Plex Mono";font-size:12.5px;font-weight:700;text-align:right}
   .hrp-moe,.hrp-lift,.hrp-n{font-family:"IBM Plex Mono";font-size:10px;color:var(--faint);text-align:right}
   .hrp-lift{color:var(--muted)}
+  .pen-flag{color:var(--hot)}
   .rank-key{font-size:11px;line-height:1.55;color:var(--faint);background:var(--panel-2);
     border-left:2px solid var(--seam);border-radius:0 7px 7px 0;padding:7px 10px;margin:6px 0 10px}
   .rank-key b{color:var(--muted)}
@@ -5533,6 +5534,16 @@ function renderEdges(){
       if(p.bp_era!=null) stats.push(`<b style="color:${p.bp_era>=4.5?'var(--hot)':p.bp_era<=3.5?'var(--good)':'var(--ink)'}">${(+p.bp_era).toFixed(2)}</b> ERA`);
       if(p.hr9!=null) stats.push(`<b style="color:${p.hr9>=1.4?'var(--hot)':p.hr9<=1.0?'var(--good)':'var(--ink)'}">${(+p.hr9).toFixed(2)}</b> HR/9${p.season_hr!=null?` (${p.season_hr} HR)`:""}`);
       if(p.n_available!=null) stats.push(`${p.n_available} fresh${p.n_unavailable?` / ${p.n_unavailable} down`:""}`);
+      // Boxscore-based availability, read from actual pitch counts over the trailing three days.
+      // Shown next to the Statcast-derived count rather than replacing it — where the two
+      // disagree, that gap is information about how reliable tonight's read is.
+      const lp=p.live_pen;
+      if(lp){
+        if(lp.n_out!=null||lp.n_tired!=null){
+          stats.push(`<span title="From MLB boxscore pitch counts over the last 3 days — more direct than inferring appearances from the Statcast frame">box: ${lp.n_out||0} out / ${lp.n_tired||0} tired</span>`);
+        }
+        if(lp.disagrees) stats.push(`<span class="pen-flag" title="The two availability sources disagree — treat tonight's pen read as uncertain">⚠ ${lp.disagrees}</span>`);
+      }
       const pl=p.platoon;
       if(pl&&pl.worse&&pl.gap!=null&&pl.gap>=8) stats.push(`vs ${pl.worse==="R"?"RHB":"LHB"} <b style="color:var(--seam)">+${pl.gap}</b>`);
       // component breakdown (biggest driver highlighted)
