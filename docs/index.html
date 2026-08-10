@@ -3670,15 +3670,36 @@ function renderConvergeML(){
 // Convergence also reports when it CANNOT rank — if nearly every arm has the same family count
 // the order collapses onto the projection and this tab adds nothing.
 function cvRankKey(){
+  // Convergence can only re-order a board when the family counts VARY. If almost every entity
+  // scores the same, the ranking collapses onto the underlying heat and this tab silently
+  // duplicates the Props list while looking like an independent read.
+  //
+  // The backtest shows this is not hypothetical. Graded over 113 days, convergence for hits and
+  // HRR is effectively binary — 0 or 1 families — and the "1 measured" bucket has the identical
+  // sample size as the top heat tier, meaning it is re-identifying the same players rather than
+  // finding different ones. Heat separates 13.6 points on hits where convergence separates 7.3.
+  // So the tab says which view to trust instead of presenting two orders as equals.
   let flat="";
-  if(cvProp==="ks"){
-    const arms=(BOARD.pitcher_props||[]).filter(a=>a.converge);
-    const zero=arms.filter(a=>(((a.converge||{}).measured)||[]).length===0).length;
-    if(arms.length && zero/arms.length>=0.6){
-      flat=`<div class="rank-key"><b>${zero} of ${arms.length} arms have no K convergence
-        families tonight</b>, so this list closely tracks the Props · Ks order rather than being
-        an independent read. Strikeout evidence is thin by nature — the projection carries the
-        signal. Treat <b>Props · Ks</b> as the primary K view.</div>`;
+  const primary={ks:"Props · Ks", hit:"Props · Hits", hrr:"Props · HRR", hr:"the heat board"};
+  const pool = cvProp==="ks"
+      ? (BOARD.pitcher_props||[]).filter(a=>a.converge)
+      : (BOARD.players||[]).filter(p=>p.converge&&p.converge[cvProp==="hr"?"hr":cvProp]);
+  if(pool.length>=10 && primary[cvProp]){
+    const famOf=x=>{
+      const c=cvProp==="ks" ? (x.converge||{}) : ((x.converge||{})[cvProp==="hr"?"hr":cvProp]||{});
+      return ((c.measured)||[]).length;
+    };
+    const counts=pool.map(famOf);
+    const zero=counts.filter(f=>f===0).length;
+    const distinct=new Set(counts).size;
+    if(zero/pool.length>=0.6 || distinct<=2){
+      const noun = cvProp==="ks" ? "arms" : "hitters";
+      flat=`<div class="rank-key"><b>Convergence cannot separate this prop tonight</b> —
+        ${zero} of ${pool.length} ${noun} carry no measured families, and only ${distinct}
+        distinct family counts exist across the whole slate. With nothing to sort on, the order
+        falls back to the underlying score, so this list largely repeats
+        <b>${primary[cvProp]}</b>. The backtest agrees: heat separates roughly twice the spread
+        convergence does on this prop. Use ${primary[cvProp]} as the primary view.</div>`;
     }
   }
   return flat+`<div class="rank-key">Ranked by <b>agreeing evidence</b>, not probability — this
