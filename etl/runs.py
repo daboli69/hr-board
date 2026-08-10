@@ -239,10 +239,26 @@ def event_rates_from_profile(prof, lg_pa=None):
     dbl = xb_non_hr / (1.0 + 2.0 * TRIPLE_TO_DOUBLE)
     tpl = TRIPLE_TO_DOUBLE * dbl
     sgl = max(0.0, hits - dbl - tpl - hr)
-    return {
+    raw = {
         "1B": sgl / pa, "2B": dbl / pa, "3B": tpl / pa, "HR": hr / pa,
         "BB": bb, "K": k,
     }
+
+    # Regress toward league average by sample size.
+    #
+    # Without this the Markov engine takes short hot streaks literally. A hitter with 8 homers
+    # in 40 plate appearances yields a 0.200 HR rate — six times league — and a lineup of such
+    # profiles simulated to 32.9 runs against a real game total near 8.7. That single failure
+    # mode put the backtest's markov MAE at 11.57 against the linear engine's 3.58, making the
+    # simulation look far worse than it is.
+    #
+    # The linear engine never had this problem because it runs through a capped xwOBA, which
+    # bounds the damage implicitly. Markov consumes the rates directly, so the bound has to be
+    # explicit. K is expressed in plate appearances: an observed rate carries half its weight at
+    # PA = K, so a full season barely moves while a 40-PA sample stays close to league.
+    K_PA = 200.0
+    w = pa / (pa + K_PA)
+    return {ev: w * raw[ev] + (1.0 - w) * markov.LG.get(ev, 0.0) for ev in raw}
 
 
 def pitcher_event_rates(prof):
