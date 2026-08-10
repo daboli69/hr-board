@@ -32,30 +32,37 @@ const HTML = path.join(ROOT, "docs", "index.html");
 // separate destination to a person tapping around, even though the router calls it one view.
 // `ranks` = the prop this screen puts in priority order. null means it is not a ranked list
 // of players for a prop (a calendar, a help page, a matchup explorer), so it is never compared.
+//
+// `scope` = which population the screen ranks.
+//   "all"      — the whole slate, so a disagreement with another "all" screen is a real
+//                contradiction: two functions ranking the same people differently.
+//   "filtered" — a deliberate subset (temperature-sensitive hitters, short-starter spots,
+//                jackpot-eligible longshots). Showing different players is the WHOLE POINT, so
+//                these are never flagged against a full-board view.
 const VIEWS = [
-  { id: "today",      label: "Today",                 fn: "renderToday",   ranks: "HR" },
-  { id: "board",      label: "Board",                 fn: "render",        ranks: "HR" },
+  { id: "today",      label: "Today",                 fn: "renderToday",   ranks: "HR", scope: "filtered" },
+  { id: "board",      label: "Board",                 fn: "render",        ranks: "HR", scope: "all" },
   { id: "toppicks",   label: "Top Picks",             fn: "renderTopPicks", ranks: "MIXED" },
   { id: "qualified",  label: "Qualified Bets",        fn: "renderQualified", ranks: "MIXED" },
-  { id: "props",      label: "Props · HR",            fn: "renderProps", sub: { propsView: "ev" }, ranks: "HR" },
-  { id: "props",      label: "Props · Hits",          fn: "renderProps", sub: { propsView: "hit" }, ranks: "Hit" },
-  { id: "props",      label: "Props · HRR",           fn: "renderProps", sub: { propsView: "hrr" }, ranks: "HRR" },
-  { id: "props",      label: "Props · Ks",            fn: "renderProps", sub: { propsView: "k" }, ranks: "Ks" },
+  { id: "props",      label: "Props · HR",            fn: "renderProps", sub: { propsView: "ev" }, ranks: "HR", scope: "all" },
+  { id: "props",      label: "Props · Hits",          fn: "renderProps", sub: { propsView: "hit" }, ranks: "Hit", scope: "all" },
+  { id: "props",      label: "Props · HRR",           fn: "renderProps", sub: { propsView: "hrr" }, ranks: "HRR", scope: "all" },
+  { id: "props",      label: "Props · Ks",            fn: "renderProps", sub: { propsView: "k" }, ranks: "Ks", scope: "all" },
   { id: "props",      label: "Props · Game Lines",    fn: "renderProps", sub: { propsView: "ml" }, ranks: "ML" },
   { id: "props",      label: "Props · Parlay",        fn: "renderProps", sub: { propsView: "parlay" }, ranks: null },
-  { id: "converge",   label: "Convergence · HR",      fn: "renderConverge", sub: { cvProp: "hr" }, ranks: "HR" },
-  { id: "converge",   label: "Convergence · Hits",    fn: "renderConverge", sub: { cvProp: "hit" }, ranks: "Hit" },
-  { id: "converge",   label: "Convergence · HRR",     fn: "renderConverge", sub: { cvProp: "hrr" }, ranks: "HRR" },
-  { id: "converge",   label: "Convergence · Ks",      fn: "renderConverge", sub: { cvProp: "ks" }, ranks: "Ks" },
+  { id: "converge",   label: "Convergence · HR",      fn: "renderConverge", sub: { cvProp: "hr" }, ranks: "HR", scope: "all" },
+  { id: "converge",   label: "Convergence · Hits",    fn: "renderConverge", sub: { cvProp: "hit" }, ranks: "Hit", scope: "all" },
+  { id: "converge",   label: "Convergence · HRR",     fn: "renderConverge", sub: { cvProp: "hrr" }, ranks: "HRR", scope: "all" },
+  { id: "converge",   label: "Convergence · Ks",      fn: "renderConverge", sub: { cvProp: "ks" }, ranks: "Ks", scope: "all" },
   { id: "converge",   label: "Convergence · ML",      fn: "renderConverge", sub: { cvProp: "ml" }, ranks: "ML" },
-  { id: "edges",      label: "Edges · Arms",          fn: "renderEdges", sub: { edgesView: "arms" }, ranks: "ARM" },
-  { id: "edges",      label: "Edges · Quick Target",  fn: "renderEdges", sub: { edgesView: "qt" }, ranks: "ARM" },
+  { id: "edges",      label: "Edges · Arms",          fn: "renderEdges", sub: { edgesView: "arms" }, ranks: "ARM", scope: "all" },
+  { id: "edges",      label: "Edges · Quick Target",  fn: "renderEdges", sub: { edgesView: "qt" }, ranks: "ARM", scope: "filtered" },
   { id: "edges",      label: "Edges · Bullpens",      fn: "renderEdges", sub: { edgesView: "pens" }, ranks: "PEN" },
-  { id: "edges",      label: "Edges · Microclimate",  fn: "renderEdges", sub: { edgesView: "micro" }, ranks: "HR" },
-  { id: "edges",      label: "Edges · Late-HR",       fn: "renderEdges", sub: { edgesView: "late" }, ranks: "HR" },
+  { id: "edges",      label: "Edges · Microclimate",  fn: "renderEdges", sub: { edgesView: "micro" }, ranks: "HR", scope: "filtered" },
+  { id: "edges",      label: "Edges · Late-HR",       fn: "renderEdges", sub: { edgesView: "late" }, ranks: "HR", scope: "filtered" },
   { id: "pitchmix",   label: "Team vs Pitch Mix",     fn: "renderPitchMix", ranks: null },
   { id: "sgp",        label: "Parlay Builder",        fn: "renderSGP",     ranks: "MIXED" },
-  { id: "jackpot",    label: "Long Ball Jackpot",     fn: "renderJackpot", ranks: "HR" },
+  { id: "jackpot",    label: "Long Ball Jackpot",     fn: "renderJackpot", ranks: "HR", scope: "filtered" },
   { id: "ladder",     label: "Ladder Challenge",      fn: "renderLadder",  ranks: "MIXED" },
   { id: "calendar",   label: "HR Calendar",           fn: "renderCalendar", ranks: null },
   { id: "tracker",    label: "Tracker / Trends",      fn: "renderTracker", ranks: null },
@@ -221,9 +228,11 @@ function main() {
       const comparable = a.ranks === b.ranks;
       const mixed = a.ranks === "MIXED" || b.ranks === "MIXED";
       if (!comparable && !mixed) continue;
+      // Only two full-slate rankings of the same prop can contradict each other.
+      const filtered = a.scope === "filtered" || b.scope === "filtered";
       const sim = jaccard(a.fp.entities, b.fp.entities);
       const rho = rankAgreement(a.fp.order, b.fp.order);
-      pairs.push({ a, b, sim, rho, sharedProps: [comparable ? a.ranks : "MIXED"], mixed });
+      pairs.push({ a, b, sim, rho, sharedProps: [comparable ? a.ranks : "MIXED"], mixed, filtered });
     }
   }
   pairs.sort((x, y) => y.sim - x.sim);
@@ -231,6 +240,7 @@ function main() {
   const DUP = [], CONFLICT = [], DISTINCT = [];
   for (const p of pairs) {
     if (p.mixed) { DISTINCT.push(p); continue; }        // a mixed list is meant to differ
+    if (p.filtered) { DISTINCT.push(p); continue; }     // a subset is meant to differ
     // Two screens are only truly duplicated when they show the same people AND put them in
     // roughly the same order. Same membership with a different order is not redundancy — it is
     // two different rankings, which is the more interesting case.
