@@ -1654,6 +1654,21 @@
   .p30-sub{font-size:10.5px;color:var(--muted);margin-top:5px;line-height:1.5}
   .p30-sub b{color:var(--ink)}
   .p30-here{color:var(--seam)!important}
+  .btg-block{background:var(--panel-2);border-radius:10px;padding:12px 14px;margin:14px 0}
+  .btg-block h3{font-size:14px;margin:0 0 6px}
+  .btg-lead{font-size:12px;color:var(--muted);line-height:1.6;margin:0 0 10px}
+  .btg-tbl{width:100%;border-collapse:collapse;font-family:"IBM Plex Mono";font-size:11px;margin:0 0 12px}
+  .btg-tbl th{text-align:left;font-size:8.5px;color:var(--faint);text-transform:uppercase;
+    letter-spacing:.06em;padding-bottom:5px;border-bottom:1px solid var(--line)}
+  .btg-tbl td{padding:5px 0;border-bottom:1px solid var(--line);color:var(--muted)}
+  .btg-tbl td b{color:var(--seam)}
+  .btg-tbl .btg-n{text-align:right;color:var(--faint)}
+  .btg-steps{margin:0;padding-left:18px}
+  .btg-steps li{font-size:12px;line-height:1.65;color:var(--muted);margin-bottom:9px}
+  .btg-steps li b{color:var(--ink)} .btg-steps li i{color:var(--seam);font-style:normal}
+  .btg-warn{margin-top:12px;padding:10px 12px;background:var(--panel-3);border-left:2px solid var(--hot);
+    border-radius:0 7px 7px 0;font-size:11.5px;line-height:1.6;color:var(--muted)}
+  .btg-warn b{color:var(--ink)}
   .btg-primary{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--seam);
     border-radius:10px;padding:12px 14px;margin:0 0 10px}
   .btg-primary h3{border:none!important;padding:0!important;color:var(--seam)!important;font-size:15px}
@@ -2221,6 +2236,28 @@
       <p><b>Hits</b> — ranks hitters for 1+ / 2+ hits using xBA, hard-hit%, line-drive%, plate discipline (BB% minus K%), contact%, and the opposing arm's hittability. <b>HRR</b> — hits + runs + RBIs, which is hit skill plus a lineup-spot multiplier (top of the order gets more PAs and more RBI chances) plus an HR-upside boost, since one swing can produce all three. <b>Pitcher Ks</b> — ranks starters for their K-total prop using their own K% and SwStr% blended over 2 weeks, weighted against the opposing lineup's K vulnerability. Each card shows an <b>estimated K total and target line</b> ("est. 7.8 Ks · line target O7.5") so you can compare directly against the book before opening the odds screen. Openers get an automatic downgrade — they can't throw enough innings to clear a normal line.</p>
       <p><b>K Under</b> — sorted <i>low to high</i> on purpose. The lowest K-prone scores are the best "UNDER 0.5 strikeouts" bets: contact hitters facing low-whiff arms. Tags run <b>STRONG UNDER</b> (under 30) → <b>LEAN UNDER</b> → <b>NEUTRAL</b> → <b>FADE</b> (60+, the K-prone guys you'd avoid).</p>
       <p>All four use the same 2-week trailing window as the HR model, with the same thin-sample discount on both the batter and pitcher side.</p>
+
+      <h3>Building a 3-leg home run parlay</h3>
+      <p>The most useful thing the backtest found is that <b>signals compound</b>. Hitters with
+      no convergence families homer at <b>8.2%</b>; with two families <b>14.5%</b>; with three
+      <b>17.0%</b>; with four <b>21.2%</b> — nearly double the <b>10.9%</b> base rate, measured
+      across 30,000 player-games. That ladder is what makes leg selection worth doing.</p>
+      <p><b>The method.</b> <i>1.</i> Pick the game first — a vulnerable starter in
+      <b>Edges → Arms</b>, a worn pen in <b>Bullpens</b>, a park that carries in
+      <b>Weather &amp; Parks</b>. <i>2.</i> Filter the board to that game and tap
+      <b>◎ 4+ families</b>; drop to 3+ if nobody clears it, and change games if nobody clears 3.
+      <i>3.</i> Rank what's left by barrel% 12+ (19.5%, the strongest single metric), heat 70+
+      (16.4%), 2+ near misses (12.2% vs 9.3% for none), then batting spot 1–4. <i>4.</i> Check
+      sample size — a convergence read on under 120 batted balls hits <b>6.5%</b>, worse than
+      random, while the same signal on 250+ hits <b>16.1%</b>. <i>5.</i> Pair hitters batting
+      <b>close together</b> (2-3-4 or 3-4-5) so they face the same pitcher in the same inning.
+      <i>6.</i> Confirm the four families are genuinely different kinds of evidence, not one
+      signal counted four times.</p>
+      <p><b>What it's worth.</b> Three legs at 21.2% is <b>0.95%</b> if the legs are independent
+      — fair odds around <b>+10,400</b>. Books pay near +2,500, so the math still says no. What
+      the process buys you is roughly <b>7× better odds than picking three hitters at random</b>,
+      and steps 1 and 5 exist to create the same-game correlation that is the only real argument
+      for the ticket. Bet it because you want the shot, not because it's +EV.</p>
 
       <h3>Prop parlays</h3>
       <p>In the Props tab → <b>Parlays</b> sub-tab. Builds multi-leg parlays from tonight's priced +EV prop legs (hits, HRR, pitcher Ks, HR, game lines). Three cards: <b>Safest 2-leg</b> (the two likeliest props to both hit), <b>Best value 3-leg</b> (highest-EV legs that are each still genuinely likely), and <b>Longshot 3-leg</b> (bigger payout, only genuine edges). Each shows the combined odds and the <b>honest combined probability</b> so you see the real risk, not just a flashy payout. Legs are spread one-per-game to avoid correlation. Parlays are structurally −EV for most bettors — these only surface when the individual legs each carry an edge, and even then the combined chance is small.</p>
@@ -8380,6 +8417,94 @@ function signalLiftHTML(){
   </div>`;
 }
 
+// The 3-leg parlay playbook, priced off the backtest rather than written as advice.
+//
+// Every rate below is read live from BACKTEST, so if a signal stops working the guide stops
+// recommending it. The point of showing the fair price next to the book price is that a parlay
+// can be a genuine improvement in SELECTION and still be a bad bet — those are separate
+// questions and conflating them is how people talk themselves into lottery tickets.
+function parlayPlaybookHTML(){
+  const B=BACKTEST||{};
+  const base=(B.base_pct||10.94)/100;
+  const edge=B.by_edge||{};
+  const rate=(grp,key)=>{
+    const v=(edge[grp]||{})[key];
+    return (v&&v.n)? {r:v.hr/v.n, n:v.n} : null;
+  };
+  const fam=k=>rate("converge_families",k);
+  const f4=fam("4 families"), f3=fam("3 families"), f2=fam("2 families"), f0=fam("0 families");
+  const brl=rate("hr_power","12%+ barrel");
+  const thin=rate("sample_x_converge","conv0 / <120");
+  const solid=rate("sample_x_converge","conv1+ / 250+");
+  const nm2=rate("near_miss","2+ near misses"), nm0=rate("near_miss","0 near misses");
+  const t70=((B.by_tier||{})["70+"]);
+  const heat70 = t70&&t70.n ? t70.hr/t70.n : null;
+
+  const pct=x=>x==null?"—":`${(100*x).toFixed(1)}%`;
+  const amer=p=>{ if(!p||p<=0) return "—"; const d=1/p; return `+${Math.round((d-1)*100).toLocaleString()}`; };
+
+  // ladder rows, only those with a real sample
+  const ladder=[["0 families",f0],["2 families",f2],["3 families",f3],["4 families",f4]]
+    .filter(x=>x[1]&&x[1].n>=100)
+    .map(([lab,v])=>`<tr><td>${lab}</td><td><b>${pct(v.r)}</b></td>
+      <td>${(v.r/base).toFixed(2)}×</td><td class="btg-n">${v.n.toLocaleString()}</td></tr>`).join("");
+
+  const bestLeg = f4 ? f4.r : (heat70||base);
+  const three = Math.pow(bestLeg,3);
+  const rnd = Math.pow(base,3);
+
+  return `<div class="btg-block">
+    <h3>Building a 3-leg home run parlay</h3>
+    <p class="btg-lead">Signals <b>compound</b> — this is the most useful thing in your data, and
+    it is what makes leg selection worth doing at all.</p>
+    ${ladder?`<table class="btg-tbl"><thead><tr><th>evidence families</th><th>HR rate</th><th>lift</th><th>games</th></tr></thead><tbody>${ladder}</tbody></table>`:""}
+
+    <ol class="btg-steps">
+      <li><b>Pick the game before the hitters.</b> Open <i>Edges → Arms</i> for a vulnerable
+      starter, then confirm in <i>Bullpens</i> that the pen behind him is worn, and in
+      <i>Weather &amp; Parks</i> that the ball carries. One soft game beats three good hitters
+      scattered across the slate.</li>
+
+      <li><b>Filter the board to that game.</b> Tap <i>◎ 4+ families</i> on the board.
+      ${f4?`Those hitters homer <b>${pct(f4.r)}</b> of the time (${(f4.r/base).toFixed(2)}× the
+      ${pct(base)} base rate).`:""} If nobody in the game clears 4, drop to
+      <i>◎ 3+ families</i>${f3?` (<b>${pct(f3.r)}</b>)`:""}. If nobody clears 3,
+      <b>pick a different game</b> — do not force it.</li>
+
+      <li><b>Rank the survivors.</b> In order:
+      ${brl?`barrel rate 12%+ (<b>${pct(brl.r)}</b>, the strongest single metric in the backtest)`:"barrel rate"},
+      ${heat70?`heat 70+ (<b>${pct(heat70)}</b>)`:"heat 70+"},
+      ${nm2&&nm0?`2+ near misses (<b>${pct(nm2.r)}</b> vs <b>${pct(nm0.r)}</b> for none)`:"near misses"},
+      then batting spot 1–4.</li>
+
+      <li><b>Check sample size before trusting any signal.</b>
+      ${thin&&solid?`A convergence read on a thin sample hits <b>${pct(thin.r)}</b> — <i>worse than
+      random</i> — while the same signal on 250+ batted balls hits <b>${pct(solid.r)}</b>.`:
+      `A signal on a thin sample can invert entirely.`}
+      This is the most common way to talk yourself into a bad leg.</li>
+
+      <li><b>Pair by batting order, not by rating.</b> Take hitters batting <b>close together</b> —
+      2-3-4 or 3-4-5. They face the same pitcher in the same inning, so if he loses it in the 4th
+      they all get him at his worst together. Hitters batting 2 and 8 face different versions of
+      the same game.</li>
+
+      <li><b>Confirm the families are actually different.</b> Open each card's Signal Convergence
+      section. Four families that are all variations of "he's hot" is one signal counted four
+      times, not four signals.</li>
+    </ol>
+
+    <div class="btg-warn">
+      <b>What this is worth, honestly.</b> Three legs at
+      ${f4?`${pct(f4.r)} each`:"your best rate"} is <b>${(100*three).toFixed(2)}%</b> if the legs
+      are independent — a fair price of <b>${amer(three)}</b>. Books pay around +2,500, so on
+      independent math the bet still loses. The process above is <b>${(three/rnd).toFixed(0)}×
+      better than picking three hitters at random</b> (${amer(rnd)}), and steps 1 and 5 exist to
+      create the same-game correlation that is the only real argument for the ticket.
+      <b>Bet it because you want the shot, not because the math says it is +EV.</b>
+    </div>
+  </div>`;
+}
+
 function computeBetGuideHTML(){
   const days=(HISTORY&&HISTORY.days)||[];
   const cal = BACKTEST && BACKTEST.calib;
@@ -8488,6 +8613,7 @@ function computeBetGuideHTML(){
   const topTierN=tiers["70+"]?tiers["70+"].n:0;
 
   return `${primary}
+    ${parlayPlaybookHTML()}
     ${signalLiftHTML()}
     <p class="faq-lead" style="margin-top:16px">Below the Edge Finder, here's a step-by-step picking method built from <b>your ${days.length} graded days</b> (${players} hitter-days, base ${base.toFixed(1)}% HR rate)${cal?`, cross-checked against the backtest calibration (~${pool.toLocaleString()} hitter-days)`:""}. This rewrites itself as your tracker grows.</p>
 
