@@ -44,6 +44,35 @@ SEASON_START = os.environ.get("SEASON_START", "2026-03-26")
 BUILD_HEALTH = []          # subsystem skip notes; shipped in board.json as build_health
 
 
+def _hrr_p_over(lam, line=1.5):
+    """P(HRR > line) for a projected total of `lam`.
+
+    Two corrections sit on top of the raw projection, and they do different jobs.
+
+    MEAN. Summing expected hits, runs and RBIs from per-PA rates runs hot — it puts the slate
+    average at 1.92 HRR, which implies 49.2% of hitters clear 1.5 when the tracker has actually
+    graded 40.6% across 29,694 player-games. No plausible dispersion absorbs an 8.6-point gap
+    (even 2.5 leaves it 4.3 points high), so the mean is corrected directly. 0.817 was SOLVED
+    against the graded rate rather than picked; re-fit it if that rate moves.
+
+    SHAPE. HRR counts are positively correlated — a home run pays a hit, a run and an RBI in one
+    event — so the distribution is wider than a Poisson of the same mean: more zeros and more big
+    nights. A negative binomial carries exactly that extra parameter.
+    """
+    import math
+    lam = max(1e-6, float(lam)) * 0.817          # mean calibration, see above
+    DISPERSION = 1.8                             # var = lam * DISPERSION
+    if DISPERSION <= 1.0:
+        p0 = math.exp(-lam)
+        p1 = lam * p0
+    else:
+        r = lam / (DISPERSION - 1.0)
+        q = 1.0 / DISPERSION
+        p0 = q ** r
+        p1 = r * (1.0 - q) * p0
+    return round(max(0.0, min(1.0, 1.0 - p0 - p1)), 4)
+
+
 def _hnote(sub, err):
     BUILD_HEALTH.append({"sub": sub, "issue": f"{type(err).__name__}: {err}"[:160]})
 
@@ -1048,6 +1077,62 @@ def build(date_str: str | None = None) -> dict:
             _pl["hit_gated"] = None
     _ng = sum(1 for _pl in players if _pl.get("hit_gated"))
     print(f"[build] contact-gated hit projections: {_ng}/{len(players)}")
+
+    # Per-player HRR. The tab previously showed one number per heat tier — the tier's historical
+    # rate — so every hitter in a band read identically and the card could not help you choose
+    # between them. This produces a genuine per-hitter projection: expected hits + runs + RBIs
+    # built volume-first (xPA scaled by the implied team total), then the probability of clearing
+    # the 1.5 line.
+    #
+    # HRR is a sum of correlated counts — one home run pays a hit, a run AND an RBI at once — so
+    # a plain Poisson understates how often a hitter lands on 2+ and how often on 0. The
+    # dispersion term below widens the distribution to account for that; it is calibrated so the
+    # slate-wide average matches the rate the backtest actually graded, which is the only anchor
+    # available. Treated as a display lens: it never feeds heat.
+    _by_team_spot = {}
+    for _pl in players:
+        _t, _s = _pl.get("team"), _pl.get("lineup_spot")
+        if _t and _s:
+            _by_team_spot.setdefault(_t, {})[int(_s)] = _pl
+
+    def _neighbors(team, spot, offsets):
+        out = []
+        lineup = _by_team_spot.get(team) or {}
+        for off in offsets:
+            s = ((int(spot) - 1 + off) % 9) + 1
+            nb = lineup.get(s)
+            if nb:
+                w = (nb.get("windows") or {}).get("L30d") or (nb.get("windows") or {}).get("L14d") or {}
+                out.append({"obp_30": w.get("obp"), "woba_30": w.get("xwobacon"),
+                            "slg_30": w.get("slg")})
+        return out
+
+    _nhrr = 0
+    for _pl in players:
+        try:
+            _hg = _pl.get("hit_gated")
+            _spot = _pl.get("lineup_spot")
+            if not _hg or not _spot:
+                _pl["hrr_proj"] = None
+                continue
+            _itt = _pl.get("implied_team_total") or (_pl.get("game") or {}).get("implied_total")
+            _hp = props.hrr_projection(
+                _hg, int(_spot), implied_team_total=_itt,
+                batters_ahead=_neighbors(_pl.get("team"), _spot, [-2, -1]),
+                batters_behind=_neighbors(_pl.get("team"), _spot, [1, 2]))
+            _lam = float(_hp.get("hrr") or 0.0)
+            _hp["p_over15"] = _hrr_p_over(_lam, 1.5)
+            _pl["hrr_proj"] = _hp
+            _nhrr += 1
+        except Exception:
+            _pl["hrr_proj"] = None
+    if _nhrr:
+        _ps = [(_pl["hrr_proj"] or {}).get("p_over15") for _pl in players
+               if (_pl.get("hrr_proj") or {}).get("p_over15") is not None]
+        _avg = sum(_ps) / len(_ps) if _ps else 0
+        print(f"[build] HRR projections: {_nhrr}/{len(players)} · "
+              f"slate mean P(2+) {100*_avg:.1f}% · expected HRR "
+              f"{sum((_pl['hrr_proj'] or {}).get('hrr') or 0 for _pl in players if _pl.get('hrr_proj'))/max(1,_nhrr):.2f}")
 
     players.sort(key=lambda p: p["heat"], reverse=True)
 
