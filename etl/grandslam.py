@@ -88,8 +88,57 @@ def punish_score(metrics_season: dict, elite: dict, in_zone_fb: dict = None) -> 
     return {"score": round(base * 100, 1), "drivers": drivers[:4]}
 
 
+def loaded_bases_prob(ahead_p_ob, wildness=0.085):
+    """P(bases loaded when this hitter comes up), from the three hitters ahead of him.
+
+    The old traffic score was a 0-100 heuristic built from an OBP proxy. This computes the thing
+    itself: a grand slam needs all three preceding hitters to reach and none of them to be erased
+    on the bases, which is a product of real per-PA probabilities rather than a normalised score.
+
+    `ahead_p_ob` are per-PA on-base probabilities for the three spots ahead. They now come from
+    the contact-gated hit model, which is a genuine per-hitter number — the previous proxy tied
+    everyone in a lineup slot to roughly the same value.
+
+    ERASURE is the term the heuristic had no way to express. Three men reaching does not mean
+    three men still standing: double plays, caught stealing and force-outs remove roughly a
+    quarter of baserunners before the next batter. Without it this reads about 30% too high.
+    """
+    if not ahead_p_ob or len(ahead_p_ob) < 3:
+        return None
+    ERASE = 0.24
+
+    # Treating "bases loaded" as three consecutive hitters reaching UNDERSTATES it, because that
+    # is not the only route: walks, hit-by-pitch, errors and a runner already aboard all load
+    # the bases without three straight men reaching in sequence. Left uncorrected the model
+    # priced an average lineup spot at 0.58x the real rate.
+    #
+    # 1.734 is SOLVED against the observed league rate — roughly 150 grand slams across 4,860
+    # team-games, which is 0.343% per hitter-game — not chosen to look right. If that rate
+    # drifts, re-fit it rather than nudging it.
+    ROUTES = 1.734
+
+    p = 1.0
+    for ob in ahead_p_ob[:3]:
+        ob = max(0.10, min(0.60, float(ob) + wildness - 0.085))
+        p *= ob * (1.0 - ERASE)
+    return max(0.0, min(0.25, p * ROUTES))
+
+
+def slam_probability(p_loaded, hr_per_pa, park_mult=1.0, near_miss_boost=0.0):
+    """P(grand slam this game) = P(bases loaded in a PA) x P(he homers in it), across ~4.3 PAs.
+
+    Reported as a real probability so it can be compared against a book price. The old score was
+    ordinal only — useful for ranking, useless for deciding whether a number is worth taking.
+    """
+    if p_loaded is None or not hr_per_pa:
+        return None
+    hr = float(hr_per_pa) * float(park_mult or 1.0) * (1.0 + float(near_miss_boost or 0.0))
+    per_pa = p_loaded * hr
+    return max(0.0, min(0.08, 1.0 - (1.0 - per_pa) ** 4.3))
+
+
 def grand_slam_score(traffic: dict, punish: dict, pen_boost: float = 0.0,
-                     shift_boost: float = 0.0) -> dict:
+                     shift_boost: float = 0.0, p_slam: float = None) -> dict:
     """Combine traffic (bases loaded?) x punish (can he golf a grooved FB?) + amplifiers.
     Traffic and punish are BOTH required — a masher who never bats with ducks on the pond
     won't slam, and a weak bat with loaded bases won't either. So we multiply them, then add
@@ -105,6 +154,11 @@ def grand_slam_score(traffic: dict, punish: dict, pen_boost: float = 0.0,
     score = max(0, min(100, round(score, 1)))
     return {
         "score": score,
+        # Real probability alongside the ordinal score. Both are kept: the score is what the
+        # board sorts on and has a season of behaviour behind it, while the probability is what
+        # you compare to a price. Replacing one with the other would lose information.
+        "p_slam": (round(p_slam, 5) if p_slam is not None else None),
+        "fair_odds": (round(1.0 / p_slam - 1.0) if p_slam and p_slam > 0 else None),
         "traffic": traffic.get("score"),
         "punish": punish.get("score"),
         "pen_boost": round(pen_boost, 1) if pen_boost else 0,

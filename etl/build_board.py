@@ -1207,23 +1207,74 @@ def build(date_str: str | None = None) -> dict:
                 lc = (p.get("features") or {}).get("late_hr")
                 if lc and lc.get("score"):
                     pen_boost = min(8.0, lc["score"] * 0.10)
-                gs = grandslam.grand_slam_score(traffic, punish, pen_boost=pen_boost)
+                # Feed the new engines into the slam probability.
+                #
+                # The three hitters ahead now supply per-PA on-base numbers from the
+                # contact-gated model instead of an OBP proxy, the park's carry multiplier
+                # scales the home-run half, and a hitter with repeated near misses gets a small
+                # credit because those are the balls that clear on a different night. Each of
+                # these already ships elsewhere in the board; none of them reached this model.
+                _p_slam = None
+                try:
+                    _sp = p.get("lineup_spot")
+                    if _sp:
+                        _ahead = []
+                        for _k in range(1, 4):
+                            _s2 = ((int(_sp) - 1 - _k) % 9) + 1
+                            _pl2 = next((x for x in lineup if x.get("lineup_spot") == _s2), None)
+                            if not _pl2:
+                                continue
+                            _hg2 = _pl2.get("hit_gated") or {}
+                            _xpa2, _ph2 = _hg2.get("xpa"), _hg2.get("p_hit")
+                            if _xpa2 and _ph2 and _ph2 < 1:
+                                # per-PA hit chance, then add walks to get on-base
+                                _perpa = 1.0 - (1.0 - _ph2) ** (1.0 / _xpa2)
+                                _bb2 = ((_pl2.get("windows") or {}).get("L14d") or {}).get("bb_pct")
+                                _ahead.append(_perpa + (float(_bb2 or 8.5) / 100.0))
+                        if len(_ahead) >= 3:
+                            _wild = float(opp_bb or 8.5) / 100.0
+                            _pl_prob = grandslam.loaded_bases_prob(_ahead, wildness=_wild)
+                            _w14 = (p.get("windows") or {}).get("L14d") or {}
+                            _hrpa = None
+                            if _w14.get("pa") and _w14.get("hr") is not None and _w14["pa"] >= 20:
+                                _hrpa = float(_w14["hr"]) / float(_w14["pa"])
+                                _hrpa = min(_hrpa, 0.032 * 3.0)      # cap, same reasoning as runs.py
+                                _hrpa = 0.6 * _hrpa + 0.4 * 0.032    # regress a 2-week sample
+                            _pk2 = ((p.get("park_hr") or {}).get("boost") or 0) / 100.0
+                            _nm2 = (p.get("near_miss") or {}).get("near") or 0
+                            _p_slam = grandslam.slam_probability(
+                                _pl_prob, _hrpa, park_mult=1.0 + _pk2 * 0.45,
+                                near_miss_boost=min(0.12, 0.04 * _nm2))
+                except Exception:
+                    _p_slam = None
+                gs = grandslam.grand_slam_score(traffic, punish, pen_boost=pen_boost,
+                                                p_slam=_p_slam)
                 if gs:
                     p["grand_slam"] = gs
                     gs_all.append((gs["score"], p))
         # board-level top 3 for the DK jackpot
-        gs_all.sort(key=lambda x: -x[0])
+        # Rank on the calibrated probability where it exists, falling back to the ordinal score.
+        # The score and the probability can disagree: the score is a geometric blend of two
+        # 0-100 components, so it rewards being decent at both, while the probability answers
+        # the question actually being asked — how often does this end in a slam. Sorting on the
+        # score meant the top three surfaced to the jackpot were not the three likeliest.
+        gs_all.sort(key=lambda x: -((x[1].get("grand_slam") or {}).get("p_slam") or (x[0] / 1e6)))
         board_gs = []
         for sc, p in gs_all[:12]:
             board_gs.append({
                 "id": p["id"], "name": p["name"], "team": p.get("team"),
                 "opp_team": p.get("opp_team"), "spot": p.get("lineup_spot"),
                 "game_pk": p.get("game_pk"), "time": p.get("time"),
-                "score": sc, "traffic": p["grand_slam"]["traffic"],
+                "score": sc,
+                "p_slam": p["grand_slam"].get("p_slam"),
+                "fair_odds": p["grand_slam"].get("fair_odds"),
+                "traffic": p["grand_slam"]["traffic"],
                 "punish": p["grand_slam"]["punish"], "drivers": p["grand_slam"]["drivers"],
                 "heat": p.get("heat"), "elite": (p.get("elite") or {}).get("tier"),
             })
-        print(f"[build] grand slam: {len(gs_all)} hitters scored, top {len(board_gs)} surfaced")
+        _np = sum(1 for _x in board_gs if _x.get("p_slam") is not None)
+        print(f"[build] grand slam: {len(gs_all)} hitters scored, top {len(board_gs)} surfaced "
+              f"({_np} with a calibrated probability)")
     except Exception as e:
         board_gs = []
         _hnote("grand slam", e); print(f"[build] grand slam skipped: {e}")
