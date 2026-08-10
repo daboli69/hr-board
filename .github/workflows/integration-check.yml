@@ -77,6 +77,21 @@ jobs:
       # The check that would have caught the seven dead fields: every field the ETL writes into
       # board.json must actually be read somewhere in the frontend. Data landing in the JSON is
       # not the same as it reaching a screen.
+      # Catches what the dead-field check structurally cannot: work the ETL performs whose
+      # result never reaches board.json at all. A field has to BE in the output before the
+      # dead-field check can notice nothing reads it — this one parses the ETL instead.
+      - name: Orphan check (engine output vs shipped board)
+        continue-on-error: true
+        run: |
+          echo "## Orphan check" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          if [ -f tests/check_orphans.py ]; then
+            python tests/check_orphans.py 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+          else
+            echo "SKIPPED — tests/check_orphans.py is not in the repo yet." | tee -a $GITHUB_STEP_SUMMARY
+          fi
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
       - name: Dead-field check (ETL output vs frontend reads)
         continue-on-error: true
         run: |
