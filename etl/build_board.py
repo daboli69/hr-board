@@ -2630,6 +2630,33 @@ def build(date_str: str | None = None) -> dict:
                 "reasons": reasons or ["about average tonight"],
             })
         # sort worst (highest rank_val = most exploitable) first
+        # Fold in the boxscore-based availability read. Two systems were measuring the same
+        # thing from different sources and only one of them reached a screen: the ranking below
+        # infers who pitched from the Statcast pitch-by-pitch frame, while environment's
+        # reliever_status() reads actual pitch counts from MLB boxscores over the trailing three
+        # days. The boxscore is the more direct evidence and covers arms the Statcast pull can
+        # miss, so it is attached ALONGSIDE the existing numbers — where the two disagree that
+        # is worth seeing, not worth hiding behind one silently overwriting the other.
+        for _r in bullpen_rankings:
+            _st = (pen_state or {}).get(_r.get("team"))
+            if not _st:
+                continue
+            _r["live_pen"] = {
+                "n_out": _st.get("n_out"),
+                "n_tired": _st.get("n_tired"),
+                "n_ok": _st.get("n_ok"),
+                "k_pct": _st.get("k_pct"),
+                "xwoba": _st.get("xwoba"),
+                "source": "boxscore pitch logs (3d)",
+            }
+            # Flag a disagreement rather than resolving it silently.
+            _old_out = _r.get("n_unavailable")
+            if _old_out is not None and _st.get("n_out") is not None and abs(_old_out - _st["n_out"]) >= 2:
+                _r["live_pen"]["disagrees"] = f"statcast says {_old_out} down, boxscores say {_st['n_out']}"
+        _lp = sum(1 for _r in bullpen_rankings if _r.get("live_pen"))
+        if _lp:
+            print(f"[build] bullpen rankings: live availability attached to {_lp}/{len(bullpen_rankings)} pens")
+
         bullpen_rankings.sort(key=lambda x: -x["rank_val"])
         print(f"[build] bullpen rankings: {len(bullpen_rankings)} pens ranked (renovated: ERA/HR/wear/platoon)")
     except Exception as e:
