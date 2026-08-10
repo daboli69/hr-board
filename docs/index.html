@@ -1089,6 +1089,8 @@
   .pen-stats b{color:var(--ink);font-weight:700}
   .pen-val{font-family:Archivo;font-weight:800;font-size:20px;min-width:30px;text-align:right}
   /* grand slam card */
+  .pl-leg-odds{font-family:"IBM Plex Mono";font-size:9.5px;color:var(--faint);margin-top:3px}
+  .pl-leg-odds b{color:var(--seam)}
   .pl-leg-why{font-size:10.5px;color:var(--muted);margin-top:2px;font-family:"IBM Plex Mono"}
   .pl-leg-r{display:flex;align-items:center;gap:7px}
   .gs-score{font-family:Archivo;font-weight:800;font-size:20px;color:var(--hot)}
@@ -8101,6 +8103,7 @@ function renderParlays(){
         <div class="pl-leg-l">
           <div class="pl-leg-nm"><b>${p.name}</b> <span class="pl-leg-sub">${p.team} · #${p.spot||"?"} vs ${p.opp_team}</span></div>
           <div class="pl-leg-why">${(p.drivers||[]).slice(0,3).join(" · ")}</div>
+          ${p.p_slam!=null?`<div class="pl-leg-odds" title="Chance this hitter hits a grand slam tonight, and the odds that would be a fair price. League average is about 0.34% (+291).">slam <b>${(100*p.p_slam).toFixed(2)}%</b> · fair <b>${p.fair_odds>0?"+":""}${p.fair_odds}</b></div>`:""}
         </div>
         <div class="pl-leg-r">
           <div class="gs-score">${p.score.toFixed(0)}</div>
