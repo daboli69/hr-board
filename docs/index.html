@@ -2007,6 +2007,7 @@
     <button class="chip edge-chip" data-edge="late" aria-pressed="false" title="Only hitters in an elevated late-HR spot">⏱ Late-HR</button>
     <button class="chip cov-fam-chip" id="covFam3" onclick="setCovFam(3)" aria-pressed="false" title="Only hitters with 3+ independent evidence families — backtested at 1.56x the base HR rate">◎ 3+ families</button>
     <button class="chip cov-fam-chip" id="covFam4" onclick="setCovFam(4)" aria-pressed="false" title="Only hitters with 4+ independent evidence families — backtested at 2.01x the base HR rate, the strongest signal in the app">◎ 4+ families</button>
+    <button class="chip cov-fam-chip" id="nearMiss2" onclick="setNearMiss(2)" aria-pressed="false" title="Only hitters with 2+ near misses — balls that died within 5ft of the wall at their own spray angle. Backtested at 12.2% vs 9.3% for hitters with none.">◇ 2+ near miss</button>
     <button class="chip edge-chip" data-edge="eye" aria-pressed="false" title="Only disciplined hitters (elite eye or in-zone contact)">👁 Discipline</button>
     <button class="chip edge-chip" data-edge="grade" aria-pressed="false" title="Only ELITE or STRONG matchup grades (4+ factors aligned)">Graded</button>
     <button id="listClearBtn" class="chip listclear" onclick="listClear()" title="Empty your list — asked automatically each new slate">Clear</button>
@@ -3586,6 +3587,9 @@ function cvMeasured(p){
 // accumulate evidence in the first place". If convergence is already doing that filtering, the
 // BBE floor was discarding good plays. The next backtest carries a sample x convergence
 // cross-tab that settles it; until then this is the less destructive default.
+let nearMissMin=0;   // board filter: minimum geometry-aware near misses in the trailing window
+function setNearMiss(n){ nearMissMin=(nearMissMin===n?0:n); updateFiltCount(); render(); }
+function nearMissCount(p){ return ((p&&p.near_miss&&p.near_miss.near)||0); }
 let covFamMin=0;     // board filter: minimum total convergence families
 function setCovFam(n){ covFamMin=(covFamMin===n?0:n); updateFiltCount(); render(); }
 function covFamCount(p){
@@ -4249,6 +4253,11 @@ function render(){
   }
   if(covFamMin>0){
     players=players.filter(p=>covFamCount(p)>=covFamMin);
+  }
+  // Near misses: balls that died within 5 ft of the wall AT THEIR OWN SPRAY ANGLE. Backtested
+  // at 12.2% for 2+ against 9.3% for none — contact that clears on a warmer night.
+  if(nearMissMin>0){
+    players=players.filter(p=>nearMissCount(p)>=nearMissMin);
   }
   if(traitSel.size){
     players=players.filter(p=>{
@@ -10065,6 +10074,8 @@ function updateFiltCount(){
     const b3=document.getElementById("covFam3"), b4=document.getElementById("covFam4");
     if(b3) b3.setAttribute("aria-pressed", covFamMin===3);
     if(b4) b4.setAttribute("aria-pressed", covFamMin===4);
+    const nm=document.getElementById("nearMiss2");
+    if(nm) nm.setAttribute("aria-pressed", nearMissMin===2);
   }catch(e){}
   const n=activeFilterCount();
   const el=document.getElementById("filtCount");
@@ -10073,12 +10084,12 @@ function updateFiltCount(){
 }
 // count every active filter (the old count missed zone/grade/bomb/vuln/edge)
 function activeFilterCount(){
-  return (covFamMin>0?1:0)+gameSel.size+teamSel.size+traitSel.size+labSel.size+drySel.size+tierSel.size+edgeSel.size
+  return (covFamMin>0?1:0)+(nearMissMin>0?1:0)+gameSel.size+teamSel.size+traitSel.size+labSel.size+drySel.size+tierSel.size+edgeSel.size
     +(batFilter?1:0)+(minHeat>0?1:0)+(spFloor>0?1:0)+(hideThin?1:0)+(mixView?1:0)
     +(zoneMin>0?1:0)+(gradeMin?1:0)+(bombMin>0?1:0)+(vulnMin?1:0);
 }
 function clearFilters(){
-  covFamMin=0; gameSel.clear(); teamSel.clear(); batFilter=""; traitSel.clear(); labSel.clear(); drySel.clear(); tierSel.clear(); minHeat=0; spFloor=0; hideThin=false; mixView=false; edgeSel.clear();
+  covFamMin=0; nearMissMin=0; gameSel.clear(); teamSel.clear(); batFilter=""; traitSel.clear(); labSel.clear(); drySel.clear(); tierSel.clear(); minHeat=0; spFloor=0; hideThin=false; mixView=false; edgeSel.clear();
   document.querySelectorAll(".edge-chip").forEach(b=>b.setAttribute("aria-pressed","false"));
   zoneMin=0; gradeMin=""; bombMin=0; vulnMin="";
   ["zoneMinRow","gradeRow","bombRow","vulnRow"].forEach(id=>{
