@@ -307,12 +307,18 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str, asof: "V.AsOfFrame
             # already bounded by the as-of cut, so no new leak surface is introduced.
             _nm_ct = None
             try:
-                _venue_col = "venue" if "venue" in _brows2.columns else None
-                if _venue_col is not None and len(_brows2):
+                # The Statcast frame has no `venue` column — it carries `home_team`, a 3-letter
+                # abbreviation. Requiring "venue" meant this block never ran and near_miss never
+                # appeared in by_edge, which is exactly the bug already fixed in environment.py
+                # via the TEAM_PARK bridge and not carried across to here. Use the same bridge.
+                _has_geo = ("home_team" in _brows2.columns or "venue" in _brows2.columns)
+                _venue_col = "venue" if "venue" in _brows2.columns else "home_team"
+                if _has_geo and len(_brows2):
                     _recent = _brows2.tail(300)
                     _n = 0
                     for _, _r in _recent.iterrows():
-                        if env_mod.is_near_miss(_r.get(_venue_col), _r.get("hc_x"),
+                        _pk = env_mod.park_for_row(_r, _venue_col)
+                        if _pk and env_mod.is_near_miss(_pk, _r.get("hc_x"),
                                                 _r.get("hc_y"), _r.get("hit_distance_sc"),
                                                 was_hr=(str(_r.get("events")) == "home_run")):
                             _n += 1
@@ -329,7 +335,13 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str, asof: "V.AsOfFrame
                         _pf = arsenal_mod.bat_tracking_profile(
                             _sw["bat_speed"].tolist(),
                             _sw["swing_length"].tolist() if "swing_length" in _sw.columns else None)
+                        # short_fast_rate needs swing_length, which the Statcast pull did not
+                        # request until now — so this silently produced None and the tally never
+                        # appeared in by_edge. Falls back to bat speed alone for replay days
+                        # before the column exists, rather than dropping the whole signal.
                         _bat_fs = (_pf or {}).get("short_fast_rate")
+                        if _bat_fs is None:
+                            _bat_fs = (_pf or {}).get("fast_swing_rate")
             except Exception:
                 _bat_fs = None
 
@@ -447,6 +459,8 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
     }
     pk_n = pk_ks = pk_o5 = pk_o6 = pk_o7 = 0
     hit_n = hit1_tot = hit2_tot = hrr_n = hrr2_tot = 0
+    # Rows for the side-by-side graders, collected on the same player-days the tiers use.
+    _sbs_hit, _sbs_k = [], []
     # new-signal buckets, same {n,hr} shape the tracker uses so the UI renders them uniformly
     by_edge = {}
     def _edge(group, bucket, hit):
@@ -552,6 +566,14 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
             P["hit1"][tier]["n"] += 1; P["hit1"][tier]["hit"] += 1 if got1 else 0
             P["hit2"][tier]["n"] += 1; P["hit2"][tier]["hit"] += 1 if got2 else 0
             hit_n += 1; hit1_tot += 1 if got1 else 0; hit2_tot += 1 if got2 else 0
+            # Rows for the side-by-side graders. replay() aggregates straight into tier dicts,
+            # so there was nothing for grade_hit_side_by_side() to consume — it was defined and
+            # uncallable. Collected on the SAME player-days the tiers are built from, so the two
+            # models are compared on identical rows rather than on whatever each happened to
+            # cover.
+            _sbs_hit.append({"hit_gated_p": r.get("hit_gated_p"),
+                             "hit_heat": r.get("hit_heat"),
+                             "got_hit": got1})
             _cvh = r.get("cv_hit")
             if _cvh is not None:
                 _conv_tally("hit1", f"{_cvh} measured", got1)
@@ -583,6 +605,12 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
             if actual >= 7: e["o6"] += 1
             if actual >= 8: e["o7"] += 1
             pk_n += 1; pk_ks += actual
+            # Only the legacy score and the actual count exist here. The kengine projection is
+            # NOT available in this replay: producing it would mean running the CSW/xBF engine
+            # per pitcher per day inside the loop, which is a real change rather than a wiring
+            # fix. Collected anyway so the legacy baseline is graded properly and the comparison
+            # can be added later without touching this loop again.
+            _sbs_k.append({"k_old": ksc, "actual_k": actual})
             pk_o5 += 1 if actual >= 6 else 0
             pk_o6 += 1 if actual >= 7 else 0
             pk_o7 += 1 if actual >= 8 else 0
@@ -602,6 +630,17 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
         "by_badge": _badge_lift(by_badge, hr_tot / n_tot if n_tot else 0),
         "by_converge_prop": by_conv,   # convergence graded per prop, on that prop's outcome
         "calib": {k: calib[k] for k in sorted(calib, key=int)},
+        # Graders that were written and never invoked. The hit comparison is real — both models
+        # scored on identical player-days. The K entry reports the legacy baseline only, and says
+        # so, rather than implying an A/B that did not run.
+        "prop_graders": {
+            "hit_calibrated": grade_hit_props_calibrated(_sbs_hit),
+            "hit_side_by_side": grade_hit_side_by_side(_sbs_hit),
+            "k_legacy_baseline": (V.grade_strikeouts(
+                [{"exp_k": r["k_old"], "dist": None, "actual_k": r["actual_k"]} for r in _sbs_k])
+                if len(_sbs_k) >= 200 else None),
+            "k_engine_note": "kengine not run in replay — legacy k_heat baseline only",
+        },
         "props": {
             "hit1": {"by_tier": P["hit1"], "top_n": p_top["hit1"],
                      "base_pct": round(100 * hit1_tot / hit_n, 2) if hit_n else None},
@@ -892,6 +931,25 @@ def replay_runs(df: pd.DataFrame, start: str | None = None, end: str | None = No
             # later so the grader sees exactly the games this replay actually scored.
             _tot_rows.append({"pred_mean": proj["total"], "actual": hs + as_,
                               "pred_dist": ((proj.get("markov") or {}).get("total_dist") or None)})
+            # Markov accumulation. This was MISSING on the first run — the reporting was written
+            # and the accumulators were declared, but nothing ever incremented them, so the whole
+            # A/B silently reported markov_n=0 while looking like it had run. Scored only on
+            # games where the simulation actually produced a total, so markov_n is the honest
+            # denominator rather than a count of games the linear engine happened to cover.
+            _mk = proj.get("markov") or {}
+            _mk_tot = _mk.get("total_mean")
+            if _mk_tot is not None:
+                _err = abs(_mk_tot - (hs + as_))
+                _mk_abs += _err
+                _mk_sq += _err * _err
+                _mk_n += 1
+                _dist = _mk.get("total_dist") or {}
+                if _dist:
+                    _act = hs + as_
+                    for _L in (7.5, 8.5, 9.5):
+                        _p_over = sum(v for k, v in _dist.items() if float(k) > _L)
+                        _mk_pover.append(_p_over)
+                        _mk_hit.append(1.0 if _act > _L else 0.0)
             b = int(min(max(p, 0.0), 0.999) * 10) * 10
             c = calib.setdefault(str(b), {"n": 0, "home_wins": 0})
             c["n"] += 1; c["home_wins"] += 1 if home_won else 0

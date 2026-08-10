@@ -58,7 +58,7 @@ def pull_season(start: str, end: str) -> pd.DataFrame:
         "game_date", "game_pk", "batter", "pitcher", "events", "description",
         "launch_speed", "launch_angle", "launch_speed_angle", "bb_type", "hit_distance_sc",
         "stand", "p_throws", "type", "hc_x", "hc_y",
-        "attack_angle", "bat_speed", "release_speed", "pitch_type",
+        "attack_angle", "bat_speed", "swing_length", "release_speed", "pitch_type",
         "inning", "inning_topbot", "at_bat_number", "pitch_number",
         "home_team", "away_team",
         "post_home_score", "post_away_score",
@@ -77,7 +77,7 @@ def pull_season(start: str, end: str) -> pd.DataFrame:
 
 
 _NUMERIC_COLS = ("launch_speed", "launch_angle", "launch_speed_angle", "hit_distance_sc",
-                 "hc_x", "hc_y", "bat_speed", "release_speed", "attack_angle",
+                 "hc_x", "hc_y", "bat_speed", "swing_length", "release_speed", "attack_angle",
                  "inning", "at_bat_number", "pitch_number", "batter", "pitcher", "game_pk",
                  "woba_value", "estimated_woba_using_speedangle",
                  "estimated_ba_using_speedangle", "release_spin_rate",
