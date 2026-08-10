@@ -80,13 +80,21 @@ def etl_source():
     return out
 
 
-def reaches_board(src, varnames):
+def reaches_board(src, varnames, depth=2):
     """Does any of these variable names end up in the shipped board dict?
 
-    Approximate but useful: a value reaches the app if it appears as a dict VALUE somewhere
-    (`"key": var`), is assigned onto a player record (`_pl["k"] = var`), or is appended into a
-    list that the board carries. A variable only ever read into another local is internal.
+    Values often reach the board INDIRECTLY. `carry_multiplier()` lands in `wx`, which multiplies
+    into `park_mult`, which is passed to `project_game()`, whose result becomes
+    `game_projections`. Checking only for a direct `"key": wx` reports that as unshipped — which
+    is exactly the false alarm this check exists to avoid, and the first version of this script
+    produced it.
+
+    So the search follows one or two hops: if a variable is consumed to build another variable,
+    or passed as an argument to a call, that consumer is checked too. Bounded depth keeps it from
+    chasing every local in the file.
     """
+    if depth <= 0:
+        return False
     for v in varnames:
         pats = [
             rf'"[\w:]+"\s*:\s*{re.escape(v)}\b',        # "key": var
@@ -98,6 +106,19 @@ def reaches_board(src, varnames):
         for p in pats:
             if re.search(p, src):
                 return True
+    # indirect: find variables built FROM these, and check those
+    nxt = set()
+    for v in varnames:
+        for m in re.finditer(rf"(?:^|\n)\s*([\w]+)\s*=\s*[^=\n]*\b{re.escape(v)}\b", src):
+            if m.group(1) != v:
+                nxt.add(m.group(1))
+        # passed as a keyword or positional argument into a call
+        for m in re.finditer(rf"(?:^|\n)\s*([\w]+)\s*(?:,\s*[\w]+\s*)*=\s*[\w\.]+\([^)]*\b{re.escape(v)}\b", src):
+            if m.group(1) != v:
+                nxt.add(m.group(1))
+    nxt -= set(varnames)
+    if nxt:
+        return reaches_board(src, sorted(nxt)[:12], depth - 1)
     return False
 
 
