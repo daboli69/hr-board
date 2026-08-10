@@ -256,6 +256,16 @@ def event_rates_from_profile(prof, lg_pa=None):
     # bounds the damage implicitly. Markov consumes the rates directly, so the bound has to be
     # explicit. K is expressed in plate appearances: an observed rate carries half its weight at
     # PA = K, so a full season barely moves while a 40-PA sample stays close to league.
+    # Cap each rate at a multiple of league before regressing. The TB-minus-hits algebra is
+    # sensitive to extreme SLG — a .798 slugging line implies a 19% double rate, four times any
+    # real hitter — and regression alone does not fix that because it pulls a wrong number
+    # toward the mean rather than rejecting it. Capping first, then regressing, does both.
+    CAP = {"1B": 3.0, "2B": 3.5, "3B": 6.0, "HR": 4.0, "BB": 3.0, "K": 2.5}
+    for ev in raw:
+        lg = markov.LG.get(ev, 0.0)
+        if lg > 0:
+            raw[ev] = min(raw[ev], lg * CAP.get(ev, 3.0))
+
     K_PA = 200.0
     w = pa / (pa + K_PA)
     return {ev: w * raw[ev] + (1.0 - w) * markov.LG.get(ev, 0.0) for ev in raw}

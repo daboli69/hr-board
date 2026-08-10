@@ -92,6 +92,27 @@ def pa_event_probs(batter, pitcher, park_mult=1.0, tto_penalty=0.0):
     # league-constant free bases, treated as a walk for advancement purposes
     out["BB"] = out.get("BB", 0.0) + FREE_BASE_RATE
 
+    # Bound the on-base rate to something a hitter can actually do.
+    #
+    # Without this the simulation trusts whatever the rate derivation hands it, and the
+    # derivation can produce nonsense from extreme inputs: a .798 SLG run through the TB-minus-
+    # hits algebra yields a 14.5% DOUBLE rate against a real league rate near 4.6%. Nine such
+    # batters simulated to 33 runs, and across the backtest that drove markov MAE to 12.38
+    # against the linear engine's 3.58 — the simulation looked broken when the inputs were.
+    #
+    # The old guard only triggered when events summed above 0.98, which let non-strikeout outs
+    # collapse toward 2% of plate appearances. That is not a bound in any useful sense: an
+    # inning at that out rate takes forty batters.
+    #
+    # 0.500 is deliberately generous — the best on-base seasons in history sit near .480, so
+    # this clips only physically impossible lines and leaves every real hitter untouched.
+    MAX_ON_BASE = 0.500
+    on_base = sum(out.get(ev, 0.0) for ev in ("BB", "HR", "1B", "2B", "3B"))
+    if on_base > MAX_ON_BASE:
+        scale = MAX_ON_BASE / on_base
+        for ev in ("BB", "HR", "1B", "2B", "3B"):
+            out[ev] = out.get(ev, 0.0) * scale
+
     tot = sum(out.values())
     if tot >= 0.98:                      # keep room for outs
         for k in out:

@@ -864,6 +864,7 @@ def replay_runs(df: pd.DataFrame, start: str | None = None, end: str | None = No
     _mk_abs = _mk_sq = 0.0
     _mk_n = 0
     _mk_pover, _mk_hit = [], []
+    _mk_preds, _mk_worst = [], []
     _tot_rows = []
     tot_abs_err = 0.0
     calib = {}                      # decile -> {n, home_wins}
@@ -943,6 +944,18 @@ def replay_runs(df: pd.DataFrame, start: str | None = None, end: str | None = No
                 _mk_abs += _err
                 _mk_sq += _err * _err
                 _mk_n += 1
+                # Diagnostic. Two rounds of theorising about WHY markov over-projects produced
+                # two fixes that did not move the number, so this records the evidence instead:
+                # the spread of predictions and the worst individual misses, with the inputs
+                # that produced them. Guessing from the aggregate MAE was the mistake.
+                _mk_preds.append(_mk_tot)
+                if _err > 8.0 and len(_mk_worst) < 25:
+                    _mk_worst.append({
+                        "date": D, "pred": round(_mk_tot, 1), "actual": hs + as_,
+                        "linear": proj.get("total"),
+                        "home_mean": _mk.get("home_mean"), "away_mean": _mk.get("away_mean"),
+                        "n_home_bat": len(hl), "n_away_bat": len(al),
+                    })
                 _dist = _mk.get("total_dist") or {}
                 if _dist:
                     _act = hs + as_
@@ -980,6 +993,20 @@ def replay_runs(df: pd.DataFrame, start: str | None = None, end: str | None = No
         "markov_vs_linear": (round(_mk_abs / _mk_n - tot_abs_err / n, 3) if _mk_n else None),
         "markov_over_calibration": (V.decile_calibration(_mk_pover, _mk_hit, n_bands=8)
                                     if len(_mk_pover) >= 400 else None),
+        # Where the markov error actually lives. If the median prediction is sane and only a
+        # tail is wrong, the fix is input validation; if the whole distribution is shifted, the
+        # engine itself is miscalibrated. These two cases need opposite fixes, and the aggregate
+        # MAE cannot tell them apart.
+        "markov_diagnostic": ({
+            "pred_min": round(min(_mk_preds), 1),
+            "pred_p10": round(sorted(_mk_preds)[len(_mk_preds) // 10], 1),
+            "pred_median": round(sorted(_mk_preds)[len(_mk_preds) // 2], 1),
+            "pred_p90": round(sorted(_mk_preds)[9 * len(_mk_preds) // 10], 1),
+            "pred_max": round(max(_mk_preds), 1),
+            "actual_mean": round(sum(r["actual"] for r in _tot_rows) / len(_tot_rows), 2),
+            "pct_over_15": round(100 * sum(1 for x in _mk_preds if x > 15) / len(_mk_preds), 1),
+            "worst_misses": _mk_worst[:10],
+        } if _mk_preds else None),
         # validate.grade_totals was written and never called — the MAE-floor context it carries
         # (a perfect model still posts ~3.30) never reached the output, so a 3.6 looked like a
         # failure when it is close to the ceiling.
