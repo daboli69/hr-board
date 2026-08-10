@@ -3115,11 +3115,13 @@ def build(date_str: str | None = None) -> dict:
             # from HRs and already bakes in today's weather). Only if that's missing do we fall back
             # to the damped HR-boost proxy — and in THAT case add our own temperature adjustment
             # (warmer air = more offense), so we don't double-count weather when BPP already has it.
-            pf = None; temp_f = None
+            pf = None; temp_f = None; _elev = None; _hum = None
             for x in g["home"] + g["away"]:
                 ph = x.get("park_hr") or {}
                 if pf is None and ph.get("boost") is not None: pf = ph["boost"]
                 if temp_f is None and ph.get("temp_f") is not None: temp_f = ph["temp_f"]
+                if _elev is None and ph.get("elevation_ft") is not None: _elev = ph["elevation_ft"]
+                if _hum is None and ph.get("humidity_pct") is not None: _hum = ph["humidity_pct"]
             hr_proxy = 1.0 + (pf / 100.0) * 0.45 if pf is not None else 1.0
             try:
                 rm, _rm_src = ballparkpal.resolve_runs_mult(
@@ -3131,10 +3133,28 @@ def build(date_str: str | None = None) -> dict:
                 park_mult = rm                       # BPP runs factor (weather already included)
                 park_src = "bpp_runs"
             else:
+                # Air density from the Nathan carry model, not a linear temperature nudge.
+                #
+                # The old line applied a flat 0.3% per degree and knew nothing about ELEVATION,
+                # which is the single biggest environmental factor in the sport: Coors sits a
+                # mile up and the thin air adds roughly 6-7% of carry regardless of temperature.
+                # A 400-ft fly there travels about 427 ft. Approximating that with a temperature
+                # slope understates Denver and overstates warm sea-level parks.
+                #
+                # carry_multiplier() was written, unit-tested against the published Coors effect,
+                # and then never called — the ETL kept using the linear stand-in. Only reached
+                # here in the LOCAL fallback: when BallparkPal returns a runs factor it already
+                # has weather folded in, and applying this on top would double-count it.
                 wx = 1.0
-                if temp_f is not None:
-                    wx = max(0.94, min(1.08, 1.0 + (temp_f - 72.0) * 0.003))
-                park_mult = hr_proxy * wx            # local HR-proxy + our temperature adjustment
+                try:
+                    wx = env_mod.carry_multiplier(
+                        temp_f if temp_f is not None else 70.0,
+                        elevation_ft=_elev if _elev is not None else 0.0,
+                        humidity_pct=_hum if _hum is not None else 50.0)
+                except Exception:
+                    if temp_f is not None:
+                        wx = max(0.94, min(1.08, 1.0 + (temp_f - 72.0) * 0.003))
+                park_mult = hr_proxy * wx            # local HR-proxy + air-density carry
                 park_src = "local"
             park_mult = max(0.82, min(1.28, park_mult))
 
