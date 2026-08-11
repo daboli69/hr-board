@@ -1666,6 +1666,28 @@
   .btg-steps{margin:0;padding-left:18px}
   .btg-steps li{font-size:12px;line-height:1.65;color:var(--muted);margin-bottom:9px}
   .btg-steps li b{color:var(--ink)} .btg-steps li i{color:var(--seam);font-style:normal}
+  .tt-row{background:var(--panel-2);border-radius:10px;padding:11px 12px;margin:0 0 9px;cursor:pointer}
+  .tt-row:active{background:var(--panel-3)}
+  .tt-head{display:grid;grid-template-columns:22px 1fr 62px;gap:9px;align-items:center}
+  .tt-rank{font-family:"IBM Plex Mono";font-size:11px;color:var(--faint)}
+  .tt-mu{font-size:14px;color:var(--ink)} .tt-mu b{color:var(--seam)}
+  .tt-mu span{color:var(--faint);font-size:11px;margin:0 2px}
+  .tt-mu i{display:block;font-style:normal;font-family:"IBM Plex Mono";font-size:9.5px;color:var(--faint);margin-top:2px}
+  .tt-sc{font-family:"IBM Plex Mono";font-size:20px;font-weight:800;text-align:right;line-height:1.05}
+  .tt-sc span{display:block;font-size:8px;letter-spacing:.07em}
+  .tt-why{font-family:"IBM Plex Mono";font-size:9.5px;color:var(--faint);margin:7px 0 8px;line-height:1.5}
+  .tt-comps{display:flex;flex-direction:column;gap:4px}
+  .tt-c{display:grid;grid-template-columns:78px 1fr 26px;gap:7px;align-items:center}
+  .tt-cl{font-family:"IBM Plex Mono";font-size:9px;color:var(--muted)}
+  .tt-cl span{color:var(--faint);margin-left:3px}
+  .tt-cb{height:5px;background:var(--panel-3);border-radius:3px;overflow:hidden}
+  .tt-cb i{display:block;height:100%;background:var(--seam);border-radius:3px;opacity:.85}
+  .tt-cv{font-family:"IBM Plex Mono";font-size:9.5px;color:var(--faint);text-align:right}
+  .tt-cov{font-family:"IBM Plex Mono";font-size:9px;color:var(--faint);margin-top:6px;font-style:italic}
+  .tt-bats{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px;padding-top:8px;border-top:1px solid var(--line)}
+  .tt-bat{font-size:11px;color:var(--muted);background:var(--panel-3);border-radius:5px;padding:3px 7px}
+  .tt-bat b{color:var(--seam);font-family:"IBM Plex Mono";font-size:10px;margin-left:3px}
+  .tt-bat i{font-style:normal;color:var(--faint);font-family:"IBM Plex Mono";font-size:9px;margin-left:3px}
   .btg-route{background:var(--panel-3);border-radius:9px;padding:10px 12px;margin:10px 0}
   .btg-route-h{font-family:"IBM Plex Mono";font-size:10px;font-weight:800;color:var(--seam);
     letter-spacing:.06em;margin-bottom:5px}
@@ -2405,6 +2427,7 @@
 
       <div class="nav-sec">RESULTS</div>
       <button class="nav-item" data-nav="calendar" onclick="drawerGo('calendar')">HR Calendar<i>HRs per day · trends · who went deep</i></button>
+      <button class="nav-item" data-nav="targets" onclick="drawerGo('targets')">Target Teams<i>defenses ranked by how likely they are to concede</i></button>
       <button class="nav-item" data-nav="hrpatterns" onclick="drawerGo('hrpatterns')">HR Patterns<i>which signals actually homer — 7d · 30d · season</i></button>
       <button class="nav-item" data-nav="tracker" onclick="drawerGo('tracker')">Tracker<i>model vs reality, by tier</i></button>
       <button class="nav-item" onclick="openLegend()">Legend<i>what every badge &amp; chip means</i></button>
@@ -4810,6 +4833,7 @@ function renderToday(){
       <div class="ty-tool" onclick="goView('jackpot')"><svg class="ty-ic" viewBox="0 0 24 24">${IC_TGT}</svg><div class="tt">Long Ball Jackpot</div><div class="td">Longest-HR contest</div></div>
       <div class="ty-tool" onclick="goView('sgp')"><svg class="ty-ic" viewBox="0 0 24 24">${IC_LAY}</svg><div class="tt">Parlay Builder</div><div class="td">Adjustable SGP</div></div>
       <div class="ty-tool" onclick="goView('calendar')"><svg class="ty-ic" viewBox="0 0 24 24">${IC_CAL}</svg><div class="tt">HR Calendar</div><div class="td">Daily trends</div></div>
+      <div class="ty-tool" onclick="goView('targets')"><svg class="ty-ic" viewBox="0 0 24 24">${IC_TGT||IC_CAL}</svg><div class="tt">Target Teams</div><div class="td">Who concedes tonight</div></div>
       <div class="ty-tool" onclick="goView('hrpatterns')"><svg class="ty-ic" viewBox="0 0 24 24">${IC_CAL}</svg><div class="tt">HR Patterns</div><div class="td">What actually homers</div></div>
     </div>
   </div>`;
@@ -5127,7 +5151,7 @@ function renderView(){
   // Weather is a live standalone view again (park + wind arrow, plus slate park ranking).
   if(view==="stacks"){ view="scan"; }
   else if(view==="matchup"){ view="edges"; }
-  if(view==="today") safe(renderToday); else if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else if(view==="weather") safe(renderWeather); else if(view==="qualified") safe(renderQualified); else if(view==="toppicks") safe(renderTopPicks); else if(view==="calendar") safe(renderCalendar); else if(view==="hrpatterns") safe(renderHrPatterns); else if(view==="jackpot") safe(renderJackpot); else if(view==="sgp") safe(renderSGP); else if(view==="faq") safe(renderFaq); else if(view==="ladder") safe(renderLadder); else if(view==="pitchmix") safe(renderPitchMix); else if(view==="converge") safe(renderConverge); else safe(render);
+  if(view==="today") safe(renderToday); else if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else if(view==="weather") safe(renderWeather); else if(view==="qualified") safe(renderQualified); else if(view==="toppicks") safe(renderTopPicks); else if(view==="calendar") safe(renderCalendar); else if(view==="targets") safe(renderTargets); else if(view==="hrpatterns") safe(renderHrPatterns); else if(view==="jackpot") safe(renderJackpot); else if(view==="sgp") safe(renderSGP); else if(view==="faq") safe(renderFaq); else if(view==="ladder") safe(renderLadder); else if(view==="pitchmix") safe(renderPitchMix); else if(view==="converge") safe(renderConverge); else safe(render);
 }
 
 // Weather dashboard: today's slate, one card per game — conditions, roof call,
@@ -9538,6 +9562,76 @@ function hrpToConverge(id){
     const row=document.querySelector(`.cv-row[data-id="${id}"]`);
     if(row){ row.classList.add("cv-hl"); row.scrollIntoView({block:"center",behavior:"smooth"}); }
   }, 140);
+}
+
+// ===========================================================================
+// TARGET TEAMS — the defenses most likely to concede tonight, ranked.
+//
+// Every other screen ranks hitters. This one ranks matchups, so the game can be picked before
+// the players — which is the order the parlay playbook asks for and which no screen supported.
+// Read as "batting team vs that defense".
+// ===========================================================================
+function renderTargets(){
+  const main=document.getElementById("main");
+  const rows=(BOARD&&BOARD.team_targets)||[];
+  if(!rows.length){
+    main.innerHTML=`<div class="empty">No matchups scored yet — needs probable starters.<br>
+      This fills in once lineups and starters post.</div>`;
+    return;
+  }
+  const tone=t=>t==="PRIME"?"var(--hot)":t==="STRONG"?"var(--seam)":t==="LEAN"?"var(--muted)":"var(--faint)";
+  const bar=(lab,v,w)=>`<div class="tt-c"><div class="tt-cl">${lab}<span>${w}%</span></div>
+    <div class="tt-cb"><i style="width:${Math.max(2,v)}%"></i></div><div class="tt-cv">${v}</div></div>`;
+
+  const card=(r,i)=>{
+    const c=r.components||{}, w=r.weights||{};
+    const bats=(r.top_bats||[]).map(b=>
+      `<span class="tt-bat" onclick="event.stopPropagation();scanToPlayer(${b.id})">${b.name}
+        <b>${b.heat!=null?Math.round(b.heat):"—"}</b>${b.spot?`<i>#${b.spot}</i>`:""}</span>`).join("");
+    return `<div class="tt-row" onclick="filterToGame(${r.game_pk})">
+      <div class="tt-head">
+        <div class="tt-rank">${i+1}</div>
+        <div class="tt-mu"><b>${r.bat_team}</b> <span>vs</span> ${r.def_team}
+          <i>${r.sp_name?`${r.sp_name}${r.sp_throws?` (${r.sp_throws})`:""}`:"starter TBD"}${r.park?` · ${r.park}`:""}</i></div>
+        <div class="tt-sc" style="color:${tone(r.tier)}">${Math.round(r.score)}
+          <span>${r.tier}</span></div>
+      </div>
+      <div class="tt-why">${(r.drivers||[]).join(" · ")}</div>
+      <div class="tt-comps">
+        ${c.starter!=null?bar("starter",c.starter,w.starter):""}
+        ${c.bullpen!=null?bar("bullpen",c.bullpen,w.bullpen):""}
+        ${c.staff!=null?bar("staff HR/9",c.staff,w.staff):""}
+        ${c.park!=null?bar("park",c.park,w.park):""}
+        ${c.weather!=null?bar("weather",c.weather,w.weather):""}
+      </div>
+      ${r.coverage<100?`<div class="tt-cov">scored on ${r.coverage}% of the inputs — missing pieces are dropped, not averaged in</div>`:""}
+      ${bats?`<div class="tt-bats">${bats}</div>`:""}
+    </div>`;
+  };
+
+  main.innerHTML=`<div class="cv-wrap">
+    <div class="q-head"><b>Target Teams</b></div>
+    <div class="q-sub">Which defenses give up home runs tonight — pick the matchup, then the hitters.</div>
+    <div class="rank-key">Weighted by what the backtest actually graded, not by what feels
+      obvious: <b>starter 34%</b>, <b>bullpen 26%</b>, <b>staff HR/9 18%</b>, <b>park 12%</b>,
+      <b>weather 10%</b>. Park sits low on purpose — "strong" HR parks graded at only
+      <b>1.07×</b> over 113 days while merely "lean" parks graded <b>1.18×</b>, because everyone
+      already knows the launching pads and the market prices them. The starter and a worn pen
+      are the parts that change nightly and get priced least efficiently.</div>
+    ${rows.map(card).join("")}
+    <div class="zd-note">Tap a row to filter the board to that game. Tap a hitter to open their
+    card. <b>PRIME</b> is 68+, <b>STRONG</b> 56+, <b>LEAN</b> 44+. A defense scoring under 44 is
+    one to avoid, not a coin flip.</div>
+  </div>`;
+}
+
+function filterToGame(pk){
+  try{
+    gameSel.clear();
+    if(pk) gameSel.add(String(pk));
+    updateFiltCount();
+  }catch(e){}
+  goView("board");
 }
 
 function renderCalendar(){
