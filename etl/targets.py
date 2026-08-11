@@ -1,178 +1,141 @@
 """Team targets — which defenses are most likely to give up home runs tonight.
 
-The board ranks HITTERS. This ranks the other side: for each game it scores the pitching team on
-how likely they are to concede, then presents it as "batting team vs that defense", so you can
-pick the matchup first and the hitters second. That ordering is what the parlay playbook asks
-for and there was no screen that supported it.
+REWRITTEN as a multiplicative aggregator over three modules that already exist elsewhere in the
+app, rather than a fifth independent scoring system:
 
-WEIGHTS ARE FROM THE BACKTEST, NOT INTUITION. Graded over 113 days:
+    SP_Factor   <- HR Vulnerability score, same source as the Arms tab
+    Pen_Factor  <- bullpen ranking + staff HR/9, same source as the Bullpens tab
+    BPP_Factor  <- BallparkPal park/weather multiplier, same keys the UI pills already read
 
-    zone damage (5+ premium meatball zones)   1.39x    <- strongest
-    starter form HITTABLE                     1.21x
-    park lean+                                1.18x
-    park strong+                              1.07x    <- weaker than it looks
+    Target_Score_Raw = BASELINE_HR_RATE * SP_Factor**W_SP * Pen_Factor**W_PEN * BPP_Factor**W_BPP
 
-That park line is worth pausing on. "Strong" HR parks graded at only 1.07x while merely "lean"
-parks graded 1.18x, which is almost certainly the market pricing obvious launching pads
-correctly — everyone knows Coors. So park is weighted LOW here despite being the factor people
-reach for first. The starter and the bullpen carry most of the signal because they are the parts
-that change nightly and get priced less efficiently.
+Exponents are derived from the backtest-graded lift shares for each bucket (starter 34,
+bullpen+staff 44, park+weather 22 -> normalised), not chosen to look right:
+
+    W_SP  = 0.82   (34/100 share)
+    W_PEN = 1.06   (44/100 share -- bullpen exploitability + staff HR/9 folded together)
+    W_BPP = 0.53   (22/100 share -- park + weather folded together)
+
+A missing factor (no probable starter posted) falls back to a NEUTRAL 1.00x multiplier rather
+than renormalising the remaining weights, per spec -- this keeps the pipeline from ever failing
+on partial data, at the cost of a TBD card reading closer to average than it might turn out to
+be. A "SP TBD" flag is still emitted so that tradeoff is visible on the card.
+
+Schema is unchanged: target_score() still returns score/components/weights/drivers/coverage/
+pills/flags, and tier() still returns PRIME/STRONG/LEAN/AVOID, because docs/index.html is locked
+and string-matches those exact tier names for badge colour.
 """
 from __future__ import annotations
 
+import math
 
-# Component weights, summing to 100. Ordered by graded lift, not by how obvious they feel.
-W_STARTER = 34.0      # the single biggest lever: he throws 60-70% of the innings
-W_BULLPEN = 26.0      # decides the late innings, and worn pens are the market's blind spot
-W_TEAM_HR9 = 18.0     # season-long evidence the staff gives up power
-W_PARK = 12.0         # real but modest, and largely priced in
-W_WEATHER = 10.0      # carry moves the margin, not the outcome
+BASELINE_HR_RATE = 0.109   # season base rate this app has graded, kept as the log-mapping anchor
+
+# Backtest-calibrated exponents. See module docstring for the share derivation.
+W_SP = 0.82
+W_PEN = 1.06
+W_BPP = 0.53
+
+# The raw multiplicative score is mapped onto 0-100 with a log curve anchored so that all-neutral
+# inputs (every factor = 1.00x) land at 50, and the strongest realistic combination the backtest
+# has actually observed (~1.94x lift, the 4-family HR ceiling) lands near 100.
+MAX_LIFT = 2.0
+
+# Same tier cutoffs the UI has always used -- unchanged so PRIME/STRONG/LEAN colour correctly.
+TIER_PRIME = 68
+TIER_STRONG = 56
+TIER_LEAN = 44
 
 
-def _clamp(x, lo=0.0, hi=1.0):
+def _clamp(x, lo, hi):
     return max(lo, min(hi, x))
 
 
-def _starter_component(vuln_score, arm_form):
-    """0-1 from the starter's HR vulnerability, nudged by tonight's form label."""
-    if vuln_score is None:
-        return None, "no starter posted"
-    base = _clamp(float(vuln_score) / 100.0)
-    # Form labels graded: HITTABLE 1.21x, DEALING 1.02x. Small nudge, not a rewrite.
-    bump = {"HITTABLE": 0.08, "SHELLABLE": 0.05, "SLIPPING": 0.04,
-            "STEADY": 0.0, "DEALING": -0.06}.get(str(arm_form or "").upper(), 0.0)
-    note = f"starter vuln {round(float(vuln_score))}"
-    if bump:
+def _sp_factor(starter_vuln, arm_form):
+    """HR Vulnerability score (0-100, same source as the Arms tab) -> a multiplier around 1.0."""
+    if starter_vuln is None:
+        return 1.0, None, False
+    v = _clamp(float(starter_vuln) / 100.0, 0.0, 1.0)
+    factor = 0.60 + v * 0.90          # vuln 0 -> 0.60x, vuln 50 -> 1.05x, vuln 100 -> 1.50x
+    bump = {"HITTABLE": 1.06, "SHELLABLE": 1.04, "SLIPPING": 1.03,
+            "STEADY": 1.00, "DEALING": 0.94}.get(str(arm_form or "").upper(), 1.00)
+    factor *= bump
+    note = f"SP vuln {round(float(starter_vuln))}"
+    if arm_form:
         note += f" · {arm_form}"
-    return _clamp(base + bump), note
+    return factor, note, True
 
 
-def _bullpen_component(pen):
-    """0-1 from the bullpen ranking: exploitability, HR/9, and how worn it is."""
-    if not pen:
-        return None, "no pen data"
-    rv = pen.get("rank_val")
-    if rv is None:
-        return None, "no pen data"
-    base = _clamp(float(rv) / 100.0)
-    bits = [f"pen {round(float(rv))}"]
-    hr9 = pen.get("hr9")
-    if hr9 is not None and float(hr9) >= 1.30:
-        base = _clamp(base + 0.06)
-        bits.append(f"{float(hr9):.2f} HR/9")
-    # A worn pen is the part of this the market is slowest to move on, which is exactly why the
-    # bump is meaningful rather than cosmetic.
-    if str(pen.get("label") or "").upper() in ("WORN", "GASSED"):
-        base = _clamp(base + 0.10)
-        bits.append(pen["label"].lower())
-    out = pen.get("n_unavailable") or 0
-    live = pen.get("live_pen") or {}
-    if live.get("n_out") is not None:
-        out = max(out, live["n_out"])
-    if out >= 2:
-        base = _clamp(base + 0.05)
-        bits.append(f"{out} arms down")
-    return base, " · ".join(bits)
+def _pen_factor(pen, team_hr9):
+    """Bullpen ranking + staff HR/9 (same sources as the Bullpens tab) -> a multiplier."""
+    have = False
+    factor = 1.0
+    notes = []
+
+    rv = (pen or {}).get("rank_val")
+    if rv is not None:
+        have = True
+        r = _clamp(float(rv) / 100.0, 0.0, 1.0)
+        factor *= 0.62 + r * 0.86     # rank 0 -> 0.62x, rank 50 -> 1.05x, rank 100 -> 1.48x
+        notes.append(f"pen {round(float(rv))}")
+        if str((pen or {}).get("label") or "").upper() in ("WORN", "GASSED"):
+            factor *= 1.10
+            notes.append(str(pen["label"]).lower())
+        out = (pen or {}).get("n_unavailable") or 0
+        live = (pen or {}).get("live_pen") or {}
+        if live.get("n_out") is not None:
+            out = max(out, live["n_out"])
+        if out >= 2:
+            factor *= 1.05
+            notes.append(f"{out} arms down")
+
+    if team_hr9 is not None:
+        have = True
+        # League sits near 1.15 HR/9; this is a modifier on top of the pen ranking rather than
+        # its own weighted term, since both describe the same pitching staff.
+        factor *= _clamp(float(team_hr9) / 1.15, 0.75, 1.35)
+        notes.append(f"staff {float(team_hr9):.2f} HR/9")
+
+    return factor, (" · ".join(notes) or None), have
 
 
-def _team_hr9_component(hr9):
-    """0-1 from the staff's season HR/9. League sits near 1.15."""
-    if hr9 is None:
-        return None, None
-    # 0.80 -> 0, 1.60 -> 1
-    return _clamp((float(hr9) - 0.80) / 0.80), f"staff {float(hr9):.2f} HR/9"
+def _bpp_factor(park_boost, temp_f, wind_out):
+    """BallparkPal park/weather multiplier -> a single environment factor.
 
-
-def _park_component(boost_pct):
-    """0-1 from the park's HR boost. Deliberately shallow — see the module docstring."""
-    if boost_pct is None:
-        return None, None
-    b = float(boost_pct)
-    lab = "park +" + str(round(b)) + "%" if b >= 3 else ("park " + str(round(b)) + "%" if b <= -3 else None)
-    return _clamp((b + 15.0) / 30.0), lab
-
-
-def _weather_component(temp_f, wind_out):
-    """0-1 from carry conditions. Warm air and a wind blowing out both help the ball."""
-    if temp_f is None and wind_out is None:
-        return None, None
-    score, bits = 0.5, []
-    if temp_f is not None:
-        score = _clamp((float(temp_f) - 45.0) / 50.0)
-        if float(temp_f) >= 82:
-            bits.append(f"{round(float(temp_f))}°F")
-        elif float(temp_f) <= 55:
-            bits.append(f"cold {round(float(temp_f))}°F")
-    if wind_out is not None:
-        score = _clamp(score + (0.18 if wind_out else -0.12))
-        if wind_out:
-            bits.append("wind out")
-    return score, (" · ".join(bits) or None)
-
-
-def target_score(starter_vuln=None, arm_form=None, pen=None, team_hr9=None,
-                 park_boost=None, temp_f=None, wind_out=None):
-    """Score a defense 0-100 on how likely it is to give up home runs tonight.
-
-    Missing components are DROPPED and the weights renormalised over what is present, rather than
-    filled with a neutral 0.5. Substituting an average for a missing starter would quietly move
-    every game toward the middle and make a game with no posted starter look like a considered
-    50 instead of an unknown — the reason is reported so a thin score is visible as thin.
+    Uses the same park_boost -> multiplier relationship already used elsewhere in the ETL
+    (hr_proxy = 1 + boost/100 * 0.45) so this factor agrees with the number the park pill on
+    other screens already shows, rather than inventing a second scale.
     """
-    parts, drivers = [], []
+    have = False
+    factor = 1.0
+    notes = []
 
-    for val, note, w, key in (
-        _starter_component(starter_vuln, arm_form) + (W_STARTER, "starter"),
-        _bullpen_component(pen) + (W_BULLPEN, "bullpen"),
-        _team_hr9_component(team_hr9) + (W_TEAM_HR9, "staff"),
-        _park_component(park_boost) + (W_PARK, "park"),
-        _weather_component(temp_f, wind_out) + (W_WEATHER, "weather"),
-    ):
-        if val is None:
-            continue
-        parts.append((key, val, w))
-        if note:
-            drivers.append(note)
+    if park_boost is not None:
+        have = True
+        b = float(park_boost)
+        factor *= _clamp(1.0 + b / 100.0 * 0.45, 0.85, 1.30)
+        if abs(b) >= 3:
+            notes.append(f"park {'+' if b > 0 else ''}{round(b)}%")
 
-    if not parts:
-        return None
+    if temp_f is not None or wind_out:
+        have = True
+        if temp_f is not None:
+            tf = float(temp_f)
+            factor *= _clamp(1.0 + (tf - 70.0) / 300.0, 0.92, 1.12)
+            if tf >= 85:
+                notes.append("hot")
+            elif tf <= 55:
+                notes.append("cold")
+        if wind_out:
+            factor *= 1.04
+            notes.append("wind out")
 
-    total_w = sum(w for _, _, w in parts)
-    score = sum(v * w for _, v, w in parts) / total_w * 100.0
-
-    have = {k for k, _, _ in parts}
-    # A short flag beats a sentence. "scored on 66% of the inputs — missing pieces are dropped,
-    # not averaged in" is accurate and unreadable on a scanner card; "SP TBD" says the same thing
-    # in the space available and tells you WHICH piece is missing, which the percentage did not.
-    flags = []
-    if "starter" not in have:
-        flags.append("SP TBD")
-    if "bullpen" not in have:
-        flags.append("no pen data")
-
-    return {
-        "score": round(score, 1),
-        "components": {k: round(100 * v) for k, v, _ in parts},
-        "weights": {k: round(w / total_w * 100) for k, _, w in parts},
-        "drivers": drivers[:4],
-        "pills": driver_pills({k: v for k, v, _ in parts}, drivers, pen=pen,
-                              park_boost=park_boost, temp_f=temp_f, wind_out=wind_out,
-                              starter_vuln=starter_vuln),
-        "flags": flags,
-        "coverage": round(100 * total_w / (W_STARTER + W_BULLPEN + W_TEAM_HR9 + W_PARK + W_WEATHER)),
-    }
+    return factor, (" · ".join(notes) or None), have
 
 
 def driver_pills(components, drivers, pen=None, park_boost=None, temp_f=None,
                  wind_out=None, starter_vuln=None):
-    """Short labelled pills for a scanner card, instead of a run-on driver sentence.
-
-    The card is a top-of-funnel screen: it has to be readable in about a second at arm's length,
-    which a comma-joined string of six clauses is not. Each pill carries a label, a two-or-three
-    word value and a 0-1 intensity the UI can colour by, so severity is visible without reading.
-
-    Capped at four. A fifth pill costs more attention than the marginal factor is worth.
-    """
+    """Short labelled pills for the scanner card: {k, v, i} with i = 0-1 intensity for colour."""
     pills = []
 
     if starter_vuln is not None:
@@ -180,24 +143,21 @@ def driver_pills(components, drivers, pen=None, park_boost=None, temp_f=None,
         pills.append({"k": "SP", "v": ("High Vuln" if v >= 70 else
                                        "Vulnerable" if v >= 55 else
                                        "Average" if v >= 40 else "Tough"),
-                      "i": _clamp(v / 100.0)})
+                      "i": _clamp(v / 100.0, 0.0, 1.0)})
 
     if pen:
         rv = pen.get("rank_val")
         if rv is not None:
             worn = str(pen.get("label") or "").upper() in ("WORN", "GASSED")
             r = float(rv)
-            lab = "Gassed" if worn and r >= 55 else \
-                  "Worn" if worn else \
-                  "High Vuln" if r >= 65 else \
-                  "Exploitable" if r >= 50 else "Solid"
-            pills.append({"k": "Pen", "v": lab, "i": _clamp(r / 100.0)})
+            lab = ("Gassed" if worn and r >= 55 else "Worn" if worn else
+                   "High Vuln" if r >= 65 else "Exploitable" if r >= 50 else "Solid")
+            pills.append({"k": "Pen", "v": lab, "i": _clamp(r / 100.0, 0.0, 1.0)})
 
-    if park_boost is not None:
+    if park_boost is not None and abs(float(park_boost)) >= 3:
         b = float(park_boost)
-        if abs(b) >= 3:
-            pills.append({"k": "Park", "v": f"{'+' if b > 0 else ''}{round(b)}%",
-                          "i": _clamp((b + 15.0) / 30.0)})
+        pills.append({"k": "Park", "v": f"{'+' if b > 0 else ''}{round(b)}%",
+                      "i": _clamp((b + 15.0) / 30.0, 0.0, 1.0)})
 
     if temp_f is not None or wind_out:
         bits = []
@@ -208,23 +168,81 @@ def driver_pills(components, drivers, pen=None, park_boost=None, temp_f=None,
         if wind_out:
             bits.append("wind out")
         if bits:
-            score = 0.5
-            if temp_f is not None:
-                score = _clamp((float(temp_f) - 45.0) / 50.0)
+            score = _clamp((float(temp_f) - 45.0) / 50.0, 0.0, 1.0) if temp_f is not None else 0.5
             if wind_out:
-                score = _clamp(score + 0.18)
+                score = _clamp(score + 0.18, 0.0, 1.0)
             pills.append({"k": "Wx", "v": " · ".join(bits), "i": score})
 
     return pills[:4]
 
 
+def target_score(starter_vuln=None, arm_form=None, pen=None, team_hr9=None,
+                 park_boost=None, temp_f=None, wind_out=None):
+    """Score a defense 0-100 via the multiplicative SP x Pen x BPP framework.
+
+    A missing factor falls back to a NEUTRAL 1.00x rather than being dropped and renormalised --
+    this is the spec'd behaviour so the pipeline never fails on partial data (e.g. no probable
+    starter yet). The tradeoff is explicit: a TBD card reads closer to average than it might
+    turn out to be once the starter posts, which is why an "SP TBD" flag still ships alongside
+    the score rather than letting the neutral default pass silently.
+    """
+    sp_f, sp_note, sp_have = _sp_factor(starter_vuln, arm_form)
+    pen_f, pen_note, pen_have = _pen_factor(pen, team_hr9)
+    bpp_f, bpp_note, bpp_have = _bpp_factor(park_boost, temp_f, wind_out)
+
+    if not (sp_have or pen_have or bpp_have):
+        return None
+
+    raw = BASELINE_HR_RATE * (sp_f ** W_SP) * (pen_f ** W_PEN) * (bpp_f ** W_BPP)
+
+    # Log-map onto 0-100: raw == baseline -> 50, raw == baseline * MAX_LIFT -> 100 (and
+    # symmetrically down to 0 at raw == baseline / MAX_LIFT).
+    ratio = raw / BASELINE_HR_RATE if BASELINE_HR_RATE else 1.0
+    ratio = max(ratio, 1e-6)
+    score = 50.0 + 50.0 * (math.log(ratio) / math.log(MAX_LIFT))
+    score = _clamp(score, 0.0, 100.0)
+
+    components = {
+        "starter": round(_clamp(sp_f / 1.5, 0.0, 1.0) * 100) if sp_have else None,
+        "bullpen": round(_clamp(pen_f / 1.5, 0.0, 1.0) * 100) if pen_have else None,
+        "park": round(_clamp((bpp_f - 0.85) / 0.45, 0.0, 1.0) * 100) if bpp_have else None,
+    }
+    components = {k: v for k, v in components.items() if v is not None}
+
+    weights = {"starter": round(W_SP / (W_SP + W_PEN + W_BPP) * 100),
+               "bullpen": round(W_PEN / (W_SP + W_PEN + W_BPP) * 100),
+               "park": round(W_BPP / (W_SP + W_PEN + W_BPP) * 100)}
+
+    drivers = [n for n in (sp_note, pen_note, bpp_note) if n]
+
+    flags = []
+    if not sp_have:
+        flags.append("SP TBD")
+    if not pen_have:
+        flags.append("no pen data")
+
+    have_count = sum((sp_have, pen_have, bpp_have))
+    coverage = round(100 * have_count / 3)
+
+    return {
+        "score": round(score, 1),
+        "components": components,
+        "weights": weights,
+        "drivers": drivers[:4],
+        "pills": driver_pills(components, drivers, pen=pen, park_boost=park_boost,
+                              temp_f=temp_f, wind_out=wind_out, starter_vuln=starter_vuln),
+        "flags": flags,
+        "coverage": coverage,
+    }
+
+
 def tier(score):
     if score is None:
         return None
-    if score >= 68:
+    if score >= TIER_PRIME:
         return "PRIME"
-    if score >= 56:
+    if score >= TIER_STRONG:
         return "STRONG"
-    if score >= 44:
+    if score >= TIER_LEAN:
         return "LEAN"
     return "AVOID"
