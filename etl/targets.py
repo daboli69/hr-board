@@ -140,13 +140,82 @@ def target_score(starter_vuln=None, arm_form=None, pen=None, team_hr9=None,
     total_w = sum(w for _, _, w in parts)
     score = sum(v * w for _, v, w in parts) / total_w * 100.0
 
+    have = {k for k, _, _ in parts}
+    # A short flag beats a sentence. "scored on 66% of the inputs — missing pieces are dropped,
+    # not averaged in" is accurate and unreadable on a scanner card; "SP TBD" says the same thing
+    # in the space available and tells you WHICH piece is missing, which the percentage did not.
+    flags = []
+    if "starter" not in have:
+        flags.append("SP TBD")
+    if "bullpen" not in have:
+        flags.append("no pen data")
+
     return {
         "score": round(score, 1),
         "components": {k: round(100 * v) for k, v, _ in parts},
         "weights": {k: round(w / total_w * 100) for k, _, w in parts},
         "drivers": drivers[:4],
+        "pills": driver_pills({k: v for k, v, _ in parts}, drivers, pen=pen,
+                              park_boost=park_boost, temp_f=temp_f, wind_out=wind_out,
+                              starter_vuln=starter_vuln),
+        "flags": flags,
         "coverage": round(100 * total_w / (W_STARTER + W_BULLPEN + W_TEAM_HR9 + W_PARK + W_WEATHER)),
     }
+
+
+def driver_pills(components, drivers, pen=None, park_boost=None, temp_f=None,
+                 wind_out=None, starter_vuln=None):
+    """Short labelled pills for a scanner card, instead of a run-on driver sentence.
+
+    The card is a top-of-funnel screen: it has to be readable in about a second at arm's length,
+    which a comma-joined string of six clauses is not. Each pill carries a label, a two-or-three
+    word value and a 0-1 intensity the UI can colour by, so severity is visible without reading.
+
+    Capped at four. A fifth pill costs more attention than the marginal factor is worth.
+    """
+    pills = []
+
+    if starter_vuln is not None:
+        v = float(starter_vuln)
+        pills.append({"k": "SP", "v": ("High Vuln" if v >= 70 else
+                                       "Vulnerable" if v >= 55 else
+                                       "Average" if v >= 40 else "Tough"),
+                      "i": _clamp(v / 100.0)})
+
+    if pen:
+        rv = pen.get("rank_val")
+        if rv is not None:
+            worn = str(pen.get("label") or "").upper() in ("WORN", "GASSED")
+            r = float(rv)
+            lab = "Gassed" if worn and r >= 55 else \
+                  "Worn" if worn else \
+                  "High Vuln" if r >= 65 else \
+                  "Exploitable" if r >= 50 else "Solid"
+            pills.append({"k": "Pen", "v": lab, "i": _clamp(r / 100.0)})
+
+    if park_boost is not None:
+        b = float(park_boost)
+        if abs(b) >= 3:
+            pills.append({"k": "Park", "v": f"{'+' if b > 0 else ''}{round(b)}%",
+                          "i": _clamp((b + 15.0) / 30.0)})
+
+    if temp_f is not None or wind_out:
+        bits = []
+        if temp_f is not None:
+            tf = float(temp_f)
+            bits.append("Hot" if tf >= 85 else "Warm" if tf >= 72 else
+                        "Cool" if tf >= 58 else "Cold")
+        if wind_out:
+            bits.append("wind out")
+        if bits:
+            score = 0.5
+            if temp_f is not None:
+                score = _clamp((float(temp_f) - 45.0) / 50.0)
+            if wind_out:
+                score = _clamp(score + 0.18)
+            pills.append({"k": "Wx", "v": " · ".join(bits), "i": score})
+
+    return pills[:4]
 
 
 def tier(score):

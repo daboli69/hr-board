@@ -2809,10 +2809,11 @@ def build(date_str: str | None = None) -> dict:
                     "score": _sc["score"], "tier": targets.tier(_sc["score"]),
                     "components": _sc["components"], "weights": _sc["weights"],
                     "drivers": _sc["drivers"], "coverage": _sc["coverage"],
+                    "pills": _sc.get("pills") or [], "flags": _sc.get("flags") or [],
                     "pen_label": (_pen or {}).get("label"),
                     "top_bats": [{"id": x.get("id"), "name": x.get("name"),
                                   "heat": x.get("heat"), "spot": x.get("lineup_spot")}
-                                 for x in _bats],
+                                 for x in _bats[:3]],
                 })
         team_targets.sort(key=lambda x: -x["score"])
         print(f"[build] team targets: {len(team_targets)} matchups ranked"
