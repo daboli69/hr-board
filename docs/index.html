@@ -1666,28 +1666,62 @@
   .btg-steps{margin:0;padding-left:18px}
   .btg-steps li{font-size:12px;line-height:1.65;color:var(--muted);margin-bottom:9px}
   .btg-steps li b{color:var(--ink)} .btg-steps li i{color:var(--seam);font-style:normal}
-  .tt-row{background:var(--panel-2);border-radius:10px;padding:11px 12px;margin:0 0 9px;cursor:pointer}
-  .tt-row:active{background:var(--panel-3)}
-  .tt-head{display:grid;grid-template-columns:22px 1fr 62px;gap:9px;align-items:center}
-  .tt-rank{font-family:"IBM Plex Mono";font-size:11px;color:var(--faint)}
-  .tt-mu{font-size:14px;color:var(--ink)} .tt-mu b{color:var(--seam)}
-  .tt-mu span{color:var(--faint);font-size:11px;margin:0 2px}
-  .tt-mu i{display:block;font-style:normal;font-family:"IBM Plex Mono";font-size:9.5px;color:var(--faint);margin-top:2px}
-  .tt-sc{font-family:"IBM Plex Mono";font-size:20px;font-weight:800;text-align:right;line-height:1.05}
-  .tt-sc span{display:block;font-size:8px;letter-spacing:.07em}
-  .tt-why{font-family:"IBM Plex Mono";font-size:9.5px;color:var(--faint);margin:7px 0 8px;line-height:1.5}
-  .tt-comps{display:flex;flex-direction:column;gap:4px}
-  .tt-c{display:grid;grid-template-columns:78px 1fr 26px;gap:7px;align-items:center}
-  .tt-cl{font-family:"IBM Plex Mono";font-size:9px;color:var(--muted)}
-  .tt-cl span{color:var(--faint);margin-left:3px}
-  .tt-cb{height:5px;background:var(--panel-3);border-radius:3px;overflow:hidden}
-  .tt-cb i{display:block;height:100%;background:var(--seam);border-radius:3px;opacity:.85}
-  .tt-cv{font-family:"IBM Plex Mono";font-size:9.5px;color:var(--faint);text-align:right}
-  .tt-cov{font-family:"IBM Plex Mono";font-size:9px;color:var(--faint);margin-top:6px;font-style:italic}
-  .tt-bats{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px;padding-top:8px;border-top:1px solid var(--line)}
-  .tt-bat{font-size:11px;color:var(--muted);background:var(--panel-3);border-radius:5px;padding:3px 7px}
-  .tt-bat b{color:var(--seam);font-family:"IBM Plex Mono";font-size:10px;margin-left:3px}
-  .tt-bat i{font-style:normal;color:var(--faint);font-family:"IBM Plex Mono";font-size:9px;margin-left:3px}
+  /* Namespaced tg- (target game). The tracker owns tt-, where .tt-row is a five-column grid;
+     reusing that prefix laid every child of this card out as a grid column. Everything here is
+     border-box and width-bounded so nothing can clip past the card edge on a 390px screen. */
+  .tg-row,.tg-row *{box-sizing:border-box}
+  .tg-row{display:block;width:100%;background:var(--panel-2);border-radius:12px;
+    padding:12px;margin:0 0 10px;cursor:pointer;overflow:hidden}
+  .tg-row:active{background:var(--panel-3)}
+
+  /* Header: matchup left, score badge right. Flex with min-width:0 on the text side so long
+     park names shrink instead of pushing the badge off-screen. */
+  .tg-top{display:flex;align-items:flex-start;gap:10px}
+  .tg-l{flex:1 1 auto;min-width:0}
+  .tg-mu{font-size:16px;color:var(--ink);line-height:1.2;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .tg-mu b{color:var(--seam);font-weight:800}
+  .tg-mu span{color:var(--faint);font-size:12px;margin:0 5px;font-weight:400}
+  .tg-meta,.tg-sp{font-family:"IBM Plex Mono";font-size:9.5px;color:var(--faint);
+    margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tg-sp{color:var(--muted)}
+  .tg-badge{flex:0 0 auto;text-align:center;border:1.5px solid;border-radius:9px;
+    padding:5px 9px;min-width:60px}
+  .tg-badge b{display:block;font-family:"IBM Plex Mono";font-size:22px;font-weight:800;line-height:1}
+  .tg-badge span{display:block;font-family:"IBM Plex Mono";font-size:7.5px;letter-spacing:.09em;margin-top:2px}
+
+  /* Driver pills: wrap freely, never overflow. */
+  .tg-pills{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+  .tg-p{display:inline-flex;align-items:center;gap:4px;max-width:100%;
+    font-family:"IBM Plex Mono";font-size:9.5px;color:var(--muted);
+    background:var(--panel-3);border:1px solid transparent;border-radius:6px;padding:3px 7px}
+  .tg-p i{font-style:normal;color:var(--faint);font-size:8px;text-transform:uppercase;letter-spacing:.05em}
+  .tg-p.mid{color:var(--ink);border-color:rgba(255,255,255,.10)}
+  .tg-p.hi{color:var(--seam);border-color:var(--seam);background:rgba(214,106,54,.10)}
+  .tg-flag{font-family:"IBM Plex Mono";font-size:9.5px;color:var(--hot);
+    background:rgba(200,70,60,.10);border:1px solid rgba(200,70,60,.35);border-radius:6px;padding:3px 7px}
+
+  /* Top 3 hitters: equal-width flex children that shrink rather than clip. */
+  .tg-bats{display:flex;gap:6px;margin-top:10px;padding-top:9px;border-top:1px solid var(--line)}
+  .tg-bat{flex:1 1 0;min-width:0;display:block;text-align:left;background:var(--panel-3);
+    border:none;border-radius:7px;padding:6px 8px;cursor:pointer;font:inherit}
+  .tg-bat:active{background:var(--line)}
+  .tg-bn{display:block;font-size:11px;color:var(--ink);white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .tg-bh{display:block;font-family:"IBM Plex Mono";font-size:11px;font-weight:700;
+    color:var(--seam);margin-top:2px}
+  .tg-bh i{font-style:normal;font-size:9px;color:var(--faint);font-weight:400}
+
+  /* Methodology collapsed by default so the top-ranked games sit above the fold. */
+  .tg-info{margin:6px 0 12px}
+  .tg-info summary{display:inline-block;font-family:"IBM Plex Mono";font-size:10px;
+    color:var(--faint);background:var(--panel-2);border-radius:20px;padding:4px 11px;
+    cursor:pointer;list-style:none}
+  .tg-info summary::-webkit-details-marker{display:none}
+  .tg-info summary:before{content:"ⓘ ";color:var(--seam)}
+  .tg-info-b{font-size:11px;line-height:1.6;color:var(--faint);background:var(--panel-2);
+    border-left:2px solid var(--seam);border-radius:0 8px 8px 0;padding:9px 11px;margin-top:7px}
+  .tg-info-b b{color:var(--muted)}
   .btg-route{background:var(--panel-3);border-radius:9px;padding:10px 12px;margin:10px 0}
   .btg-route-h{font-family:"IBM Plex Mono";font-size:10px;font-weight:800;color:var(--seam);
     letter-spacing:.06em;margin-bottom:5px}
@@ -9580,48 +9614,49 @@ function renderTargets(){
     return;
   }
   const tone=t=>t==="PRIME"?"var(--hot)":t==="STRONG"?"var(--seam)":t==="LEAN"?"var(--muted)":"var(--faint)";
-  const bar=(lab,v,w)=>`<div class="tt-c"><div class="tt-cl">${lab}<span>${w}%</span></div>
-    <div class="tt-cb"><i style="width:${Math.max(2,v)}%"></i></div><div class="tt-cv">${v}</div></div>`;
+  // Pills colour by intensity, so severity registers before the words are read.
+  const pillCls=i=>i>=0.72?"tg-p hi":i>=0.5?"tg-p mid":"tg-p";
 
   const card=(r,i)=>{
-    const c=r.components||{}, w=r.weights||{};
-    const bats=(r.top_bats||[]).map(b=>
-      `<span class="tt-bat" onclick="event.stopPropagation();scanToPlayer(${b.id})">${b.name}
-        <b>${b.heat!=null?Math.round(b.heat):"—"}</b>${b.spot?`<i>#${b.spot}</i>`:""}</span>`).join("");
-    return `<div class="tt-row" onclick="filterToGame(${r.game_pk})">
-      <div class="tt-head">
-        <div class="tt-rank">${i+1}</div>
-        <div class="tt-mu"><b>${r.bat_team}</b> <span>vs</span> ${r.def_team}
-          <i>${r.sp_name?`${r.sp_name}${r.sp_throws?` (${r.sp_throws})`:""}`:"starter TBD"}${r.park?` · ${r.park}`:""}</i></div>
-        <div class="tt-sc" style="color:${tone(r.tier)}">${Math.round(r.score)}
-          <span>${r.tier}</span></div>
+    const pills=(r.pills||[]).map(p=>
+      `<span class="${pillCls(p.i)}"><i>${p.k}</i>${p.v}</span>`).join("");
+    const bats=(r.top_bats||[]).slice(0,3).map(b=>
+      `<button class="tg-bat" onclick="event.stopPropagation();scanToPlayer(${b.id})">
+        <span class="tg-bn">${b.name}</span>
+        <span class="tg-bh">${b.heat!=null?Math.round(b.heat):"—"}${b.spot?` <i>#${b.spot}</i>`:""}</span>
+      </button>`).join("");
+    const flags=(r.flags||[]).map(f=>`<span class="tg-flag">⚠ ${f}</span>`).join("");
+    return `<div class="tg-row" onclick="filterToGame(${r.game_pk})">
+      <div class="tg-top">
+        <div class="tg-l">
+          <div class="tg-mu"><b>${r.bat_team}</b><span>vs</span>${r.def_team}</div>
+          <div class="tg-meta">${r.park||""}</div>
+          <div class="tg-sp">${r.sp_name?`${r.sp_name}${r.sp_throws?` (${r.sp_throws})`:""}`:"SP: TBD"}</div>
+        </div>
+        <div class="tg-badge" style="color:${tone(r.tier)};border-color:${tone(r.tier)}">
+          <b>${Math.round(r.score)}</b><span>${r.tier}</span>
+        </div>
       </div>
-      <div class="tt-why">${(r.drivers||[]).join(" · ")}</div>
-      <div class="tt-comps">
-        ${c.starter!=null?bar("starter",c.starter,w.starter):""}
-        ${c.bullpen!=null?bar("bullpen",c.bullpen,w.bullpen):""}
-        ${c.staff!=null?bar("staff HR/9",c.staff,w.staff):""}
-        ${c.park!=null?bar("park",c.park,w.park):""}
-        ${c.weather!=null?bar("weather",c.weather,w.weather):""}
-      </div>
-      ${r.coverage<100?`<div class="tt-cov">scored on ${r.coverage}% of the inputs — missing pieces are dropped, not averaged in</div>`:""}
-      ${bats?`<div class="tt-bats">${bats}</div>`:""}
+      ${pills||flags?`<div class="tg-pills">${pills}${flags}</div>`:""}
+      ${bats?`<div class="tg-bats">${bats}</div>`:""}
     </div>`;
   };
 
   main.innerHTML=`<div class="cv-wrap">
     <div class="q-head"><b>Target Teams</b></div>
     <div class="q-sub">Which defenses give up home runs tonight — pick the matchup, then the hitters.</div>
-    <div class="rank-key">Weighted by what the backtest actually graded, not by what feels
-      obvious: <b>starter 34%</b>, <b>bullpen 26%</b>, <b>staff HR/9 18%</b>, <b>park 12%</b>,
-      <b>weather 10%</b>. Park sits low on purpose — "strong" HR parks graded at only
-      <b>1.07×</b> over 113 days while merely "lean" parks graded <b>1.18×</b>, because everyone
-      already knows the launching pads and the market prices them. The starter and a worn pen
-      are the parts that change nightly and get priced least efficiently.</div>
+    <details class="tg-info">
+      <summary>Model weights</summary>
+      <div class="tg-info-b">Weighted by what the backtest graded, not by what feels obvious:
+        <b>starter 34%</b>, <b>bullpen 26%</b>, <b>staff HR/9 18%</b>, <b>park 12%</b>,
+        <b>weather 10%</b>. Park sits low on purpose — "strong" HR parks graded at only
+        <b>1.07×</b> over 113 days while merely "lean" parks graded <b>1.18×</b>, because
+        everyone knows the launching pads and the market prices them. The starter and a worn pen
+        change nightly and get priced least efficiently.</div>
+    </details>
     ${rows.map(card).join("")}
-    <div class="zd-note">Tap a row to filter the board to that game. Tap a hitter to open their
-    card. <b>PRIME</b> is 68+, <b>STRONG</b> 56+, <b>LEAN</b> 44+. A defense scoring under 44 is
-    one to avoid, not a coin flip.</div>
+    <div class="zd-note">Tap a card to filter the board to that game; tap a hitter to open their
+    card. <b>PRIME</b> 68+, <b>STRONG</b> 56+, <b>LEAN</b> 44+. Under 44 is a defense to avoid.</div>
   </div>`;
 }
 
