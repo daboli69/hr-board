@@ -19,7 +19,7 @@ import numpy as np
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from etl import statsapi, statcast_data, parks, compute, park_model, props
+from etl import statsapi, statcast_data, parks, compute, park_model, props, targets
 try:
     from etl import features                 # parallel feature-extraction edges (never touch heat)
 except Exception:
@@ -2764,6 +2764,64 @@ def build(date_str: str | None = None) -> dict:
         _p.pop("_ob", None)
         _p.pop("_season_metrics", None)
 
+    # ---- TEAM TARGETS: which defenses concede tonight, ranked ----
+    # The board ranks hitters; this ranks the other side, so a matchup can be picked first and
+    # the hitters second. Scored from the same pieces already on the board — no new data source.
+    team_targets = []
+    try:
+        _pen_by_team = {r.get("team"): r for r in (bullpen_rankings or [])}
+        _vuln_by_arm = {e.get("id"): e for e in (pitcher_edges or [])}
+        for _g in (games or []):
+            for _bat, _def in (("away", "home"), ("home", "away")):
+                _bt, _dt = _g.get(_bat), _g.get(_def)
+                if not _bt or not _dt:
+                    continue
+                _sp_id = _g.get(f"{_def}_sp_id") or (_g.get(f"{_def}_sp") or {}).get("id")
+                _edge = _vuln_by_arm.get(_sp_id) or {}
+                _vs = (_edge.get("vuln") or {}).get("score")
+                _form = ((_edge.get("season") or {}).get("form") or {}).get("label") \
+                    if isinstance(_edge.get("season"), dict) else None
+                _pen = _pen_by_team.get(_dt)
+                _hr9 = (_pen or {}).get("hr9")
+                # park + weather come off any hitter in this game
+                _pk = _wx = _wo = None
+                for _pl in players:
+                    if _pl.get("game_pk") == _g.get("game_pk"):
+                        _ph = _pl.get("park_hr") or {}
+                        _pk = _ph.get("boost") if _pk is None else _pk
+                        _wx = _ph.get("temp_f") if _wx is None else _wx
+                        _wo = _ph.get("wind_out") if _wo is None else _wo
+                        if _pk is not None and _wx is not None:
+                            break
+                _sc = targets.target_score(starter_vuln=_vs, arm_form=_form, pen=_pen,
+                                           team_hr9=_hr9, park_boost=_pk,
+                                           temp_f=_wx, wind_out=_wo)
+                if not _sc:
+                    continue
+                # the hitters you'd actually be targeting, best first
+                _bats = sorted(
+                    [x for x in players if x.get("team") == _bt and x.get("heat") is not None],
+                    key=lambda x: -x["heat"])[:4]
+                team_targets.append({
+                    "bat_team": _bt, "def_team": _dt, "game_pk": _g.get("game_pk"),
+                    "time": _g.get("time"), "park": _g.get("park"),
+                    "sp_name": _edge.get("name"), "sp_throws": _edge.get("throws"),
+                    "score": _sc["score"], "tier": targets.tier(_sc["score"]),
+                    "components": _sc["components"], "weights": _sc["weights"],
+                    "drivers": _sc["drivers"], "coverage": _sc["coverage"],
+                    "pen_label": (_pen or {}).get("label"),
+                    "top_bats": [{"id": x.get("id"), "name": x.get("name"),
+                                  "heat": x.get("heat"), "spot": x.get("lineup_spot")}
+                                 for x in _bats],
+                })
+        team_targets.sort(key=lambda x: -x["score"])
+        print(f"[build] team targets: {len(team_targets)} matchups ranked"
+              + (f", top {team_targets[0]['bat_team']} vs {team_targets[0]['def_team']} "
+                 f"({team_targets[0]['score']})" if team_targets else ""))
+    except Exception as e:
+        team_targets = []
+        _hnote("team targets", e); print(f"[build] team targets skipped: {e}")
+
     board = {
         "generated_at": now.isoformat(timespec="seconds"),
         "slate_date": date_str,
@@ -2788,6 +2846,7 @@ def build(date_str: str | None = None) -> dict:
             "end": date_str,
         },
         "players": players,
+        "team_targets": team_targets,
         "converge_lift": globals().get("_CONVERGE_LIFT"),   # lift convergence is CURRENTLY using
         "arsenals": arsenals,               # starter pitch usage % split by batter handedness
         "arm_tables": arm_tables,           # per-arm full BvP stat line by pitch type & batter hand
