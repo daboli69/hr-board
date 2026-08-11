@@ -2770,17 +2770,23 @@ def build(date_str: str | None = None) -> dict:
     team_targets = []
     try:
         _pen_by_team = {r.get("team"): r for r in (bullpen_rankings or [])}
-        _vuln_by_arm = {e.get("id"): e for e in (pitcher_edges or [])}
+        # pitcher_edges is keyed by the pitcher's own TEAM, and the games list carries no
+        # starter id at all — so matching had nothing to match on and every card read "SP: TBD".
+        # This is the same list the Vulnerable Arms tab renders, so the two screens now name the
+        # same starter by construction rather than by coincidence.
+        _arm_by_team = {}
+        for _e in (pitcher_edges or []):
+            if _e.get("team") and _e["team"] not in _arm_by_team:
+                _arm_by_team[_e["team"]] = _e
         for _g in (games or []):
             for _bat, _def in (("away", "home"), ("home", "away")):
                 _bt, _dt = _g.get(_bat), _g.get(_def)
                 if not _bt or not _dt:
                     continue
-                _sp_id = _g.get(f"{_def}_sp_id") or (_g.get(f"{_def}_sp") or {}).get("id")
-                _edge = _vuln_by_arm.get(_sp_id) or {}
+                _edge = _arm_by_team.get(_dt) or {}
                 _vs = (_edge.get("vuln") or {}).get("score")
-                _form = ((_edge.get("season") or {}).get("form") or {}).get("label") \
-                    if isinstance(_edge.get("season"), dict) else None
+                _form = ((_edge.get("profile") or {}).get("form") or {}).get("label") \
+                    if isinstance(_edge.get("profile"), dict) else None
                 _pen = _pen_by_team.get(_dt)
                 _hr9 = (_pen or {}).get("hr9")
                 # park + weather come off any hitter in this game
