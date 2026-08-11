@@ -187,8 +187,15 @@ def get_reliever_pitch_logs(team_ids, date_str, days=3):
                             pitches = stats.get("numberOfPitches") or stats.get("pitchesThrown")
                             if not pitches:
                                 continue
+                            # Record the TEAM alongside each appearance. Without it the caller
+                            # has no way to group these arms into bullpens: pitcher stats are
+                            # fetched for starters only, so a reliever appears in no other
+                            # table. An earlier version matched against a "team" key that did
+                            # not exist, silently produced zero arms per pen, and left the
+                            # Bullpens tab on the older Statcast-inferred numbers.
                             out.setdefault(int(pid), []).append(
-                                {"days_ago": back, "pitches": int(pitches), "date": day})
+                                {"days_ago": back, "pitches": int(pitches), "date": day,
+                                 "team_id": team_id})
     return out
 
 

@@ -419,13 +419,22 @@ def build(date_str: str | None = None) -> dict:
         for _g in games:
             for _side in ("home", "away"):
                 _tm = _g.get(_side)
+                _tid = _g.get(f"{_side}_id")
                 if not _tm or _tm in pen_state:
                     continue
                 _arms = []
                 for _pid, _log in (pen_logs or {}).items():
-                    _prof = (pstats or {}).get(int(_pid)) or {}
-                    if _prof.get("team") != _tm:
+                    # Match on the numeric team id carried by each appearance.
+                    #
+                    # This previously filtered on `pstats[pid]["team"]`, which fails twice over:
+                    # pitcher stats expose `teamId` rather than `team`, and they are fetched for
+                    # STARTERS only, so a reliever is absent from that table entirely. The
+                    # comparison was None != "DET" for every arm, so every bullpen came back
+                    # empty and the Bullpens tab silently kept using the older Statcast-inferred
+                    # availability while this ran to completion with no error.
+                    if not _tid or not any(_e.get("team_id") == _tid for _e in (_log or [])):
                         continue
+                    _prof = (pstats or {}).get(int(_pid)) or {}
                     _arms.append({"id": _pid, "pitch_log": _log,
                                   "k_pct": (_prof.get("k_pct_allowed") or 22.5) / 100.0,
                                   "bb_pct": (_prof.get("bb_pct_allowed") or 8.5) / 100.0,
@@ -438,6 +447,12 @@ def build(date_str: str | None = None) -> dict:
                         [a for a in _arms
                          if env_mod.reliever_status(a["pitch_log"])[0] != env_mod.UNAVAILABLE])
                     pen_state[_tm] = _st
+        # Loud when it produces nothing. The previous failure ran to completion, printed no
+        # error, and left a stale tab — the worst kind of bug because everything looks fine.
+        if pen_logs and not pen_state:
+            print(f"[build] WARNING: {len(pen_logs)} reliever logs fetched but ZERO bullpens "
+                  f"built — team matching is broken, Bullpens tab will use stale data")
+            _hnote("bullpen state", "no pens matched from reliever logs")
         if pen_state:
             print(f"[build] bullpen state: {len(pen_state)} teams, "
                   f"{sum(s.get('n_out', 0) for s in pen_state.values())} arms unavailable")
