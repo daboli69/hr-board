@@ -1666,6 +1666,10 @@
   .btg-steps{margin:0;padding-left:18px}
   .btg-steps li{font-size:12px;line-height:1.65;color:var(--muted);margin-bottom:9px}
   .btg-steps li b{color:var(--ink)} .btg-steps li i{color:var(--seam);font-style:normal}
+  .btg-route{background:var(--panel-3);border-radius:9px;padding:10px 12px;margin:10px 0}
+  .btg-route-h{font-family:"IBM Plex Mono";font-size:10px;font-weight:800;color:var(--seam);
+    letter-spacing:.06em;margin-bottom:5px}
+  .btg-route-p{font-size:11.5px;line-height:1.6;color:var(--faint);margin:0 0 8px}
   .btg-warn{margin-top:12px;padding:10px 12px;background:var(--panel-3);border-left:2px solid var(--hot);
     border-radius:0 7px 7px 0;font-size:11.5px;line-height:1.6;color:var(--muted)}
   .btg-warn b{color:var(--ink)}
@@ -2007,6 +2011,7 @@
     <button class="chip edge-chip" data-edge="late" aria-pressed="false" title="Only hitters in an elevated late-HR spot">⏱ Late-HR</button>
     <button class="chip cov-fam-chip" id="covFam3" onclick="setCovFam(3)" aria-pressed="false" title="Only hitters with 3+ independent evidence families — backtested at 1.56x the base HR rate">◎ 3+ families</button>
     <button class="chip cov-fam-chip" id="covFam4" onclick="setCovFam(4)" aria-pressed="false" title="Only hitters with 4+ independent evidence families — backtested at 2.01x the base HR rate, the strongest signal in the app">◎ 4+ families</button>
+    <button class="chip cov-fam-chip" id="bbe250" onclick="setBbe(250)" aria-pressed="false" title="Only hitters with 250+ batted balls this season. The same convergence signal reads 16.1% on 250+ BBE and 9.1% under 120 — below the base rate. Thin samples invert signals.">▣ 250+ BBE</button>
     <button class="chip cov-fam-chip" id="nearMiss2" onclick="setNearMiss(2)" aria-pressed="false" title="Only hitters with 2+ near misses — balls that died within 5ft of the wall at their own spray angle. Backtested at 12.2% vs 9.3% for hitters with none.">◇ 2+ near miss</button>
     <button class="chip edge-chip" data-edge="eye" aria-pressed="false" title="Only disciplined hitters (elite eye or in-zone contact)">👁 Discipline</button>
     <button class="chip edge-chip" data-edge="grade" aria-pressed="false" title="Only ELITE or STRONG matchup grades (4+ factors aligned)">Graded</button>
@@ -2243,6 +2248,19 @@
       no convergence families homer at <b>8.2%</b>; with two families <b>14.5%</b>; with three
       <b>17.0%</b>; with four <b>21.2%</b> — nearly double the <b>10.9%</b> base rate, measured
       across 30,000 player-games. That ladder is what makes leg selection worth doing.</p>
+      <p><b>Two routes.</b> <b>Same game (SGP)</b> — three hitters from one lineup; the legs move
+      together, so a blow-up rescues all three at once. This is the only version where correlation
+      helps, and correlation is the only thing that narrows the gap to a book price. <b>One per
+      game</b> — three hitters from three matchups; each leg is individually stronger because you
+      take the best spot on the slate rather than the third-best in one lineup, but nothing saves
+      the ticket if a game goes quiet. Route A is the better bet in theory; Route B is easier to
+      fill honestly when only one or two hitters qualify per game.</p>
+      <p><b>Board buttons, in order.</b> Tap <b>▣ 250+ BBE</b> first — the same convergence signal
+      reads 16.1% on 250+ batted balls and 9.1% under 120, so this chip alone separates a real
+      read from a coin flip. Then <b>◎ 4+ families</b>, then <b>◇ 2+ near miss</b>. For a same-game
+      ticket, add the <b>game chip</b> for your matchup. If fewer than three hitters survive, drop
+      to <b>◎ 3+ families</b>; if still short, change games rather than filling the ticket with a
+      name that did not qualify.</p>
       <p><b>The method.</b> <i>1.</i> Pick the game first — a vulnerable starter in
       <b>Edges → Arms</b>, a worn pen in <b>Bullpens</b>, a park that carries in
       <b>Weather &amp; Parks</b>. <i>2.</i> Filter the board to that game and tap
@@ -3587,6 +3605,12 @@ function cvMeasured(p){
 // accumulate evidence in the first place". If convergence is already doing that filtering, the
 // BBE floor was discarding good plays. The next backtest carries a sample x convergence
 // cross-tab that settles it; until then this is the less destructive default.
+// Batted-ball sample floor. The backtest is blunt about why this matters: the SAME convergence
+// signal reads 16.1% on 250+ batted balls and 9.1% under 120 — below the base rate. A signal on
+// a thin sample is not a weak signal, it is a coin flip wearing a signal's clothes.
+let bbeMin=0;
+function setBbe(n){ bbeMin=(bbeMin===n?0:n); updateFiltCount(); render(); }
+function bbeCount(p){ return ((p&&p.sample&&p.sample.season)||0); }
 let nearMissMin=0;   // board filter: minimum geometry-aware near misses in the trailing window
 function setNearMiss(n){ nearMissMin=(nearMissMin===n?0:n); updateFiltCount(); render(); }
 function nearMissCount(p){ return ((p&&p.near_miss&&p.near_miss.near)||0); }
@@ -4258,6 +4282,9 @@ function render(){
   // at 12.2% for 2+ against 9.3% for none — contact that clears on a warmer night.
   if(nearMissMin>0){
     players=players.filter(p=>nearMissCount(p)>=nearMissMin);
+  }
+  if(bbeMin>0){
+    players=players.filter(p=>bbeCount(p)>=bbeMin);
   }
   if(traitSel.size){
     players=players.filter(p=>{
@@ -8468,39 +8495,57 @@ function parlayPlaybookHTML(){
     it is what makes leg selection worth doing at all.</p>
     ${ladder?`<table class="btg-tbl"><thead><tr><th>evidence families</th><th>HR rate</th><th>lift</th><th>games</th></tr></thead><tbody>${ladder}</tbody></table>`:""}
 
-    <ol class="btg-steps">
-      <li><b>Pick the game before the hitters.</b> Open <i>Edges → Arms</i> for a vulnerable
-      starter, then confirm in <i>Bullpens</i> that the pen behind him is worn, and in
-      <i>Weather &amp; Parks</i> that the ball carries. One soft game beats three good hitters
-      scattered across the slate.</li>
+    <p class="btg-lead"><b>Two ways to build it.</b> Same board, same filters — they differ only
+    in whether the three legs share a game.</p>
 
-      <li><b>Filter the board to that game.</b> Tap <i>◎ 4+ families</i> on the board.
-      ${f4?`Those hitters homer <b>${pct(f4.r)}</b> of the time (${(f4.r/base).toFixed(2)}× the
-      ${pct(base)} base rate).`:""} If nobody in the game clears 4, drop to
-      <i>◎ 3+ families</i>${f3?` (<b>${pct(f3.r)}</b>)`:""}. If nobody clears 3,
-      <b>pick a different game</b> — do not force it.</li>
+    <div class="btg-route">
+      <div class="btg-route-h">ROUTE A · Same game (SGP)</div>
+      <p class="btg-route-p">Three hitters from one lineup. Lower hit rate per ticket, but the
+      legs move together — if the arm gets shelled, all three live. This is the only route where
+      the correlation argument applies, and correlation is the only thing that closes the gap
+      between fair odds and what a book pays.</p>
+      <ol class="btg-steps">
+        <li><b>Find the arm.</b> Bottom nav <i>More → Vulnerable Arms</i>. Take one with
+        <b>ELITE TARGET 70+</b>. If two are close, take the higher <b>0.xxx exploit score</b> —
+        that is tonight's lineup punishing his zones specifically.</li>
+        <li><b>Check the pen behind him.</b> <i>More → Bullpens</i>. You want his team near the
+        top (most exploitable) with a <b>WORN</b> tag.</li>
+        <li><b>Check the air.</b> <i>More → Weather &amp; Parks</i>. Avoid parks with the wind
+        blowing in.</li>
+        <li><b>Go to the Board</b> (bottom nav) and tap the <b>▣ 250+ BBE</b> chip first —
+        this is the one people skip and it is the difference between a 16.1% signal and a 9.1%
+        one.</li>
+        <li><b>Tap ◎ 4+ families.</b> Then tap the <b>game chip</b> for the matchup you picked in
+        step 1. You should now be looking at a handful of names.</li>
+        <li><b>If fewer than three remain</b>, drop to <b>◎ 3+ families</b>. If still short,
+        <b>go back to step 1 and pick a different game</b> — do not fill the ticket with a
+        hitter who did not qualify.</li>
+        <li><b>Pick three batting close together</b> — 2-3-4 or 3-4-5. The lineup spot is on each
+        row. Consecutive spots face the same pitcher in the same inning.</li>
+      </ol>
+    </div>
 
-      <li><b>Rank the survivors.</b> In order:
-      ${brl?`barrel rate 12%+ (<b>${pct(brl.r)}</b>, the strongest single metric in the backtest)`:"barrel rate"},
-      ${heat70?`heat 70+ (<b>${pct(heat70)}</b>)`:"heat 70+"},
-      ${nm2&&nm0?`2+ near misses (<b>${pct(nm2.r)}</b> vs <b>${pct(nm0.r)}</b> for none)`:"near misses"},
-      then batting spot 1–4.</li>
-
-      <li><b>Check sample size before trusting any signal.</b>
-      ${thin&&solid?`A convergence read on a thin sample hits <b>${pct(thin.r)}</b> — <i>worse than
-      random</i> — while the same signal on 250+ batted balls hits <b>${pct(solid.r)}</b>.`:
-      `A signal on a thin sample can invert entirely.`}
-      This is the most common way to talk yourself into a bad leg.</li>
-
-      <li><b>Pair by batting order, not by rating.</b> Take hitters batting <b>close together</b> —
-      2-3-4 or 3-4-5. They face the same pitcher in the same inning, so if he loses it in the 4th
-      they all get him at his worst together. Hitters batting 2 and 8 face different versions of
-      the same game.</li>
-
-      <li><b>Confirm the families are actually different.</b> Open each card's Signal Convergence
-      section. Four families that are all variations of "he's hot" is one signal counted four
-      times, not four signals.</li>
-    </ol>
+    <div class="btg-route">
+      <div class="btg-route-h">ROUTE B · One per game</div>
+      <p class="btg-route-p">Three hitters from three different games. Higher chance each leg is
+      individually right, because you take the single best spot on the whole slate rather than
+      the third-best hitter in one lineup. The trade is that the legs are independent — nothing
+      rescues the ticket if one game goes quiet.</p>
+      <ol class="btg-steps">
+        <li><b>Board</b> → tap <b>▣ 250+ BBE</b>, then <b>◎ 4+ families</b>, then
+        <b>◇ 2+ near miss</b>. No game filter. You are now looking at the whole slate's
+        best-supported hitters.</li>
+        <li><b>Sort by heat</b> (the default) and read down. Note each hitter's <b>game</b> —
+        the matchup is on every row.</li>
+        <li><b>Take the top hitter from three DIFFERENT games.</b> If the top four are all in one
+        game, that game is soft and you should be running Route A instead.</li>
+        <li><b>Sanity-check each one</b> — tap the row, confirm the convergence families are
+        different kinds of evidence, and that the opposing arm is not an ace having a good year.
+        <i>More → Vulnerable Arms</i> to check.</li>
+        <li><b>Prefer batting spots 1–4</b> across all three. More plate appearances is the
+        single most reliable edge in the tracker.</li>
+      </ol>
+    </div>
 
     <div class="btg-warn">
       <b>What this is worth, honestly.</b> Three legs at
@@ -10076,6 +10121,8 @@ function updateFiltCount(){
     if(b4) b4.setAttribute("aria-pressed", covFamMin===4);
     const nm=document.getElementById("nearMiss2");
     if(nm) nm.setAttribute("aria-pressed", nearMissMin===2);
+    const bb=document.getElementById("bbe250");
+    if(bb) bb.setAttribute("aria-pressed", bbeMin===250);
   }catch(e){}
   const n=activeFilterCount();
   const el=document.getElementById("filtCount");
@@ -10084,12 +10131,12 @@ function updateFiltCount(){
 }
 // count every active filter (the old count missed zone/grade/bomb/vuln/edge)
 function activeFilterCount(){
-  return (covFamMin>0?1:0)+(nearMissMin>0?1:0)+gameSel.size+teamSel.size+traitSel.size+labSel.size+drySel.size+tierSel.size+edgeSel.size
+  return (covFamMin>0?1:0)+(nearMissMin>0?1:0)+(bbeMin>0?1:0)+gameSel.size+teamSel.size+traitSel.size+labSel.size+drySel.size+tierSel.size+edgeSel.size
     +(batFilter?1:0)+(minHeat>0?1:0)+(spFloor>0?1:0)+(hideThin?1:0)+(mixView?1:0)
     +(zoneMin>0?1:0)+(gradeMin?1:0)+(bombMin>0?1:0)+(vulnMin?1:0);
 }
 function clearFilters(){
-  covFamMin=0; nearMissMin=0; gameSel.clear(); teamSel.clear(); batFilter=""; traitSel.clear(); labSel.clear(); drySel.clear(); tierSel.clear(); minHeat=0; spFloor=0; hideThin=false; mixView=false; edgeSel.clear();
+  covFamMin=0; nearMissMin=0; bbeMin=0; gameSel.clear(); teamSel.clear(); batFilter=""; traitSel.clear(); labSel.clear(); drySel.clear(); tierSel.clear(); minHeat=0; spFloor=0; hideThin=false; mixView=false; edgeSel.clear();
   document.querySelectorAll(".edge-chip").forEach(b=>b.setAttribute("aria-pressed","false"));
   zoneMin=0; gradeMin=""; bombMin=0; vulnMin="";
   ["zoneMinRow","gradeRow","bombRow","vulnRow"].forEach(id=>{
