@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-10",
+  "updated": "2026-08-11",
   "days": [
     {
       "date": "2026-03-27",
@@ -60108,6 +60108,1389 @@
           "dist": 456.0,
           "ev": 108.9,
           "heat_rank": 180,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [],
+          "n_badges": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-08-11",
+      "players": 270,
+      "hitters_homered": 36,
+      "total_hr": 37,
+      "sp_hr": 30,
+      "bp_hr": 7,
+      "by_tier": {
+        "70+": {
+          "n": 6,
+          "hr": 1
+        },
+        "55-69": {
+          "n": 29,
+          "hr": 6
+        },
+        "40-54": {
+          "n": 55,
+          "hr": 8
+        },
+        "<40": {
+          "n": 180,
+          "hr": 21
+        }
+      },
+      "by_form": {
+        "STEADY": {
+          "n": 27,
+          "hr": 5
+        },
+        "SLIPPING": {
+          "n": 54,
+          "hr": 5
+        },
+        "DEALING": {
+          "n": 135,
+          "hr": 14
+        },
+        "SHELLABLE": {
+          "n": 27,
+          "hr": 4
+        },
+        "HITTABLE": {
+          "n": 27,
+          "hr": 8
+        }
+      },
+      "by_signal": {
+        "pull_air_pct": {
+          "cleared": {
+            "n": 92,
+            "hr": 13
+          },
+          "not": {
+            "n": 178,
+            "hr": 23
+          }
+        },
+        "avg_ev": {
+          "cleared": {
+            "n": 7,
+            "hr": 0
+          },
+          "not": {
+            "n": 263,
+            "hr": 36
+          }
+        },
+        "barrel_pct": {
+          "cleared": {
+            "n": 17,
+            "hr": 4
+          },
+          "not": {
+            "n": 253,
+            "hr": 32
+          }
+        },
+        "ideal_aa_pct": {
+          "cleared": {
+            "n": 58,
+            "hr": 12
+          },
+          "not": {
+            "n": 212,
+            "hr": 24
+          }
+        },
+        "iso": {
+          "cleared": {
+            "n": 83,
+            "hr": 11
+          },
+          "not": {
+            "n": 187,
+            "hr": 25
+          }
+        },
+        "slg": {
+          "cleared": {
+            "n": 98,
+            "hr": 13
+          },
+          "not": {
+            "n": 172,
+            "hr": 23
+          }
+        }
+      },
+      "by_badge": {
+        "hrbp": {
+          "n": 20,
+          "hr": 3
+        },
+        "plat": {
+          "n": 44,
+          "hr": 10
+        },
+        "lock": {
+          "n": 16,
+          "hr": 2
+        },
+        "pow": {
+          "n": 37,
+          "hr": 8
+        },
+        "hot": {
+          "n": 63,
+          "hr": 10
+        },
+        "due": {
+          "n": 55,
+          "hr": 8
+        },
+        "hrsp": {
+          "n": 30,
+          "hr": 8
+        },
+        "arm": {
+          "n": 27,
+          "hr": 4
+        },
+        "cool": {
+          "n": 40,
+          "hr": 5
+        },
+        "mix": {
+          "n": 2,
+          "hr": 0
+        }
+      },
+      "by_edge": {
+        "zone": {
+          "5+ premium": {
+            "n": 92,
+            "hr": 18
+          },
+          "3-4 viable": {
+            "n": 42,
+            "hr": 3
+          },
+          "1-2 thin": {
+            "n": 74,
+            "hr": 10
+          },
+          "0 none": {
+            "n": 62,
+            "hr": 5
+          }
+        },
+        "grade": {
+          "STRONG": {
+            "n": 31,
+            "hr": 7
+          },
+          "ELITE": {
+            "n": 7,
+            "hr": 1
+          },
+          "MOD": {
+            "n": 110,
+            "hr": 16
+          },
+          "WEAK": {
+            "n": 122,
+            "hr": 12
+          }
+        },
+        "bomb": {
+          "65+ elite": {
+            "n": 38,
+            "hr": 7
+          },
+          "55-64 high": {
+            "n": 47,
+            "hr": 10
+          },
+          "40-54 mid": {
+            "n": 83,
+            "hr": 7
+          },
+          "<40 low": {
+            "n": 102,
+            "hr": 12
+          }
+        },
+        "vuln": {
+          "elite_target": {
+            "n": 72,
+            "hr": 11
+          },
+          "strong": {
+            "n": 90,
+            "hr": 15
+          },
+          "moderate": {
+            "n": 90,
+            "hr": 7
+          },
+          "avoid": {
+            "n": 18,
+            "hr": 3
+          }
+        },
+        "elite": {
+          "BELOW": {
+            "n": 267,
+            "hr": 36
+          },
+          "NEAR": {
+            "n": 3,
+            "hr": 0
+          }
+        },
+        "square_up": {
+          "<45 weak": {
+            "n": 266,
+            "hr": 36
+          }
+        },
+        "discipline": {
+          "none": {
+            "n": 101,
+            "hr": 18
+          },
+          "eye": {
+            "n": 46,
+            "hr": 5
+          },
+          "chaser (warn)": {
+            "n": 62,
+            "hr": 6
+          },
+          "eye + crosshair": {
+            "n": 28,
+            "hr": 4
+          },
+          "crosshair": {
+            "n": 33,
+            "hr": 3
+          }
+        },
+        "hr_power": {
+          "8-11%": {
+            "n": 14,
+            "hr": 2
+          },
+          "<8%": {
+            "n": 252,
+            "hr": 34
+          }
+        },
+        "late_hr": {
+          "neutral": {
+            "n": 225,
+            "hr": 35
+          },
+          "mild late-HR lean": {
+            "n": 45,
+            "hr": 1
+          }
+        },
+        "pitch_mix": {
+          "<40 poor": {
+            "n": 56,
+            "hr": 7
+          },
+          "60+ favorable": {
+            "n": 104,
+            "hr": 21
+          },
+          "40-59 neutral": {
+            "n": 94,
+            "hr": 8
+          }
+        },
+        "day_night": {
+          "night": {
+            "n": 270,
+            "hr": 36
+          }
+        },
+        "microclimate": {
+          "COLD FADE": {
+            "n": 33,
+            "hr": 4
+          },
+          "WARM FADE": {
+            "n": 26,
+            "hr": 2
+          },
+          "COLD BOOST": {
+            "n": 24,
+            "hr": 4
+          },
+          "WARM BOOST": {
+            "n": 32,
+            "hr": 8
+          }
+        }
+      },
+      "by_park": {
+        "strong+": {
+          "n": 126,
+          "hr": 18
+        },
+        "against": {
+          "n": 69,
+          "hr": 8
+        },
+        "neutral": {
+          "n": 49,
+          "hr": 7
+        },
+        "n/a": {
+          "n": 9,
+          "hr": 0
+        },
+        "lean+": {
+          "n": 17,
+          "hr": 3
+        }
+      },
+      "by_trend": {
+        "up": {
+          "n": 105,
+          "hr": 18
+        },
+        "flat": {
+          "n": 83,
+          "hr": 7
+        },
+        "down": {
+          "n": 82,
+          "hr": 11
+        }
+      },
+      "by_smash": {
+        "smash": {
+          "n": 3,
+          "hr": 2
+        },
+        "rest": {
+          "n": 267,
+          "hr": 34
+        }
+      },
+      "by_opener": {
+        "sp": {
+          "n": 270,
+          "hr": 36
+        }
+      },
+      "by_spot": {
+        "3": {
+          "n": 30,
+          "hr": 4
+        },
+        "2": {
+          "n": 30,
+          "hr": 8
+        },
+        "7": {
+          "n": 30,
+          "hr": 2
+        },
+        "4": {
+          "n": 30,
+          "hr": 3
+        },
+        "6": {
+          "n": 30,
+          "hr": 3
+        },
+        "5": {
+          "n": 30,
+          "hr": 6
+        },
+        "1": {
+          "n": 30,
+          "hr": 7
+        },
+        "9": {
+          "n": 30,
+          "hr": 2
+        },
+        "8": {
+          "n": 30,
+          "hr": 1
+        }
+      },
+      "by_b2b": {
+        "b2b": {
+          "n": 16,
+          "hr": 2
+        },
+        "rest": {
+          "n": 254,
+          "hr": 34
+        }
+      },
+      "by_hlabel": {
+        "none": {
+          "n": 239,
+          "hr": 29
+        },
+        "elite": {
+          "n": 6,
+          "hr": 2
+        },
+        "fb": {
+          "n": 23,
+          "hr": 5
+        },
+        "ld": {
+          "n": 2,
+          "hr": 0
+        }
+      },
+      "by_parlay": {
+        "jackpot": {
+          "n": 1,
+          "leg_n": 3,
+          "leg_hr": 1,
+          "all_hit": 0,
+          "any_hit": 1,
+          "pair_hits": 0
+        },
+        "best3": {
+          "n": 1,
+          "leg_n": 3,
+          "leg_hr": 1,
+          "all_hit": 0,
+          "any_hit": 1,
+          "pair_hits": 0
+        },
+        "rr5": {
+          "n": 1,
+          "leg_n": 5,
+          "leg_hr": 3,
+          "all_hit": 0,
+          "any_hit": 1,
+          "pair_hits": 3
+        }
+      },
+      "by_props": {
+        "hit1": {
+          "by_tier": {
+            "<40": {
+              "n": 48,
+              "hit": 29
+            },
+            "55-69": {
+              "n": 67,
+              "hit": 40
+            },
+            "70+": {
+              "n": 1,
+              "hit": 0
+            },
+            "40-54": {
+              "n": 151,
+              "hit": 84
+            },
+            "n/a": {
+              "n": 3,
+              "hit": 1
+            }
+          },
+          "top_n": {
+            "5": {
+              "n": 5,
+              "hit": 1
+            },
+            "10": {
+              "n": 10,
+              "hit": 5
+            },
+            "25": {
+              "n": 25,
+              "hit": 16
+            }
+          }
+        },
+        "hit2": {
+          "by_tier": {
+            "<40": {
+              "n": 48,
+              "hit": 8
+            },
+            "55-69": {
+              "n": 67,
+              "hit": 8
+            },
+            "70+": {
+              "n": 1,
+              "hit": 0
+            },
+            "40-54": {
+              "n": 151,
+              "hit": 29
+            },
+            "n/a": {
+              "n": 3,
+              "hit": 0
+            }
+          },
+          "top_n": {
+            "5": {
+              "n": 5,
+              "hit": 0
+            },
+            "10": {
+              "n": 10,
+              "hit": 1
+            },
+            "25": {
+              "n": 25,
+              "hit": 5
+            }
+          }
+        },
+        "hrr": {
+          "by_tier": {
+            "55-69": {
+              "n": 80,
+              "hit2": 34,
+              "hit3": 20,
+              "sum": 127,
+              "sum_ct": 80
+            },
+            "70+": {
+              "n": 20,
+              "hit2": 8,
+              "hit3": 6,
+              "sum": 35,
+              "sum_ct": 20
+            },
+            "40-54": {
+              "n": 122,
+              "hit2": 46,
+              "hit3": 30,
+              "sum": 180,
+              "sum_ct": 122
+            },
+            "<40": {
+              "n": 45,
+              "hit2": 14,
+              "hit3": 9,
+              "sum": 59,
+              "sum_ct": 45
+            },
+            "n/a": {
+              "n": 3,
+              "hit2": 0,
+              "hit3": 0,
+              "sum": 1,
+              "sum_ct": 3
+            }
+          },
+          "top_n": {
+            "5": {
+              "n": 5,
+              "hit": 2
+            },
+            "10": {
+              "n": 10,
+              "hit": 4
+            },
+            "25": {
+              "n": 25,
+              "hit": 10
+            }
+          }
+        },
+        "pk": {
+          "by_tier": {
+            "70+": {
+              "n": 6,
+              "total_ks": 38,
+              "o5": 4,
+              "o6": 4,
+              "o7": 1
+            },
+            "55-69": {
+              "n": 6,
+              "total_ks": 15,
+              "o5": 0,
+              "o6": 0,
+              "o7": 0
+            },
+            "40-54": {
+              "n": 7,
+              "total_ks": 31,
+              "o5": 1,
+              "o6": 1,
+              "o7": 1
+            },
+            "<40": {
+              "n": 11,
+              "total_ks": 48,
+              "o5": 0,
+              "o6": 0,
+              "o7": 0
+            }
+          },
+          "top_n": {
+            "3": {
+              "n": 3,
+              "total_ks": 22,
+              "o5": 3,
+              "o6": 3
+            },
+            "5": {
+              "n": 5,
+              "total_ks": 31,
+              "o5": 3,
+              "o6": 3
+            },
+            "10": {
+              "n": 10,
+              "total_ks": 47,
+              "o5": 4,
+              "o6": 4
+            }
+          }
+        },
+        "bku": {
+          "by_tier": {
+            "60+": {
+              "n": 53,
+              "hit": 18
+            },
+            "30-44": {
+              "n": 82,
+              "hit": 34
+            },
+            "<30": {
+              "n": 79,
+              "hit": 42
+            },
+            "45-59": {
+              "n": 53,
+              "hit": 20
+            }
+          }
+        }
+      },
+      "badges_on_hr": 58,
+      "top_n": {
+        "5": {
+          "n": 5,
+          "hr": 1
+        },
+        "10": {
+          "n": 10,
+          "hr": 2
+        },
+        "25": {
+          "n": 25,
+          "hr": 4
+        }
+      },
+      "ranks": {
+        "heat": {
+          "5": {
+            "n": 5,
+            "hr": 1
+          },
+          "10": {
+            "n": 10,
+            "hr": 2
+          },
+          "25": {
+            "n": 25,
+            "hr": 4
+          }
+        },
+        "iso": {
+          "5": {
+            "n": 5,
+            "hr": 1
+          },
+          "10": {
+            "n": 10,
+            "hr": 2
+          },
+          "25": {
+            "n": 25,
+            "hr": 4
+          }
+        },
+        "barrel": {
+          "5": {
+            "n": 5,
+            "hr": 0
+          },
+          "10": {
+            "n": 10,
+            "hr": 2
+          },
+          "25": {
+            "n": 25,
+            "hr": 7
+          }
+        },
+        "base": {
+          "5": {
+            "n": 270,
+            "hr": 36
+          },
+          "10": {
+            "n": 270,
+            "hr": 36
+          },
+          "25": {
+            "n": 270,
+            "hr": 36
+          }
+        }
+      },
+      "ball": {
+        "n": 90,
+        "avg_ev": 101.67,
+        "avg_la": 26.8,
+        "avg_dist": 376.6,
+        "carry": 6.23,
+        "hr_n": 38,
+        "hr_avg_dist": 401.7,
+        "hr_med_dist": 410.0,
+        "hr_max_dist": 460.0,
+        "hr_avg_ev": 103.57
+      },
+      "hr_log": [
+        {
+          "name": "Junior Caminero",
+          "heat": 77,
+          "tier": "LOADED",
+          "arm_form": "STEADY",
+          "off": "SP",
+          "hr": 1,
+          "dist": 412.0,
+          "ev": 105.4,
+          "heat_rank": 1,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "hrbp",
+            "plat",
+            "lock",
+            "pow"
+          ],
+          "n_badges": 4
+        },
+        {
+          "name": "Pete Crow-Armstrong",
+          "heat": 69,
+          "tier": "SOLID",
+          "arm_form": "SHELLABLE",
+          "off": "SP",
+          "hr": 1,
+          "dist": 437.0,
+          "ev": 111.5,
+          "heat_rank": 7,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "hrsp",
+            "arm",
+            "plat",
+            "lock",
+            "pow"
+          ],
+          "n_badges": 5
+        },
+        {
+          "name": "Matt Olson",
+          "heat": 66,
+          "tier": "STRONG",
+          "arm_form": "SLIPPING",
+          "off": "BP",
+          "hr": 1,
+          "dist": 423.0,
+          "ev": 109.3,
+          "heat_rank": 12,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "hrbp",
+            "cool"
+          ],
+          "n_badges": 2
+        },
+        {
+          "name": "Everson Pereira",
+          "heat": 60,
+          "tier": "STRONG",
+          "arm_form": "DEALING",
+          "off": "BP",
+          "hr": 1,
+          "dist": 430.0,
+          "ev": 106.6,
+          "heat_rank": 19,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "hot"
+          ],
+          "n_badges": 1
+        },
+        {
+          "name": "Fernando Tatis Jr.",
+          "heat": 57,
+          "tier": "SOLID",
+          "arm_form": "DEALING",
+          "off": "SP",
+          "hr": 1,
+          "dist": 382.0,
+          "ev": 102.5,
+          "heat_rank": 28,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "hrsp",
+            "hot",
+            "pow"
+          ],
+          "n_badges": 3
+        },
+        {
+          "name": "Joc Pederson",
+          "heat": 56,
+          "tier": "LEAN",
+          "arm_form": "SHELLABLE",
+          "off": "SP",
+          "hr": 1,
+          "dist": 416.0,
+          "ev": 104.8,
+          "heat_rank": 31,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "arm",
+            "plat",
+            "hot"
+          ],
+          "n_badges": 3
+        },
+        {
+          "name": "Pete Alonso",
+          "heat": 55,
+          "tier": "SOLID",
+          "arm_form": "HITTABLE",
+          "off": "SP",
+          "hr": 1,
+          "dist": 418.0,
+          "ev": 107.1,
+          "heat_rank": 33,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "hrsp",
+            "hrbp",
+            "due",
+            "pow"
+          ],
+          "n_badges": 4
+        },
+        {
+          "name": "Eugenio Su\u00e1rez",
+          "heat": 53,
+          "tier": "LEAN",
+          "arm_form": "STEADY",
+          "off": "SP",
+          "hr": 1,
+          "dist": 401.0,
+          "ev": 103.5,
+          "heat_rank": 39,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "hot"
+          ],
+          "n_badges": 1
+        },
+        {
+          "name": "Wilyer Abreu",
+          "heat": 50,
+          "tier": "LEAN",
+          "arm_form": "DEALING",
+          "off": "SP",
+          "hr": 1,
+          "dist": 370.0,
+          "ev": 96.0,
+          "heat_rank": 48,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "due"
+          ],
+          "n_badges": 1
+        },
+        {
+          "name": "Victor Mesa Jr.",
+          "heat": 46,
+          "tier": "LEAN",
+          "arm_form": "STEADY",
+          "off": "BP",
+          "hr": 1,
+          "dist": 412.0,
+          "ev": 101.3,
+          "heat_rank": 64,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "due"
+          ],
+          "n_badges": 1
+        },
+        {
+          "name": "Esteury Ruiz",
+          "heat": 45,
+          "tier": "LEAN",
+          "arm_form": "SLIPPING",
+          "off": "SP",
+          "hr": 1,
+          "dist": 384.0,
+          "ev": 105.1,
+          "heat_rank": 66,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "cool"
+          ],
+          "n_badges": 1
+        },
+        {
+          "name": "Alex Bregman",
+          "heat": 42,
+          "tier": "LEAN",
+          "arm_form": "SHELLABLE",
+          "off": "BP",
+          "hr": 1,
+          "dist": 374.0,
+          "ev": 102.5,
+          "heat_rank": 82,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "hrsp",
+            "arm",
+            "hot"
+          ],
+          "n_badges": 3
+        },
+        {
+          "name": "Corbin Carroll",
+          "heat": 40,
+          "tier": "THIN",
+          "arm_form": "HITTABLE",
+          "off": "SP",
+          "hr": 1,
+          "dist": 422.0,
+          "ev": 105.3,
+          "heat_rank": 87,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "plat"
+          ],
+          "n_badges": 1
+        },
+        {
+          "name": "Lawrence Butler",
+          "heat": 40,
+          "tier": "LEAN",
+          "arm_form": "SLIPPING",
+          "off": "SP",
+          "hr": 1,
+          "dist": 417.0,
+          "ev": 103.7,
+          "heat_rank": 88,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [],
+          "n_badges": 0
+        },
+        {
+          "name": "Luis Campusano",
+          "heat": 40,
+          "tier": "LEAN",
+          "arm_form": "DEALING",
+          "off": "SP",
+          "hr": 1,
+          "dist": 379.0,
+          "ev": 101.9,
+          "heat_rank": 89,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [],
+          "n_badges": 0
+        },
+        {
+          "name": "Seiya Suzuki",
+          "heat": 38,
+          "tier": "THIN",
+          "arm_form": "SHELLABLE",
+          "off": "BP",
+          "hr": 1,
+          "dist": 409.0,
+          "ev": 104.3,
+          "heat_rank": 99,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "arm"
+          ],
+          "n_badges": 1
+        },
+        {
+          "name": "Ceddanne Rafaela",
+          "heat": 38,
+          "tier": "LEAN",
+          "arm_form": "DEALING",
+          "off": "SP",
+          "hr": 1,
+          "dist": 411.0,
+          "ev": 101.8,
+          "heat_rank": 101,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "cool"
+          ],
+          "n_badges": 1
+        },
+        {
+          "name": "Ketel Marte",
+          "heat": 38,
+          "tier": "THIN",
+          "arm_form": "HITTABLE",
+          "off": "SP",
+          "hr": 1,
+          "dist": 377.0,
+          "ev": 100.1,
+          "heat_rank": 102,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "plat",
+            "hot",
+            "pow"
+          ],
+          "n_badges": 3
+        },
+        {
+          "name": "Christian Encarnacion-Strand",
+          "heat": 37,
+          "tier": "THIN",
+          "arm_form": "HITTABLE",
+          "off": "SP",
+          "hr": 1,
+          "dist": 460.0,
+          "ev": 109.0,
+          "heat_rank": 105,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "hrsp",
+            "due"
+          ],
+          "n_badges": 2
+        },
+        {
+          "name": "Miguel Vargas",
+          "heat": 36,
+          "tier": "THIN",
+          "arm_form": "DEALING",
+          "off": "SP",
+          "hr": 1,
+          "dist": 407.0,
+          "ev": 106.6,
+          "heat_rank": 112,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [],
+          "n_badges": 0
+        },
+        {
+          "name": "Randy Arozarena",
+          "heat": 34,
+          "tier": "THIN",
+          "arm_form": "DEALING",
+          "off": "SP",
+          "hr": 1,
+          "dist": 351.0,
+          "ev": 95.7,
+          "heat_rank": 122,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "hot"
+          ],
+          "n_badges": 1
+        },
+        {
+          "name": "Dylan Crews",
+          "heat": 31,
+          "tier": "THIN",
+          "arm_form": "HITTABLE",
+          "off": "SP",
+          "hr": 1,
+          "dist": 414.0,
+          "ev": 105.6,
+          "heat_rank": 142,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "hrsp",
+            "plat",
+            "due"
+          ],
+          "n_badges": 3
+        },
+        {
+          "name": "Jacob Young",
+          "heat": 30,
+          "tier": "THIN",
+          "arm_form": "HITTABLE",
+          "off": "SP",
+          "hr": 1,
+          "dist": 427.0,
+          "ev": 106.2,
+          "heat_rank": 147,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "plat",
+            "cool"
+          ],
+          "n_badges": 2
+        },
+        {
+          "name": "Gunnar Henderson",
+          "heat": 30,
+          "tier": "THIN",
+          "arm_form": "HITTABLE",
+          "off": "SP",
+          "hr": 1,
+          "dist": 409.0,
+          "ev": 108.1,
+          "heat_rank": 149,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "hrsp",
+            "plat",
+            "due"
+          ],
+          "n_badges": 3
+        },
+        {
+          "name": "Yandy D\u00edaz",
+          "heat": 29,
+          "tier": "THIN",
+          "arm_form": "STEADY",
+          "off": "SP",
+          "hr": 1,
+          "dist": 362.0,
+          "ev": 97.6,
+          "heat_rank": 164,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "plat",
+            "hot",
+            "pow"
+          ],
+          "n_badges": 3
+        },
+        {
+          "name": "CJ Abrams",
+          "heat": 28,
+          "tier": "THIN",
+          "arm_form": "HITTABLE",
+          "off": "SP",
+          "hr": 1,
+          "dist": 364.0,
+          "ev": 96.4,
+          "heat_rank": 167,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "plat"
+          ],
+          "n_badges": 1
+        },
+        {
+          "name": "Mookie Betts",
+          "heat": 28,
+          "tier": "LEAN",
+          "arm_form": "DEALING",
+          "off": "SP",
+          "hr": 1,
+          "dist": 378.0,
+          "ev": 104.9,
+          "heat_rank": 173,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "due"
+          ],
+          "n_badges": 1
+        },
+        {
+          "name": "Brenton Doyle",
+          "heat": 26,
+          "tier": "THIN",
+          "arm_form": "DEALING",
+          "off": "SP",
+          "hr": 1,
+          "dist": 415.0,
+          "ev": 106.6,
+          "heat_rank": 181,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "hrsp",
+            "cool"
+          ],
+          "n_badges": 2
+        },
+        {
+          "name": "Ozzie Albies",
+          "heat": 22,
+          "tier": "THIN",
+          "arm_form": "SLIPPING",
+          "off": "SP",
+          "hr": 1,
+          "dist": 386.0,
+          "ev": 103.5,
+          "heat_rank": 204,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [],
+          "n_badges": 0
+        },
+        {
+          "name": "Taylor Walls",
+          "heat": 22,
+          "tier": "THIN",
+          "arm_form": "STEADY",
+          "off": "SP",
+          "hr": 2,
+          "dist": 387.0,
+          "ev": 98.3,
+          "heat_rank": 209,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [],
+          "n_badges": 0
+        },
+        {
+          "name": "Luis Rengifo",
+          "heat": 21,
+          "tier": "THIN",
+          "arm_form": "DEALING",
+          "off": "SP",
+          "hr": 1,
+          "dist": 366.0,
+          "ev": 100.7,
+          "heat_rank": 222,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "hot"
+          ],
+          "n_badges": 1
+        },
+        {
+          "name": "Chase DeLauter",
+          "heat": 18,
+          "tier": "THIN",
+          "arm_form": "DEALING",
+          "off": "SP",
+          "hr": 1,
+          "dist": 424.0,
+          "ev": 104.6,
+          "heat_rank": 226,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "pow"
+          ],
+          "n_badges": 1
+        },
+        {
+          "name": "Bryce Eldridge",
+          "heat": 17,
+          "tier": "THIN",
+          "arm_form": "SLIPPING",
+          "off": "SP",
+          "hr": 1,
+          "dist": 423.0,
+          "ev": 106.4,
+          "heat_rank": 239,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "hot"
+          ],
+          "n_badges": 1
+        },
+        {
+          "name": "Jo Adell",
+          "heat": 16,
+          "tier": "THIN",
+          "arm_form": "DEALING",
+          "off": "BP",
+          "hr": 1,
+          "dist": 428.0,
+          "ev": 109.3,
+          "heat_rank": 240,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "due",
+            "pow"
+          ],
+          "n_badges": 2
+        },
+        {
+          "name": "Kyle Karros",
+          "heat": 15,
+          "tier": "THIN",
+          "arm_form": "DEALING",
+          "off": "SP",
+          "hr": 1,
+          "dist": 413.0,
+          "ev": 102.1,
+          "heat_rank": 249,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [],
+          "n_badges": 0
+        },
+        {
+          "name": "Edgar Quero",
+          "heat": 12,
+          "tier": "THIN",
+          "arm_form": "DEALING",
+          "off": "SP",
+          "hr": 1,
+          "dist": 378.0,
+          "ev": 102.2,
+          "heat_rank": 256,
           "cv_rank": null,
           "cv_fams": null,
           "badges": [],
