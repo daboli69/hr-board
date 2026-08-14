@@ -577,38 +577,29 @@ def fangraphs_pitching(season: int | None = None, qual: int = 20) -> dict:
     yr = season or _dt.date.today().year
     df = None
     try:
-        from pybaseball import pitching_stats
-        df = pitching_stats(yr, qual=qual)
+        import requests
+        url = (f"https://www.fangraphs.com/api/leaders/major-league/data"
+               f"?age=&pos=all&stats=pit&lg=all&qual={qual}&season={yr}&season1={yr}"
+               f"&month=0&hand=&team=0&pageitems=5000&pagenum=1&ind=0&rost=0&players="
+               f"&type=8")
+        headers = {
+            "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                           "AppleWebKit/537.36 (KHTML, like Gecko) "
+                           "Chrome/124.0.0.0 Safari/537.36"),
+            "Accept": "application/json,text/plain,*/*",
+            "Referer": "https://www.fangraphs.com/leaders.aspx",
+        }
+        resp = requests.get(url, headers=headers, timeout=20)
+        resp.raise_for_status()
+        df = pd.DataFrame(resp.json()["data"])
     except Exception as e:
-        print(f"[fangraphs] pybaseball fetch failed, trying direct request: {e}", file=_s.stderr)
+        print(f"[fangraphs] direct JSON request failed, trying pybaseball: {e}", file=_s.stderr)
     if df is None or df.empty:
-        # FanGraphs blocks pybaseball's default request (no browser headers) with a Cloudflare
-        # 403 on leaders-legacy.aspx. Retry the SAME endpoint ourselves with realistic browser
-        # headers and &export=1 to get a CSV instead of the HTML page. This is a fallback, not
-        # a guaranteed fix -- if FanGraphs is running a JS challenge rather than plain UA
-        # sniffing, no header set fixes it, and this stays non-fatal either way.
         try:
-            import io
-            import requests
-            url = (
-                "https://www.fangraphs.com/leaders-legacy.aspx"
-                f"?pos=all&stats=pit&lg=all&qual={qual}&type=8&season={yr}&month=0"
-                f"&season1={yr}&ind=0&team=0&rost=0&age=0&filter=&players=&page=1_2000"
-                "&export=1"
-            )
-            headers = {
-                "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                               "AppleWebKit/537.36 (KHTML, like Gecko) "
-                               "Chrome/124.0.0.0 Safari/537.36"),
-                "Accept": "text/csv,text/plain,*/*",
-                "Accept-Language": "en-US,en;q=0.9",
-                "Referer": "https://www.fangraphs.com/leaders.aspx",
-            }
-            resp = requests.get(url, headers=headers, timeout=20)
-            resp.raise_for_status()
-            df = pd.read_csv(io.StringIO(resp.text), on_bad_lines="skip", engine="python")
+            from pybaseball import pitching_stats
+            df = pitching_stats(yr, qual=qual)
         except Exception as e2:
-            print(f"[fangraphs] direct request also failed (non-fatal): {e2}", file=_s.stderr)
+            print(f"[fangraphs] pybaseball fallback also failed (non-fatal): {e2}", file=_s.stderr)
             return {}
 
     if df is None or df.empty:
