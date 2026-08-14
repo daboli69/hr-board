@@ -574,12 +574,46 @@ def fangraphs_pitching(season: int | None = None, qual: int = 20) -> dict:
     Keyed by a normalised name because FanGraphs IDs don't match MLBAM. Non-fatal by design."""
     import sys as _s
     import datetime as _dt
+    yr = season or _dt.date.today().year
+    df = None
     try:
         from pybaseball import pitching_stats
-        yr = season or _dt.date.today().year
         df = pitching_stats(yr, qual=qual)
-        if df is None or df.empty:
+    except Exception as e:
+        print(f"[fangraphs] pybaseball fetch failed, trying direct request: {e}", file=_s.stderr)
+    if df is None or df.empty:
+        # FanGraphs blocks pybaseball's default request (no browser headers) with a Cloudflare
+        # 403 on leaders-legacy.aspx. Retry the SAME endpoint ourselves with realistic browser
+        # headers and &export=1 to get a CSV instead of the HTML page. This is a fallback, not
+        # a guaranteed fix -- if FanGraphs is running a JS challenge rather than plain UA
+        # sniffing, no header set fixes it, and this stays non-fatal either way.
+        try:
+            import io
+            import requests
+            url = (
+                "https://www.fangraphs.com/leaders-legacy.aspx"
+                f"?pos=all&stats=pit&lg=all&qual={qual}&type=8&season={yr}&month=0"
+                f"&season1={yr}&ind=0&team=0&rost=0&age=0&filter=&players=&page=1_2000"
+                "&export=1"
+            )
+            headers = {
+                "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                               "AppleWebKit/537.36 (KHTML, like Gecko) "
+                               "Chrome/124.0.0.0 Safari/537.36"),
+                "Accept": "text/csv,text/plain,*/*",
+                "Accept-Language": "en-US,en;q=0.9",
+                "Referer": "https://www.fangraphs.com/leaders.aspx",
+            }
+            resp = requests.get(url, headers=headers, timeout=20)
+            resp.raise_for_status()
+            df = pd.read_csv(io.StringIO(resp.text), on_bad_lines="skip", engine="python")
+        except Exception as e2:
+            print(f"[fangraphs] direct request also failed (non-fatal): {e2}", file=_s.stderr)
             return {}
+
+    if df is None or df.empty:
+        return {}
+    try:
         cols = {c.lower().strip(): c for c in df.columns}
 
         def col(*cands):
@@ -612,7 +646,7 @@ def fangraphs_pitching(season: int | None = None, qual: int = 20) -> dict:
                 out[key] = rec
         return out
     except Exception as e:
-        print(f"[fangraphs] pitching leaderboard unavailable (non-fatal): {e}", file=_s.stderr)
+        print(f"[fangraphs] pitching leaderboard parse failed (non-fatal): {e}", file=_s.stderr)
         return {}
 
 

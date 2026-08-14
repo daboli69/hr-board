@@ -85,12 +85,37 @@ def catcher_framing(season=None, min_called="q"):
     """
     import sys as _s
     import datetime as _dt
+    yr = season or _dt.date.today().year
+    df = None
     try:
         from pybaseball import statcast_catcher_framing
-        yr = season or _dt.date.today().year
         df = statcast_catcher_framing(yr, min_called)
-        if df is None or df.empty:
+    except Exception as e:
+        # pybaseball's internal pd.read_csv trips on a ragged line in Savant's export ("Expected
+        # 1 fields in line 38, saw 4"), which we cannot pass on_bad_lines into since it's inside
+        # pybaseball, not our code. Fetch the same leaderboard CSV ourselves so we control parsing.
+        print(f"[framing] pybaseball fetch failed, trying direct request: {e}", file=_s.stderr)
+    if df is None or df.empty:
+        try:
+            import io
+            import requests
+            url = (f"https://baseballsavant.mlb.com/leaderboard/catcher-framing"
+                   f"?year={yr}&team=&min={min_called}&type=catcher&csv=true")
+            headers = {"User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                                      "AppleWebKit/537.36 (KHTML, like Gecko) "
+                                      "Chrome/124.0.0.0 Safari/537.36")}
+            resp = requests.get(url, headers=headers, timeout=20)
+            resp.raise_for_status()
+            # on_bad_lines="skip" drops only the malformed row instead of aborting the whole
+            # parse; engine="python" + sep=None auto-detects the delimiter if it ever changes.
+            df = pd.read_csv(io.StringIO(resp.text), sep=None, engine="python",
+                             on_bad_lines="skip")
+        except Exception as e2:
+            print(f"[framing] direct request also failed (non-fatal): {e2}", file=_s.stderr)
             return {}
+    if df is None or df.empty:
+        return {}
+    try:
         cols = {c.lower(): c for c in df.columns}
         idc = next((cols[c] for c in ("player_id", "catcher", "playerid") if c in cols), None)
         runc = next((cols[c] for c in
