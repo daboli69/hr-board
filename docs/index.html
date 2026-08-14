@@ -65,6 +65,8 @@
   .eh-meat{box-shadow:inset 0 0 0 1px rgba(224,160,72,.5)}
   .eh-ov{box-shadow:inset 0 0 0 2px var(--gold,#E8C15A)}
   .eh-legend{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:center;margin-top:9px;font-family:"IBM Plex Mono";font-size:9px;color:var(--muted)}
+  .eh-nomeat{font-family:"IBM Plex Mono";font-size:10px;color:var(--faint);line-height:1.5;
+    background:var(--panel-2);border-radius:8px;padding:8px 10px;margin-top:8px}
   .eh-lk{width:10px;height:10px;border-radius:2px;background:var(--panel-2);display:inline-block;margin-right:3px}
   .eh-lk.eh-ov{box-shadow:inset 0 0 0 2px var(--gold,#E8C15A)}
   .eh-lk.eh-meat{box-shadow:inset 0 0 0 1px rgba(224,160,72,.6)}
@@ -1722,6 +1724,24 @@
   .tg-info-b{font-size:11px;line-height:1.6;color:var(--faint);background:var(--panel-2);
     border-left:2px solid var(--seam);border-radius:0 8px 8px 0;padding:9px 11px;margin-top:7px}
   .tg-info-b b{color:var(--muted)}
+
+  /* Daily Parlay Scanner. psc- (not sc-, which the Scan view already owns) so nothing collides. */
+  .psc-step{margin:0 0 16px}
+  .psc-h{font-size:14px;color:var(--ink);font-weight:800;margin-bottom:2px}
+  .psc-sub{font-size:11px;color:var(--faint);margin-bottom:9px;line-height:1.5}
+  .psc-row{display:flex;justify-content:space-between;align-items:center;gap:10px;
+    background:var(--panel-2);border-radius:9px;padding:9px 11px;margin-bottom:6px;cursor:pointer}
+  .psc-row:active{background:var(--panel-3)}
+  .psc-l{min-width:0;flex:1}
+  .psc-l b{color:var(--ink);font-size:13px}
+  .psc-l span{color:var(--faint);font-size:11px;margin-left:6px}
+  .psc-l i{display:block;font-style:normal;font-family:"IBM Plex Mono";font-size:9px;
+    color:var(--seam);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .psc-r{flex:0 0 auto;text-align:right}
+  .psc-r b{display:block;font-family:"IBM Plex Mono";font-size:15px;font-weight:800;color:var(--seam)}
+  .psc-r span{display:block;font-family:"IBM Plex Mono";font-size:8px;color:var(--faint);letter-spacing:.06em}
+  .psc-empty{font-family:"IBM Plex Mono";font-size:10.5px;color:var(--faint);
+    background:var(--panel-2);border-radius:8px;padding:9px 11px}
   .btg-route{background:var(--panel-3);border-radius:9px;padding:10px 12px;margin:10px 0}
   .btg-route-h{font-family:"IBM Plex Mono";font-size:10px;font-weight:800;color:var(--seam);
     letter-spacing:.06em;margin-bottom:5px}
@@ -2068,6 +2088,8 @@
     <button class="chip cov-fam-chip" id="covFam3" onclick="setCovFam(3)" aria-pressed="false" title="Only hitters with 3+ independent evidence families — backtested at 1.56x the base HR rate">◎ 3+ families</button>
     <button class="chip cov-fam-chip" id="covFam4" onclick="setCovFam(4)" aria-pressed="false" title="Only hitters with 4+ independent evidence families — backtested at 2.01x the base HR rate, the strongest signal in the app">◎ 4+ families</button>
     <button class="chip cov-fam-chip" id="bbe250" onclick="setBbe(250)" aria-pressed="false" title="Only hitters with 250+ batted balls this season. The same convergence signal reads 16.1% on 250+ BBE and 9.1% under 120 — below the base rate. Thin samples invert signals.">▣ 250+ BBE</button>
+    <button class="chip cov-fam-chip" id="spotTop" onclick="setSpotFilter('top')" aria-pressed="false" title="Batting spots 1-4. More trips through the order — spot 3 grades 15.5% HR rate, spot 4 14.4%, both ahead of the bottom of the order.">⬆ Top order (1-4)</button>
+    <button class="chip cov-fam-chip" id="spotBottom" onclick="setSpotFilter('bottom')" aria-pressed="false" title="Batting spots 5-9. Fewer plate appearances per game — use this to find lower-order power rather than volume plays.">⬇ Bottom order (5-9)</button>
     <button class="chip cov-fam-chip" id="nearMiss2" onclick="setNearMiss(2)" aria-pressed="false" title="Only hitters with 2+ near misses — balls that died within 5ft of the wall at their own spray angle. Backtested at 12.2% vs 9.3% for hitters with none.">◇ 2+ near miss</button>
     <button class="chip edge-chip" data-edge="eye" aria-pressed="false" title="Only disciplined hitters (elite eye or in-zone contact)">👁 Discipline</button>
     <button class="chip edge-chip" data-edge="grade" aria-pressed="false" title="Only ELITE or STRONG matchup grades (4+ factors aligned)">Graded</button>
@@ -2462,6 +2484,7 @@
       <div class="nav-sec">RESULTS</div>
       <button class="nav-item" data-nav="calendar" onclick="drawerGo('calendar')">HR Calendar<i>HRs per day · trends · who went deep</i></button>
       <button class="nav-item" data-nav="targets" onclick="drawerGo('targets')">Target Teams<i>defenses ranked by how likely they are to concede</i></button>
+      <button class="nav-item" data-nav="scanner" onclick="drawerGo('scanner')">Parlay Scanner<i>the 4-step daily workflow, run for you</i></button>
       <button class="nav-item" data-nav="hrpatterns" onclick="drawerGo('hrpatterns')">HR Patterns<i>which signals actually homer — 7d · 30d · season</i></button>
       <button class="nav-item" data-nav="tracker" onclick="drawerGo('tracker')">Tracker<i>model vs reality, by tier</i></button>
       <button class="nav-item" onclick="openLegend()">Legend<i>what every badge &amp; chip means</i></button>
@@ -3668,6 +3691,12 @@ function cvMeasured(p){
 let bbeMin=0;
 function setBbe(n){ bbeMin=(bbeMin===n?0:n); updateFiltCount(); render(); }
 function bbeCount(p){ return ((p&&p.sample&&p.sample.season)||0); }
+// Batting-order filter: isolate top-of-order (1-4) or bottom-of-order (5-9) hitters. Spot
+// determines plate appearances more than almost anything else in the tracker -- spot 3 grades
+// 15.5%, spot 4 14.4%, both well ahead of the bottom of the order -- so this is a quick way to
+// cut the board to the hitters who get the extra trip through the lineup.
+let spotFilter="all";     // all | top | bottom
+function setSpotFilter(v){ spotFilter=(spotFilter===v?"all":v); updateFiltCount(); render(); }
 let nearMissMin=0;   // board filter: minimum geometry-aware near misses in the trailing window
 function setNearMiss(n){ nearMissMin=(nearMissMin===n?0:n); updateFiltCount(); render(); }
 function nearMissCount(p){ return ((p&&p.near_miss&&p.near_miss.near)||0); }
@@ -4343,6 +4372,12 @@ function render(){
   if(bbeMin>0){
     players=players.filter(p=>bbeCount(p)>=bbeMin);
   }
+  if(spotFilter!=="all"){
+    players=players.filter(p=>{
+      const sp=p.lineup_spot; if(sp==null) return false;
+      return spotFilter==="top" ? sp<=4 : sp>=5;
+    });
+  }
   if(traitSel.size){
     players=players.filter(p=>{
       const ks=new Set((p.badges||[]).map(b=>b.k));
@@ -4868,6 +4903,7 @@ function renderToday(){
       <div class="ty-tool" onclick="goView('sgp')"><svg class="ty-ic" viewBox="0 0 24 24">${IC_LAY}</svg><div class="tt">Parlay Builder</div><div class="td">Adjustable SGP</div></div>
       <div class="ty-tool" onclick="goView('calendar')"><svg class="ty-ic" viewBox="0 0 24 24">${IC_CAL}</svg><div class="tt">HR Calendar</div><div class="td">Daily trends</div></div>
       <div class="ty-tool" onclick="goView('targets')"><svg class="ty-ic" viewBox="0 0 24 24">${IC_TGT||IC_CAL}</svg><div class="tt">Target Teams</div><div class="td">Who concedes tonight</div></div>
+      <div class="ty-tool" onclick="goView('scanner')"><svg class="ty-ic" viewBox="0 0 24 24">${IC_TGT||IC_CAL}</svg><div class="tt">Parlay Scanner</div><div class="td">4-step daily workflow</div></div>
       <div class="ty-tool" onclick="goView('hrpatterns')"><svg class="ty-ic" viewBox="0 0 24 24">${IC_CAL}</svg><div class="tt">HR Patterns</div><div class="td">What actually homers</div></div>
     </div>
   </div>`;
@@ -5185,7 +5221,7 @@ function renderView(){
   // Weather is a live standalone view again (park + wind arrow, plus slate park ranking).
   if(view==="stacks"){ view="scan"; }
   else if(view==="matchup"){ view="edges"; }
-  if(view==="today") safe(renderToday); else if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else if(view==="weather") safe(renderWeather); else if(view==="qualified") safe(renderQualified); else if(view==="toppicks") safe(renderTopPicks); else if(view==="calendar") safe(renderCalendar); else if(view==="targets") safe(renderTargets); else if(view==="hrpatterns") safe(renderHrPatterns); else if(view==="jackpot") safe(renderJackpot); else if(view==="sgp") safe(renderSGP); else if(view==="faq") safe(renderFaq); else if(view==="ladder") safe(renderLadder); else if(view==="pitchmix") safe(renderPitchMix); else if(view==="converge") safe(renderConverge); else safe(render);
+  if(view==="today") safe(renderToday); else if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else if(view==="weather") safe(renderWeather); else if(view==="qualified") safe(renderQualified); else if(view==="toppicks") safe(renderTopPicks); else if(view==="calendar") safe(renderCalendar); else if(view==="targets") safe(renderTargets); else if(view==="scanner") safe(renderParlayScanner); else if(view==="hrpatterns") safe(renderHrPatterns); else if(view==="jackpot") safe(renderJackpot); else if(view==="sgp") safe(renderSGP); else if(view==="faq") safe(renderFaq); else if(view==="ladder") safe(renderLadder); else if(view==="pitchmix") safe(renderPitchMix); else if(view==="converge") safe(renderConverge); else safe(render);
 }
 
 // Weather dashboard: today's slate, one card per game — conditions, roof call,
@@ -5901,6 +5937,10 @@ function zoneHeatmapInner(arm,bat){
       <div class="eh-outer">${[11,12,13,14].map(cell).join("")}</div>
       <div class="eh-inner">${[1,2,3,4,5,6,7,8,9].map(cell).join("")}</div>
     </div>`;
+  const noMeat = meat.size===0
+    ? `<div class="eh-nomeat">No zone clears the meatball threshold for this arm right now —
+        every cell is under 0.370 xwOBAcon. That is a genuinely tough profile, not missing data.</div>`
+    : "";
   const stats=Object.entries(EH_STATS).filter(([k,v])=>v.src!=="bat"||bat)
     .map(([k,v])=>`<button class="eh-st${k===ehStat?" on":""}" onclick="setEhStat('${k}')">${v.label}</button>`).join("");
   const hands=[["auto",bat?"Auto":"All"],["R","vs RHB"],["L","vs LHB"]]
@@ -5913,6 +5953,7 @@ function zoneHeatmapInner(arm,bat){
   }
   return `<div class="eh-ctl">${stats}</div><div class="eh-ctl eh-hands">${hands}</div>
     ${mix}${board}
+    ${noMeat}
     <div class="eh-legend"><span class="eh-lk eh-ov"></span>HR + meatball overlap <span class="eh-lk eh-meat"></span>meatball cell <span class="eh-lk"></span>intensity = ${S.label.toLowerCase()}</div>
     <div class="zd-note">Catcher's view. Inner nine are the strike zone; the four corners are the chase quadrants (Z11–Z14) — about half of all pitches, and where a lot of damage actually lives. ${hand?`Showing his usage and damage <b>vs ${hand}HB</b>`:`Showing his overall profile — pick a side to see how he changes`}.</div>`;
 }
@@ -9660,6 +9701,175 @@ function renderTargets(){
   </div>`;
 }
 
+// ===========================================================================
+// DAILY PARLAY SCANNER — a fixed 4-step preset over data already on the board.
+//
+// Every number here already ships elsewhere in the app; this view does no new computation, it
+// only joins and filters what exists. That matters for one reason: a preset that recomputes its
+// own version of "vulnerability" or "hit probability" can quietly drift from the number the rest
+// of the app shows for the same player, and the two screens start disagreeing with each other.
+// Joining on the SAME fields (opp_pitcher.id, hit_gated.p_hit, hrr_proj.p_over15, team_targets
+// score) means this can never show a different answer than the Board, Props, or Target Teams
+// tabs for the same hitter or game.
+//
+//   1. Game totals   — game_projections[].markov.total_dist, P(total > 7.5)
+//   2. Pitcher edge  — pitcher_props (K rate) joined to pitcher_edges (vuln.score) by id
+//   3. Contact/HRR   — players tier 1-2, hit_gated.p_hit / hrr_proj.p_over15, opp vuln,
+//                      team_targets tier, bullpen_rankings label
+//   4. Power floor   — players with 250+ BBE, 4+ families, 2+ near misses, hrr_proj.p_over15
+//                      ("2+ HRR" and p_over15 are the same number: the model is a discrete
+//                      count, so P(HRR > 1.5) = P(HRR >= 2) exactly, not an approximation)
+// ===========================================================================
+
+function _scanArmVuln(id){
+  const e=(BOARD.pitcher_edges||[]).find(x=>x.id===id);
+  return e ? (e.vuln||{}).score : null;
+}
+function _scanArmLabel(id){
+  const e=(BOARD.pitcher_edges||[]).find(x=>x.id===id);
+  const v=(e&&e.vuln)||{};
+  return v.tier==="elite_target" ? "ELITE TARGET" : v.tier==="strong" ? "STRONG"
+       : v.tier==="moderate" ? "MODERATE" : v.score!=null ? "AVOID" : null;
+}
+function _scanPenForTeam(team){
+  return (BOARD.bullpen_rankings||[]).find(x=>x.team===team) || null;
+}
+function _scanTargetForTeam(team){
+  return (BOARD.team_targets||[]).find(x=>x.bat_team===team) || null;
+}
+
+function scanStep1_games(){
+  return (BOARD.game_projections||[])
+    .map(g=>{
+      const dist=(g.markov||{}).total_dist; if(!dist) return null;
+      const pOver=Object.entries(dist).reduce((s,[k,v])=>s+(parseFloat(k)>7.5?v:0),0);
+      return {game_pk:g.game_pk, away:g.away, home:g.home, park:g.park,
+              total:g.total, pOver75:pOver};
+    })
+    .filter(Boolean)
+    .sort((a,b)=>b.pOver75-a.pOver75)
+    .slice(0,2);
+}
+
+function scanStep2_arms(){
+  return (BOARD.pitcher_props||[])
+    .map(a=>{
+      const vuln=_scanArmVuln(a.id);
+      if(vuln==null || a.k_heat==null) return null;
+      // top-tier K rate = k_heat in the 70th percentile of tonight's slate; low vuln = the arm
+      // is hard to hit despite whatever the matchup says. Both conditions have to hold — a high
+      // K rate alone does not isolate an F5/RL edge if the vuln score says he still gives up hard
+      // contact.
+      return {id:a.id, name:a.name, team:a.team, opp_team:a.opp_team,
+              k_heat:a.k_heat, exp_k:(a.kengine||{}).exp_k, vuln, label:_scanArmLabel(a.id)};
+    })
+    .filter(Boolean)
+    .filter(x=>x.vuln<=35)                                   // hard to hit
+    .sort((a,b)=>b.k_heat-a.k_heat)
+    .slice(0,6);
+}
+
+function scanStep3_contact(){
+  return (BOARD.players||[])
+    .map(p=>{
+      // "Tier 1/2" is this app's own established language from the Props cards
+      // (score>=70 -> TIER 1, score>=55 -> TIER 2), reused here rather than the separate
+      // `tier` field on the player record, which is a different heat-band label
+      // (STRONG/SOLID/LEAN/...) and would silently match nobody if used for this check.
+      if(p.heat==null || p.heat<55) return null;
+      const hitP=(p.hit_gated||{}).p_hit, hrrP=(p.hrr_proj||{}).p_over15;
+      const best=Math.max(hitP||0, hrrP||0);
+      if(!best) return null;
+      const armId=(p.opp_pitcher||{}).id;
+      const vuln=armId!=null?_scanArmVuln(armId):null;
+      const tgt=_scanTargetForTeam(p.team);
+      const pen=_scanPenForTeam(p.opp_team);
+      const penWeak = pen && (pen.rank_val>=55 || ["WORN","GASSED"].includes(String(pen.label||"").toUpperCase()));
+      return {id:p.id, name:p.name, team:p.team, opp_team:p.opp_team, spot:p.lineup_spot,
+              hitP, hrrP, best, vuln, tgt_score:tgt?tgt.score:null, tgt_tier:tgt?tgt.tier:null,
+              pen_label:pen?pen.label:null, penWeak:!!penWeak,
+              qualifies: (vuln!=null && vuln>=55) || (tgt && tgt.tier!=="AVOID") || penWeak};
+    })
+    .filter(Boolean)
+    .filter(x=>x.qualifies)
+    .sort((a,b)=>b.best-a.best)
+    .slice(0,8);
+}
+
+function scanStep4_power(){
+  return (BOARD.players||[])
+    .map(p=>{
+      const bbe=bbeCount(p), fams=covFamCount(p), nm=nearMissCount(p);
+      const hrrP=(p.hrr_proj||{}).p_over15;
+      if(!hrrP) return null;
+      if(bbe<250 || fams<4 || nm<2) return null;
+      const armId=(p.opp_pitcher||{}).id;
+      const label=armId!=null?_scanArmLabel(armId):null;
+      if(label!=="ELITE TARGET") return null;
+      return {id:p.id, name:p.name, team:p.team, opp_team:p.opp_team, spot:p.lineup_spot,
+              bbe, fams, nm, hrrP};
+    })
+    .filter(Boolean)
+    .sort((a,b)=>b.hrrP-a.hrrP)
+    .slice(0,6);
+}
+
+function renderParlayScanner(){
+  const main=document.getElementById("main");
+  const s1=scanStep1_games(), s2=scanStep2_arms(), s3=scanStep3_contact(), s4=scanStep4_power();
+  const nothing = !s1.length && !s2.length && !s3.length && !s4.length;
+  if(nothing){
+    main.innerHTML=`<div class="empty">Not enough of the board has filled in yet — needs
+      lineups, starters and projections. This fills in as the slate posts.</div>`;
+    return;
+  }
+  const pct=x=>x==null?"—":`${Math.round(100*x)}%`;
+
+  const step1=`<div class="psc-step"><div class="psc-h">1 · Game totals</div>
+    <div class="psc-sub">Highest chance of clearing 7.5 total runs</div>
+    ${s1.map(g=>`<div class="psc-row" onclick="filterToGame(${g.game_pk})">
+      <div class="psc-l"><b>${g.away}</b><span>at</span><b>${g.home}</b><i>${g.park||""}</i></div>
+      <div class="psc-r"><b>${pct(g.pOver75)}</b><span>O7.5</span></div>
+    </div>`).join("") || `<div class="psc-empty">No graded totals yet.</div>`}</div>`;
+
+  const step2=`<div class="psc-step"><div class="psc-h">2 · Pitcher edge (F5 / RL)</div>
+    <div class="psc-sub">Top K-rate arms with the lowest HR vulnerability</div>
+    ${s2.map(a=>`<div class="psc-row" onclick="event.stopPropagation();goView('edges');edgesView='arms';edgesPitcher=${a.id};edgesBatter=null;renderEdges();">
+      <div class="psc-l"><b>${a.name}</b><span>${a.team} vs ${a.opp_team}</span>
+        <i>${a.label||""}${a.exp_k?` · ${a.exp_k}K proj`:""}</i></div>
+      <div class="psc-r"><b>${Math.round(a.k_heat)}</b><span>K heat</span></div>
+    </div>`).join("") || `<div class="psc-empty">No arm clears the vuln≤35 bar tonight.</div>`}</div>`;
+
+  const step3=`<div class="psc-step"><div class="psc-h">3 · Contact / HRR targets</div>
+    <div class="psc-sub">Tier 1-2 hitters vs a vulnerable arm, a top target team, or a weak pen</div>
+    ${s3.map(p=>`<div class="psc-row" onclick="event.stopPropagation();scanToPlayer(${p.id})">
+      <div class="psc-l"><b>${p.name}</b><span>${p.team} vs ${p.opp_team}${p.spot?` · #${p.spot}`:""}</span>
+        <i>${p.vuln!=null&&p.vuln>=55?`arm vuln ${Math.round(p.vuln)}`:""}${p.tgt_tier&&p.tgt_tier!=="AVOID"?` · target ${p.tgt_tier}`:""}${p.penWeak?` · weak pen`:""}</i></div>
+      <div class="psc-r"><b>${pct(p.best)}</b><span>${p.hitP===p.best?"Hit":"HRR"}</span></div>
+    </div>`).join("") || `<div class="psc-empty">No hitter qualifies yet — needs starters/target teams to post.</div>`}</div>`;
+
+  const step4=`<div class="psc-step"><div class="psc-h">4 · Power-to-HRR floor</div>
+    <div class="psc-sub">250+ BBE · 4+ families · 2+ near misses · vs an ELITE TARGET arm</div>
+    ${s4.map(p=>`<div class="psc-row" onclick="event.stopPropagation();scanToPlayer(${p.id})">
+      <div class="psc-l"><b>${p.name}</b><span>${p.team} vs ${p.opp_team}${p.spot?` · #${p.spot}`:""}</span>
+        <i>${p.bbe} BBE · ${p.fams} families · ${p.nm} near miss${p.nm===1?"":"es"}</i></div>
+      <div class="psc-r"><b>${pct(p.hrrP)}</b><span>2+ HRR</span></div>
+    </div>`).join("") || `<div class="psc-empty">No hitter clears every gate tonight — try Target Teams · 3+ instead.</div>`}</div>`;
+
+  main.innerHTML=`<div class="cv-wrap">
+    <div class="q-head"><b>Daily Parlay Scanner</b></div>
+    <div class="q-sub">Your 4-step workflow, run against tonight's board.</div>
+    <div class="rank-key">Every row here is a live field from the Board, Props, Vulnerable Arms,
+      Target Teams and Bullpens tabs — nothing is recomputed, so this can never disagree with
+      those screens for the same player. <b>2+ HRR</b> and the HRR prop's 1.5 line are the same
+      number: the model produces a whole count, so clearing 1.5 means landing on 2 or more.</div>
+    ${step1}${step2}${step3}${step4}
+    <div class="zd-note">Tap a game to filter the board to it, tap an arm to open Vulnerable
+    Arms, tap a hitter to open their card. This is a fixed preset, not a saved filter — it
+    re-scans the current board every time you open it.</div>
+  </div>`;
+}
+
 function filterToGame(pk){
   try{
     gameSel.clear();
@@ -10252,6 +10462,9 @@ function updateFiltCount(){
     if(nm) nm.setAttribute("aria-pressed", nearMissMin===2);
     const bb=document.getElementById("bbe250");
     if(bb) bb.setAttribute("aria-pressed", bbeMin===250);
+    const st=document.getElementById("spotTop"), sb=document.getElementById("spotBottom");
+    if(st) st.setAttribute("aria-pressed", spotFilter==="top");
+    if(sb) sb.setAttribute("aria-pressed", spotFilter==="bottom");
   }catch(e){}
   const n=activeFilterCount();
   const el=document.getElementById("filtCount");
@@ -10260,12 +10473,12 @@ function updateFiltCount(){
 }
 // count every active filter (the old count missed zone/grade/bomb/vuln/edge)
 function activeFilterCount(){
-  return (covFamMin>0?1:0)+(nearMissMin>0?1:0)+(bbeMin>0?1:0)+gameSel.size+teamSel.size+traitSel.size+labSel.size+drySel.size+tierSel.size+edgeSel.size
+  return (covFamMin>0?1:0)+(nearMissMin>0?1:0)+(bbeMin>0?1:0)+(spotFilter!=="all"?1:0)+gameSel.size+teamSel.size+traitSel.size+labSel.size+drySel.size+tierSel.size+edgeSel.size
     +(batFilter?1:0)+(minHeat>0?1:0)+(spFloor>0?1:0)+(hideThin?1:0)+(mixView?1:0)
     +(zoneMin>0?1:0)+(gradeMin?1:0)+(bombMin>0?1:0)+(vulnMin?1:0);
 }
 function clearFilters(){
-  covFamMin=0; nearMissMin=0; bbeMin=0; gameSel.clear(); teamSel.clear(); batFilter=""; traitSel.clear(); labSel.clear(); drySel.clear(); tierSel.clear(); minHeat=0; spFloor=0; hideThin=false; mixView=false; edgeSel.clear();
+  covFamMin=0; nearMissMin=0; bbeMin=0; spotFilter="all"; gameSel.clear(); teamSel.clear(); batFilter=""; traitSel.clear(); labSel.clear(); drySel.clear(); tierSel.clear(); minHeat=0; spFloor=0; hideThin=false; mixView=false; edgeSel.clear();
   document.querySelectorAll(".edge-chip").forEach(b=>b.setAttribute("aria-pressed","false"));
   zoneMin=0; gradeMin=""; bombMin=0; vulnMin="";
   ["zoneMinRow","gradeRow","bombRow","vulnRow"].forEach(id=>{
