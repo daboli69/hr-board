@@ -710,7 +710,11 @@ def fangraphs_pitching(season: int | None = None, qual: int = 20) -> dict:
                   f"columns matched — columns present: {sorted(df.columns)[:25]}", file=_s.stderr)
         out = {}
         for _, r in df.iterrows():
-            key = _norm_name(str(r[c_name]))
+            raw_name = str(r[c_name])
+            if "<" in raw_name:
+                import re as _re
+                raw_name = _re.sub(r"<[^>]+>", "", raw_name)
+            key = _norm_name(raw_name)
             rec = {}
             for k, c in want.items():
                 if not c:
@@ -723,6 +727,13 @@ def fangraphs_pitching(season: int | None = None, qual: int = 20) -> dict:
                     continue
             if rec:
                 out[key] = rec
+        # Diagnostic: this is the join fg_pitch feeds into per-arm, and it has been failing
+        # 100% even with 472 real records parsed — so print what the keys actually look like.
+        # If this line ever shows garbled or HTML-polluted keys again, that is the next fix.
+        if out:
+            _sample = list(out.keys())[:5]
+            print(f"[fangraphs] parsed {len(out)} records, sample keys: {_sample}",
+                  file=_s.stderr)
         return out
     except Exception as e:
         print(f"[fangraphs] pitching leaderboard parse failed (non-fatal): {e}", file=_s.stderr)
