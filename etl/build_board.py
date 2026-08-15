@@ -73,6 +73,23 @@ def _hrr_p_over(lam, line=1.5):
     return round(max(0.0, min(1.0, 1.0 - p0 - p1)), 4)
 
 
+def _pct_scale(v):
+    """Normalise a rate stat to percentage scale (16.0, not 0.16).
+
+    The modern FanGraphs JSON API returns K-BB% as a raw fraction, not a percentage — real MLB
+    K-BB% sits between roughly 3% and 35%, so a value under 1.0 is unambiguously a fraction that
+    needs multiplying by 100, not a genuinely tiny percentage. Left un-normalised, this silently
+    broke two downstream consumers: kengine's K-count nudge treated -14.84 (15 - 0.16) as the
+    real gap and clamped to its maximum -5% penalty for every single pitcher regardless of their
+    actual K-BB%, and the Parlay Scanner's `k_bb_pct > 15` gate excluded every arm on every
+    slate, because no fraction is ever greater than 15.
+    """
+    if v is None:
+        return None
+    v = float(v)
+    return round(v * 100.0, 2) if 0 < v < 1.0 else round(v, 2)
+
+
 def _fg_with_defaults(fg_entry):
     """Fill a per-pitcher FanGraphs record with neutral defaults so every consumer — ETL or
     frontend — can read `.fg.stuff_plus` etc. without a None-guard at every call site.
@@ -89,7 +106,7 @@ def _fg_with_defaults(fg_entry):
         "stuff_plus": e.get("stuff_plus") if e.get("stuff_plus") is not None else 100,
         "location_plus": e.get("location_plus") if e.get("location_plus") is not None else 100,
         "pitching_plus": e.get("pitching_plus") if e.get("pitching_plus") is not None else 100,
-        "k_bb_pct": e.get("k_bb_pct"), "ip": e.get("ip"),
+        "k_bb_pct": _pct_scale(e.get("k_bb_pct")), "ip": e.get("ip"),
     }
 
 
@@ -676,7 +693,7 @@ def build(date_str: str | None = None) -> dict:
                 velo_drop=velo_drops.get(int(pid)),
                 trailing_k_pct=(meta.get("k_pct") or None),
                 stuff_plus=_fge_raw.get("stuff_plus"),
-                k_bb_pct=_fge_raw.get("k_bb_pct"))
+                k_bb_pct=_pct_scale(_fge_raw.get("k_bb_pct")))
             return {"exp_k": res["exp_k"], "xbf": res["xbf"], "csw": res["csw"],
                     "csw_adj": res["csw_adj"], "arsenal_depth": res["arsenal_depth"],
                     "velo_drop": res["velo_drop"], "velo_flag": res["velo_flag"],
