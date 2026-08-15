@@ -477,26 +477,36 @@ def _order_pa(total_pa, n):
 
 
 def _siera_adjust(xwoba, fg):
-    """Nudge the bottom-up pitcher number toward SIERA/xFIP, and reward genuine Stuff+.
+    """Nudge the bottom-up pitcher number toward SIERA/xFIP, and reward genuine pitch quality.
 
     The Statcast term is built from contact quality; SIERA and xFIP are built from strikeouts,
     walks and batted-ball type with HR/FB luck stripped out. They disagree in useful ways, and
-    where they do, the truth is usually between them. Stuff+ earns a small separate nudge
-    because it stabilises weeks before results do — that lag is precisely when the market is
-    still pricing the old pitcher. Weights are small on purpose: this is a correction, not a
-    replacement for the matchup model."""
+    where they do, the truth is usually between them. Pitch-quality (Stuff+, or Pitching+ as a
+    fallback) earns a small separate nudge because it stabilises weeks before results do — that
+    lag is precisely when the market is still pricing the old pitcher. Weights are small on
+    purpose: this is a correction, not a replacement for the matchup model.
+
+    Stuff+ and Pitching+ are NOT stacked when both are present — they are highly correlated
+    (Pitching+ is Stuff+ blended with Location+), and adding both would double-count one signal
+    under two names. Stuff+ is preferred as the more direct swing-and-miss read; Pitching+ is
+    the fallback when Stuff+ specifically is missing.
+    """
     if not fg or xwoba is None:
         return xwoba
     LG_SIERA = 4.10
     ra = fg.get("siera") if fg.get("siera") is not None else fg.get("xfip")
     adj = 0.0
     if ra is not None:
-        # +/-1.0 run of SIERA maps to roughly +/-0.020 xwOBA allowed, clamped
+        # +/-1.0 run of SIERA (vs league) maps to +/-0.020 xwOBA allowed, clamped
         adj += max(-0.020, min(0.020, (float(ra) - LG_SIERA) * 0.020))
-    sp = fg.get("stuff_plus")
-    if sp is not None:
-        # 100 is average; elite stuff (120) is worth about 8 points of xwOBA allowed
-        adj += max(-0.010, min(0.010, -(float(sp) - 100.0) * 0.0005))
+    pq = fg.get("stuff_plus")
+    if pq is None:
+        pq = fg.get("pitching_plus")
+    if pq is not None:
+        # 100 is average; the full +/-0.010 is reached exactly at the +/-10-point boundary
+        # (Stuff+/Pitching+ 110 or 90), matching the documented "elite/poor" threshold rather
+        # than only asymptotically approaching it.
+        adj += max(-0.010, min(0.010, -(float(pq) - 100.0) * 0.0010))
     return max(0.230, min(0.480, xwoba + adj * 0.60))    # 60% weight on the correction
 
 

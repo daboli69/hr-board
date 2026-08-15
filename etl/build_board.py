@@ -73,6 +73,26 @@ def _hrr_p_over(lam, line=1.5):
     return round(max(0.0, min(1.0, 1.0 - p0 - p1)), 4)
 
 
+def _fg_with_defaults(fg_entry):
+    """Fill a per-pitcher FanGraphs record with neutral defaults so every consumer — ETL or
+    frontend — can read `.fg.stuff_plus` etc. without a None-guard at every call site.
+
+    Plus-stats (stuff_plus, location_plus, pitching_plus) default to 100, their own genuine
+    league-average value — NOT a sentinel, an honest neutral. Rate stats (xfip, siera, k_bb_pct)
+    have no equivalent honest default (there is no "average" xFIP that means "unknown" without
+    being mistaken for a real number), so those stay None and every caller already treats a rate
+    of None as "no adjustment", which is correct.
+    """
+    e = fg_entry or {}
+    return {
+        "xfip": e.get("xfip"), "siera": e.get("siera"),
+        "stuff_plus": e.get("stuff_plus") if e.get("stuff_plus") is not None else 100,
+        "location_plus": e.get("location_plus") if e.get("location_plus") is not None else 100,
+        "pitching_plus": e.get("pitching_plus") if e.get("pitching_plus") is not None else 100,
+        "k_bb_pct": e.get("k_bb_pct"), "ip": e.get("ip"),
+    }
+
+
 def _hnote(sub, err):
     BUILD_HEALTH.append({"sub": sub, "issue": f"{type(err).__name__}: {err}"[:160]})
 
@@ -640,12 +660,23 @@ def build(date_str: str | None = None) -> dict:
             for _h in ("R", "L"):
                 for _p in (ars.get(_h) or []):
                     flat.append(_p)
+            # Stuff+ / K-BB% — bounded minority nudges inside kengine.py, never touching CSW
+            # itself. Looked up by normalised name (FanGraphs has no MLBAM id to join on).
+            # Raw (non-defaulted) lookup here specifically: kengine's stuff_plus->k_bb_pct
+            # fallback needs to see a genuine None to know Stuff+ itself is unavailable and
+            # fall through to K-BB%. Using the neutral-100-defaulted version would make
+            # stuff_plus always "present" (as 100) and silently discard a real k_bb_pct signal
+            # on the rare pitcher who has one but not the other.
+            _fge_raw = (fg_pitch.get(statcast_data._norm_name(meta.get("name") or ""))
+                       if meta.get("name") else None) or {}
             res = kengine.predict_pitcher_k_count(
                 cs, lk, arsenal=flat or None,
                 framing_runs=framing.get(int(meta.get("catcher_id") or 0)),
                 pitch_limit=pitch_limits.get(int(pid)),
                 velo_drop=velo_drops.get(int(pid)),
-                trailing_k_pct=(meta.get("k_pct") or None))
+                trailing_k_pct=(meta.get("k_pct") or None),
+                stuff_plus=_fge_raw.get("stuff_plus"),
+                k_bb_pct=_fge_raw.get("k_bb_pct"))
             return {"exp_k": res["exp_k"], "xbf": res["xbf"], "csw": res["csw"],
                     "csw_adj": res["csw_adj"], "arsenal_depth": res["arsenal_depth"],
                     "velo_drop": res["velo_drop"], "velo_flag": res["velo_flag"],
@@ -813,6 +844,7 @@ def build(date_str: str | None = None) -> dict:
             "season_score": phr.get("season_score"),
             "form": phr.get("form"),
             "flags": phr.get("flags", []),
+            "fg": _fg_with_defaults(fg_pitch.get(statcast_data._norm_name(meta.get("name") or ""))),
             "recent": {
                 "barrel_pct_allowed": pr.get("barrel_pct_allowed"),
                 "hardhit_pct_allowed": pr.get("hardhit_pct_allowed"),
@@ -1799,6 +1831,8 @@ def build(date_str: str | None = None) -> dict:
                         "tto": tto_by_pid.get(pid),  # times-through-order vulnerability
                         "profile": _arm_profile,     # GB/FB/EV/barrel/hardhit allowed + velo
                         "hand_splits": (hand2yr.get(pid) or {}),   # HR allowed by batter hand
+                        "fg": _fg_with_defaults(
+                            fg_pitch.get(statcast_data._norm_name(meta.get("name") or ""))),
                         "park_hr_factor": round(_pf, 2) if _pf else None,
                         "fatigue": fat, "exploit_score": exploit,
                         "batters": opp_batters,
@@ -2778,7 +2812,7 @@ def build(date_str: str | None = None) -> dict:
         for _e in (pitcher_edges or []):
             if _e.get("team") and _e["team"] not in _arm_by_team:
                 _arm_by_team[_e["team"]] = _e
-        # xfip/fb_pct/gb_pct — read from the RAW sources (fg_pitch keyed by normalised name,
+                # xfip/fb_pct/gb_pct — read from the RAW sources (fg_pitch keyed by normalised name,
         # p_batted keyed by pitcher id), not from the local `pitcher_props` list: that list is
         # not assembled until later in this function, and reading it here would have been a
         # use-before-definition (pyflakes caught this before it shipped).
@@ -2828,9 +2862,11 @@ def build(date_str: str | None = None) -> dict:
                 _arm_id = _edge.get("id")
                 _era = (_edge.get("season") or {}).get("era")
                 _throws = _edge.get("throws")
-                _fg_e = (fg_pitch.get(statcast_data._norm_name(_edge.get("name") or ""))
-                        if _edge.get("name") else None)
-                _xfip = (_fg_e or {}).get("xfip")
+                _fg_e = _fg_with_defaults(
+                    fg_pitch.get(statcast_data._norm_name(_edge.get("name") or ""))
+                    if _edge.get("name") else None)
+                _xfip = _fg_e.get("xfip")
+                _loc_plus = _fg_e.get("location_plus")
                 _bat_e = p_batted.get(_arm_id) if _arm_id is not None else None
                 _fb_pct = (_bat_e or {}).get("fb_pct")
                 _gb_pct = (_bat_e or {}).get("gb_pct")
@@ -2841,7 +2877,7 @@ def build(date_str: str | None = None) -> dict:
                                            temp_f=_wx, wind_out=_wo,
                                            xfip=_xfip, era=_era, fb_pct=_fb_pct, gb_pct=_gb_pct,
                                            hand_splits=_hand_splits,
-                                           lineup_hand_pct=_lhp)
+                                           lineup_hand_pct=_lhp, location_plus=_loc_plus)
                 if not _sc:
                     continue
                 # the hitters you'd actually be targeting, best first
@@ -3083,7 +3119,8 @@ def build(date_str: str | None = None) -> dict:
                 # `est_ks` rather than replacing it, so the backtest can grade both on the same
                 # historical days and the swap is made on evidence rather than assumption.
                 "kengine": _kengine_for(pid, meta),
-                "fg": (fg_pitch.get(statcast_data._norm_name(meta.get("name") or "")) or None),
+                "fg": _fg_with_defaults(
+                    fg_pitch.get(statcast_data._norm_name(meta.get("name") or ""))),
                 "first_inn": (first_inn.get(int(pid)) if first_inn else None),
                 "est_ks": est_ks,
                 # the OVER target the model actually likes = the half-line just BELOW the estimate

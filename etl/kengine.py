@@ -72,6 +72,8 @@ def csw_from_statcast(df, pitcher_ids, days=None, asof=None):
             "swstr": round(whiff / n, 4),
             "pitches": n,
             "p_per_pa": round(n / pa, 2) if pa else LG_P_PER_PA,
+            "pa": pa,   # exposed so predict_pitcher_k_count can scale the Stuff+/K-BB% nudge
+                        # down as the trailing sample grows — see that function's docstring.
         }
     return out
 
@@ -232,18 +234,27 @@ def _log5(b, p, lg):
 
 def predict_pitcher_k_count(pitcher_csw, lineup_k_rates, arsenal=None, framing_runs=None,
                             pitch_limit=None, velo_drop=None, opener=False,
-                            trailing_k_pct=None):
+                            trailing_k_pct=None, stuff_plus=None, k_bb_pct=None):
     """Expected strikeouts plus the exact distribution.
 
     Order of operations is deliberate:
       1. framing shifts CSW  (it changes the PROCESS, so it must land before the conversion)
       2. CSW -> true-talent K%, with trailing K% keeping a minority vote
-      3. velocity override can veto everything above it
-      4. dynamic xBF sets how many chances exist
-      5. each PA is matched by log5 against that specific hitter, with TTOP by arsenal depth
+      3. Stuff+ / K-BB% apply a BOUNDED minority nudge (see below)
+      4. velocity override can veto everything above it
+      5. dynamic xBF sets how many chances exist
+      6. each PA is matched by log5 against that specific hitter, with TTOP by arsenal depth
+
+    stuff_plus / k_bb_pct are OPTIONAL FanGraphs season-long signals, applied as small
+    multiplicative nudges on top of k_base — never touching LG_CSW, CSW_TO_K_SLOPE, dynamic_xbf,
+    or the exact Poisson-binomial distribution below, all of which stay exactly as calibrated.
+    Each nudge is capped at +/-5%, and BOTH capped nudges are further scaled down as trailing_k_pct
+    sample size grows — the whole point of these two is to sharpen a THIN sample's true-talent
+    read, not to override a pitcher who already has a real trailing track record this season.
     """
     csw = (pitcher_csw or {}).get("csw")
     p_per_pa = (pitcher_csw or {}).get("p_per_pa", LG_P_PER_PA)
+    trailing_pa = (pitcher_csw or {}).get("pa")   # optional, used only to scale the nudge
 
     csw_adj = framing_csw_adjust(csw, framing_runs)
 
@@ -255,6 +266,27 @@ def predict_pitcher_k_count(pitcher_csw, lineup_k_rates, arsenal=None, framing_r
     else:
         k_base = trailing_k_pct if trailing_k_pct is not None else LG_K_PCT
     k_base = max(0.08, min(0.45, k_base))
+
+    # Stuff+ / K-BB% — bounded minority nudges, capped +/-5% total and scaled down as the
+    # trailing-K% sample grows. `stuff_plus` is preferred when both are present, since it is the
+    # more direct swing-and-miss signal; `k_bb_pct` (K% minus BB%, a FanGraphs season rate) is
+    # the fallback command-adjusted read when Stuff+ specifically is unavailable. They are NOT
+    # stacked — using both at once would double-count two metrics that are already correlated,
+    # the same anti-double-counting principle applied elsewhere in this codebase (e.g. targets.py
+    # keeping the pen's own HR/9 use separate from the staff-level HR/9 exponent term).
+    _sample_w = 1.0
+    if trailing_pa is not None:
+        # full weight under 60 PA of trailing data, tapering to near-zero by 200 PA — a pitcher
+        # with a real season's worth of trailing Ks does not need FanGraphs to tell him apart.
+        _sample_w = max(0.0, min(1.0, 1.0 - (float(trailing_pa) - 60.0) / 140.0))
+    _nudge = 0.0
+    if stuff_plus is not None:
+        _nudge = max(-0.05, min(0.05, (float(stuff_plus) - 100.0) * 0.0025))
+    elif k_bb_pct is not None:
+        # league K-BB% sits near 15%; every point above/below nudges k_base proportionally
+        _nudge = max(-0.05, min(0.05, (float(k_bb_pct) - 15.0) * 0.003))
+    if _nudge:
+        k_base = max(0.08, min(0.45, k_base * (1.0 + _nudge * _sample_w)))
 
     velo_triggered = bool(velo_drop is not None and velo_drop >= VELO_DROP_TRIGGER)
     if velo_triggered:
@@ -288,6 +320,7 @@ def predict_pitcher_k_count(pitcher_csw, lineup_k_rates, arsenal=None, framing_r
         "arsenal_depth": depth,
         "velo_drop": velo_drop,
         "velo_flag": velo_triggered,
+        "stuff_plus": stuff_plus, "k_bb_pct": k_bb_pct,
         "dist": k_distribution(per_pa),
     }
 

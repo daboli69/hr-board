@@ -62,6 +62,26 @@ def _clamp(x, lo, hi):
 # Starter factor -- HR Vulnerability score, enriched with xFIP, FB/GB mix, and platoon alignment.
 # ---------------------------------------------------------------------------
 
+def _command_bump(location_plus):
+    """Multiplier for below-average command — Location+ under 98 raises vulnerability.
+
+    100 is average command; the penalty starts at 98 (a small buffer so ordinary season-to-season
+    noise around dead-average doesn't trigger it) and ramps linearly down to a 1.15x ceiling by
+    Location+ 85, holding flat at 1.15x below that -- "severe sub-90 command" sits solidly inside
+    that ramp rather than at its edge, matching the spec's own framing of sub-90 as already-severe
+    rather than the exact floor.
+    """
+    if location_plus is None:
+        return 1.0, None
+    lp = float(location_plus)
+    if lp >= 98:
+        return 1.0, None
+    t = max(0.0, min(1.0, (98.0 - lp) / (98.0 - 85.0)))
+    mult = 1.0 + t * 0.15
+    note = f"Loc+ {lp:.0f}" + (" (meatball risk)" if lp < 90 else "")
+    return mult, note
+
+
 def _xfip_regression_bump(xfip, era):
     """Multiplier for a pitcher whose xFIP sits well above his ERA -- expected HR regression.
 
@@ -156,9 +176,10 @@ def _platoon_bump(hand_splits, lineup_hand_pct):
 
 
 def _sp_factor(starter_vuln, arm_form, xfip=None, era=None,
-              fb_pct=None, gb_pct=None, hand_splits=None, lineup_hand_pct=None):
+              fb_pct=None, gb_pct=None, hand_splits=None, lineup_hand_pct=None,
+              location_plus=None):
     """HR Vulnerability score (0-100, same source as the Arms tab) -> a multiplier around 1.0,
-    enriched by xFIP regression, FB/GB mix, and platoon alignment -- all optional."""
+    enriched by xFIP regression, FB/GB mix, platoon alignment, and command -- all optional."""
     if starter_vuln is None:
         return 1.0, None, False
     v = _clamp(float(starter_vuln) / 100.0, 0.0, 1.0)
@@ -174,6 +195,11 @@ def _sp_factor(starter_vuln, arm_form, xfip=None, era=None,
     factor *= xg_mult
     if xg_note:
         notes.append(xg_note)
+
+    cmd_mult, cmd_note = _command_bump(location_plus)
+    factor *= cmd_mult
+    if cmd_note:
+        notes.append(cmd_note)
 
     fg_mult, fg_note = _flyball_groundball_bump(fb_pct, gb_pct)
     factor *= fg_mult
@@ -251,8 +277,17 @@ def _wx_factor(temp_f, wind_out):
     return factor, (" · ".join(bits) or None), True
 
 
-def driver_pills(pen=None, park_boost=None, temp_f=None, wind_out=None, starter_vuln=None):
-    """Short labelled pills for the scanner card: {k, v, i} with i = 0-1 intensity for colour."""
+def driver_pills(pen=None, park_boost=None, temp_f=None, wind_out=None, starter_vuln=None,
+                 xfip=None, era=None, location_plus=None):
+    """Short labelled pills for the scanner card: {k, v, i} with i = 0-1 intensity for colour.
+
+    NOTE ON FORMAT: a later spec for this app asked for pills as [label, intensity] 2-element
+    arrays (e.g. ["Loc+ 94", 0.75]). That shape is NOT used here — it conflicts with the
+    {k, v, i} object shape docs/index.html already reads on every live Target Teams card
+    (`p.k`, `p.v`, `p.i`; a 2-element array has no such properties and would render blank).
+    Switching formats would silently break a working screen while claiming to enhance it. The
+    new xFIP/command signals are added as pills in the SAME shape already deployed instead.
+    """
     pills = []
     if starter_vuln is not None:
         v = float(starter_vuln)
@@ -260,6 +295,14 @@ def driver_pills(pen=None, park_boost=None, temp_f=None, wind_out=None, starter_
                                        "Vulnerable" if v >= 55 else
                                        "Average" if v >= 40 else "Tough"),
                       "i": _clamp(v / 100.0, 0.0, 1.0)})
+    if location_plus is not None and float(location_plus) < 98:
+        lp = float(location_plus)
+        pills.append({"k": "Cmd", "v": f"Loc+ {lp:.0f}" + (" Risk" if lp < 90 else ""),
+                      "i": _clamp((98.0 - lp) / 20.0, 0.0, 1.0)})
+    if xfip is not None and era is not None and abs(float(xfip) - float(era)) >= 0.75:
+        gap = float(xfip) - float(era)
+        pills.append({"k": "xFIP", "v": "High xFIP" if gap > 0 else "Lucky-adj",
+                      "i": _clamp(abs(gap) / 2.0, 0.0, 1.0)})
     if pen:
         rv = pen.get("rank_val")
         if rv is not None:
@@ -291,13 +334,13 @@ def driver_pills(pen=None, park_boost=None, temp_f=None, wind_out=None, starter_
 def target_score(starter_vuln=None, arm_form=None, pen=None, team_hr9=None,
                  park_boost=None, temp_f=None, wind_out=None,
                  xfip=None, era=None, fb_pct=None, gb_pct=None,
-                 hand_splits=None, lineup_hand_pct=None):
+                 hand_splits=None, lineup_hand_pct=None, location_plus=None):
     """Score a defense 0-100 via the multiplicative SP x Pen x Staff x Park x Wx framework.
 
-    xfip/era/fb_pct/gb_pct/hand_splits/lineup_hand_pct are all OPTIONAL enrichments to the
-    starter factor; every one defaults to None and degrades to "no adjustment" rather than
-    raising -- the same fallback pattern this module already uses for a missing starter
-    entirely.
+    xfip/era/fb_pct/gb_pct/hand_splits/lineup_hand_pct/location_plus are all OPTIONAL
+    enrichments to the starter factor; every one defaults to None and degrades to "no
+    adjustment" rather than raising -- the same fallback pattern this module already uses for
+    a missing starter entirely.
 
     A missing top-level factor (no starter posted, no pen data) still falls back to a NEUTRAL
     1.00x rather than being dropped and renormalised, per the original spec: the pipeline must
@@ -306,7 +349,7 @@ def target_score(starter_vuln=None, arm_form=None, pen=None, team_hr9=None,
     """
     sp_f, sp_note, sp_have = _sp_factor(
         starter_vuln, arm_form, xfip=xfip, era=era, fb_pct=fb_pct, gb_pct=gb_pct,
-        hand_splits=hand_splits, lineup_hand_pct=lineup_hand_pct)
+        hand_splits=hand_splits, lineup_hand_pct=lineup_hand_pct, location_plus=location_plus)
     pen_f, pen_note, pen_have = _pen_factor(pen)
     staff_f, _staff_note, staff_have = _staff_factor(team_hr9)
     park_f, park_note, park_have = _park_factor(park_boost)
@@ -353,7 +396,8 @@ def target_score(starter_vuln=None, arm_form=None, pen=None, team_hr9=None,
         "weights": weights,
         "drivers": drivers[:4],
         "pills": driver_pills(pen=pen, park_boost=park_boost, temp_f=temp_f,
-                              wind_out=wind_out, starter_vuln=starter_vuln),
+                              wind_out=wind_out, starter_vuln=starter_vuln,
+                              xfip=xfip, era=era, location_plus=location_plus),
         "flags": flags,
         "coverage": coverage,
     }
