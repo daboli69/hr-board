@@ -23,6 +23,19 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    # FlareSolverr solves FanGraphs' Cloudflare challenge for etl/statcast_data.py's
+    # fangraphs_pitching() (tier 1 of its 3-tier fetch — see that function's docstring).
+    # Runs as a sidecar service for the whole job; reachable at localhost:8191 from the
+    # `Build board` step below because GitHub-hosted runners map service ports to localhost,
+    # not via a Docker network alias, when the job itself runs directly on the runner (not in
+    # a container).
+    services:
+      flaresolverr:
+        image: ghcr.io/flaresolverr/flaresolverr:latest
+        ports:
+          - 8191:8191
+        env:
+          LOG_LEVEL: info
     steps:
       - uses: actions/checkout@v4
 
@@ -33,6 +46,21 @@ jobs:
 
       - name: Install deps
         run: pip install -r requirements.txt
+
+      - name: Wait for FlareSolverr
+        # The service container starts in parallel with the steps above; FlareSolverr's own
+        # startup (spinning up its bundled Chromium) can take longer than pip install does, so
+        # poll its health endpoint rather than assuming it's ready the moment the container
+        # exists. Non-fatal: if it never comes up, fangraphs_pitching() simply falls through to
+        # its tier-2/tier-3 fetch, so the build is not blocked on this.
+        run: |
+          for i in $(seq 1 20); do
+            if curl -sf http://localhost:8191/health >/dev/null 2>&1; then
+              echo "FlareSolverr ready after ${i}x2s"
+              break
+            fi
+            sleep 2
+          done || true
 
       - name: Cache Statcast pulls
         uses: actions/cache@v4
@@ -48,6 +76,10 @@ jobs:
           # Ballpark Pal — primary park-factor source (per-hitter model). If this secret is
           # absent the build silently falls back to etl/park_factors.py; nothing breaks.
           BPP_API_KEY: ${{ secrets.BPP_API_KEY }}
+          # Read by fangraphs_pitching()'s tier-1 fetch. Defaults to this same value inside the
+          # function even if unset, so this line is not strictly required — set explicitly here
+          # for clarity and so a future change to the service's port only needs to happen once.
+          FLARESOLVERR_URL: "http://localhost:8191"
         run: python tests/canary.py && python -m etl.build_board
 
       - name: Fetch HR prop odds
