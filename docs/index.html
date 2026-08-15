@@ -8687,6 +8687,65 @@ function parlayPlaybookHTML(){
       </ol>
     </div>
 
+    <div class="btg-block">
+      <h3>Target Teams — pick the matchup before the hitters</h3>
+      <p class="btg-lead">This screen scores every game 0–100 on how likely the DEFENSE is to
+      concede a home run tonight, so you can pick the soft matchup first and let the board find
+      the hitters second — the opposite order from scanning the board cold.</p>
+      <p><b>The model is multiplicative, not additive</b> — each factor is a multiplier around
+      1.0x, combined as
+      <code>raw = baseline × SP^0.85 × Pen^0.65 × Staff^0.45 × Park^0.30 × Wx^0.25</code>. The
+      exponents are your own backtested shares (starter 34%, bullpen 26%, staff HR/9 18%, park
+      12%, weather 10%), so the relative importance hasn't changed — only how they combine.
+      <b>PRIME</b> ≥68, <b>STRONG</b> ≥56, <b>LEAN</b> ≥44, below that is a defense to avoid.</p>
+      <p><b>Starter enrichment (new).</b> The starter factor now also folds in:</p>
+      <ul class="btg-steps" style="padding-left:18px">
+        <li><b>xFIP vs ERA</b> — a gap of 0.75+ runs flags a regression candidate: his results
+        are running better than his process, which is exactly the kind of arm the market hasn't
+        repriced yet. Shown as an <b>xFIP</b> pill.</li>
+        <li><b>Location+ (command)</b> — below 98 nudges vulnerability up, ramping to a 1.15×
+        ceiling by Location+ 85. Shown as a <b>Cmd</b> pill, and as <b>⚠ Meatball Risk</b> on the
+        player card when it clears 90.</li>
+        <li><b>Fly-ball / ground-ball mix</b> and <b>platoon alignment</b> (does tonight's
+        lineup lean into the side he actually struggles against) — both fold into the score
+        without their own pill, since they're slower-moving, season-long signals.</li>
+      </ul>
+      <p class="btg-lead">A missing starter never breaks the card — it falls back to a neutral
+      1.00× and shows an <b>SP TBD</b> flag instead of guessing.</p>
+    </div>
+
+    <div class="btg-block">
+      <h3>Vulnerable Arms — the FanGraphs strip</h3>
+      <p class="btg-lead">Open any starter's card (Edges → Arms → tap a pitcher) and below HR
+      Vulnerability you'll see <b>Pitching+, Stuff+, Location+, xFIP, K-BB%</b> — process metrics
+      that move weeks before ERA does, which is precisely the lag a book is slowest to reprice.
+      100 is average on every Plus-stat; a pitcher with no FanGraphs match shows 100 across the
+      board rather than a blank, so "no read yet" and "genuinely average" never look identical to
+      a script but read the same to your eye until you check the flags.</p>
+      <p><b>Use ERA/vuln score as primary, FanGraphs as the tiebreak</b> — these are brand-new
+      signals that have not been backtested yet, unlike heat and convergence which are graded on
+      113+ days of real outcomes. Treat a Pitching+ ≤90 or Location+ <90 as confirmation on an
+      arm you already like, not as a reason to like an arm on its own.</p>
+    </div>
+
+    <div class="btg-block">
+      <h3>Daily Parlay Scanner — the whole workflow, run for you</h3>
+      <p class="btg-lead">Four fixed steps, re-scanned live every time you open it. Nothing here
+      is a new calculation — it only joins fields that already exist on the Board, Props, Arms
+      and Target Teams tabs, so it can never disagree with those screens for the same player.</p>
+      <ol class="btg-steps">
+        <li><b>Game totals</b> — top 2 games by P(total > 7.5), from the Markov simulation.</li>
+        <li><b>Pitcher edge (F5/RL)</b> — arms with vuln ≤35, ranked by K rate,
+        <b>now also requiring Pitching+ ≥105 and K-BB% above league average (15%)</b>. Three
+        independent sources (Statcast vulnerability, FanGraphs process, K-BB%) agreeing on one
+        arm is a stronger claim than any single one of them.</li>
+        <li><b>Contact/HRR targets</b> — Tier 1–2 hitters vs. a vulnerable arm, a top Target
+        Team, or a weak bullpen.</li>
+        <li><b>Power-to-HRR floor</b> — 250+ BBE, 4+ families, 2+ near misses, vs. an ELITE
+        TARGET arm.</li>
+      </ol>
+    </div>
+
     <div class="btg-warn">
       <b>What this is worth, honestly.</b> Three legs at
       ${f4?`${pct(f4.r)} each`:"your best rate"} is <b>${(100*three).toFixed(2)}%</b> if the legs
@@ -8695,6 +8754,8 @@ function parlayPlaybookHTML(){
       better than picking three hitters at random</b> (${amer(rnd)}), and steps 1 and 5 exist to
       create the same-game correlation that is the only real argument for the ticket.
       <b>Bet it because you want the shot, not because the math says it is +EV.</b>
+      The FanGraphs layer above is reasoning, not yet proof — give it a few weeks in the tracker
+      before weighting it as heavily as heat or convergence.
     </div>
   </div>`;
 }
