@@ -688,14 +688,26 @@ def fangraphs_pitching(season: int | None = None, qual: int = 20) -> dict:
                 if c.lower() in cols:
                     return cols[c.lower()]
             return None
-        c_name = col("Name")
+        c_name = col("Name", "PlayerName", "playerName", "player_name", "PlayerNameRoute")
         if not c_name:
+            # This is the failure that has been silently zeroing out every arm: the modern JSON
+            # API almost certainly returns FanGraphs' INTERNAL field names, not the display
+            # headers ("Name", "xFIP") the old CSV export used, and none of the candidates above
+            # matched. Rather than fail with no trace, print the actual columns that came back so
+            # the next Actions log names the real key — the correct fix, once known, is a
+            # one-line addition to the candidate list above.
+            print(f"[fangraphs] no name column matched among {sorted(df.columns)[:25]} "
+                  f"— check these against the live API response", file=_s.stderr)
             return {}
-        want = {"xfip": col("xFIP"), "siera": col("SIERA"),
-                "stuff_plus": col("Stuff+", "sp_stuff"),
-                "location_plus": col("Location+", "sp_location"),
-                "pitching_plus": col("Pitching+", "sp_pitching"),
-                "k_bb_pct": col("K-BB%"), "ip": col("IP")}
+        want = {"xfip": col("xFIP", "xfip"), "siera": col("SIERA", "siera"),
+                "stuff_plus": col("Stuff+", "sp_stuff", "Stuff", "stuff_plus"),
+                "location_plus": col("Location+", "sp_location", "Location", "location_plus"),
+                "pitching_plus": col("Pitching+", "sp_pitching", "Pitching", "pitching_plus"),
+                "k_bb_pct": col("K-BB%", "K-BB", "k_bb_pct"), "ip": col("IP", "ip")}
+        _matched = sum(1 for v in want.values() if v)
+        if _matched < 3:
+            print(f"[fangraphs] name column matched ({c_name!r}) but only {_matched}/6 stat "
+                  f"columns matched — columns present: {sorted(df.columns)[:25]}", file=_s.stderr)
         out = {}
         for _, r in df.iterrows():
             key = _norm_name(str(r[c_name]))
