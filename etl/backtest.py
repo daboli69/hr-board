@@ -101,9 +101,17 @@ def _day_outcomes(day: pd.DataFrame) -> tuple[dict, dict, dict]:
     return ({"hits": bat_hits, "ks": bat_ks, "hrr": hrr_map}, pit_ks, hrr_total)
 
 
-def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str, asof: "V.AsOfFrame | None" = None) -> dict:
+def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str, asof: "V.AsOfFrame | None" = None,
+               fg_pitch: dict = None, sp_names: dict = None) -> dict:
     """{batter_id: (heat, homered_today)} for one replay date. `past` must be
-    strictly earlier than D — the caller owns that guarantee."""
+    strictly earlier than D — the caller owns that guarantee.
+
+    fg_pitch/sp_names are OPTIONAL — passed once by replay() for the whole run, never fetched
+    per-day, since that would mean hundreds of network calls across a season backtest. When
+    absent (the default, and always true for _day_heats' OTHER caller), the two new command/
+    xFIP-regression tallies below simply don't fire, which is the same graceful-absence pattern
+    every other optional signal in this function already follows.
+    """
     if asof is not None:
         # Structural leak guard: turns a silently inflated score into a loud failure.
         asof.assert_clean(past, D, "_day_heats.past")
@@ -388,6 +396,23 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str, asof: "V.AsOfFrame
             except Exception:
                 _hf_fit = _uf_fit = None
 
+            # Command-risk, as-of. This is the field the Target Teams starter enrichment's Cmd
+            # pill actually depends on — without this, that signal was unbacktested despite the
+            # app confidently showing it on live cards. The xFIP-regression signal (xFIP vs ERA)
+            # is NOT tallied here: this file has no season-ERA source for the opposing pitcher
+            # (ERA is StatsAPI-derived, fetched only in the live build, not in this replay), and
+            # a tally that silently always returns None is worse than one that is honestly absent.
+            _cmd_risk = None
+            try:
+                if fg_pitch and sp_names:
+                    _sp3 = face.get(bid)
+                    _nm3 = sp_names.get(_sp3) if _sp3 else None
+                    _fge3 = fg_pitch.get(statcast_data._norm_name(_nm3)) if _nm3 else None
+                    if _fge3 and _fge3.get("location_plus") is not None:
+                        _cmd_risk = _fge3["location_plus"] < 98
+            except Exception:
+                _cmd_risk = None
+
             _bset = {str(b).lower() for b in badge_keys}
             _nmh = (1 if heat >= 40 else 0)                 # HR heat band as a measured signal
             _nm = (1 if "pow" in _bset else 0) + (1 if "lock" in _bset else 0)
@@ -408,7 +433,7 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str, asof: "V.AsOfFrame
             "bat_fast_short": _bat_fs,
             "hand_first_fit": _hf_fit,
             "usage_first_fit": _uf_fit,
-            "cv_hit": _cv_hit, "cv_hrr": _cv_hrr,
+            "cv_hit": _cv_hit, "cv_hrr": _cv_hrr, "cmd_risk": _cmd_risk,
             "pull_air": (recent or {}).get("pull_air_pct"),
             "cv_fams": (_nm + _nmh + _np),   # measured + provisional families, as the UI counts them
             "bbe_season": int(len(_by_bat.get(int(bid), _EMPTY))) if bid is not None else None,
@@ -431,6 +456,30 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
     if len(all_dates) <= WARMUP_DAYS:
         return {"error": f"need more than {WARMUP_DAYS} days of data"}
     dates = [d for d in all_dates[WARMUP_DAYS:] if (not start or d >= start) and (not end or d <= end)]
+
+    # FanGraphs, fetched once for the whole replay — same season-aggregate leak caveat as
+    # replay_runs() (see that function's docstring note): there is no historical daily FanGraphs
+    # snapshot to fetch as-of, so this is "does the signal correlate", not a leak-free test.
+    try:
+        fg_pitch = statcast_data.fangraphs_pitching()
+    except Exception as e:
+        fg_pitch = {}
+        print(f"[backtest] fangraphs fetch skipped (non-fatal): {e}")
+    _sp_names = {}
+    if fg_pitch:
+        _all_sp = set()
+        for _D in dates:
+            _day = df[df["_gd"] == _D]
+            for (_gp, _half), _grp in _day.groupby(["game_pk", "inning_topbot"]):
+                _g0 = _grp.sort_values(["at_bat_number", "pitch_number"])
+                _p0 = _g0.iloc[0]["pitcher"] if len(_g0) else None
+                if _p0 == _p0:
+                    _all_sp.add(int(_p0))
+        try:
+            _sp_names = statcast_data.player_names(_all_sp)
+        except Exception:
+            _sp_names = {}
+
     by_tier = {name: {"n": 0, "hr": 0} for name, _, _ in TIERS}
     by_badge = {}   # badge_key -> {n, hr}: HR rate for hitters carrying each badge
     # convergence graded against EACH prop's own outcome, not the HR outcome
@@ -470,7 +519,7 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
     for D in dates:
         day = df[df["_gd"] == D]
         past = df[df["_gd"] < D]
-        heats, pitchers = _day_heats(past, day, D)
+        heats, pitchers = _day_heats(past, day, D, fg_pitch=fg_pitch, sp_names=_sp_names)
         if len(heats) < 30:                       # partial-slate days pollute rates
             continue
         graded_days += 1
@@ -505,6 +554,9 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
             if _bf2 is not None:
                 _edge("bat_fast_short", "25%+ short&fast" if _bf2 >= 25
                       else ("12-24%" if _bf2 >= 12 else "<12%"), hit)
+            _cmd2 = r.get("cmd_risk")
+            if _cmd2 is not None:
+                _edge("command_risk", "Loc+ under 98" if _cmd2 else "Loc+ 98+", hit)
             # The A/B on filter ordering: does handedness-first actually find a better matchup
             # than usage-first? If they agree everywhere, the ordering change is cosmetic.
             _hf2, _uf2 = r.get("hand_first_fit"), r.get("usage_first_fit")
@@ -857,6 +909,39 @@ def replay_runs(df: pd.DataFrame, start: str | None = None, end: str | None = No
     dates = [d for d in all_dates[WARMUP_DAYS:]
              if (not start or d >= start) and (not end or d <= end)]
 
+    # FanGraphs, fetched ONCE for the whole replay rather than per historical day.
+    #
+    # This is a real, named limitation, not a hidden one: FanGraphs does not serve historical
+    # daily snapshots, so there is no way to get an AS-OF xFIP/SIERA/Stuff+/Location+ for a
+    # pitcher on a specific past date the way AsOfFrame does for Statcast data. What gets used
+    # instead is the CURRENT season's aggregate, applied uniformly across the whole replay
+    # window. That means a pitcher's full-season quality leaks backward into his April starts —
+    # a real pitcher-quality leak, structurally different from (and less serious than) a
+    # same-day outcome leak, but a leak worth knowing about when reading the with-FanGraphs
+    # numbers below. Treat them as "does this signal correlate with results", not as a clean
+    # controlled test.
+    try:
+        fg_pitch = statcast_data.fangraphs_pitching()
+    except Exception as e:
+        fg_pitch = {}
+        print(f"[backtest] fangraphs fetch skipped (non-fatal): {e}")
+    _fg_notes = [] if fg_pitch else ["FanGraphs unavailable this run — with/without comparison skipped"]
+    # Every starter's name, looked up ONCE for the whole replay (fg_pitch is keyed by
+    # normalised name; MLBAM ids alone can't join to it). Collected from every game's two
+    # starters across the full date range so this is one batched call, not one per game.
+    _all_sp_ids = set()
+    for _D in dates:
+        _day = df[df["_gd"] == _D]
+        for _gpk, _g in _day.groupby("game_pk"):
+            for _half in ("Top", "Bot"):
+                _r = _g[(_g["inning_topbot"] == _half) & (_g["inning"] == 1)]
+                if not _r.empty:
+                    _all_sp_ids.add(int(_r.iloc[0]["pitcher"]))
+    try:
+        _sp_names = statcast_data.player_names(_all_sp_ids) if fg_pitch else {}
+    except Exception:
+        _sp_names = {}
+
     n = 0
     brier = 0.0
     correct = 0
@@ -869,10 +954,24 @@ def replay_runs(df: pd.DataFrame, start: str | None = None, end: str | None = No
     tot_abs_err = 0.0
     calib = {}                      # decile -> {n, home_wins}
     home_wins_actual = 0
+    # FanGraphs with/without comparison on the SAME games, same shape as the markov-vs-linear
+    # comparison already below — total error with the FanGraphs nudge applied vs without it.
+    _fg_abs = _fg_abs_off = 0.0
+    _fg_n = 0
+    # F5 win-probability grading. This market was never graded before the F5/RL Parlay Scanner
+    # step existed, so there was no way to know whether f5_home_wp is trustworthy on its own —
+    # it uses a SEPARATE, smaller-sample projection (starter dominates, bullpen is out of it
+    # entirely) and deserves its own calibration rather than assuming the full-game number's
+    # accuracy carries over.
+    _f5_n = 0
+    _f5_brier = 0.0
+    _f5_correct = 0
+    _f5_calib = {}
     for D in dates:
         day = df[df["_gd"] == D]
         past = df[df["_gd"] < D]
         if past.empty:
+
             continue
         for gpk, g in day.groupby("game_pk"):
             # actual result from the final post-score of the game
@@ -916,12 +1015,47 @@ def replay_runs(df: pd.DataFrame, start: str | None = None, end: str | None = No
                     stand_map[int(bid)] = s.mode().iloc[0]
             hl_hands = [stand_map.get(b) for b in half_bat["home"]]
             al_hands = [stand_map.get(b) for b in half_bat["away"]]
+            _home_fg = (fg_pitch.get(statcast_data._norm_name(_sp_names.get(sp["home"], "")))
+                       if fg_pitch else None)
+            _away_fg = (fg_pitch.get(statcast_data._norm_name(_sp_names.get(sp["away"], "")))
+                       if fg_pitch else None)
             proj = RUNS.project_game(hl, al, pprof.get(sp["home"]) or {},
                                      pprof.get(sp["away"]) or {},
                                      {}, {}, park_mult=1.0,
-                                     home_hands=hl_hands, away_hands=al_hands)
+                                     home_hands=hl_hands, away_hands=al_hands,
+                                     home_fg=_home_fg, away_fg=_away_fg)
             if not proj:
                 continue
+            # FanGraphs with/without comparison, on the SAME game, isolating exactly what the
+            # SIERA/xFIP/Stuff+/Pitching+ nudge changes — same shape as the markov-vs-linear A/B
+            # already below. Skipped cheaply (no second simulation) when neither side had a
+            # FanGraphs match, since the two runs would be identical anyway.
+            if fg_pitch and (_home_fg or _away_fg):
+                _proj_off = RUNS.project_game(hl, al, pprof.get(sp["home"]) or {},
+                                              pprof.get(sp["away"]) or {},
+                                              {}, {}, park_mult=1.0,
+                                              home_hands=hl_hands, away_hands=al_hands)
+                if _proj_off:
+                    _fg_n += 1
+                    _fg_abs += abs(proj["total"] - (hs + as_))
+                    _fg_abs_off += abs(_proj_off["total"] - (hs + as_))
+            # F5 outcome, extracted from the SAME historical frame the full-game result used —
+            # this market was never graded before the F5/RL Parlay Scanner step existed.
+            try:
+                g5 = g[g["inning"].astype(float) <= 5]
+                hs5 = float(g5["post_home_score"].dropna().max())
+                as5 = float(g5["post_away_score"].dropna().max())
+                f5_wp = proj.get("f5_home_wp")
+                if hs5 == hs5 and as5 == as5 and hs5 != as5 and f5_wp is not None:
+                    _f5_n += 1
+                    _f5_home_won = hs5 > as5
+                    _f5_brier += (f5_wp - (1.0 if _f5_home_won else 0.0)) ** 2
+                    _f5_correct += 1 if ((f5_wp >= 0.5) == _f5_home_won) else 0
+                    _f5b = int(min(max(f5_wp, 0.0), 0.999) * 10) * 10
+                    _f5c = _f5_calib.setdefault(str(_f5b), {"n": 0, "home_wins": 0})
+                    _f5c["n"] += 1; _f5c["home_wins"] += 1 if _f5_home_won else 0
+            except Exception:
+                pass
             p = proj["home_wp"]
             n += 1
             home_wins_actual += 1 if home_won else 0
@@ -993,6 +1127,20 @@ def replay_runs(df: pd.DataFrame, start: str | None = None, end: str | None = No
         "markov_vs_linear": (round(_mk_abs / _mk_n - tot_abs_err / n, 3) if _mk_n else None),
         "markov_over_calibration": (V.decile_calibration(_mk_pover, _mk_hit, n_bands=8)
                                     if len(_mk_pover) >= 400 else None),
+        # FanGraphs with/without, on the same games — isolates exactly what the SIERA/xFIP/
+        # Stuff+/Pitching+ nudge changes. A season-aggregate leak applies here (see the note at
+        # the top of this function): treat this as "does the signal correlate", not a clean A/B.
+        "fangraphs_n": _fg_n,
+        "total_mae_with_fangraphs": (round(_fg_abs / _fg_n, 3) if _fg_n else None),
+        "total_mae_without_fangraphs": (round(_fg_abs_off / _fg_n, 3) if _fg_n else None),
+        "fangraphs_notes": _fg_notes,
+        # F5 win-probability grading — this market had never been graded before the F5/RL
+        # Parlay Scanner step existed. Own calibration because F5 uses a smaller-sample
+        # projection (starter only, bullpen is entirely out of it) than the full-game number.
+        "f5_n": _f5_n,
+        "f5_accuracy": (round(100 * _f5_correct / _f5_n, 2) if _f5_n else None),
+        "f5_brier": (round(_f5_brier / _f5_n, 4) if _f5_n else None),
+        "f5_calib": {k: _f5_calib[k] for k in sorted(_f5_calib, key=int)},
         # Where the markov error actually lives. If the median prediction is sane and only a
         # tail is wrong, the fix is input validation; if the whole distribution is shifted, the
         # engine itself is miscalibrated. These two cases need opposite fixes, and the aggregate
