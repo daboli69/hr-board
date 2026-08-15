@@ -8735,10 +8735,10 @@ function parlayPlaybookHTML(){
       and Target Teams tabs, so it can never disagree with those screens for the same player.</p>
       <ol class="btg-steps">
         <li><b>Game totals</b> — top 2 games by P(total > 7.5), from the Markov simulation.</li>
-        <li><b>Pitcher edge (F5/RL)</b> — arms with vuln ≤35, ranked by K rate,
-        <b>now also requiring Pitching+ ≥105 and K-BB% above league average (15%)</b>. Three
-        independent sources (Statcast vulnerability, FanGraphs process, K-BB%) agreeing on one
-        arm is a stronger claim than any single one of them.</li>
+        <li><b>F5 / RL favorite</b> — for each game, the side favored to lead through 5 innings
+        (from the F5 win probability), qualified by its OWN starter clearing vuln ≤35,
+        <b>Pitching+ ≥105, and K-BB% above league average (15%)</b>. The team is the bet — the
+        pitcher is the reason to trust it, not the headline.</li>
         <li><b>Contact/HRR targets</b> — Tier 1–2 hitters vs. a vulnerable arm, a top Target
         Team, or a weak bullpen.</li>
         <li><b>Power-to-HRR floor</b> — 250+ BBE, 4+ families, 2+ near misses, vs. an ELITE
@@ -9815,7 +9815,8 @@ function renderTargets(){
 // tabs for the same hitter or game.
 //
 //   1. Game totals   — game_projections[].markov.total_dist, P(total > 7.5)
-//   2. Pitcher edge  — pitcher_props (K rate) joined to pitcher_edges (vuln.score) by id
+//   2. F5/RL favorite — game_projections[].f5_home_wp, gated by the favored side's starter
+//      (pitcher_props K rate joined to pitcher_edges vuln.score by id)
 //   3. Contact/HRR   — players tier 1-2, hit_gated.p_hit / hrr_proj.p_over15, opp vuln,
 //                      team_targets tier, bullpen_rankings label
 //   4. Power floor   — players with 250+ BBE, 4+ families, 2+ near misses, hrr_proj.p_over15
@@ -9854,25 +9855,36 @@ function scanStep1_games(){
 }
 
 function scanStep2_arms(){
-  return (BOARD.pitcher_props||[])
-    .map(a=>{
-      const vuln=_scanArmVuln(a.id);
+  // F5 / RL is a MONEYLINE question — which SIDE is favored to be ahead through 5 innings — not
+  // a pitcher-ranking question. The starter is the reason to trust the number, not the bet
+  // itself, so the output is now a TEAM with a win probability, with the qualifying starter
+  // shown as the supporting evidence rather than as the headline.
+  const armById={}; (BOARD.pitcher_props||[]).forEach(a=>armById[a.id]=a);
+  return (BOARD.game_projections||[])
+    .map(g=>{
+      const wp=g.f5_home_wp; if(wp==null) return null;
+      const favHome = wp>=0.5;
+      const favTeam = favHome ? g.home : g.away;
+      const favOppTeam = favHome ? g.away : g.home;
+      const favSpId = favHome ? g.home_sp_id : g.away_sp_id;
+      const favWp = favHome ? wp : (1-wp);
+      const a = favSpId!=null ? armById[favSpId] : null;
+      const vuln=a ? _scanArmVuln(a.id) : null;
       if(vuln==null || a.k_heat==null) return null;
       const fg=a.fg||{};
-      return {id:a.id, name:a.name, team:a.team, opp_team:a.opp_team,
-              k_heat:a.k_heat, exp_k:(a.kengine||{}).exp_k, vuln, label:_scanArmLabel(a.id),
+      return {game_pk:g.game_pk, team:favTeam, opp_team:favOppTeam, f5_wp:favWp,
+              sp_id:a.id, sp_name:a.name, k_heat:a.k_heat, vuln, label:_scanArmLabel(a.id),
               pitching_plus:fg.pitching_plus, k_bb_pct:fg.k_bb_pct};
     })
     .filter(Boolean)
-    // top-tier K rate = k_heat in the 70th percentile of tonight's slate; low vuln = the arm
-    // is hard to hit despite whatever the matchup says. Pitching+ >= 105 and above-average
-    // K-BB% (league sits near 15%, the same reference kengine.py's own nudge uses) require the
-    // FanGraphs read to agree, not just the Statcast-derived signals — three independent
-    // sources landing on the same arm is a stronger claim than any one of them alone.
+    // The starter still has to be hard to hit -- that is WHY his side is trusted to hold a
+    // lead through 5 -- but the gate now qualifies a TEAM for the list rather than ranking
+    // pitchers by K rate. Pitching+ >= 105 and above-average K-BB% (league ~15%) require the
+    // FanGraphs read to agree with the Statcast vulnerability score before a side qualifies.
     .filter(x=>x.vuln<=35
              && (x.pitching_plus==null || x.pitching_plus>=105)
              && (x.k_bb_pct==null || x.k_bb_pct>15))
-    .sort((a,b)=>b.k_heat-a.k_heat)
+    .sort((a,b)=>b.f5_wp-a.f5_wp)
     .slice(0,6);
 }
 
@@ -9939,13 +9951,13 @@ function renderParlayScanner(){
       <div class="psc-r"><b>${pct(g.pOver75)}</b><span>O7.5</span></div>
     </div>`).join("") || `<div class="psc-empty">No graded totals yet.</div>`}</div>`;
 
-  const step2=`<div class="psc-step"><div class="psc-h">2 · Pitcher edge (F5 / RL)</div>
-    <div class="psc-sub">Top K-rate arms with the lowest HR vulnerability</div>
-    ${s2.map(a=>`<div class="psc-row" onclick="event.stopPropagation();goView('edges');edgesView='arms';edgesPitcher=${a.id};edgesBatter=null;renderEdges();">
-      <div class="psc-l"><b>${a.name}</b><span>${a.team} vs ${a.opp_team}</span>
-        <i>${a.label||""}${a.exp_k?` · ${a.exp_k}K proj`:""}</i></div>
-      <div class="psc-r"><b>${Math.round(a.k_heat)}</b><span>K heat</span></div>
-    </div>`).join("") || `<div class="psc-empty">No arm clears the vuln≤35 bar tonight.</div>`}</div>`;
+  const step2=`<div class="psc-step"><div class="psc-h">2 · F5 / RL favorite</div>
+    <div class="psc-sub">Team favored to lead through 5 innings, behind a starter hard to hit</div>
+    ${s2.map(x=>`<div class="psc-row" onclick="event.stopPropagation();goView('edges');edgesView='arms';edgesPitcher=${x.sp_id};edgesBatter=null;renderEdges();">
+      <div class="psc-l"><b>${x.team}</b><span>F5 vs ${x.opp_team}</span>
+        <i>${x.sp_name}${x.label?` · ${x.label}`:""}${x.pitching_plus!=null?` · Pitching+ ${Math.round(x.pitching_plus)}`:""}</i></div>
+      <div class="psc-r"><b>${Math.round(100*x.f5_wp)}%</b><span>F5 ML</span></div>
+    </div>`).join("") || `<div class="psc-empty">No side clears the vuln≤35 bar tonight.</div>`}</div>`;
 
   const step3=`<div class="psc-step"><div class="psc-h">3 · Contact / HRR targets</div>
     <div class="psc-sub">Tier 1-2 hitters vs a vulnerable arm, a top target team, or a weak pen</div>
