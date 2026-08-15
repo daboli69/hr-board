@@ -1051,6 +1051,15 @@
   .vuln-num{font-family:Archivo;font-weight:800;font-size:19px;line-height:1}
   .vuln-lab{font-family:"IBM Plex Mono";font-size:7.5px;font-weight:800;letter-spacing:.03em;margin-top:1px}
   .vuln-block{border:1px solid var(--line);border-radius:11px;padding:11px;margin-bottom:10px;background:var(--panel)}
+  .fg-strip{border:1px solid var(--line);border-radius:11px;padding:10px 11px;margin-bottom:10px;background:var(--panel)}
+  .fg-strip-h{font-family:"IBM Plex Mono";font-size:9px;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px}
+  .fg-chips{display:flex;flex-wrap:wrap;gap:8px}
+  .fg-chip{display:flex;flex-direction:column;gap:1px;background:var(--panel-2);border-radius:7px;padding:5px 9px;min-width:64px}
+  .fg-l{font-family:"IBM Plex Mono";font-size:8px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em}
+  .fg-v{font-family:"IBM Plex Mono";font-size:13px;font-weight:700}
+  .fg-flag{margin-top:8px;font-family:"IBM Plex Mono";font-size:10px;color:var(--hot);
+    background:rgba(200,70,60,.10);border:1px solid rgba(200,70,60,.35);border-radius:6px;padding:5px 8px}
+  .fg-flag.mild{color:var(--seam);background:rgba(214,106,54,.10);border-color:rgba(214,106,54,.35)}
   .vb-hd{font-size:12.5px;color:var(--ink);margin-bottom:8px}
   .vb-row{display:flex;align-items:center;gap:8px;margin-top:5px}
   .vb-nm{font-size:11px;color:var(--muted);min-width:78px}
@@ -3259,6 +3268,15 @@ function bullBear(p){
     if(h9>=1.40) bull.push(`tonight's arm gives up ${h9.toFixed(2)} HR/9 — well above league`);
     else if(h9<=0.80) bull.push(`tonight's arm suppresses homers (${h9.toFixed(2)} HR/9)`);
   }
+  // FanGraphs pitch-quality read on the starter. Pitching+ 100 is average; a real gap either
+  // way is worth naming here, since it is a slower-moving signal than the nightly HR9 line
+  // above and often tells a different part of the story. Location+ under 98 is command risk —
+  // this is the same threshold targets.py uses for its own command penalty, kept in sync.
+  const armFg=op.fg||{};
+  if(armFg.pitching_plus!=null && armFg.pitching_plus<=90) bull.push(`starter's Pitching+ ${Math.round(armFg.pitching_plus)} — below-average stuff+command`);
+  else if(armFg.pitching_plus!=null && armFg.pitching_plus>=112) bear.push(`starter's Pitching+ ${Math.round(armFg.pitching_plus)} — genuinely good arm tonight`);
+  if(armFg.location_plus!=null && armFg.location_plus<90) bull.push(`⚠ Meatball Risk — Loc+ ${Math.round(armFg.location_plus)}, command has been poor`);
+  else if(armFg.location_plus!=null && armFg.location_plus<98) bull.push(`Command Risk — Loc+ ${Math.round(armFg.location_plus)}`);
   if(ks.has("hrsp")&&!op.opener) bull.push("owns tonight's starter");
   if(ks.has("hrbp")) bull.push("has taken their pen deep");
   if(p.robbed) bull.push(`${p.robbed.n} recent ball${p.robbed.n>1?"s":""} that clear${p.robbed.n>1?"":"s"} this park`);
@@ -6121,6 +6139,29 @@ function edgesDrilldown(p){
         ${bar("zone","Zone damage",zoneNote)}
         ${bar("danger","Danger bats",P.danger?`${P.danger.value} genuine threats in today's lineup`:"")}
         ${v.missing&&v.missing.length?`<div class="vb-miss">Not available today: ${v.missing.join(", ")} — score rescaled over the ${v.coverage} points we could measure.</div>`:""}
+      </div>`;
+    })()}
+    ${(()=>{
+      const fg=p.fg; if(!fg) return "";
+      // Plus-stats default to 100 (neutral) upstream, so a missing pitcher never shows a
+      // misleading number here — 100 IS "no read yet", same as everywhere else in the app.
+      const chip=(lab,v,hi,lo,suf)=>{
+        if(v==null) return "";
+        const hot=hi!=null&&v>=hi, cold=lo!=null&&v<lo;
+        const c=hot?"var(--seam)":cold?"var(--hot)":"var(--muted)";
+        return `<div class="fg-chip"><span class="fg-l">${lab}</span><span class="fg-v" style="color:${c}">${v}${suf||""}</span></div>`;
+      };
+      return `<div class="fg-strip">
+        <div class="fg-strip-h">FanGraphs</div>
+        <div class="fg-chips">
+          ${chip("Pitching+", fg.pitching_plus, 112, 90)}
+          ${chip("Stuff+", fg.stuff_plus, 112, 90)}
+          ${chip("Location+", fg.location_plus, 112, 90)}
+          ${chip("xFIP", fg.xfip, null, null)}
+          ${chip("K-BB%", fg.k_bb_pct, 18, 10, "%")}
+        </div>
+        ${fg.location_plus!=null&&fg.location_plus<90?`<div class="fg-flag">⚠ Meatball Risk — Location+ ${Math.round(fg.location_plus)}</div>`:
+          fg.location_plus!=null&&fg.location_plus<98?`<div class="fg-flag mild">Command Risk — Location+ ${Math.round(fg.location_plus)}</div>`:""}
       </div>`;
     })()}
     ${fatLine}
@@ -9756,15 +9797,20 @@ function scanStep2_arms(){
     .map(a=>{
       const vuln=_scanArmVuln(a.id);
       if(vuln==null || a.k_heat==null) return null;
-      // top-tier K rate = k_heat in the 70th percentile of tonight's slate; low vuln = the arm
-      // is hard to hit despite whatever the matchup says. Both conditions have to hold — a high
-      // K rate alone does not isolate an F5/RL edge if the vuln score says he still gives up hard
-      // contact.
+      const fg=a.fg||{};
       return {id:a.id, name:a.name, team:a.team, opp_team:a.opp_team,
-              k_heat:a.k_heat, exp_k:(a.kengine||{}).exp_k, vuln, label:_scanArmLabel(a.id)};
+              k_heat:a.k_heat, exp_k:(a.kengine||{}).exp_k, vuln, label:_scanArmLabel(a.id),
+              pitching_plus:fg.pitching_plus, k_bb_pct:fg.k_bb_pct};
     })
     .filter(Boolean)
-    .filter(x=>x.vuln<=35)                                   // hard to hit
+    // top-tier K rate = k_heat in the 70th percentile of tonight's slate; low vuln = the arm
+    // is hard to hit despite whatever the matchup says. Pitching+ >= 105 and above-average
+    // K-BB% (league sits near 15%, the same reference kengine.py's own nudge uses) require the
+    // FanGraphs read to agree, not just the Statcast-derived signals — three independent
+    // sources landing on the same arm is a stronger claim than any one of them alone.
+    .filter(x=>x.vuln<=35
+             && (x.pitching_plus==null || x.pitching_plus>=105)
+             && (x.k_bb_pct==null || x.k_bb_pct>15))
     .sort((a,b)=>b.k_heat-a.k_heat)
     .slice(0,6);
 }
