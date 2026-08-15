@@ -104,7 +104,13 @@ def catcher_framing(season=None, min_called="q"):
                                       "Chrome/124.0.0.0 Safari/537.36")}
             resp = requests.get(url, headers=headers, timeout=20)
             resp.raise_for_status()
-            df = pd.read_csv(io.StringIO(resp.text), on_bad_lines="skip")
+            # The prior fix (on_bad_lines="skip" alone, default C engine) still tripped on this
+            # feed in production ("Expected 1 fields in line 38, saw 4") — the C parser's
+            # bad-line recovery is less forgiving than the python engine's for some ragged-row
+            # shapes. engine="python" + skipinitialspace=True is strictly more permissive and
+            # is applied on top of, not instead of, on_bad_lines="skip".
+            df = pd.read_csv(io.StringIO(resp.text), sep=",", engine="python",
+                             on_bad_lines="skip", skipinitialspace=True)
         except Exception as e2:
             print(f"[framing] direct request also failed (non-fatal): {e2}", file=_s.stderr)
             return {}

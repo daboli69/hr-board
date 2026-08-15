@@ -2778,6 +2778,29 @@ def build(date_str: str | None = None) -> dict:
         for _e in (pitcher_edges or []):
             if _e.get("team") and _e["team"] not in _arm_by_team:
                 _arm_by_team[_e["team"]] = _e
+        # xfip/fb_pct/gb_pct — read from the RAW sources (fg_pitch keyed by normalised name,
+        # p_batted keyed by pitcher id), not from the local `pitcher_props` list: that list is
+        # not assembled until later in this function, and reading it here would have been a
+        # use-before-definition (pyflakes caught this before it shipped).
+
+        def _lineup_hand_pct(team, opp_throws):
+            """Share of tonight's confirmed lineup that bats RIGHT-handed, switch hitters
+            resolved to the side opposite the starter's throwing hand — the same convention
+            used elsewhere in this file for arsenal blending. Returns None (not 0.5) when no
+            lineup has posted yet, so the platoon bump inside targets.py stays neutral rather
+            than being computed off an empty/partial roster."""
+            lineup = [x for x in players if x.get("team") == team and x.get("lineup_spot")]
+            if len(lineup) < 7:          # a real lineup is 9; require most of it to trust the split
+                return None
+            r_n = 0
+            for x in lineup:
+                b = x.get("bats")
+                if b == "S":
+                    b = "L" if opp_throws == "R" else "R"
+                if b == "R":
+                    r_n += 1
+            return round(r_n / len(lineup), 3)
+
         for _g in (games or []):
             for _bat, _def in (("away", "home"), ("home", "away")):
                 _bt, _dt = _g.get(_bat), _g.get(_def)
@@ -2799,9 +2822,26 @@ def build(date_str: str | None = None) -> dict:
                         _wo = _ph.get("wind_out") if _wo is None else _wo
                         if _pk is not None and _wx is not None:
                             break
+                # Starter enrichment inputs — every one optional; a TBD starter (_edge == {})
+                # means _arm_id is None, every lookup below short-circuits to None, and
+                # targets.py's own fallback logic (already built to handle this) takes over.
+                _arm_id = _edge.get("id")
+                _era = (_edge.get("season") or {}).get("era")
+                _throws = _edge.get("throws")
+                _fg_e = (fg_pitch.get(statcast_data._norm_name(_edge.get("name") or ""))
+                        if _edge.get("name") else None)
+                _xfip = (_fg_e or {}).get("xfip")
+                _bat_e = p_batted.get(_arm_id) if _arm_id is not None else None
+                _fb_pct = (_bat_e or {}).get("fb_pct")
+                _gb_pct = (_bat_e or {}).get("gb_pct")
+                _hand_splits = _edge.get("hand_splits")
+                _lhp = _lineup_hand_pct(_bt, _throws)
                 _sc = targets.target_score(starter_vuln=_vs, arm_form=_form, pen=_pen,
                                            team_hr9=_hr9, park_boost=_pk,
-                                           temp_f=_wx, wind_out=_wo)
+                                           temp_f=_wx, wind_out=_wo,
+                                           xfip=_xfip, era=_era, fb_pct=_fb_pct, gb_pct=_gb_pct,
+                                           hand_splits=_hand_splits,
+                                           lineup_hand_pct=_lhp)
                 if not _sc:
                     continue
                 # the hitters you'd actually be targeting, best first
