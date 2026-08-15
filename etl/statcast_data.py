@@ -560,6 +560,44 @@ def team_k_splits(df) -> dict:
     return out
 
 
+def _parse_fangraphs_json_body(body):
+    """Extract the FanGraphs JSON payload from a FlareSolverr `solution.response` body.
+
+    FlareSolverr renders the target URL in a real headless Chrome and returns the page's
+    rendered HTML/text. For an endpoint that returns raw `application/json`, most Chromium
+    versions still wrap the payload in a minimal HTML shell (a `<pre>`-wrapped, HTML-escaped
+    JSON string) rather than returning bare JSON text — but this varies by Chrome build and
+    was not possible to verify against a live FlareSolverr instance from this environment, so
+    every plausible shape is tried in order rather than assuming one:
+
+      1. The body IS already bare JSON — try a direct `json.loads` first.
+      2. The body is HTML-wrapped — pull the contents of a `<pre>...</pre>` block, HTML-unescape
+         it (`&quot;` etc.), then `json.loads` that.
+      3. Strip all HTML tags entirely and try once more, in case the wrapper isn't a `<pre>`.
+
+    Raises on total failure so the caller's `except Exception` falls through to the next fetch
+    tier — this function deliberately does not swallow errors itself.
+    """
+    import json
+    import re
+    import html as _html
+    if not body:
+        raise ValueError("empty FlareSolverr response body")
+    text = body.strip()
+    try:
+        return json.loads(text)
+    except Exception:
+        pass
+    m = re.search(r"<pre[^>]*>(.*?)</pre>", text, re.S | re.I)
+    if m:
+        try:
+            return json.loads(_html.unescape(m.group(1)))
+        except Exception:
+            pass
+    stripped = re.sub(r"<[^>]+>", "", text)
+    return json.loads(_html.unescape(stripped))
+
+
 def fangraphs_pitching(season: int | None = None, qual: int = 20) -> dict:
     """{pitcher_name_key: {xfip, siera, stuff_plus, location_plus, pitching_plus, k_bb_pct}}
 
@@ -571,29 +609,67 @@ def fangraphs_pitching(season: int | None = None, qual: int = 20) -> dict:
     Stuff+ matters most for a pitcher who has genuinely changed (new grip, velo jump): it moves
     weeks before ERA does, which is exactly the window where the market hasn't adjusted.
 
-    Keyed by a normalised name because FanGraphs IDs don't match MLBAM. Non-fatal by design."""
+    Keyed by a normalised name because FanGraphs IDs don't match MLBAM. Non-fatal by design.
+
+    THREE-TIER FETCH, in order:
+      1. FlareSolverr (a headless-Chrome proxy service, see FLARESOLVERR_URL below) — solves
+         FanGraphs' Cloudflare challenge, which a plain `requests` call cannot do regardless of
+         headers, because Cloudflare is evaluating a JS challenge and TLS/browser fingerprint,
+         not just the User-Agent string.
+      2. A direct request with realistic browser headers — cheap, no extra infrastructure, and
+         occasionally sufficient on days Cloudflare is not actively challenging this endpoint.
+      3. `pybaseball.pitching_stats()` — the original, slowest-to-fail path, kept as the last
+         resort since it depends on the same blocked endpoint pybaseball itself uses internally.
+
+    Any tier failing falls through to the next; all three failing returns {} and the ETL
+    continues without xFIP/SIERA/Stuff+ for this run, same as always.
+    """
     import sys as _s
     import datetime as _dt
+    import os as _os
     yr = season or _dt.date.today().year
+    fg_url = (f"https://www.fangraphs.com/api/leaders/major-league/data"
+              f"?age=&pos=all&stats=pit&lg=all&qual={qual}&season={yr}&season1={yr}"
+              f"&month=0&hand=&team=0&pageitems=5000&pagenum=1&ind=0&rost=0&players="
+              f"&type=8")
     df = None
+
+    # --- Tier 1: FlareSolverr ---------------------------------------------------------------
+    flaresolverr_url = _os.environ.get("FLARESOLVERR_URL", "http://localhost:8191")
     try:
         import requests
-        url = (f"https://www.fangraphs.com/api/leaders/major-league/data"
-               f"?age=&pos=all&stats=pit&lg=all&qual={qual}&season={yr}&season1={yr}"
-               f"&month=0&hand=&team=0&pageitems=5000&pagenum=1&ind=0&rost=0&players="
-               f"&type=8")
-        headers = {
-            "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                           "AppleWebKit/537.36 (KHTML, like Gecko) "
-                           "Chrome/124.0.0.0 Safari/537.36"),
-            "Accept": "application/json,text/plain,*/*",
-            "Referer": "https://www.fangraphs.com/leaders.aspx",
-        }
-        resp = requests.get(url, headers=headers, timeout=20)
+        payload = {"cmd": "request.get", "url": fg_url, "maxTimeout": 60000}
+        resp = requests.post(f"{flaresolverr_url}/v1", json=payload, timeout=70)
         resp.raise_for_status()
-        df = pd.DataFrame(resp.json()["data"])
+        solved = resp.json()
+        if solved.get("status") != "ok":
+            raise RuntimeError(f"flaresolverr status={solved.get('status')!r} "
+                               f"message={solved.get('message')!r}")
+        body = ((solved.get("solution") or {}).get("response")) or ""
+        df = pd.DataFrame(_parse_fangraphs_json_body(body)["data"])
     except Exception as e:
-        print(f"[fangraphs] direct JSON request failed, trying pybaseball: {e}", file=_s.stderr)
+        print(f"[fangraphs] FlareSolverr unavailable/failed, trying direct request: {e}",
+              file=_s.stderr)
+
+    # --- Tier 2: direct request with browser headers ----------------------------------------
+    if df is None or df.empty:
+        try:
+            import requests
+            headers = {
+                "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                               "AppleWebKit/537.36 (KHTML, like Gecko) "
+                               "Chrome/124.0.0.0 Safari/537.36"),
+                "Accept": "application/json,text/plain,*/*",
+                "Referer": "https://www.fangraphs.com/leaders.aspx",
+            }
+            resp = requests.get(fg_url, headers=headers, timeout=20)
+            resp.raise_for_status()
+            df = pd.DataFrame(resp.json()["data"])
+        except Exception as e:
+            print(f"[fangraphs] direct JSON request failed, trying pybaseball: {e}",
+                  file=_s.stderr)
+
+    # --- Tier 3: pybaseball's own scraper -----------------------------------------------------
     if df is None or df.empty:
         try:
             from pybaseball import pitching_stats
