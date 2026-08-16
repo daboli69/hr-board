@@ -2897,10 +2897,12 @@ def build(date_str: str | None = None) -> dict:
                                            lineup_hand_pct=_lhp, location_plus=_loc_plus)
                 if not _sc:
                     continue
-                # the hitters you'd actually be targeting, best first
+                # The hitters you'd actually be targeting — extended from 3 to 8 so there is
+                # something to actually PAIR from a single game rather than one name to build
+                # a whole leg around. A 3-leg same-game parlay needs a real pool to pick from.
                 _bats = sorted(
                     [x for x in players if x.get("team") == _bt and x.get("heat") is not None],
-                    key=lambda x: -x["heat"])[:4]
+                    key=lambda x: -x["heat"])[:8]
                 team_targets.append({
                     "bat_team": _bt, "def_team": _dt, "game_pk": _g.get("game_pk"),
                     "time": _g.get("time"), "park": _g.get("park"),
@@ -2911,8 +2913,11 @@ def build(date_str: str | None = None) -> dict:
                     "pills": _sc.get("pills") or [], "flags": _sc.get("flags") or [],
                     "pen_label": (_pen or {}).get("label"),
                     "top_bats": [{"id": x.get("id"), "name": x.get("name"),
-                                  "heat": x.get("heat"), "spot": x.get("lineup_spot")}
-                                 for x in _bats[:3]],
+                                  "heat": x.get("heat"), "spot": x.get("lineup_spot"),
+                                  "fams": len(((x.get("converge") or {}).get("hr") or {}).get("measured", [])
+                                              + ((x.get("converge") or {}).get("hr") or {}).get("provisional", [])),
+                                  "near_miss": ((x.get("near_miss") or {}).get("near")) or 0}
+                                 for x in _bats],
                 })
         team_targets.sort(key=lambda x: -x["score"])
         print(f"[build] team targets: {len(team_targets)} matchups ranked"

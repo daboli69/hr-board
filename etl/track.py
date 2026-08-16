@@ -415,6 +415,14 @@ def grade_date(date):
                            "arm_form": p.get("opp_form"),
                            "off": "SP" if res["sp"] else "BP", "hr": res["hr"],
                            "dist": res.get("dist"), "ev": res.get("ev"),
+                           # team + game_pk — the only thing missing for months. Without these,
+                           # there was no way to check whether home runs actually cluster within
+                           # the same game, which is the entire premise a same-game HR parlay
+                           # depends on. Every day tracked from now on can answer that; days
+                           # before this were never captured with a team/game affiliation and
+                           # cannot be reconstructed after the fact without a much riskier
+                           # per-name-per-date roster lookup that risks silently wrong matches.
+                           "team": p.get("team"), "game_pk": p.get("game_pk"),
                            # where he ranked on the slate BEFORE the games — the honest test of
                            # whether the boards actually surfaced him. cv_rank is convergence
                            # WITHOUT heat, so it answers "did the non-heat evidence find him?"
