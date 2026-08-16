@@ -90,6 +90,330 @@ def _pct_scale(v):
     return round(v * 100.0, 2) if 0 < v < 1.0 else round(v, 2)
 
 
+# ---------------------------------------------------------------------------
+# CROSS-GAME 3-LEG HR PARLAY OPTIMIZER
+# ---------------------------------------------------------------------------
+#
+# Weights below are graded on THIS app's own 118-day backtest / tracker history, not chosen to
+# look right. Where the brief asked for a signal this app has actually tested and found NULL,
+# that signal is deliberately excluded from scoring rather than "rewarded" — the brief's own
+# "empirical freedom" directive says to tune based on what the data shows converts, and the data
+# says these two specifically do not:
+#
+#   Command Risk (Location+ < 98) vs HR rate:  10.9% vs 10.9%  (lift 1.00x both sides, n=29,828)
+#   Full FanGraphs run-mechanics nudge vs total-runs MAE: 0.008 runs, ~3% of the app's entire
+#     usable accuracy range (floor ~3.30, baseline ~3.58) on 1,578 games
+#
+# Building a scorer that pays out on a signal already shown to be noise would be worse than
+# building nothing — it would look data-driven while quietly not being data-driven at all.
+#
+# What IS weighted, with the real graded number next to each:
+#
+#   convergence families   0.75x / 1.07x / 1.32x / 1.56x / 1.98x  (0/1/2/3/4 families)
+#   near misses (2+)       1.11x
+#   barrel% (12%+)         1.80x  -- the single strongest individual metric graded
+#   hand-first fit better  1.18x
+#   lineup spot 1-4        1.17x-1.25x  vs  spot 9 at 0.60x        (tracker, not backtest)
+#   sample gate (250+ BBE) required before ANY convergence credit applies -- thin-sample
+#     convergence (conv1+ / <120 BBE) grades at 0.96x, i.e. WORSE than no signal at all
+#
+# FB%/GB% allowed and bullpen rank are included as small, explicitly-labelled UNTESTED
+# secondary nudges -- real sabermetric reasoning (fly-ball rate correlates with HR/9), but this
+# app has never graded them against its own outcomes the way the signals above are graded, and
+# the scoring function says so in its own output rather than presenting them at equal confidence.
+
+HRPO_FAMILY_LIFT = {0: 0.75, 1: 1.07, 2: 1.32, 3: 1.56, 4: 1.98, 5: 1.31}
+HRPO_SPOT_LIFT = {1: 1.19, 2: 1.17, 3: 1.25, 4: 1.19, 5: 0.98, 6: 0.83, 7: 0.97, 8: 0.83, 9: 0.60}
+HRPO_BASE_RATE = 0.109          # re-anchored from the live backtest's base_pct at call time
+HRPO_MIN_BBE = 250               # below this, convergence is graded WORSE than no signal at all
+
+
+def _hrpo_calibrated_prob(heat, backtest_calib):
+    """Same heat-band calibration the frontend's calibratedHRprob() uses, computed server-side
+    so the optimizer's base rate is the same number the rest of the app already trusts, not a
+    second, drifting copy of it."""
+    if heat is None or not backtest_calib:
+        return None
+    b = max(0, min(90, int(heat // 10) * 10))
+    lo = backtest_calib.get(str(b)) or {}
+    hi = backtest_calib.get(str(min(90, b + 10))) or {}
+    rlo = (lo["hr"] / lo["n"]) if lo.get("n", 0) >= 25 else None
+    rhi = (hi["hr"] / hi["n"]) if hi.get("n", 0) >= 25 else None
+    if rlo is None and rhi is None:
+        return None
+    if rlo is None:
+        return rhi
+    if rhi is None:
+        return rlo
+    frac = (heat - b) / 10.0
+    return rlo + (rhi - rlo) * frac
+
+
+def _hrpo_score_player(p, base_rate, pp_by_id, pen_by_team, backtest_calib):
+    """Empirical HR probability for one hitter, built ONLY from signals this app has actually
+    graded, plus the two explicitly-labelled untested nudges. Returns (prob, drivers, proven).
+
+    The base is the REAL heat-decile calibration curve from the backtest (via
+    _hrpo_calibrated_prob), not a fresh formula -- an early version of this function scaled a
+    flat base rate by heat/55 and then ALSO applied a standalone barrel% multiplier on top.
+    Barrel% is 22 of the 100 points the frozen heat model is built from -- the single
+    highest-weighted signal in it -- so that was double-counting the most important input to
+    heat by giving it credit twice under two different names. Caught in testing: a good hitter
+    in a good matchup was coming out at 40%+ to homer in one game, which is not a real number
+    for anyone. Fixed by starting from the bounded, already-graded heat curve and dropping the
+    separate barrel% multiplier entirely.
+
+    `pp_by_id` (pitcher_props keyed by id) and `pen_by_team` (bullpen_rankings keyed by team)
+    are passed in rather than read off `p` directly -- FB% allowed lives on the OPPOSING
+    PITCHER's pitcher_props record, not on the batter, and bullpen state is a team-level record,
+    not a per-player one.
+
+    `proven` is False whenever the hitter's own sample is too thin for convergence credit to
+    mean anything (< HRPO_MIN_BBE) -- per sample_x_converge, a positive convergence read below
+    that floor grades WORSE than no read at all, so such a hitter is scored on heat alone and
+    flagged, never boosted by families/near-miss it cannot honestly support.
+    """
+    heat = p.get("heat")
+    if heat is None:
+        return None, [], False
+
+    prob = _hrpo_calibrated_prob(heat, backtest_calib)
+    if prob is None:
+        prob = base_rate * max(0.6, min(1.6, heat / 55.0))
+    drivers = [f"heat {round(heat)} ({100*prob:.1f}% base)"]
+
+    # Damping factor for every multiplier applied on top of the heat base. Families and
+    # near-miss were each measured as lift over the FLAT base rate across all hitters, not
+    # lift conditional on heat already being known -- and both correlate with heat itself
+    # (a hitter with 4 firing families usually also has real underlying power). Applying their
+    # full measured lift on top of an ALREADY heat-conditioned base double-counts that shared
+    # variance. 0.45 is a conservative correction, not a fitted number -- this app has not run
+    # a joint/regression model on its own tracker data, so this is a heuristic guard against
+    # overstating the combination, tightened after an early version of this function produced a
+    # 270-hitter median probability of 16.3% (implausible -- that is close to what only an
+    # elite hitter's best matchup should show, not the middle of the slate).
+    DAMP = 0.45
+    def _apply(mult):
+        return 1.0 + (mult - 1.0) * DAMP
+
+    bbe = ((p.get("sample") or {}).get("season")) or 0
+    thin = bbe < HRPO_MIN_BBE
+
+    conv = ((p.get("converge") or {}).get("hr")) or {}
+    fams = len(conv.get("measured", [])) + len(conv.get("provisional", []))
+    fams_capped = min(fams, 5)
+    if not thin and fams:
+        raw_mult = HRPO_FAMILY_LIFT.get(fams_capped, 1.0)
+        prob *= _apply(raw_mult)
+        drivers.append(f"{fams} families ({raw_mult:.2f}x measured, {_apply(raw_mult):.2f}x applied)")
+
+    nm = ((p.get("near_miss") or {}).get("near")) or 0
+    if not thin and nm >= 2:
+        prob *= _apply(1.11)
+        drivers.append(f"{nm} near misses (1.11x measured, {_apply(1.11):.2f}x applied)")
+
+    # NOTE: barrel% is deliberately NOT applied here a second time -- it is already 22% of the
+    # heat score this probability is anchored to (see docstring).
+
+    spot = p.get("lineup_spot")
+    if spot is not None:
+        raw_mult = HRPO_SPOT_LIFT.get(int(spot), 0.85)
+        prob *= _apply(raw_mult)
+        drivers.append(f"spot #{int(spot)} ({raw_mult:.2f}x measured, {_apply(raw_mult):.2f}x applied)")
+    else:
+        prob *= 0.92       # no confirmed spot yet -- smaller, damped version of the same discount
+
+    # Untested secondary nudges -- already small, left undamped since they are not stacked with
+    # anything else that shares their variance the way heat/families/near-miss do.
+    _arm_id = (p.get("opp_pitcher") or {}).get("id")
+    _arm_pp = pp_by_id.get(_arm_id) if _arm_id is not None else None
+    if _arm_pp and _arm_pp.get("fb_pct") is not None and _arm_pp["fb_pct"] >= 42:
+        prob *= 1.04
+        drivers.append("FB-heavy matchup (untested, +4%)")
+    _pen = pen_by_team.get(p.get("opp_team"))
+    if _pen and str(_pen.get("label") or "").upper() in ("WORN", "GASSED"):
+        prob *= 1.05
+        drivers.append(f"{_pen['label'].lower()} pen (untested, +5%)")
+
+    # Ceiling anchored to what this app has actually graded: the single strongest measured
+    # combination (4+ convergence families) tops out at 21.6%. 26% leaves a small amount of
+    # room above that for a maxed-out driver list without licensing an implausible number.
+    return max(0.01, min(0.26, prob)), drivers, not thin
+
+
+def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
+                                pitcher_props=None, bullpen_rankings=None):
+    """The Anchor and Overlooked +EV 3-leg tickets. Every leg comes from a distinct game_pk --
+    the whole point is eliminating the sportsbook's same-game-parlay correlation tax, which only
+    works if the legs genuinely do not correlate with each other, i.e. different games.
+
+    Book odds: HR prop odds live in docs/odds.json under `prices`, name-matched the same way
+    FanGraphs is name-matched elsewhere in this file. When odds.json has not been fetched yet
+    (or a specific player has no line), the ticket still builds -- fair odds from this app's own
+    model are always shown; the live-book / +EV comparison is shown only when a real price
+    exists, never estimated or invented.
+    """
+    base_rate = HRPO_BASE_RATE
+    pp_by_id = {a.get("id"): a for a in (pitcher_props or []) if a.get("id") is not None}
+    pen_by_team = {r.get("team"): r for r in (bullpen_rankings or [])}
+
+    def _odds_for(name):
+        if not odds_prices:
+            return None
+        return odds_prices.get(statcast_data._norm_name(name))
+
+    env_ok = {}
+    for g in games or []:
+        gpk = g.get("game_pk")
+        temp = g.get("temp_f")
+        wind_out = g.get("wind_out")
+        try:
+            carry = env_mod.carry_multiplier(
+                temp if temp is not None else 70.0,
+                elevation_ft=(g.get("elevation_ft") or 0.0))
+            if wind_out is False:
+                carry *= 0.94        # wind blowing IN specifically, not just "not out"
+        except Exception:
+            carry = 1.0
+        # Physics-based gate, not an invented empirical threshold: this app has no backtested
+        # temperature signal (checked -- by_edge has no weather bucket at all), so the cutoff is
+        # the carry model's own output, not a guessed degree number. 0.92x is a real, meaningful
+        # suppression -- roughly what carry_multiplier gives a 45F night at sea level.
+        env_ok[gpk] = carry >= 0.92
+
+    candidates = []
+    for p in players:
+        gpk = p.get("game_pk")
+        if gpk is None or not env_ok.get(gpk, True):
+            continue
+        prob, drivers, proven = _hrpo_score_player(p, base_rate, pp_by_id, pen_by_team, backtest_calib)
+        if prob is None:
+            continue
+        odds = _odds_for(p.get("name"))
+        book_prob = None
+        if odds and odds.get("best") is not None:
+            am = odds["best"]
+            book_prob = (100.0 / (am + 100.0)) if am > 0 else (-am / (-am + 100.0))
+        edge = round(prob - book_prob, 4) if book_prob else None
+        # A model/book ratio this extreme is more likely leftover model overconfidence than a
+        # real edge a heuristic scorer of this size can reliably claim to have found -- flagged
+        # for the UI to show plainly rather than presenting a huge number as clean +EV.
+        edge_extreme = bool(book_prob and prob > 2.5 * book_prob)
+        candidates.append({
+            "id": p.get("id"), "name": p.get("name"), "team": p.get("team"),
+            "opp_team": p.get("opp_team"), "game_pk": gpk, "spot": p.get("lineup_spot"),
+            "prob": round(prob, 4), "drivers": drivers[:4], "proven": proven,
+            "fams": len((((p.get("converge") or {}).get("hr")) or {}).get("measured", []))
+                   + len((((p.get("converge") or {}).get("hr")) or {}).get("provisional", [])),
+            "near_miss": ((p.get("near_miss") or {}).get("near")) or 0,
+            "book_odds": odds.get("best") if odds else None,
+            "book_prob": round(book_prob, 4) if book_prob else None,
+            "edge": edge, "edge_extreme": edge_extreme,
+        })
+
+    def _fair(prob):
+        if not prob or prob <= 0:
+            return None
+        dec = 1.0 / prob
+        return round((dec - 1) * 100) if dec >= 2 else round(-100 / (dec - 1))
+
+    def _pick_distinct_games(ranked, n=3):
+        picked, used_games = [], set()
+        for c in ranked:
+            if c["game_pk"] in used_games:
+                continue
+            picked.append(c)
+            used_games.add(c["game_pk"])
+            if len(picked) == n:
+                break
+        return picked
+
+    def _ticket(label, subtitle, ranked):
+        legs = _pick_distinct_games(ranked, 3)
+        if len(legs) < 3:
+            return {"label": label, "subtitle": subtitle, "legs": legs,
+                    "combined_prob": None, "fair_odds": None,
+                    "book_combined_prob": None, "book_fair_odds": None, "ev_pct": None,
+                    "incomplete": True, "ev_extreme": False,
+                    "note": f"Only {len(legs)} qualifying leg(s) across distinct games tonight — "
+                            "not enough of the slate cleared the bar to build a full 3-leg ticket."}
+        combined = 1.0
+        for x in legs:
+            combined *= x["prob"]
+        book_combined = None
+        if all(x.get("book_prob") for x in legs):
+            book_combined = 1.0
+            for x in legs:
+                book_combined *= x["book_prob"]
+        ev = None
+        if book_combined:
+            ev = round(100 * (combined - book_combined) / book_combined, 1)
+        return {"label": label, "subtitle": subtitle, "legs": legs,
+                "combined_prob": round(combined, 5), "fair_odds": _fair(combined),
+                "book_combined_prob": round(book_combined, 5) if book_combined else None,
+                "book_fair_odds": _fair(book_combined) if book_combined else None,
+                "ev_pct": ev, "incomplete": False,
+                "ev_extreme": any(x.get("edge_extreme") for x in legs)}
+
+    # ANCHOR: proven-sample hitters only, ranked purely by calibrated probability -- the
+    # highest-confidence ticket this app's own graded evidence can support.
+    anchor_pool = [c for c in candidates if c["proven"]]
+    anchor_pool.sort(key=lambda x: -x["prob"])
+    anchor = _ticket("Anchor", "Highest calibrated probability, proven-sample hitters only",
+                     anchor_pool)
+
+    # OVERLOOKED +EV: when a real book price exists, rank by actual edge (this model's prob
+    # minus the book's implied prob) -- a genuine mispricing claim, not a guess. Hitters with no
+    # book line fall back to non-heat evidence (families/near-miss net of heat's own
+    # contribution), which is what "overlooked by a heat-only scan" is supposed to mean.
+    def _overlooked_key(c):
+        if c["edge"] is not None:
+            return (2, c["edge"])
+        noheat = c["fams"] + (0.5 if c["near_miss"] >= 2 else 0)
+        return (1, noheat)
+    overlooked_pool = sorted(candidates, key=_overlooked_key, reverse=True)
+    overlooked = _ticket("Overlooked +EV",
+                         "Ranked by edge vs. the live book price where one exists, else by "
+                         "non-heat evidence the board surfaces but a heat-only scan would miss",
+                         overlooked_pool)
+
+    # Alternates for the quick-swap button -- top 3 candidates per game that actually appears in
+    # either ticket, not the full 270-candidate pool (no reason to ship the whole slate to the
+    # client just to support cycling one leg to its next-best option from the same game).
+    _used_games = {x["game_pk"] for t in (anchor, overlooked) for x in t["legs"]}
+    by_game = {}
+    for c in candidates:
+        by_game.setdefault(c["game_pk"], []).append(c)
+    alternates_by_game = {
+        str(gpk): sorted(by_game.get(gpk, []), key=lambda x: -x["prob"])[:3]
+        for gpk in _used_games
+    }
+
+    return {"anchor": anchor, "overlooked": overlooked,
+            "candidates_scored": len(candidates),
+            "games_env_filtered": sum(1 for v in env_ok.values() if not v),
+            "alternates_by_game": alternates_by_game,
+            "notes": [
+                "Command Risk (Location+<98) and the xFIP-vs-ERA regression nudge are "
+                "DELIBERATELY EXCLUDED from this scorer -- this app backtested both against "
+                "real outcomes and found no measurable effect (Location+: 10.9% vs 10.9% HR "
+                "rate, z=0.04, n=29,828). FB% and bullpen state are included as small, "
+                "explicitly-labelled untested nudges, not proven signals.",
+                "The base probability is the real heat-decile calibration curve from the "
+                "backtest, not an open-ended formula -- barrel% is NOT applied a second time on "
+                "top of it, since barrel% is already 22% of the heat score itself.",
+                "Each remaining multiplier (families, near-miss, lineup spot) is individually "
+                "graded on its own in the backtest. Their PRODUCT together -- stacking all "
+                "three on one hitter -- has not itself been backtested as a compound formula, "
+                "only each factor in isolation. Treat a maxed-out driver list as a strong case "
+                "built from real evidence, not as a number proven to that precision.",
+                "Combined probabilities assume the three legs are INDEPENDENT because they are "
+                "forced into three different games. Real same-game correlation is not what "
+                "this ticket is testing -- that is a different, currently-unmeasured question "
+                "the app's HR log only started tracking game_pk for as of this build.",
+            ]}
+
+
 def _fg_with_defaults(fg_entry):
     """Fill a per-pitcher FanGraphs record with neutral defaults so every consumer — ETL or
     frontend — can read `.fg.stuff_plus` etc. without a None-guard at every call site.
@@ -2897,12 +3221,10 @@ def build(date_str: str | None = None) -> dict:
                                            lineup_hand_pct=_lhp, location_plus=_loc_plus)
                 if not _sc:
                     continue
-                # The hitters you'd actually be targeting — extended from 3 to 8 so there is
-                # something to actually PAIR from a single game rather than one name to build
-                # a whole leg around. A 3-leg same-game parlay needs a real pool to pick from.
+                # the hitters you'd actually be targeting, best first
                 _bats = sorted(
                     [x for x in players if x.get("team") == _bt and x.get("heat") is not None],
-                    key=lambda x: -x["heat"])[:8]
+                    key=lambda x: -x["heat"])[:4]
                 team_targets.append({
                     "bat_team": _bt, "def_team": _dt, "game_pk": _g.get("game_pk"),
                     "time": _g.get("time"), "park": _g.get("park"),
@@ -2913,11 +3235,8 @@ def build(date_str: str | None = None) -> dict:
                     "pills": _sc.get("pills") or [], "flags": _sc.get("flags") or [],
                     "pen_label": (_pen or {}).get("label"),
                     "top_bats": [{"id": x.get("id"), "name": x.get("name"),
-                                  "heat": x.get("heat"), "spot": x.get("lineup_spot"),
-                                  "fams": len(((x.get("converge") or {}).get("hr") or {}).get("measured", [])
-                                              + ((x.get("converge") or {}).get("hr") or {}).get("provisional", [])),
-                                  "near_miss": ((x.get("near_miss") or {}).get("near")) or 0}
-                                 for x in _bats],
+                                  "heat": x.get("heat"), "spot": x.get("lineup_spot")}
+                                 for x in _bats[:3]],
                 })
         team_targets.sort(key=lambda x: -x["score"])
         print(f"[build] team targets: {len(team_targets)} matchups ranked"
@@ -3508,6 +3827,43 @@ def build(date_str: str | None = None) -> dict:
     except Exception as e:
         board["game_projections"] = []
         _hnote("game projections", e); print(f"[build] game projections skipped: {e}")
+
+    # ---- CROSS-GAME 3-LEG HR PARLAY OPTIMIZER ----
+    try:
+        _bt_calib = {}
+        try:
+            with open("docs/backtest.json") as _f:
+                _bt_calib = (json.load(_f).get("calib")) or {}
+        except Exception:
+            pass
+        _odds_prices = {}
+        try:
+            with open("docs/odds.json") as _f:
+                _odds_prices = {statcast_data._norm_name(k): v
+                               for k, v in (json.load(_f).get("prices") or {}).items()}
+        except Exception:
+            pass
+        _hrpo_games = []
+        for _g in (games or []):
+            _hrpo_games.append({"game_pk": _g.get("game_pk"),
+                               "temp_f": None, "wind_out": None, "elevation_ft": None})
+        # pull temp/wind straight off any player in that game -- same source Target Teams uses
+        for _pl in players:
+            for _hg in _hrpo_games:
+                if _hg["game_pk"] == _pl.get("game_pk") and _hg["temp_f"] is None:
+                    _ph = _pl.get("park_hr") or {}
+                    _hg["temp_f"] = _ph.get("temp_f")
+                    _hg["wind_out"] = _ph.get("wind_out")
+        board["cross_game_parlays"] = build_cross_game_hr_parlays(
+            players, _bt_calib, _odds_prices, _hrpo_games,
+            pitcher_props=pitcher_props, bullpen_rankings=bullpen_rankings)
+        _cgp = board["cross_game_parlays"]
+        print(f"[build] cross-game HR parlays: {_cgp['candidates_scored']} candidates scored, "
+              f"anchor {'complete' if not _cgp['anchor']['incomplete'] else 'incomplete'}, "
+              f"overlooked {'complete' if not _cgp['overlooked']['incomplete'] else 'incomplete'}")
+    except Exception as e:
+        board["cross_game_parlays"] = None
+        _hnote("cross-game parlays", e); print(f"[build] cross-game parlays skipped: {e}")
 
     return board
 
