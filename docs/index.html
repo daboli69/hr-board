@@ -1712,26 +1712,16 @@
   .tg-flag{font-family:"IBM Plex Mono";font-size:9.5px;color:var(--hot);
     background:rgba(200,70,60,.10);border:1px solid rgba(200,70,60,.35);border-radius:6px;padding:3px 7px}
 
-  /* Now up to 8 hitters, wrapping into rows of ~3, since this is a pairing pool now rather
-     than a fixed 3-name display — flex-wrap instead of a rigid equal-width row. */
-  .tg-bats{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;padding-top:9px;border-top:1px solid var(--line)}
-  .tg-bat{flex:1 1 30%;min-width:88px;display:block;text-align:left;background:var(--panel-3);
-    border:1.5px solid transparent;border-radius:7px;padding:6px 8px;cursor:pointer;font:inherit}
+  /* Top 3 hitters: equal-width flex children that shrink rather than clip. */
+  .tg-bats{display:flex;gap:6px;margin-top:10px;padding-top:9px;border-top:1px solid var(--line)}
+  .tg-bat{flex:1 1 0;min-width:0;display:block;text-align:left;background:var(--panel-3);
+    border:none;border-radius:7px;padding:6px 8px;cursor:pointer;font:inherit}
   .tg-bat:active{background:var(--line)}
-  .tg-bat.sel{border-color:var(--seam);background:rgba(214,106,54,.12)}
   .tg-bn{display:block;font-size:11px;color:var(--ink);white-space:nowrap;
     overflow:hidden;text-overflow:ellipsis}
   .tg-bh{display:block;font-family:"IBM Plex Mono";font-size:11px;font-weight:700;
     color:var(--seam);margin-top:2px}
   .tg-bh i{font-style:normal;font-size:9px;color:var(--faint);font-weight:400}
-  .tg-bx{display:block;font-family:"IBM Plex Mono";font-size:8px;color:var(--faint);margin-top:1px}
-  .tg-pair{margin-top:10px;padding:9px 10px;background:var(--panel-3);border-radius:9px;
-    border-left:2px solid var(--seam)}
-  .tg-pair-h{font-size:12px;color:var(--ink)}
-  .tg-pair-h span{display:block;font-family:"IBM Plex Mono";font-size:9px;color:var(--faint);margin-top:2px}
-  .tg-pair-n{font-family:"IBM Plex Mono";font-size:16px;font-weight:800;color:var(--seam);margin-top:6px}
-  .tg-pair-n span{font-size:10px;color:var(--faint);font-weight:400;margin-left:8px}
-  .tg-pair-note{font-family:"IBM Plex Mono";font-size:9px;color:var(--faint);line-height:1.5;margin-top:6px}
 
   /* Methodology collapsed by default so the top-ranked games sit above the fold. */
   .tg-info{margin:6px 0 12px}
@@ -1761,6 +1751,35 @@
   .psc-r span{display:block;font-family:"IBM Plex Mono";font-size:8px;color:var(--faint);letter-spacing:.06em}
   .psc-empty{font-family:"IBM Plex Mono";font-size:10.5px;color:var(--faint);
     background:var(--panel-2);border-radius:8px;padding:9px 11px}
+
+  /* Cross-Game 3-Leg HR Parlay Optimizer */
+  .cgp-block{margin-top:6px}
+  .cgp-ticket{background:var(--panel-2);border-radius:11px;padding:11px;margin-top:10px}
+  .cgp-th{font-size:13px;font-weight:800;color:var(--ink);margin-bottom:8px}
+  .cgp-th span{display:block;font-family:"IBM Plex Mono";font-size:9.5px;font-weight:400;
+    color:var(--faint);margin-top:2px}
+  .cgp-leg{position:relative;display:flex;align-items:center;gap:8px;
+    background:var(--panel-3);border-radius:8px;padding:7px 9px;margin-bottom:6px}
+  .cgp-leg-l{flex:1;min-width:0;cursor:pointer}
+  .cgp-leg-l b{display:block;font-size:12px;color:var(--ink)}
+  .cgp-leg-l span{font-size:10px;color:var(--faint);margin-left:2px}
+  .cgp-leg-l i{display:block;font-style:normal;font-family:"IBM Plex Mono";font-size:8.5px;
+    color:var(--seam);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cgp-leg-r{flex:0 0 auto;text-align:right}
+  .cgp-leg-r b{display:block;font-family:"IBM Plex Mono";font-size:14px;font-weight:800;color:var(--seam)}
+  .cgp-book{display:block;font-family:"IBM Plex Mono";font-size:8.5px;color:var(--faint);margin-top:1px}
+  .cgp-warn{color:var(--hot);font-size:11px;margin-left:3px}
+  .cgp-swap{flex:0 0 auto;font-family:"IBM Plex Mono";font-size:9px;color:var(--faint);
+    background:transparent;border:1px solid var(--line);border-radius:6px;padding:4px 7px;
+    cursor:pointer}
+  .cgp-swap:active{background:var(--line)}
+  .cgp-sum{margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
+  .cgp-sum-row{display:flex;justify-content:space-between;align-items:center;
+    font-size:11px;color:var(--muted);padding:2px 0}
+  .cgp-sum-row b{font-family:"IBM Plex Mono";color:var(--ink)}
+  .cgp-sum-row.pos b{color:var(--good)}
+  .cgp-note{font-family:"IBM Plex Mono";font-size:9px;color:var(--faint);line-height:1.6;margin-top:8px}
+  .cgp-note.warn{color:var(--hot);background:rgba(200,70,60,.08);border-radius:6px;padding:7px 9px}
   .btg-route{background:var(--panel-3);border-radius:9px;padding:10px 12px;margin:10px 0}
   .btg-route-h{font-family:"IBM Plex Mono";font-size:10px;font-weight:800;color:var(--seam);
     letter-spacing:.06em;margin-bottom:5px}
@@ -9767,23 +9786,6 @@ function hrpToConverge(id){
 // the players — which is the order the parlay playbook asks for and which no screen supported.
 // Read as "batting team vs that defense".
 // ===========================================================================
-// Pairing state for the Target Teams card: which hitters are selected, per game, for building
-// a same-game stack. Composite "gamePk:playerId" keys so selections across different games'
-// cards never bleed into each other without extra bookkeeping.
-let pairSel = new Set();
-function togglePair(gamePk, id){
-  const k = gamePk+":"+id;
-  if(pairSel.has(k)) pairSel.delete(k);
-  else {
-    // cap at 3 legs for THIS game — selecting a 4th silently replaces the oldest pick rather
-    // than doing nothing, since "why didn't my tap register" is worse UX than a quiet swap.
-    const inGame=[...pairSel].filter(x=>x.startsWith(gamePk+":"));
-    if(inGame.length>=3) pairSel.delete(inGame[0]);
-    pairSel.add(k);
-  }
-  renderTargets();
-}
-
 function renderTargets(){
   const main=document.getElementById("main");
   const rows=(BOARD&&BOARD.team_targets)||[];
@@ -9799,37 +9801,12 @@ function renderTargets(){
   const card=(r,i)=>{
     const pills=(r.pills||[]).map(p=>
       `<span class="${pillCls(p.i)}"><i>${p.k}</i>${p.v}</span>`).join("");
-    const bats=(r.top_bats||[]).map(b=>{
-      const sel=pairSel.has(r.game_pk+":"+b.id);
-      return `<button class="tg-bat${sel?" sel":""}" onclick="event.stopPropagation();togglePair(${r.game_pk},${b.id})">
+    const bats=(r.top_bats||[]).slice(0,3).map(b=>
+      `<button class="tg-bat" onclick="event.stopPropagation();scanToPlayer(${b.id})">
         <span class="tg-bn">${b.name}</span>
         <span class="tg-bh">${b.heat!=null?Math.round(b.heat):"—"}${b.spot?` <i>#${b.spot}</i>`:""}</span>
-        ${b.fams||b.near_miss?`<span class="tg-bx">${b.fams?b.fams+"fam":""}${b.fams&&b.near_miss?" · ":""}${b.near_miss?b.near_miss+"nm":""}</span>`:""}
-      </button>`;
-    }).join("");
+      </button>`).join("");
     const flags=(r.flags||[]).map(f=>`<span class="tg-flag">⚠ ${f}</span>`).join("");
-
-    // Live pairing readout — only appears once 2+ hitters from THIS game are selected.
-    const picked=(r.top_bats||[]).filter(b=>pairSel.has(r.game_pk+":"+b.id));
-    let pairBox="";
-    if(picked.length>=2){
-      const probs=picked.map(b=>calibratedHRprob(b.heat)).filter(p=>p!=null);
-      const spots=picked.map(b=>b.spot).filter(s=>s!=null).sort((a,b)=>a-b);
-      const consecutive = spots.length>=2 && (spots[spots.length-1]-spots[0]) <= spots.length;
-      if(probs.length===picked.length){
-        const combined=probs.reduce((a,b)=>a*b,1);
-        pairBox=`<div class="tg-pair">
-          <div class="tg-pair-h">${picked.map(b=>b.name.split(" ").pop()).join(" + ")}
-            <span>${consecutive?"— consecutive spots, same game":"— same game, spread out"}</span></div>
-          <div class="tg-pair-n"><b>${(100*combined).toFixed(2)}%</b> if independent
-            <span>fair ${americanFair(combined)}</span></div>
-          <div class="tg-pair-note">Assumes independence — real same-game correlation is not
-            yet measured (tracking as of the fix that added team/game to the log). Treat this
-            as the FLOOR, not the real probability: correlated legs should land above it.</div>
-        </div>`;
-      }
-    }
-
     return `<div class="tg-row" onclick="filterToGame(${r.game_pk})">
       <div class="tg-top">
         <div class="tg-l">
@@ -9843,13 +9820,12 @@ function renderTargets(){
       </div>
       ${pills||flags?`<div class="tg-pills">${pills}${flags}</div>`:""}
       ${bats?`<div class="tg-bats">${bats}</div>`:""}
-      ${pairBox}
     </div>`;
   };
 
   main.innerHTML=`<div class="cv-wrap">
     <div class="q-head"><b>Target Teams</b></div>
-    <div class="q-sub">Which defenses give up home runs tonight — pick the matchup, then pair the hitters.</div>
+    <div class="q-sub">Which defenses give up home runs tonight — pick the matchup, then the hitters.</div>
     <details class="tg-info">
       <summary>Model weights</summary>
       <div class="tg-info-b">Weighted by what the backtest graded, not by what feels obvious:
@@ -9860,10 +9836,8 @@ function renderTargets(){
         change nightly and get priced least efficiently.</div>
     </details>
     ${rows.map(card).join("")}
-    <div class="zd-note">Tap a card to filter the board to that game; <b>tap up to 3 hitters</b>
-
-    to build a same-game stack — a live combined probability appears once you've picked 2+.
-    <b>PRIME</b> 68+, <b>STRONG</b> 56+, <b>LEAN</b> 44+. Under 44 is a defense to avoid.</div>
+    <div class="zd-note">Tap a card to filter the board to that game; tap a hitter to open their
+    card. <b>PRIME</b> 68+, <b>STRONG</b> 56+, <b>LEAN</b> 44+. Under 44 is a defense to avoid.</div>
   </div>`;
 }
 
@@ -10000,6 +9974,71 @@ function scanStep4_power(){
     .slice(0,6);
 }
 
+// Cross-Game 3-Leg HR Parlay Optimizer -- state for the quick-swap button. Each swap cycles
+// forward through that game's stored alternates (top 3 candidates from the same game_pk) and
+// wraps back to the original pick, so tapping repeatedly is always safe.
+let cgpSwapIdx = {};   // "anchor:0" -> alternate index currently shown
+function cgpSwap(ticketKey, legIdx){
+  const k = ticketKey+":"+legIdx;
+  const t = (BOARD.cross_game_parlays||{})[ticketKey];
+  if(!t || t.incomplete) return;
+  const leg = t.legs[legIdx];
+  const alts = ((BOARD.cross_game_parlays||{}).alternates_by_game||{})[String(leg.game_pk)] || [];
+  if(alts.length<2) return;
+  const cur = cgpSwapIdx[k]==null ? 0 : cgpSwapIdx[k];
+  cgpSwapIdx[k] = (cur+1) % alts.length;
+  renderParlayScanner();
+}
+function cgpLegDisplay(ticketKey, legIdx, defaultLeg){
+  const k = ticketKey+":"+legIdx;
+  const idx = cgpSwapIdx[k];
+  if(idx==null || idx===0) return defaultLeg;
+  const alts = ((BOARD.cross_game_parlays||{}).alternates_by_game||{})[String(defaultLeg.game_pk)] || [];
+  return alts[idx] || defaultLeg;
+}
+
+function cgpTicketHTML(ticketKey, t){
+  const amerStr=n=>n==null?"—":(n>0?"+"+n:String(n));
+  const pctStr=p=>p==null?"—":(100*p).toFixed(p<0.01?3:2)+"%";
+  if(!t || t.incomplete){
+    return `<div class="cgp-ticket">
+      <div class="cgp-th">${t?t.label:ticketKey}</div>
+      <div class="psc-empty">${t?t.note:"Not enough of the slate has posted yet."}</div>
+    </div>`;
+  }
+  const legsHTML = t.legs.map((defaultLeg,i)=>{
+    const leg = cgpLegDisplay(ticketKey, i, defaultLeg);
+    const alts = ((BOARD.cross_game_parlays||{}).alternates_by_game||{})[String(leg.game_pk)]||[];
+    return `<div class="cgp-leg">
+      <div class="cgp-leg-l" onclick="event.stopPropagation();scanToPlayer(${leg.id})">
+        <b>${leg.name}</b><span>${leg.team} vs ${leg.opp_team}${leg.spot?` · #${leg.spot}`:""}</span>
+        <i>${(leg.drivers||[]).slice(0,2).join(" · ")}</i>
+      </div>
+      <div class="cgp-leg-r">
+        <b>${pctStr(leg.prob)}</b>
+        ${leg.book_odds!=null?`<span class="cgp-book">book ${amerStr(leg.book_odds)}</span>`:""}
+        ${leg.edge_extreme?`<span class="cgp-warn" title="Model/book gap unusually large -- verify manually">⚠</span>`:""}
+      </div>
+      ${alts.length>=2?`<button class="cgp-swap" onclick="event.stopPropagation();cgpSwap('${ticketKey}',${i})">⟳ swap</button>`:""}
+    </div>`;
+  }).join("");
+  return `<div class="cgp-ticket">
+    <div class="cgp-th">${t.label}<span>${t.subtitle}</span></div>
+    ${legsHTML}
+    <div class="cgp-sum">
+      <div class="cgp-sum-row"><span>Combined (independent)</span><b>${pctStr(t.combined_prob)}</b></div>
+      <div class="cgp-sum-row"><span>Fair odds</span><b>${amerStr(t.fair_odds)}</b></div>
+      ${t.book_combined_prob!=null?`
+      <div class="cgp-sum-row"><span>Book-implied combined</span><b>${pctStr(t.book_combined_prob)}</b></div>
+      <div class="cgp-sum-row ${t.ev_pct>0?'pos':''}"><span>Edge</span><b>${t.ev_pct>0?"+":""}${t.ev_pct}%${t.ev_extreme?" ⚠":""}</b></div>
+      `:`<div class="cgp-sum-row"><span>Book odds</span><b>unavailable for all 3 legs</b></div>`}
+    </div>
+    ${t.ev_extreme?`<div class="cgp-note warn">⚠ At least one leg's edge is unusually large relative to
+      its book price -- more likely leftover model overconfidence than a real mispricing this size.
+      Treat as a lead to check by eye, not a confirmed edge.</div>`:""}
+  </div>`;
+}
+
 function renderParlayScanner(){
   const main=document.getElementById("main");
   const s1=scanStep1_games(), s2=scanStep2_arms(), s3=scanStep3_contact(), s4=scanStep4_power();
@@ -10050,6 +10089,17 @@ function renderParlayScanner(){
       those screens for the same player. <b>2+ HRR</b> and the HRR prop's 1.5 line are the same
       number: the model produces a whole count, so clearing 1.5 means landing on 2 or more.</div>
     ${step1}${step2}${step3}${step4}
+    <div class="cgp-block">
+      <div class="q-head" style="font-size:15px;margin-top:4px"><b>Cross-Game 3-Leg HR Optimizer</b></div>
+      <div class="psc-sub">Every leg from a different game — no same-game correlation for a book
+      to price against you. Two tickets, ranked two different ways.</div>
+      ${(()=>{
+        const cgp=BOARD.cross_game_parlays;
+        if(!cgp) return `<div class="psc-empty">Optimizer hasn't run yet on this board.</div>`;
+        return `${cgpTicketHTML("anchor", cgp.anchor)}${cgpTicketHTML("overlooked", cgp.overlooked)}
+        <div class="cgp-note">${(cgp.notes||[]).join(" ")}</div>`;
+      })()}
+    </div>
     <div class="zd-note">Tap a game to filter the board to it, tap an arm to open Vulnerable
     Arms, tap a hitter to open their card. This is a fixed preset, not a saved filter — it
     re-scans the current board every time you open it.</div>
