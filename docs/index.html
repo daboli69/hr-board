@@ -1712,16 +1712,26 @@
   .tg-flag{font-family:"IBM Plex Mono";font-size:9.5px;color:var(--hot);
     background:rgba(200,70,60,.10);border:1px solid rgba(200,70,60,.35);border-radius:6px;padding:3px 7px}
 
-  /* Top 3 hitters: equal-width flex children that shrink rather than clip. */
-  .tg-bats{display:flex;gap:6px;margin-top:10px;padding-top:9px;border-top:1px solid var(--line)}
-  .tg-bat{flex:1 1 0;min-width:0;display:block;text-align:left;background:var(--panel-3);
-    border:none;border-radius:7px;padding:6px 8px;cursor:pointer;font:inherit}
+  /* Now up to 8 hitters, wrapping into rows of ~3, since this is a pairing pool now rather
+     than a fixed 3-name display — flex-wrap instead of a rigid equal-width row. */
+  .tg-bats{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;padding-top:9px;border-top:1px solid var(--line)}
+  .tg-bat{flex:1 1 30%;min-width:88px;display:block;text-align:left;background:var(--panel-3);
+    border:1.5px solid transparent;border-radius:7px;padding:6px 8px;cursor:pointer;font:inherit}
   .tg-bat:active{background:var(--line)}
+  .tg-bat.sel{border-color:var(--seam);background:rgba(214,106,54,.12)}
   .tg-bn{display:block;font-size:11px;color:var(--ink);white-space:nowrap;
     overflow:hidden;text-overflow:ellipsis}
   .tg-bh{display:block;font-family:"IBM Plex Mono";font-size:11px;font-weight:700;
     color:var(--seam);margin-top:2px}
   .tg-bh i{font-style:normal;font-size:9px;color:var(--faint);font-weight:400}
+  .tg-bx{display:block;font-family:"IBM Plex Mono";font-size:8px;color:var(--faint);margin-top:1px}
+  .tg-pair{margin-top:10px;padding:9px 10px;background:var(--panel-3);border-radius:9px;
+    border-left:2px solid var(--seam)}
+  .tg-pair-h{font-size:12px;color:var(--ink)}
+  .tg-pair-h span{display:block;font-family:"IBM Plex Mono";font-size:9px;color:var(--faint);margin-top:2px}
+  .tg-pair-n{font-family:"IBM Plex Mono";font-size:16px;font-weight:800;color:var(--seam);margin-top:6px}
+  .tg-pair-n span{font-size:10px;color:var(--faint);font-weight:400;margin-left:8px}
+  .tg-pair-note{font-family:"IBM Plex Mono";font-size:9px;color:var(--faint);line-height:1.5;margin-top:6px}
 
   /* Methodology collapsed by default so the top-ranked games sit above the fold. */
   .tg-info{margin:6px 0 12px}
@@ -9757,6 +9767,23 @@ function hrpToConverge(id){
 // the players — which is the order the parlay playbook asks for and which no screen supported.
 // Read as "batting team vs that defense".
 // ===========================================================================
+// Pairing state for the Target Teams card: which hitters are selected, per game, for building
+// a same-game stack. Composite "gamePk:playerId" keys so selections across different games'
+// cards never bleed into each other without extra bookkeeping.
+let pairSel = new Set();
+function togglePair(gamePk, id){
+  const k = gamePk+":"+id;
+  if(pairSel.has(k)) pairSel.delete(k);
+  else {
+    // cap at 3 legs for THIS game — selecting a 4th silently replaces the oldest pick rather
+    // than doing nothing, since "why didn't my tap register" is worse UX than a quiet swap.
+    const inGame=[...pairSel].filter(x=>x.startsWith(gamePk+":"));
+    if(inGame.length>=3) pairSel.delete(inGame[0]);
+    pairSel.add(k);
+  }
+  renderTargets();
+}
+
 function renderTargets(){
   const main=document.getElementById("main");
   const rows=(BOARD&&BOARD.team_targets)||[];
@@ -9772,12 +9799,37 @@ function renderTargets(){
   const card=(r,i)=>{
     const pills=(r.pills||[]).map(p=>
       `<span class="${pillCls(p.i)}"><i>${p.k}</i>${p.v}</span>`).join("");
-    const bats=(r.top_bats||[]).slice(0,3).map(b=>
-      `<button class="tg-bat" onclick="event.stopPropagation();scanToPlayer(${b.id})">
+    const bats=(r.top_bats||[]).map(b=>{
+      const sel=pairSel.has(r.game_pk+":"+b.id);
+      return `<button class="tg-bat${sel?" sel":""}" onclick="event.stopPropagation();togglePair(${r.game_pk},${b.id})">
         <span class="tg-bn">${b.name}</span>
         <span class="tg-bh">${b.heat!=null?Math.round(b.heat):"—"}${b.spot?` <i>#${b.spot}</i>`:""}</span>
-      </button>`).join("");
+        ${b.fams||b.near_miss?`<span class="tg-bx">${b.fams?b.fams+"fam":""}${b.fams&&b.near_miss?" · ":""}${b.near_miss?b.near_miss+"nm":""}</span>`:""}
+      </button>`;
+    }).join("");
     const flags=(r.flags||[]).map(f=>`<span class="tg-flag">⚠ ${f}</span>`).join("");
+
+    // Live pairing readout — only appears once 2+ hitters from THIS game are selected.
+    const picked=(r.top_bats||[]).filter(b=>pairSel.has(r.game_pk+":"+b.id));
+    let pairBox="";
+    if(picked.length>=2){
+      const probs=picked.map(b=>calibratedHRprob(b.heat)).filter(p=>p!=null);
+      const spots=picked.map(b=>b.spot).filter(s=>s!=null).sort((a,b)=>a-b);
+      const consecutive = spots.length>=2 && (spots[spots.length-1]-spots[0]) <= spots.length;
+      if(probs.length===picked.length){
+        const combined=probs.reduce((a,b)=>a*b,1);
+        pairBox=`<div class="tg-pair">
+          <div class="tg-pair-h">${picked.map(b=>b.name.split(" ").pop()).join(" + ")}
+            <span>${consecutive?"— consecutive spots, same game":"— same game, spread out"}</span></div>
+          <div class="tg-pair-n"><b>${(100*combined).toFixed(2)}%</b> if independent
+            <span>fair ${americanFair(combined)}</span></div>
+          <div class="tg-pair-note">Assumes independence — real same-game correlation is not
+            yet measured (tracking as of the fix that added team/game to the log). Treat this
+            as the FLOOR, not the real probability: correlated legs should land above it.</div>
+        </div>`;
+      }
+    }
+
     return `<div class="tg-row" onclick="filterToGame(${r.game_pk})">
       <div class="tg-top">
         <div class="tg-l">
@@ -9791,12 +9843,13 @@ function renderTargets(){
       </div>
       ${pills||flags?`<div class="tg-pills">${pills}${flags}</div>`:""}
       ${bats?`<div class="tg-bats">${bats}</div>`:""}
+      ${pairBox}
     </div>`;
   };
 
   main.innerHTML=`<div class="cv-wrap">
     <div class="q-head"><b>Target Teams</b></div>
-    <div class="q-sub">Which defenses give up home runs tonight — pick the matchup, then the hitters.</div>
+    <div class="q-sub">Which defenses give up home runs tonight — pick the matchup, then pair the hitters.</div>
     <details class="tg-info">
       <summary>Model weights</summary>
       <div class="tg-info-b">Weighted by what the backtest graded, not by what feels obvious:
@@ -9807,8 +9860,10 @@ function renderTargets(){
         change nightly and get priced least efficiently.</div>
     </details>
     ${rows.map(card).join("")}
-    <div class="zd-note">Tap a card to filter the board to that game; tap a hitter to open their
-    card. <b>PRIME</b> 68+, <b>STRONG</b> 56+, <b>LEAN</b> 44+. Under 44 is a defense to avoid.</div>
+    <div class="zd-note">Tap a card to filter the board to that game; <b>tap up to 3 hitters</b>
+
+    to build a same-game stack — a live combined probability appears once you've picked 2+.
+    <b>PRIME</b> 68+, <b>STRONG</b> 56+, <b>LEAN</b> 44+. Under 44 is a defense to avoid.</div>
   </div>`;
 }
 
