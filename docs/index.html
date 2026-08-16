@@ -8722,10 +8722,15 @@ function parlayPlaybookHTML(){
       100 is average on every Plus-stat; a pitcher with no FanGraphs match shows 100 across the
       board rather than a blank, so "no read yet" and "genuinely average" never look identical to
       a script but read the same to your eye until you check the flags.</p>
-      <p><b>Use ERA/vuln score as primary, FanGraphs as the tiebreak</b> — these are brand-new
-      signals that have not been backtested yet, unlike heat and convergence which are graded on
-      113+ days of real outcomes. Treat a Pitching+ ≤90 or Location+ <90 as confirmation on an
-      arm you already like, not as a reason to like an arm on its own.</p>
+      <p><b>Now graded — and the honest result is a null.</b> The backtest tested Command Risk
+      (Location+ under 98) against actual HR rate on 29,828 player-games: <b>10.90% vs 10.88%</b>
+      for a "risky" arm — statistically indistinguishable from zero. The FanGraphs run-mechanics
+      nudge (SIERA/xFIP/Stuff+/Pitching+ into the total-runs projection) moved MAE by 0.008 runs
+      on 1,578 games — about 3% of this app's entire usable accuracy range. Neither is proof the
+      metrics are worthless — this only tested them against HR outcomes and total runs
+      specifically, not strikeouts, where Stuff+/K-BB% still feed the K-engine separately — but
+      on the market this scanner is built for, <b>treat Location+ and the xFIP gap as flavor
+      text, not as a reason to move a bet.</b> Vuln score and heat remain the real signal.</p>
     </div>
 
     <div class="btg-block">
@@ -8754,8 +8759,9 @@ function parlayPlaybookHTML(){
       better than picking three hitters at random</b> (${amer(rnd)}), and steps 1 and 5 exist to
       create the same-game correlation that is the only real argument for the ticket.
       <b>Bet it because you want the shot, not because the math says it is +EV.</b>
-      The FanGraphs layer above is reasoning, not yet proof — give it a few weeks in the tracker
-      before weighting it as heavily as heat or convergence.
+      F5/RL is now graded and holding up (54.5% accuracy, Brier 0.2471 — beating the full-game
+      number on 1,335 games). The FanGraphs layer tested null against HR outcomes specifically —
+      treat Command/xFIP pills as context, not as their own reason to bet.
     </div>
   </div>`;
 }
