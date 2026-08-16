@@ -8741,9 +8741,12 @@ function parlayPlaybookHTML(){
       <ol class="btg-steps">
         <li><b>Game totals</b> — top 2 games by P(total > 7.5), from the Markov simulation.</li>
         <li><b>F5 / RL favorite</b> — for each game, the side favored to lead through 5 innings
-        (from the F5 win probability), qualified by its OWN starter clearing vuln ≤35,
-        <b>Pitching+ ≥105, and K-BB% above league average (15%)</b>. The team is the bet — the
-        pitcher is the reason to trust it, not the headline.</li>
+        (from the F5 win probability), qualified by its OWN starter clearing <b>vuln ≤35</b> —
+        the one threshold this app has actually backtested against the outcome. Pitching+ and
+        K-BB% used to be a hard requirement here too; the backtest tested both directly (Loc+
+        vs. HR rate, and the full FanGraphs run-mechanics nudge vs. total-runs MAE) and neither
+        showed a measurable effect, so they're shown on the card as context now, not as a veto.
+        The team is the bet — the pitcher is the reason to trust it, not the headline.</li>
         <li><b>Contact/HRR targets</b> — Tier 1–2 hitters vs. a vulnerable arm, a top Target
         Team, or a weak bullpen.</li>
         <li><b>Power-to-HRR floor</b> — 250+ BBE, 4+ families, 2+ near misses, vs. an ELITE
@@ -9883,13 +9886,16 @@ function scanStep2_arms(){
               pitching_plus:fg.pitching_plus, k_bb_pct:fg.k_bb_pct};
     })
     .filter(Boolean)
-    // The starter still has to be hard to hit -- that is WHY his side is trusted to hold a
-    // lead through 5 -- but the gate now qualifies a TEAM for the list rather than ranking
-    // pitchers by K rate. Pitching+ >= 105 and above-average K-BB% (league ~15%) require the
-    // FanGraphs read to agree with the Statcast vulnerability score before a side qualifies.
-    .filter(x=>x.vuln<=35
-             && (x.pitching_plus==null || x.pitching_plus>=105)
-             && (x.k_bb_pct==null || x.k_bb_pct>15))
+    // Pitching+ and K-BB% used to be a hard requirement here. The backtest run tested both of
+    // the relevant questions directly -- Location+ against actual HR rate (10.90% vs 10.88%,
+    // z=0.04) and the full FanGraphs run-mechanics nudge (SIERA/xFIP/Stuff+/Pitching+) against
+    // total-runs MAE, the exact metric F5/RL depends on (0.008 runs difference, ~3% of this
+    // app's entire usable accuracy range) -- and both came back statistically null. A gate with
+    // no proven relationship to the outcome should not be able to veto a real signal: vuln 28.2
+    // (SF, a night this shipped) was excluded by Pitching+ 94.56 alone despite clearing the one
+    // threshold that IS backtested. vuln<=35 is the only hard gate now; Pitching+/K-BB% still
+    // render on the card as context, same as Command Risk elsewhere in the app.
+    .filter(x=>x.vuln<=35)
     .sort((a,b)=>b.f5_wp-a.f5_wp)
     .slice(0,6);
 }
