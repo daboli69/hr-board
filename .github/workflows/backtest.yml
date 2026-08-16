@@ -11,11 +11,33 @@ jobs:
     # The replay walks every game day of the season. 90 minutes was cutting it off partway
     # through with nothing committed; 5 hours leaves real headroom as the season grows.
     timeout-minutes: 300
+    # FlareSolverr for etl/statcast_data.py's fangraphs_pitching() tier-1 fetch — this workflow
+    # never had it, so every backtest run fell through all 3 fetch tiers and the FanGraphs
+    # with/without comparison silently skipped every time (fangraphs_n: 0 in the output,
+    # correctly non-fatal, but meant the FanGraphs run-mechanics signal was never actually
+    # graded). Same service block already running in update-board.yml.
+    services:
+      flaresolverr:
+        image: ghcr.io/flaresolverr/flaresolverr:latest
+        ports:
+          - 8191:8191
+        env:
+          LOG_LEVEL: info
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with: { python-version: "3.11" }
+        with: { python-version: "3.12" }
       - run: pip install pandas numpy pybaseball requests
+
+      - name: Wait for FlareSolverr
+        run: |
+          for i in $(seq 1 20); do
+            if curl -sf http://localhost:8191/health >/dev/null 2>&1; then
+              echo "FlareSolverr ready after ${i}x2s"
+              break
+            fi
+            sleep 2
+          done || true
 
       # pybaseball itself asks for this — it caches the Statcast pull to disk, so a re-run
       # skips the slowest step entirely instead of re-downloading the whole season.
@@ -31,6 +53,7 @@ jobs:
         env:
           BT_SEASON_START: ${{ github.event.inputs.season_start }}
           PYTHONUNBUFFERED: "1"
+          FLARESOLVERR_URL: "http://localhost:8191"
         run: python -m etl.backtest
 
       - name: Commit results
