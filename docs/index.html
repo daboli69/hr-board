@@ -2509,7 +2509,6 @@
       <button class="nav-item" data-nav="toppicks" onclick="drawerGo('toppicks')">Top Picks<i>all props, most likely to hit first</i></button>
       <button class="nav-item" data-nav="converge" onclick="drawerGo('converge')">Signal Convergence<i>where independent reads agree — measured lift first</i></button>
       <button class="nav-item" data-nav="sgp" onclick="drawerGo('sgp')">Parlay Builder<i>SGP generator — pick the mix &amp; goal</i></button>
-      <button class="nav-item" data-nav="jackpot" onclick="drawerGo('jackpot')">Long Ball Jackpot<i>longest-HR contest — ceilings + leverage</i></button>
       <button class="nav-item" data-nav="ladder" onclick="drawerGo('ladder')">Ladder Challenge<i>roll a small stake up to a target, safest legs daily</i></button>
       <button class="nav-item" data-nav="qualified" onclick="drawerGo('qualified')">Qualified Bets<i>every market, only where price beats fair · Kelly sized</i></button>
       <button class="nav-item" data-nav="edges" onclick="drawerGo('edges','arms')">Vulnerable Arms<i>HR Vuln score · zone maps</i></button>
@@ -4950,7 +4949,6 @@ function renderToday(){
     <div class="ty-sec"><h2>Jump to</h2></div>
     <div class="ty-grid">
       <div class="ty-tool" onclick="goView('toppicks')"><svg class="ty-ic" viewBox="0 0 24 24">${IC_BOLT}</svg><div class="tt">Top Picks</div><div class="td">All props, most likely first</div></div>
-      <div class="ty-tool" onclick="goView('jackpot')"><svg class="ty-ic" viewBox="0 0 24 24">${IC_TGT}</svg><div class="tt">Long Ball Jackpot</div><div class="td">Longest-HR contest</div></div>
       <div class="ty-tool" onclick="goView('sgp')"><svg class="ty-ic" viewBox="0 0 24 24">${IC_LAY}</svg><div class="tt">Parlay Builder</div><div class="td">Adjustable SGP</div></div>
       <div class="ty-tool" onclick="goView('calendar')"><svg class="ty-ic" viewBox="0 0 24 24">${IC_CAL}</svg><div class="tt">HR Calendar</div><div class="td">Daily trends</div></div>
       <div class="ty-tool" onclick="goView('targets')"><svg class="ty-ic" viewBox="0 0 24 24">${IC_TGT||IC_CAL}</svg><div class="tt">Target Teams</div><div class="td">Who concedes tonight</div></div>
@@ -5272,7 +5270,7 @@ function renderView(){
   // Weather is a live standalone view again (park + wind arrow, plus slate park ranking).
   if(view==="stacks"){ view="scan"; }
   else if(view==="matchup"){ view="edges"; }
-  if(view==="today") safe(renderToday); else if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else if(view==="weather") safe(renderWeather); else if(view==="qualified") safe(renderQualified); else if(view==="toppicks") safe(renderTopPicks); else if(view==="calendar") safe(renderCalendar); else if(view==="targets") safe(renderTargets); else if(view==="scanner") safe(renderParlayScanner); else if(view==="hrpatterns") safe(renderHrPatterns); else if(view==="jackpot") safe(renderJackpot); else if(view==="sgp") safe(renderSGP); else if(view==="faq") safe(renderFaq); else if(view==="ladder") safe(renderLadder); else if(view==="pitchmix") safe(renderPitchMix); else if(view==="converge") safe(renderConverge); else safe(render);
+  if(view==="today") safe(renderToday); else if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else if(view==="weather") safe(renderWeather); else if(view==="qualified") safe(renderQualified); else if(view==="toppicks") safe(renderTopPicks); else if(view==="calendar") safe(renderCalendar); else if(view==="targets") safe(renderTargets); else if(view==="scanner") safe(renderParlayScanner); else if(view==="hrpatterns") safe(renderHrPatterns); else if(view==="jackpot") { view="parlays"; safe(renderParlays); } else if(view==="sgp") safe(renderSGP); else if(view==="faq") safe(renderFaq); else if(view==="ladder") safe(renderLadder); else if(view==="pitchmix") safe(renderPitchMix); else if(view==="converge") safe(renderConverge); else safe(render);
 }
 
 // Weather dashboard: today's slate, one card per game — conditions, roof call,
@@ -8107,35 +8105,34 @@ function renderParlays(){
   // outcomes in the backtest/tracker. A 470ft ceiling with a POW badge (+76% real lift), a zone
   // edge and a hot park beats a 470ft ceiling with nothing corroborating it.
   const jackpotCard=()=>{
-    const ranked=longballRanked(10);
-    if(!ranked.length) return thinCard("Longest HR Jackpot — ceiling × converging signals",
-      "Fills once lineups and power profiles post. This ranks the slate by distance ceiling blended with the proven-lift signals that agree — badges, zones, heat, barrel, park — so the names that top it have both the raw ceiling and the corroboration.");
-    const tierColor={moonshot:"var(--hot)",strong:"var(--good)",live:"var(--seam)",fringe:"var(--faint)"};
-    const kindCls={badge:"up",zone:"lb",heat:"hot",power:"tg",grade:"up",park:"tg"};
-    const rowHTML=(o,i)=>{
-      const p=o.p, lb=o.lb, col=tierColor[lb.tier]||"var(--faint)";
-      const opp=(p.opp_pitcher||{}).name||p.opp_team;
-      // converging signals with their measured lift — this is the "why they're here"
-      const sigs=lb.signals.slice(0,4).map(s=>{
-        const lift=(s.kind!=="grade"&&s.kind!=="park"&&s.lift!=null)?` ${liftPct(s.lift)}`:"";
-        return `<span class="pl-tag ${kindCls[s.kind]||"up"}">${s.label}${lift}</span>`;
-      }).join("");
-      const noConv=lb.signals.length===0?`<span class="pl-tag tg">ceiling only — no signals converge</span>`:"";
-      return `<div class="lb-row">
+    const lb=(BOARD&&BOARD.long_ball_jackpot)||{};
+    const picks=lb.picks||[];
+    if(!picks.length) return thinCard("Long Ball Jackpot — distance ceiling",
+      "Fills once lineups and power profiles post. Requires real trajectory data (launch angle 20-35° share and exit velocity on elevated contact) — probability of a hit doesn't matter for this contest, but a ball that never gets airborne at the right angle has no real distance case regardless of exit velocity.");
+    const rowHTML=(p,i)=>{
+      const col=i===0?"var(--hot)":i===1?"var(--good)":"var(--seam)";
+      const drv=(p.drivers||[]).map(d=>`<span class="pl-tag up">${d}</span>`).join("");
+      return `<div class="lb-row" onclick="scanToPlayer?scanToPlayer(${p.id}):null">
         <div class="lb-rank" style="color:${col}">${i+1}</div>
         <div class="lb-body">
-          <div class="lb-top"><b>${p.name}</b><span class="lb-score" style="color:${col}">${lb.final}<i>${lb.tier}</i></span></div>
-          <div class="pl-meta">${p.team}→${p.opp_team}${opp?` · vs ${opp}`:""}${lb.ceiling?` · ${lb.ceiling}ft ceiling`:""}</div>
-          <div class="pl-tags">${sigs}${noConv}</div>
-          <div class="lb-split"><span>distance <b>${lb.D}</b></span><span>convergence <b>${lb.C}</b></span></div>
+          <div class="lb-top"><b>${p.name}</b><span class="lb-score" style="color:${col}">${p.score}</span></div>
+          <div class="gs-pick-label">${p.pick_label}${p.pick_note?` · <i>${p.pick_note}</i>`:""}</div>
+          <div class="pl-meta">${p.team} → ${p.opp_team}${p.ceiling_ft?` · ${p.ceiling_ft}ft ceiling`:""}</div>
+          <div class="pl-tags">${drv}</div>
         </div>
       </div>`;
     };
     return `<div class="pl-card">
-      <div class="pl-card-h"><b>Longest HR Jackpot — ceiling × converging signals</b><span class="beta-pill">FARTHEST</span></div>
-      <div class="pl-sub">Distance ceiling (how far if he connects) blended with the <b>proven-lift signals that agree</b> — badges, zone fit, heat band, barrel band, grade and park, each weighted by how much it actually moved HR outcomes. Chips show the converging signals and their measured lift.</div>
-      ${ranked.map(rowHTML).join("")}
-      <div class="pl-foot">single entries, not a parlay — the jackpot pays for the one longest HR. Ceiling says how far; convergence says how many proven signals back it up tonight. "%": that signal's real HR-rate lift over the base in the backtest/tracker.</div>
+      <div class="pl-card-h"><b>Long Ball Jackpot — distance ceiling</b><span class="beta-pill">FANATICS</span></div>
+      <div class="pl-sub">Three picks for the "longest HR of the day" contest — probability of
+      a hit doesn't matter here, only how far it goes if it connects. <b>The Distance King</b>
+      (best overall ceiling), <b>The Weather/Altitude Play</b> (top exit velo in tonight's best
+      carry environment), and <b>The Mega-Leverage Nuke</b> (top 5% of MLB in max exit
+      velocity, off the board's own top-10 radar).</div>
+      ${picks.map(rowHTML).join("")}
+      <div class="pl-foot">Single entries, not a parlay — the jackpot pays for the one longest
+      HR. No book-odds comparison: this is a distance contest, not a standard prop market, so
+      there's no live line to check the score against — treat it as ranking, not a probability.</div>
     </div>`;
   };
 
@@ -8339,15 +8336,14 @@ function renderParlays(){
   // ---- Grand Slam Jackpot: 3 hitters most likely to hit a grand slam (DK jackpot). Ranks by
   // the GS score = traffic (bases loaded when he bats) x punish (golfs a grooved in-zone FB). ----
   const grandSlamCard=()=>{
-    const gs=(BOARD&&BOARD.grand_slam)||[];
-    if(!gs.length) return "";
-    const picks=gs.slice(0,3);
-    if(picks.length<3) return "";
+    const picks=((BOARD&&BOARD.grand_slam_jackpot)||{}).picks||[];
+    if(picks.length<2) return "";
     const leg2=(p)=>{
       const eliteChip=p.elite&&p.elite!=="BELOW"?`<span class="pl-tag gs-el">${p.elite}</span>`:"";
       return `<div class="pl-leg" onclick="scanToPlayer?scanToPlayer(${p.id}):null">
         <div class="pl-leg-l">
           <div class="pl-leg-nm"><b>${p.name}</b> <span class="pl-leg-sub">${p.team} · #${p.spot||"?"} vs ${p.opp_team}</span></div>
+          <div class="gs-pick-label">${p.pick_label}</div>
           <div class="pl-leg-why">${(p.drivers||[]).slice(0,3).join(" · ")}</div>
           ${p.p_slam!=null?`<div class="pl-leg-odds" title="Chance this hitter hits a grand slam tonight, and the odds that would be a fair price. League average is about 0.34% (+291).">slam <b>${(100*p.p_slam).toFixed(2)}%</b> · fair <b>${p.fair_odds>0?"+":""}${p.fair_odds}</b></div>`:""}
         </div>
@@ -8359,10 +8355,18 @@ function renderParlays(){
     };
     return `<div class="pl-card">
       <div class="pl-card-h"><div class="pl-card-t">Grand Slam Jackpot <span class="beta-pill">BETA</span></div>
-        <div class="pl-card-d">The 3 hitters most likely to hit a grand slam tonight — ranked by traffic (bases loaded when they bat) × punish (can they golf a grooved in-zone fastball). A slam needs both: ducks on the pond AND a masher who capitalizes.</div></div>
+        <div class="pl-card-d">Three DIFFERENT strategies, not the same top-3 chalk sorted three
+        ways: the <b>Primary Target</b> (best overall), a <b>Top-of-Order Mash</b> (best hitter in
+        spots 1-5, maximum plate appearances), and a <b>Mega-Leverage Deep Target</b> (best hitter
+        at spot 6 or lower, batting behind the on-base traffic without competing with the
+        cleanup-hitter chalk for the same jackpot pool).</div></div>
       ${picks.map(leg2).join("")}
-      <div class="pl-gs-legend">Each shows <b>GS score</b> (0-100), the drivers, and the elite tier. Traffic comes from the on-base bats ahead in the order + the starter's wildness; punish from barrel/EV/pull and in-zone fastball damage.</div>
-      <div class="pl-foot">⚠︎ Experimental — grand slams are rare and high-variance by nature; this ranks relative likelihood, not a real probability. A lottery ticket, sized accordingly. Not CLV-validated.</div>
+      <div class="pl-gs-legend">Each shows <b>GS score</b> (0-100), the drivers (ahead OBP, SP
+      walk rate + bullpen state, barrel%/badges), and the elite tier.</div>
+      <div class="pl-foot">⚠︎ Experimental — grand slams are rare and high-variance by nature;
+      the score ranks relative likelihood, while p_slam/fair odds is a real calibrated
+      probability where the model has enough to compute one. A lottery ticket, sized
+      accordingly. Not CLV-validated.</div>
     </div>`;
   };
 
