@@ -246,6 +246,38 @@ def build_long_ball_jackpot(players, lb_evbarrels=None):
                            key=lambda x: -(x.get("max_ev") or x.get("ev50") or 0))
         _pick(game_pool, "The Weather/Altitude Play")
 
+    # Per-game Long Ball board -- every scored batter from BOTH teams, ranked together, same
+    # shape as the Grand Slam Board. Tier cutoffs are score-based (this contest has no real
+    # probability, only a ranking) -- readability buckets, not a validated system, same
+    # disclaimer as Grand Slam's tiers.
+    def _lb_tier(sc):
+        if sc >= 75: return "STRONG"
+        if sc >= 55: return "SOLID"
+        if sc >= 35: return "LONGSHOT"
+        return "DARTS"
+
+    lb_board = []
+    for gpk, rows in by_game_pf.items():
+        rows_sorted = sorted(rows, key=lambda x: -x["score"])
+        batters = [{"rank": i + 1, "id": x["id"], "name": x["name"], "team": x["team"],
+                   "spot": x.get("spot"), "score": x["score"], "drivers": x["drivers"],
+                   "ceiling_ft": x.get("ceiling_ft"), "max_ev": x.get("max_ev"),
+                   "ev50": x.get("ev50"), "tier": _lb_tier(x["score"])}
+                  for i, x in enumerate(rows_sorted)]
+        if not batters:
+            continue
+        # Team order here reflects whichever team's hitter scored highest first, NOT true
+        # away/home -- this function only sees batters, not the game schedule itself, so
+        # labelling them "team_a"/"team_b" rather than "away"/"home" avoids implying a
+        # direction this data doesn't actually carry.
+        _teams = list(dict.fromkeys(x.get("team") for x in rows_sorted if x.get("team")))
+        lb_board.append({"game_pk": gpk, "n_batters": len(batters),
+                         "team_a": _teams[0] if len(_teams) > 0 else None,
+                         "team_b": _teams[1] if len(_teams) > 1 else None,
+                         "best_ceiling_ft": max((b.get("ceiling_ft") or 0) for b in batters),
+                         "batters": batters})
+    lb_board.sort(key=lambda g: -g["best_ceiling_ft"])
+
     # Mega-Leverage Nuke -- TRUE MLB-wide top 5% of max_hit_speed, from the full Savant
     # leaderboard (lb_evbarrels covers every qualified MLB batter, not just tonight's slate),
     # who is NOT one of the 10 highest-scored names on tonight's own board.
@@ -262,7 +294,7 @@ def build_long_ball_jackpot(players, lb_evbarrels=None):
              note=f"Top 5% MLB max EV ({p95_threshold:.1f}+ mph), off the radar")
 
     return {"picks": picks, "candidates_scored": len(scored),
-            "mlb_p95_max_ev": p95_threshold,
+            "mlb_p95_max_ev": p95_threshold, "board": lb_board,
             "notes": ["Absolute Power Ceiling uses real max_hit_speed/ev50/bat speed from a "
                      "Savant leaderboard fetch and the shared Statcast frame -- not an "
                      "avg_ev-percentile approximation.",
@@ -1862,11 +1894,21 @@ def build(date_str: str | None = None) -> dict:
 
         gs_all = []
         for gpk, lineup in by_game_lu.items():
-            # opposing starter walk rate (wildness) — same for all hitters facing that arm
+            # by_game_lu deliberately mixes BOTH teams (needed for a combined per-game board),
+            # but every batting-order spot 1-9 exists on BOTH teams -- confirmed on a real game:
+            # spot 3 has one hitter per team in the SAME list. Without a team filter,
+            # traffic_score()'s "who bats 3 spots ahead" lookup could silently grab the wrong
+            # team's hitter for roughly half of all traffic computations -- verified this
+            # produces a real, large divergence (score 10 vs 80 on the same synthetic inputs,
+            # opposite team ordering).
+            _by_team = {}
+            for x in lineup:
+                _by_team.setdefault(x.get("team"), []).append(x)
             for p in lineup:
+                own_lineup = _by_team.get(p.get("team")) or lineup
                 opp = p.get("opp_pitcher") or {}
                 opp_bb = (opp.get("season") or {}).get("bb_pct_allowed") or (opp.get("recent") or {}).get("bb_pct_allowed")
-                traffic = grandslam.traffic_score(p.get("lineup_spot"), lineup, opp_bb)
+                traffic = grandslam.traffic_score(p.get("lineup_spot"), own_lineup, opp_bb)
                 # in-zone fastball punish, if the feature pipeline computed it
                 izfb = (p.get("features") or {}).get("in_zone_fb")
                 _badges = {b.get("k") for b in (p.get("badges") or []) if b.get("k")}
@@ -2009,11 +2051,51 @@ def build(date_str: str | None = None) -> dict:
                                      "real calibrated probability where enough data exists to "
                                      "compute one. Not CLV-validated."]}
 
+        # Per-game Grand Slam Board -- every batter from BOTH teams in a game, ranked together
+        # by p_slam, not just the slate-wide top-12/top-3.
+        def _gs_tier(ps):
+            if ps is None:
+                return "DARTS"
+            if ps >= 0.0045: return "STRONG"
+            if ps >= 0.0030: return "SOLID"
+            if ps >= 0.0015: return "LONGSHOT"
+            return "DARTS"
+
+        _by_game_gs = {}
+        for sc, p in gs_all:
+            _by_game_gs.setdefault(p.get("game_pk"), []).append((sc, p))
+        board_gs_board = []
+        for gpk, rows in _by_game_gs.items():
+            rows.sort(key=lambda x: -((x[1]["grand_slam"] or {}).get("p_slam") or (x[0] / 1e6)))
+            _g = next((gg for gg in (games or []) if gg.get("game_pk") == gpk), {})
+            batters = []
+            _slam_complement = 1.0
+            for i, (sc, p) in enumerate(rows):
+                ps = (p["grand_slam"] or {}).get("p_slam")
+                if ps:
+                    _slam_complement *= (1.0 - ps)
+                batters.append({
+                    "rank": i + 1, "id": p["id"], "name": p["name"], "team": p.get("team"),
+                    "spot": p.get("lineup_spot"), "score": sc,
+                    "p_slam": ps, "fair_odds": (p["grand_slam"] or {}).get("fair_odds"),
+                    "tier": _gs_tier(ps),
+                })
+            board_gs_board.append({
+                "game_pk": gpk, "away": _g.get("away"), "home": _g.get("home"),
+                "park": _g.get("park"), "time": _g.get("time"),
+                "game_slam_prob": round(1.0 - _slam_complement, 4) if batters else None,
+                "best_individual_prob": batters[0]["p_slam"] if batters else None,
+                "n_batters": len(batters), "batters": batters,
+            })
+        board_gs_board.sort(key=lambda g: -(g.get("game_slam_prob") or 0))
+
         print(f"[build] grand slam: {len(gs_all)} hitters scored, top {len(board_gs)} surfaced "
-              f"({_np} with a calibrated probability, {len(gs_picks)}/3 picks selected)")
+              f"({_np} with a calibrated probability, {len(gs_picks)}/3 picks selected, "
+              f"{len(board_gs_board)} per-game boards)")
     except Exception as e:
         board_gs = []
         board_gs_jackpot = {"picks": [], "candidates_scored": 0, "notes": []}
+        board_gs_board = []
         _hnote("grand slam", e); print(f"[build] grand slam skipped: {e}")
 
     try:                                           # persist career-BvP cache for the next build
@@ -3631,6 +3713,7 @@ def build(date_str: str | None = None) -> dict:
         "park_ranks": park_ranks,           # best/worst HR park tonight (BPP live, local fallback)
         "grand_slam": board_gs,             # top GS-jackpot candidates (traffic x punish)
         "grand_slam_jackpot": board_gs_jackpot,  # Primary / Top-of-Order Mash / Mega-Leverage Deep
+        "grand_slam_board": board_gs_board,      # full per-game ranked board, both teams
         "top_plays": top_plays,
         "wx": wx_list,
         "fences": fences,
