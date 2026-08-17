@@ -58,13 +58,10 @@ def punish_score(metrics_season: dict, elite: dict, in_zone_fb: dict = None,
     loaded. Built from power profile (barrel/EV/pull) + the elite gate, and — when available —
     his ACTUAL in-zone-fastball barrel/hardhit (the sharpest version).
 
-    badges/ideal_aa_clear are the same signals the Cross-Game HR Optimizer uses, with the SAME
-    graded lifts checked directly against the tracker (lock 1.31x, pow 1.29x, mix 1.20x but thin
-    at n=100, hrsp 1.07x barely above base rate; ideal launch angle +12% season/+31% this month).
-    Kept consistent across both features rather than re-deriving a second set of numbers for
-    the same evidence.
-
-    Returns {score 0-100, drivers[]}.
+    badges/ideal_aa_clear use the SAME graded lifts as the Cross-Game HR Optimizer, checked
+    directly against the tracker (lock 1.31x, pow 1.29x, mix 1.20x but thin at n=100, hrsp 1.07x
+    barely above base rate; ideal launch angle +12% season/+31% this month). Kept consistent
+    across features rather than re-deriving a second set of numbers for the same evidence.
     """
     drivers = []
     comp = 0.0
@@ -90,13 +87,9 @@ def punish_score(metrics_season: dict, elite: dict, in_zone_fb: dict = None,
     if n == 0:
         return {}
     base = comp / n
-    # elite gate bonus
     if elite and elite.get("elite"):
         base = min(1.0, base + 0.08)
         drivers.append("elite profile")
-    # Badges and ideal launch angle -- small, capped bonuses on top of the power-profile base,
-    # damped the same way the Cross-Game optimizer damps correlated-with-power signals, since a
-    # hitter who already scores well on barrel/EV usually also carries pow/lock.
     if badges:
         for bk, lift in (("lock", 1.31), ("pow", 1.29), ("mix", 1.20), ("hrsp", 1.07)):
             if bk in badges:
@@ -111,10 +104,9 @@ def punish_score(metrics_season: dict, elite: dict, in_zone_fb: dict = None,
 
 def bullpen_wildness(pen: dict) -> float:
     """0-1 bullpen-meltdown-risk contribution, from the SAME bullpen_rankings record the
-    Bullpens tab and Cross-Game optimizer already read (rank_val 0-100, label). No separate
-    bullpen walk-rate field exists in this app's data -- rank_val is the established proxy for
-    "how likely is this pen to be the problem," already used for exactly this purpose
-    elsewhere, not a new invented number.
+    Bullpens tab already reads (rank_val 0-100, label). No separate bullpen walk-rate field
+    exists in this app's data -- rank_val is the established proxy for "how likely is this pen
+    to be the problem," already used for exactly this purpose elsewhere.
     """
     if not pen:
         return 0.0
@@ -123,9 +115,6 @@ def bullpen_wildness(pen: dict) -> float:
     if str(pen.get("label") or "").upper() in ("WORN", "GASSED"):
         w = min(1.0, w + 0.20)
     return w
-
-
-
 
 
 def loaded_bases_prob(ahead_p_ob, wildness=0.085):
@@ -178,7 +167,8 @@ def slam_probability(p_loaded, hr_per_pa, park_mult=1.0, near_miss_boost=0.0):
 
 
 def grand_slam_score(traffic: dict, punish: dict, pen_boost: float = 0.0,
-                     shift_boost: float = 0.0, p_slam: float = None) -> dict:
+                     shift_boost: float = 0.0, p_slam: float = None,
+                     pen_label: str = None) -> dict:
     """Combine traffic (bases loaded?) x punish (can he golf a grooved FB?) + amplifiers.
     Traffic and punish are BOTH required — a masher who never bats with ducks on the pond
     won't slam, and a weak bat with loaded bases won't either. So we multiply them, then add
@@ -188,30 +178,34 @@ def grand_slam_score(traffic: dict, punish: dict, pen_boost: float = 0.0,
         return {}
     t = traffic.get("score", 0) / 100.0
     p = punish.get("score", 0) / 100.0
-    # geometric core: both must be present
     core = (t * p) ** 0.5
     score = core * 100 + pen_boost + shift_boost
     score = max(0, min(100, round(score, 1)))
-    # Fair odds -- this was rendering ~1.0% slam probability as "+97/+100" instead of the
-    # correct "+9900". `1/p - 1` is decimal odds minus one; for an underdog (which every real
-    # grand-slam probability is) American odds are that number TIMES 100, not the bare decimal
-    # value. Written out in full and matched to the same formula this app already uses
-    # correctly everywhere else (Target Teams, the Cross-Game Optimizer's _fair()) rather than
-    # re-deriving a second, inconsistent version.
     fair_odds = None
     if p_slam and p_slam > 0:
         dec = 1.0 / p_slam
         fair_odds = round((dec - 1.0) * 100) if dec >= 2.0 else round(-100.0 / (dec - 1.0))
+
+    # Combined drivers -- traffic's own numbers (ahead OBP, SP wildness) were previously dropped
+    # entirely; only punish's drivers ever reached the final output, so a slam that scored high
+    # because three great on-base hitters bat ahead of him showed no evidence of that at all.
+    drivers = []
+    if traffic.get("obp_ahead") is not None:
+        drivers.append(f"Ahead OBP: {traffic['obp_ahead']:.3f}")
+    if traffic.get("wildness") is not None:
+        wtxt = f"SP BB%: {traffic['wildness']:.1f}%"
+        if pen_label:
+            wtxt += f" + {pen_label} Pen"
+        drivers.append(wtxt)
+    drivers.extend(punish.get("drivers", []))
+
     return {
         "score": score,
-        # Real probability alongside the ordinal score. Both are kept: the score is what the
-        # board sorts on and has a season of behaviour behind it, while the probability is what
-        # you compare to a price. Replacing one with the other would lose information.
         "p_slam": (round(p_slam, 5) if p_slam is not None else None),
         "fair_odds": fair_odds,
         "traffic": traffic.get("score"),
         "punish": punish.get("score"),
         "pen_boost": round(pen_boost, 1) if pen_boost else 0,
         "shift_boost": round(shift_boost, 1) if shift_boost else 0,
-        "drivers": punish.get("drivers", []),
+        "drivers": drivers[:5],
     }

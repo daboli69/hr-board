@@ -130,14 +130,10 @@ HRPO_MIN_BBE = 250               # below this, convergence is graded WORSE than 
 
 def _longball_score(p):
     """Distance-ceiling score for the Fanatics Longest HR promo -- probability of a hit does not
-    matter, only how far it goes IF it goes.
-
-    Built entirely from real, measured metrics -- no avg_ev-percentile approximation. The
-    previous version of this function substituted avg_ev's percentile for max_hit_speed because
-    neither ev50 nor a true MLB-wide max-EV percentile existed anywhere in this app's data. Both
-    now come from a real Savant leaderboard (batter_exitvelo_barrels), and launch35_pct/fbld_ev/
-    avg_bat_speed/fast_swing_rate come from the shared Statcast frame (batter_ceiling_profile) --
-    see etl/statcast_data.py for both.
+    matter, only how far it goes IF it goes. Built entirely from real, measured metrics: no
+    avg_ev-percentile approximation. max_hit_speed/ev50 come from a real Savant leaderboard
+    (batter_exitvelo_barrels); launch35_pct/fbld_ev/avg_bat_speed/fast_swing_rate come from the
+    shared Statcast frame (batter_ceiling_profile).
 
     Returns (score 0-100, drivers[], ceiling_ft) or (None, [], None) if there isn't enough real
     data to score this hitter at all.
@@ -156,19 +152,18 @@ def _longball_score(p):
     ev50 = lb.get("ev50")
     bat_speed = lb.get("avg_bat_speed")
     fast_swing = lb.get("fast_swing_rate")
-    have_power = any(v is not None for v in (max_ev, ev50, bat_speed))
-    if not have_power:
+    if not any(v is not None for v in (max_ev, ev50, bat_speed)):
         return None, [], max_dist
 
     power_parts, power_n = 0.0, 0
     if max_ev is not None:
         power_parts += cl((max_ev - 105) / 13) * 1.4; power_n += 1.4   # weighted heaviest --
         if max_ev >= 115:                                               # the genuine "ceiling"
-            drivers.append(f"Max EV {max_ev:.1f} mph")                  # number this feature
+            drivers.append(f"Max EV: {max_ev:.1f} mph")                 # number this feature
     if ev50 is not None:                                                 # is named for
         power_parts += cl((ev50 - 92) / 10); power_n += 1
         if ev50 >= 98:
-            drivers.append(f"EV50 {ev50:.1f} mph")
+            drivers.append(f"EV50: {ev50:.1f} mph")
     if bat_speed is not None:
         power_parts += cl((bat_speed - 68) / 12); power_n += 1
         if bat_speed >= 76:
@@ -184,23 +179,23 @@ def _longball_score(p):
         return None, [], max_dist       # no real trajectory data -- no distance case to make
     traj_parts, traj_n = 0.0, 0
     if launch35 is not None:
-        traj_parts += cl((launch35 - 15) / 30) * 1.5; traj_n += 1.5   # the primary trajectory
+        traj_parts += cl((launch35 - 15) / 30) * 1.5; traj_n += 1.5   # primary trajectory
         if launch35 >= 35:                                              # signal per spec --
-            drivers.append(f"{launch35:.0f}% launches 20-35°")          # weighted heaviest
+            drivers.append(f"Launch 20-35°: {launch35:.0f}%")           # weighted heaviest
     if fbld_ev is not None:
         traj_parts += cl((fbld_ev - 90) / 15); traj_n += 1
         if fbld_ev >= 100:
             drivers.append(f"{fbld_ev:.1f} mph on FB/LD")
     traj = (traj_parts / traj_n) if traj_n else 0.0
 
-    # ---- Pillar 3: Environmental Physics (25%) -- unchanged, same park_hr_factor the rest of
-    # the app already shows, not a separately re-derived environment score. ----
+    # ---- Pillar 3: Environmental Physics (25%) -- the same park_hr_factor the rest of the app
+    # already shows, not a separately re-derived environment score. ----
     pf = p.get("park_hr_factor")
     park_c = 0.0
     if pf is not None:
         park_c = cl((pf - 0.90) / 0.30)
         if pf >= 1.05:
-            drivers.append(f"park+wx {pf:.2f}x carry")
+            drivers.append(f"Carry: {pf:.2f}x")
         elif pf <= 0.93:
             park_c *= 0.5
 
@@ -253,12 +248,7 @@ def build_long_ball_jackpot(players, lb_evbarrels=None):
 
     # Mega-Leverage Nuke -- TRUE MLB-wide top 5% of max_hit_speed, from the full Savant
     # leaderboard (lb_evbarrels covers every qualified MLB batter, not just tonight's slate),
-    # who is NOT one of the 10 highest-scored names on tonight's own board. This is the actual
-    # fix for the previous version's empty Nuke pick: that version required avg_ev's percentile
-    # AND ideal launch angle AND being outside the top-10 simultaneously -- three conditions
-    # that could legitimately never intersect. This version uses max_hit_speed's own real
-    # percentile directly, which is both the correct metric for a DISTANCE contest and a wider
-    # net than the launch-angle-gated version was.
+    # who is NOT one of the 10 highest-scored names on tonight's own board.
     top10_ids = {x["id"] for x in scored[:10]}
     mlb_max_evs = sorted((v.get("max_hit_speed") for v in (lb_evbarrels or {}).values()
                          if v.get("max_hit_speed") is not None))
@@ -273,18 +263,14 @@ def build_long_ball_jackpot(players, lb_evbarrels=None):
 
     return {"picks": picks, "candidates_scored": len(scored),
             "mlb_p95_max_ev": p95_threshold,
-            "notes": ["Absolute Power Ceiling now uses real max_hit_speed/ev50/bat speed from "
-                     "a Savant leaderboard fetch and the shared Statcast frame -- not the "
-                     "avg_ev-percentile approximation the previous version used.",
+            "notes": ["Absolute Power Ceiling uses real max_hit_speed/ev50/bat speed from a "
+                     "Savant leaderboard fetch and the shared Statcast frame -- not an "
+                     "avg_ev-percentile approximation.",
                      "No book-odds comparison: this is a distance contest, not a standard HR "
                      "prop market, and there is no equivalent line in docs/odds.json to check "
                      "against.",
                      "Mega-Leverage Nuke uses max_hit_speed's TRUE MLB-wide percentile (from "
-                     "the full Savant leaderboard, not tonight's 270-player slate) -- this is "
-                     "the actual fix for the previous version returning empty: that version "
-                     "required avg_ev percentile AND ideal launch angle AND non-top-10 "
-                     "simultaneously, a three-way intersection narrow enough to legitimately "
-                     "never occur."]}
+                     "the full Savant leaderboard, not tonight's slate)."]}
 
 
 def _hrpo_calibrated_prob(heat, backtest_calib):
@@ -1719,8 +1705,7 @@ def build(date_str: str | None = None) -> dict:
                 "xwoba", "hardhit_pct", "bat_speed")},
             # Long Ball Jackpot's real ceiling metrics -- launch35_pct/fbld_ev/avg_bat_speed/
             # fast_swing_rate from the shared Statcast frame (batter_ceiling_profile), ev50/
-            # max_hit_speed from the true MLB-wide Savant leaderboard (batter_exitvelo_barrels),
-            # not the avg_ev-percentile substitution the previous version of this feature used.
+            # max_hit_speed from the true MLB-wide Savant leaderboard (batter_exitvelo_barrels).
             "long_ball": {**(lb_ceiling.get(int(bid)) or {}), **(lb_evbarrels.get(int(bid)) or {})},
             "heat_mix": heat_mix,
             "mix": mix_prof,
@@ -1884,12 +1869,33 @@ def build(date_str: str | None = None) -> dict:
                 traffic = grandslam.traffic_score(p.get("lineup_spot"), lineup, opp_bb)
                 # in-zone fastball punish, if the feature pipeline computed it
                 izfb = (p.get("features") or {}).get("in_zone_fb")
-                punish = grandslam.punish_score(p.get("_season_metrics"), p.get("elite"), izfb)
-                # pen amplifier: gassed pen / short starter behind the arm (reuse late_hr feature)
+                _badges = {b.get("k") for b in (p.get("badges") or []) if b.get("k")}
+                _ideal_clear = (((p.get("score_breakdown") or {}).get("signals") or {})
+                               .get("ideal_aa_pct") is True)
+                punish = grandslam.punish_score(p.get("_season_metrics"), p.get("elite"), izfb,
+                                                badges=_badges, ideal_aa_clear=_ideal_clear)
+                # pen amplifier: gassed pen / short starter behind the arm (late_hr feature),
+                # PLUS the opposing bullpen's own leverage-weighted walk rate and fatigue --
+                # pen_state is built earlier in this function (bullpen_state()), the same source
+                # the Bullpens tab reads, so this is real data, not a new invented number.
                 pen_boost = 0.0
                 lc = (p.get("features") or {}).get("late_hr")
                 if lc and lc.get("score"):
                     pen_boost = min(8.0, lc["score"] * 0.10)
+                _ps = pen_state.get(p.get("opp_team")) or {}
+                if _ps.get("bb_pct") is not None:
+                    pen_boost += max(0.0, min(4.0, (_ps["bb_pct"] * 100 - 9.5) * 1.3))
+                if _ps.get("fatigue") is not None:
+                    pen_boost += min(3.0, _ps["fatigue"] * 3.0)
+                # pen_state (bullpen_state()) has no "label" field -- that's bullpen_rankings'
+                # shape, a different dict not built until much later in this function. Derived
+                # here directly from what pen_state actually has, for the driver display text.
+                _fat, _nout = _ps.get("fatigue"), _ps.get("n_out")
+                _pen_label = ("GASSED" if (_fat is not None and _fat >= 0.5) or
+                                         (_nout is not None and _nout >= 3)
+                             else "WORN" if (_fat is not None and _fat >= 0.25) or
+                                            (_nout is not None and _nout >= 1)
+                             else None)
                 # Feed the new engines into the slam probability.
                 #
                 # The three hitters ahead now supply per-PA on-base numbers from the
@@ -1931,7 +1937,7 @@ def build(date_str: str | None = None) -> dict:
                 except Exception:
                     _p_slam = None
                 gs = grandslam.grand_slam_score(traffic, punish, pen_boost=pen_boost,
-                                                p_slam=_p_slam)
+                                                p_slam=_p_slam, pen_label=_pen_label)
                 if gs:
                     p["grand_slam"] = gs
                     gs_all.append((gs["score"], p))
@@ -1956,10 +1962,58 @@ def build(date_str: str | None = None) -> dict:
                 "heat": p.get("heat"), "elite": (p.get("elite") or {}).get("tier"),
             })
         _np = sum(1 for _x in board_gs if _x.get("p_slam") is not None)
+
+        # Pick 1/2/3, searched over the FULL scored pool (gs_all), not just the top-12 slice
+        # board_gs keeps -- a genuine deep-leverage play can rank #15 overall by raw p_slam and
+        # still be the single best spot-6+ candidate, and restricting the search to board_gs
+        # would silently hide it behind higher-probability top-of-order bats.
+        def _gs_dict(sc, p):
+            return {"id": p["id"], "name": p["name"], "team": p.get("team"),
+                   "opp_team": p.get("opp_team"), "spot": p.get("lineup_spot"),
+                   "game_pk": p.get("game_pk"), "time": p.get("time"), "score": sc,
+                   "p_slam": p["grand_slam"].get("p_slam"),
+                   "fair_odds": p["grand_slam"].get("fair_odds"),
+                   "traffic": p["grand_slam"]["traffic"], "punish": p["grand_slam"]["punish"],
+                   "drivers": p["grand_slam"]["drivers"], "heat": p.get("heat"),
+                   "elite": (p.get("elite") or {}).get("tier")}
+
+        def _gs_pick(pool, used_ids):
+            for sc, p in pool:
+                if p["id"] not in used_ids:
+                    return _gs_dict(sc, p)
+            return None
+        _used = set()
+        gs_picks = []
+        primary = _gs_pick(gs_all, _used)
+        if primary:
+            gs_picks.append({**primary, "pick_label": "Primary Target"})
+            _used.add(primary["id"])
+        top_pool = [(sc, p) for sc, p in gs_all if p.get("lineup_spot") and p["lineup_spot"] <= 5]
+        topmash = _gs_pick(top_pool, _used)
+        if topmash:
+            gs_picks.append({**topmash, "pick_label": "Top-of-Order Mash"})
+            _used.add(topmash["id"])
+        deep_pool = [(sc, p) for sc, p in gs_all if p.get("lineup_spot") and p["lineup_spot"] >= 6]
+        deep = _gs_pick(deep_pool, _used)
+        if deep:
+            gs_picks.append({**deep, "pick_label": "Mega-Leverage Deep Target"})
+            _used.add(deep["id"])
+        board_gs_jackpot = {"picks": gs_picks, "candidates_scored": len(gs_all),
+                            "notes": ["Traffic comes from the on-base bats ahead in the order + "
+                                     "the starter's wildness + the opposing bullpen's own "
+                                     "leverage-weighted walk rate and fatigue; punish from "
+                                     "barrel/EV/pull, badges, ideal launch angle, and in-zone "
+                                     "fastball damage.",
+                                     "Grand slams are rare and high-variance by nature -- score "
+                                     "ranks relative likelihood, while p_slam/fair_odds is a "
+                                     "real calibrated probability where enough data exists to "
+                                     "compute one. Not CLV-validated."]}
+
         print(f"[build] grand slam: {len(gs_all)} hitters scored, top {len(board_gs)} surfaced "
-              f"({_np} with a calibrated probability)")
+              f"({_np} with a calibrated probability, {len(gs_picks)}/3 picks selected)")
     except Exception as e:
         board_gs = []
+        board_gs_jackpot = {"picks": [], "candidates_scored": 0, "notes": []}
         _hnote("grand slam", e); print(f"[build] grand slam skipped: {e}")
 
     try:                                           # persist career-BvP cache for the next build
@@ -3576,6 +3630,7 @@ def build(date_str: str | None = None) -> dict:
         "park_source": ("ballparkpal" if BPP.get("ok") else "local"),
         "park_ranks": park_ranks,           # best/worst HR park tonight (BPP live, local fallback)
         "grand_slam": board_gs,             # top GS-jackpot candidates (traffic x punish)
+        "grand_slam_jackpot": board_gs_jackpot,  # Primary / Top-of-Order Mash / Mega-Leverage Deep
         "top_plays": top_plays,
         "wx": wx_list,
         "fences": fences,

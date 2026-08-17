@@ -1151,27 +1151,28 @@ def game_day_cutoff(df: pd.DataFrame, asof: str, n_days: int = 14) -> "pd.Timest
 
 
 def batter_ceiling_profile(df: pd.DataFrame, batter_ids: list[int], days: int = 30) -> dict:
-    """Long Ball Jackpot's trajectory metrics -- launch35_pct and fbld_ev -- computed from the
-    ALREADY-PULLED shared Statcast frame, not a second fetch.
+    """Long Ball Jackpot's trajectory metrics -- launch35_pct/fbld_ev/avg_bat_speed/
+    fast_swing_rate -- computed from the ALREADY-PULLED shared Statcast frame, not a second
+    fetch. The main build already pulls the full season once (the same `df` batter_profiles()
+    and every other per-player function in this file reads); a separate
+    `pybaseball.statcast(start_dt, end_dt)` call for "the trailing 30 days" would refetch data
+    already a subset of what is in memory, doubling network cost and directly risking the
+    Actions timeout this feature exists to avoid rather than preventing it.
 
-    The main build already pulls the full season once (the same `df` batter_profiles() and
-    every other per-player function in this file reads). A separate `pybaseball.statcast(
-    start_dt, end_dt)` call for "the trailing 30 days" would refetch data that is already a
-    subset of what is in memory -- doubling network cost and directly risking the Actions
-    timeout this feature is supposed to avoid, not prevent it. This filters the shared frame
-    to its own trailing window instead.
-
-    launch35_pct: share of this batter's batted balls with launch_angle in [20,35] -- the
-    Fanatics-relevant HR distance window. Deliberately a DIFFERENT band from ideal_aa_pct
-    (attack_angle in [5,20], a different physical quantity: the bat's angle at contact, not the
-    resulting batted ball's trajectory) -- conflating the two would silently mix a swing-plane
-    metric into a landing-trajectory one.
+    launch35_pct: share of batted balls with launch_angle in [20,35] -- the Fanatics-relevant HR
+    distance window. Deliberately a DIFFERENT band from ideal_aa_pct (attack_angle in [5,20], a
+    different physical quantity: the bat's angle at contact, not the resulting batted ball's
+    trajectory) -- conflating the two would silently mix a swing-plane metric into a
+    landing-trajectory one.
 
     fbld_ev: average exit velocity on fly_ball/line_drive batted balls only -- "we only care
-    about power that gets elevated" per spec, so a batter's raw average EV (including weak
-    grounders) is deliberately excluded here.
+    about power that gets elevated," so raw average EV (including weak grounders) is excluded.
 
-    Returns {batter_id: {launch35_pct, fbld_ev, n_bb}}.
+    avg_bat_speed/fast_swing_rate: from bat_speed, which exists on any TRACKED SWING
+    (whiff/foul/in-play), not only balls in play. 75 mph is the threshold Statcast's own public
+    bat-tracking leaderboards use for "fast swing."
+
+    Returns {batter_id: {launch35_pct, fbld_ev, n_bb, avg_bat_speed, fast_swing_rate}}.
     """
     if df is None or df.empty or not batter_ids:
         return {}
@@ -1193,7 +1194,7 @@ def batter_ceiling_profile(df: pd.DataFrame, batter_ids: list[int], days: int = 
 
     # Two grouped passes (trajectory on balls-in-play, bat speed on all tracked swings), not a
     # per-batter filter inside a loop -- O(n_batters * n_rows) on a full-season frame with
-    # hundreds of batters was slow enough on its own to work against the timeout this function
+    # hundreds of batters is slow enough on its own to work against the timeout this function
     # exists to avoid.
     if have_traj:
         bb_all = d_bip.dropna(subset=["launch_angle", "launch_speed"])
@@ -1211,18 +1212,12 @@ def batter_ceiling_profile(df: pd.DataFrame, batter_ids: list[int], days: int = 
                     rec["fbld_ev"] = round(float(fl["launch_speed"].mean()), 1)
 
     if have_bs:
-        # Fast Swing Rate: bat speed exists on any TRACKED SWING (whiff/foul/in-play), not only
-        # balls in play, so this runs on the pre-ball-in-play-filtered rows -- a real swing
-        # without contact still has a recorded bat speed.
         sw_all = d[d["bat_speed"].notna()]
         for bid, sw in sw_all.groupby("batter"):
             ns = len(sw)
             if ns < 10:
                 continue
             rec = out.setdefault(int(bid), {})
-            # 75 mph is the threshold Statcast's own public bat-tracking leaderboards use for
-            # "fast swing" -- not a number chosen to look right, matched to the public
-            # definition rather than re-derived.
             fast = (sw["bat_speed"] >= 75).sum()
             rec["avg_bat_speed"] = round(float(sw["bat_speed"].mean()), 1)
             rec["fast_swing_rate"] = round(100.0 * float(fast) / ns, 1)
@@ -1235,13 +1230,12 @@ def batter_exitvelo_barrels(season: int | None = None) -> dict:
     shape as fangraphs_pitching()'s own leaderboard call.
 
     ev50 = average EV of the hardest 50% of a batter's own batted balls -- his TYPICAL top-half
-    contact quality, not his single best swing. max_hit_speed = his single hardest-hit ball all
-    season -- the genuine ceiling number this feature is named for.
+    contact quality. max_hit_speed = his single hardest-hit ball all season -- the genuine
+    ceiling number this feature is named for.
 
-    Keyed by MLBAM batter id directly (Savant's own leaderboard, unlike FanGraphs, exposes a
-    real player_id column -- no name-normalisation join needed here). Non-fatal: any failure
-    returns {} and the Long Ball engine falls back to what it can still compute from the shared
-    Statcast frame.
+    Keyed by MLBAM batter id directly (Savant's own leaderboard exposes a real player_id column
+    -- no name-normalisation join needed here, unlike FanGraphs). Non-fatal: any failure returns
+    {} and the Long Ball engine falls back to what it can still compute from the shared frame.
     """
     import sys as _s
     import datetime as _dt
