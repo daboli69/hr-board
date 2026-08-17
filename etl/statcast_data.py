@@ -1150,6 +1150,154 @@ def game_day_cutoff(df: pd.DataFrame, asof: str, n_days: int = 14) -> "pd.Timest
     return dates[-n_days]
 
 
+def batter_ceiling_profile(df: pd.DataFrame, batter_ids: list[int], days: int = 30) -> dict:
+    """Long Ball Jackpot's trajectory metrics -- launch35_pct and fbld_ev -- computed from the
+    ALREADY-PULLED shared Statcast frame, not a second fetch.
+
+    The main build already pulls the full season once (the same `df` batter_profiles() and
+    every other per-player function in this file reads). A separate `pybaseball.statcast(
+    start_dt, end_dt)` call for "the trailing 30 days" would refetch data that is already a
+    subset of what is in memory -- doubling network cost and directly risking the Actions
+    timeout this feature is supposed to avoid, not prevent it. This filters the shared frame
+    to its own trailing window instead.
+
+    launch35_pct: share of this batter's batted balls with launch_angle in [20,35] -- the
+    Fanatics-relevant HR distance window. Deliberately a DIFFERENT band from ideal_aa_pct
+    (attack_angle in [5,20], a different physical quantity: the bat's angle at contact, not the
+    resulting batted ball's trajectory) -- conflating the two would silently mix a swing-plane
+    metric into a landing-trajectory one.
+
+    fbld_ev: average exit velocity on fly_ball/line_drive batted balls only -- "we only care
+    about power that gets elevated" per spec, so a batter's raw average EV (including weak
+    grounders) is deliberately excluded here.
+
+    Returns {batter_id: {launch35_pct, fbld_ev, n_bb}}.
+    """
+    if df is None or df.empty or not batter_ids:
+        return {}
+    d = df.copy()
+    if "game_date" in d.columns and days:
+        try:
+            cutoff = pd.to_datetime(d["game_date"]).max() - pd.Timedelta(days=days)
+            d = d[pd.to_datetime(d["game_date"]) >= cutoff]
+        except Exception:
+            pass
+    d = d[d["batter"].isin(batter_ids)]
+    out = {}
+    d_bip = d[d["type"] == "X"] if "type" in d.columns else d   # balls in play, for trajectory
+
+    have_traj = "launch_angle" in d_bip.columns and "launch_speed" in d_bip.columns
+    have_bs = "bat_speed" in d.columns
+    if not have_traj and not have_bs:
+        return out
+
+    # Two grouped passes (trajectory on balls-in-play, bat speed on all tracked swings), not a
+    # per-batter filter inside a loop -- O(n_batters * n_rows) on a full-season frame with
+    # hundreds of batters was slow enough on its own to work against the timeout this function
+    # exists to avoid.
+    if have_traj:
+        bb_all = d_bip.dropna(subset=["launch_angle", "launch_speed"])
+        for bid, bb in bb_all.groupby("batter"):
+            n = len(bb)
+            if n < 8:
+                continue
+            rec = out.setdefault(int(bid), {})
+            in_zone = bb[(bb["launch_angle"] >= 20) & (bb["launch_angle"] <= 35)]
+            rec["launch35_pct"] = round(100.0 * len(in_zone) / n, 1)
+            rec["n_bb"] = n
+            if "bb_type" in bb.columns:
+                fl = bb[bb["bb_type"].isin(["fly_ball", "line_drive"])]
+                if len(fl) >= 5:
+                    rec["fbld_ev"] = round(float(fl["launch_speed"].mean()), 1)
+
+    if have_bs:
+        # Fast Swing Rate: bat speed exists on any TRACKED SWING (whiff/foul/in-play), not only
+        # balls in play, so this runs on the pre-ball-in-play-filtered rows -- a real swing
+        # without contact still has a recorded bat speed.
+        sw_all = d[d["bat_speed"].notna()]
+        for bid, sw in sw_all.groupby("batter"):
+            ns = len(sw)
+            if ns < 10:
+                continue
+            rec = out.setdefault(int(bid), {})
+            # 75 mph is the threshold Statcast's own public bat-tracking leaderboards use for
+            # "fast swing" -- not a number chosen to look right, matched to the public
+            # definition rather than re-derived.
+            fast = (sw["bat_speed"] >= 75).sum()
+            rec["avg_bat_speed"] = round(float(sw["bat_speed"].mean()), 1)
+            rec["fast_swing_rate"] = round(100.0 * float(fast) / ns, 1)
+    return out
+
+
+def batter_exitvelo_barrels(season: int | None = None) -> dict:
+    """True MLB-wide max-EV/EV50 ceiling data, from Baseball Savant's exit-velocity-and-barrels
+    leaderboard -- a small, separate leaderboard fetch (NOT the heavy per-pitch pull), the same
+    shape as fangraphs_pitching()'s own leaderboard call.
+
+    ev50 = average EV of the hardest 50% of a batter's own batted balls -- his TYPICAL top-half
+    contact quality, not his single best swing. max_hit_speed = his single hardest-hit ball all
+    season -- the genuine ceiling number this feature is named for.
+
+    Keyed by MLBAM batter id directly (Savant's own leaderboard, unlike FanGraphs, exposes a
+    real player_id column -- no name-normalisation join needed here). Non-fatal: any failure
+    returns {} and the Long Ball engine falls back to what it can still compute from the shared
+    Statcast frame.
+    """
+    import sys as _s
+    import datetime as _dt
+    yr = season or _dt.date.today().year
+    try:
+        from pybaseball import statcast_batter_exitvelo_barrels
+        df = statcast_batter_exitvelo_barrels(yr, minBBE="q")
+    except Exception as e:
+        print(f"[longball] exitvelo/barrels leaderboard unavailable (non-fatal): {e}",
+              file=_s.stderr)
+        return {}
+    if df is None or df.empty:
+        return {}
+    try:
+        cols = {c.lower().strip(): c for c in df.columns}
+
+        def col(*cands):
+            for c in cands:
+                if c.lower() in cols:
+                    return cols[c.lower()]
+            return None
+        c_id = col("player_id", "playerid", "batter", "mlbam_id")
+        if not c_id:
+            print(f"[longball] no player-id column matched among {sorted(df.columns)[:20]} "
+                  f"— check these against the live leaderboard response", file=_s.stderr)
+            return {}
+        c_ev50 = col("ev50", "avg_hit_speed_50", "poorwellhit_avg")
+        c_max = col("max_hit_speed", "maxhitspeed", "max_ev")
+        c_brl = col("brl_percent", "barrel_batted_rate", "brl_pa")
+        out = {}
+        for _, r in df.iterrows():
+            try:
+                bid = int(r[c_id])
+            except Exception:
+                continue
+            rec = {}
+            for key, c in (("ev50", c_ev50), ("max_hit_speed", c_max), ("brl_percent", c_brl)):
+                if not c:
+                    continue
+                v = r.get(c)
+                try:
+                    if v is not None and v == v:
+                        rec[key] = round(float(v), 1)
+                except Exception:
+                    continue
+            if rec:
+                out[bid] = rec
+        if out:
+            _sample = list(out.items())[:3]
+            print(f"[longball] parsed {len(out)} batters, sample: {_sample}", file=_s.stderr)
+        return out
+    except Exception as e:
+        print(f"[longball] exitvelo/barrels parse failed (non-fatal): {e}", file=_s.stderr)
+        return {}
+
+
 def batter_profiles(df: pd.DataFrame, batter_ids: list[int], asof: str,
                     recent_days: int = 14) -> dict:
     """

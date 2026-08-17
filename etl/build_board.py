@@ -128,6 +128,165 @@ HRPO_BASE_RATE = 0.109          # re-anchored from the live backtest's base_pct 
 HRPO_MIN_BBE = 250               # below this, convergence is graded WORSE than no signal at all
 
 
+def _longball_score(p):
+    """Distance-ceiling score for the Fanatics Longest HR promo -- probability of a hit does not
+    matter, only how far it goes IF it goes.
+
+    Built entirely from real, measured metrics -- no avg_ev-percentile approximation. The
+    previous version of this function substituted avg_ev's percentile for max_hit_speed because
+    neither ev50 nor a true MLB-wide max-EV percentile existed anywhere in this app's data. Both
+    now come from a real Savant leaderboard (batter_exitvelo_barrels), and launch35_pct/fbld_ev/
+    avg_bat_speed/fast_swing_rate come from the shared Statcast frame (batter_ceiling_profile) --
+    see etl/statcast_data.py for both.
+
+    Returns (score 0-100, drivers[], ceiling_ft) or (None, [], None) if there isn't enough real
+    data to score this hitter at all.
+    """
+    lb = p.get("long_ball") or {}
+    hp = (p.get("features") or {}).get("hr_power") or {}
+    max_dist = hp.get("max_dist")
+
+    def cl(v):
+        return max(0.0, min(1.0, v))
+
+    drivers = []
+
+    # ---- Pillar 1: Absolute Power Ceiling (40%) ----
+    max_ev = lb.get("max_hit_speed")
+    ev50 = lb.get("ev50")
+    bat_speed = lb.get("avg_bat_speed")
+    fast_swing = lb.get("fast_swing_rate")
+    have_power = any(v is not None for v in (max_ev, ev50, bat_speed))
+    if not have_power:
+        return None, [], max_dist
+
+    power_parts, power_n = 0.0, 0
+    if max_ev is not None:
+        power_parts += cl((max_ev - 105) / 13) * 1.4; power_n += 1.4   # weighted heaviest --
+        if max_ev >= 115:                                               # the genuine "ceiling"
+            drivers.append(f"Max EV {max_ev:.1f} mph")                  # number this feature
+    if ev50 is not None:                                                 # is named for
+        power_parts += cl((ev50 - 92) / 10); power_n += 1
+        if ev50 >= 98:
+            drivers.append(f"EV50 {ev50:.1f} mph")
+    if bat_speed is not None:
+        power_parts += cl((bat_speed - 68) / 12); power_n += 1
+        if bat_speed >= 76:
+            drivers.append(f"{bat_speed:.1f} mph bat speed")
+    if fast_swing is not None:
+        power_parts += cl((fast_swing - 15) / 45) * 0.6; power_n += 0.6
+    power = (power_parts / power_n) if power_n else 0.0
+
+    # ---- Pillar 2: Trajectory & Elevated Contact (35%) ----
+    launch35 = lb.get("launch35_pct")
+    fbld_ev = lb.get("fbld_ev")
+    if launch35 is None and fbld_ev is None:
+        return None, [], max_dist       # no real trajectory data -- no distance case to make
+    traj_parts, traj_n = 0.0, 0
+    if launch35 is not None:
+        traj_parts += cl((launch35 - 15) / 30) * 1.5; traj_n += 1.5   # the primary trajectory
+        if launch35 >= 35:                                              # signal per spec --
+            drivers.append(f"{launch35:.0f}% launches 20-35°")          # weighted heaviest
+    if fbld_ev is not None:
+        traj_parts += cl((fbld_ev - 90) / 15); traj_n += 1
+        if fbld_ev >= 100:
+            drivers.append(f"{fbld_ev:.1f} mph on FB/LD")
+    traj = (traj_parts / traj_n) if traj_n else 0.0
+
+    # ---- Pillar 3: Environmental Physics (25%) -- unchanged, same park_hr_factor the rest of
+    # the app already shows, not a separately re-derived environment score. ----
+    pf = p.get("park_hr_factor")
+    park_c = 0.0
+    if pf is not None:
+        park_c = cl((pf - 0.90) / 0.30)
+        if pf >= 1.05:
+            drivers.append(f"park+wx {pf:.2f}x carry")
+        elif pf <= 0.93:
+            park_c *= 0.5
+
+    score = power * 40 + traj * 35 + park_c * 25
+    return round(max(0, min(100, score)), 1), drivers[:5], max_dist
+
+
+def build_long_ball_jackpot(players, lb_evbarrels=None):
+    """Long Ball Jackpot -- Distance King / Weather-Altitude Play / Mega-Leverage Nuke.
+
+    No book-odds comparison: "longest HR of the day" is a distance CONTEST, not a standard
+    HR-prop market, and docs/odds.json has no equivalent line to compare against.
+    """
+    scored = []
+    for p in players:
+        score, drivers, ceiling = _longball_score(p)
+        if score is None:
+            continue
+        lb = p.get("long_ball") or {}
+        scored.append({
+            "id": p.get("id"), "name": p.get("name"), "team": p.get("team"),
+            "opp_team": p.get("opp_team"), "game_pk": p.get("game_pk"),
+            "spot": p.get("lineup_spot"), "score": score, "drivers": drivers,
+            "ceiling_ft": ceiling, "park_hr_factor": p.get("park_hr_factor"),
+            "max_ev": lb.get("max_hit_speed"), "ev50": lb.get("ev50"),
+        })
+    scored.sort(key=lambda x: -x["score"])
+
+    picks = []
+    used = set()
+
+    def _pick(pool, label, note=None):
+        for x in pool:
+            if x["id"] not in used:
+                used.add(x["id"])
+                picks.append({**x, "pick_label": label, "pick_note": note})
+                return
+    _pick(scored, "The Distance King")
+
+    by_game_pf = {}
+    for x in scored:
+        by_game_pf.setdefault(x["game_pk"], []).append(x)
+    best_game = max(by_game_pf.items(),
+                    key=lambda kv: max((y.get("park_hr_factor") or 0) for y in kv[1]),
+                    default=(None, []))[0]
+    if best_game is not None:
+        game_pool = sorted(by_game_pf.get(best_game, []),
+                           key=lambda x: -(x.get("max_ev") or x.get("ev50") or 0))
+        _pick(game_pool, "The Weather/Altitude Play")
+
+    # Mega-Leverage Nuke -- TRUE MLB-wide top 5% of max_hit_speed, from the full Savant
+    # leaderboard (lb_evbarrels covers every qualified MLB batter, not just tonight's slate),
+    # who is NOT one of the 10 highest-scored names on tonight's own board. This is the actual
+    # fix for the previous version's empty Nuke pick: that version required avg_ev's percentile
+    # AND ideal launch angle AND being outside the top-10 simultaneously -- three conditions
+    # that could legitimately never intersect. This version uses max_hit_speed's own real
+    # percentile directly, which is both the correct metric for a DISTANCE contest and a wider
+    # net than the launch-angle-gated version was.
+    top10_ids = {x["id"] for x in scored[:10]}
+    mlb_max_evs = sorted((v.get("max_hit_speed") for v in (lb_evbarrels or {}).values()
+                         if v.get("max_hit_speed") is not None))
+    p95_threshold = (mlb_max_evs[int(len(mlb_max_evs) * 0.95)]
+                    if len(mlb_max_evs) >= 20 else None)
+    if p95_threshold is not None:
+        nuke_pool = [x for x in scored
+                    if x["id"] not in top10_ids and (x.get("max_ev") or 0) >= p95_threshold]
+        nuke_pool.sort(key=lambda x: -(x.get("max_ev") or 0))
+        _pick(nuke_pool, "The Mega-Leverage Nuke",
+             note=f"Top 5% MLB max EV ({p95_threshold:.1f}+ mph), off the radar")
+
+    return {"picks": picks, "candidates_scored": len(scored),
+            "mlb_p95_max_ev": p95_threshold,
+            "notes": ["Absolute Power Ceiling now uses real max_hit_speed/ev50/bat speed from "
+                     "a Savant leaderboard fetch and the shared Statcast frame -- not the "
+                     "avg_ev-percentile approximation the previous version used.",
+                     "No book-odds comparison: this is a distance contest, not a standard HR "
+                     "prop market, and there is no equivalent line in docs/odds.json to check "
+                     "against.",
+                     "Mega-Leverage Nuke uses max_hit_speed's TRUE MLB-wide percentile (from "
+                     "the full Savant leaderboard, not tonight's 270-player slate) -- this is "
+                     "the actual fix for the previous version returning empty: that version "
+                     "required avg_ev percentile AND ideal launch angle AND non-top-10 "
+                     "simultaneously, a three-way intersection narrow enough to legitimately "
+                     "never occur."]}
+
+
 def _hrpo_calibrated_prob(heat, backtest_calib):
     """Same heat-band calibration the frontend's calibratedHRprob() uses, computed server-side.
     Used as the FLOOR/anchor, not the whole score -- see _hrpo_raw_signals for why this
@@ -720,6 +879,18 @@ def build(date_str: str | None = None) -> dict:
         fg_pitch = statcast_data.fangraphs_pitching()                      # xFIP/SIERA/Stuff+
         first_inn = statcast_data.first_inning_splits(df, pitcher_ids)     # F3/F5 slow starters
         print(f"[build] fangraphs arms: {len(fg_pitch)} | first-inning splits: {len(first_inn)}")
+        # Long Ball Jackpot ceiling metrics -- launch35_pct/fbld_ev/bat speed computed from the
+        # SAME shared `df` already in memory (no second Statcast pull), ev50/max_hit_speed from
+        # a small, separate Savant leaderboard fetch (same shape as the FanGraphs call above).
+        try:
+            lb_ceiling = statcast_data.batter_ceiling_profile(df, batter_ids)
+            lb_evbarrels = statcast_data.batter_exitvelo_barrels()
+            print(f"[build] long ball ceiling: {len(lb_ceiling)} batters (trajectory/bat speed) "
+                  f"| {len(lb_evbarrels)} batters (MLB-wide ev50/max EV leaderboard)")
+        except Exception as e:
+            lb_ceiling, lb_evbarrels = {}, {}
+            _hnote("long ball ceiling metrics", e)
+            print(f"[build] long ball ceiling metrics skipped: {e}")
         print(f"[build] bvp tables: {len(bat_tables)} hitters, {len(arm_tables)} arms, "
               f"{len(pitch_hist)} histories, {len(team_ks)} team K splits")
     except Exception as e:
@@ -1543,7 +1714,14 @@ def build(date_str: str | None = None) -> dict:
             "pitch_matchup": pmatch,
             "features": feat,          # parallel edges: pitch_matchup, late_hr (never touch heat)
             "elite": elite,            # four-threshold elite gate (pull/EV/barrel/ideal-AA)
-            "_season_metrics": {k: season.get(k) for k in ("pull_air_pct","avg_ev","barrel_pct","ideal_aa_pct","bb_pct","iso","xwoba","hardhit_pct")},
+            "_season_metrics": {k: season.get(k) for k in (
+                "pull_air_pct", "avg_ev", "barrel_pct", "ideal_aa_pct", "bb_pct", "iso",
+                "xwoba", "hardhit_pct", "bat_speed")},
+            # Long Ball Jackpot's real ceiling metrics -- launch35_pct/fbld_ev/avg_bat_speed/
+            # fast_swing_rate from the shared Statcast frame (batter_ceiling_profile), ev50/
+            # max_hit_speed from the true MLB-wide Savant leaderboard (batter_exitvelo_barrels),
+            # not the avg_ev-percentile substitution the previous version of this feature used.
+            "long_ball": {**(lb_ceiling.get(int(bid)) or {}), **(lb_evbarrels.get(int(bid)) or {})},
             "heat_mix": heat_mix,
             "mix": mix_prof,
             "ev_overall": recent.get("avg_ev"),
@@ -3981,6 +4159,15 @@ def build(date_str: str | None = None) -> dict:
     except Exception as e:
         board["cross_game_parlays"] = None
         _hnote("cross-game parlays", e); print(f"[build] cross-game parlays skipped: {e}")
+
+    try:
+        board["long_ball_jackpot"] = build_long_ball_jackpot(players, lb_evbarrels)
+        _lb = board["long_ball_jackpot"]
+        print(f"[build] long ball jackpot: {_lb['candidates_scored']} candidates scored, "
+              f"{len(_lb['picks'])}/3 picks selected, MLB p95 max EV: {_lb['mlb_p95_max_ev']}")
+    except Exception as e:
+        board["long_ball_jackpot"] = {"picks": [], "candidates_scored": 0, "notes": []}
+        _hnote("long ball jackpot", e); print(f"[build] long ball jackpot skipped: {e}")
 
     return board
 
