@@ -1107,6 +1107,54 @@
   .gs-score{font-family:Archivo;font-weight:800;font-size:20px;color:var(--hot)}
   .pl-tag.gs-el{font-family:"IBM Plex Mono";font-size:8.5px;font-weight:800;color:var(--good);background:rgba(120,178,145,.15);padding:2px 5px;border-radius:4px}
   .pl-gs-legend{font-size:10px;color:var(--faint);line-height:1.5;padding:8px 2px 2px}
+  .gsb-link{display:block;width:100%;margin-top:8px;padding:8px;text-align:center;
+    font-family:"IBM Plex Mono";font-size:10px;color:var(--seam);background:var(--panel-3);
+    border:1px solid var(--line);border-radius:8px;cursor:pointer}
+  .gsb-link:active{background:var(--line)}
+  .gsb-wrap{padding-bottom:8px}
+  .gsb-head{padding:2px 0 10px}
+  .gsb-title{font-size:22px;font-weight:800;color:var(--ink);line-height:1.1}
+  .gsb-sub2{font-family:"IBM Plex Mono";font-size:13px;font-weight:700;color:var(--seam);
+    letter-spacing:.04em;margin-top:2px}
+  .gsb-meta{font-family:"IBM Plex Mono";font-size:10px;color:var(--faint);margin-top:4px}
+  .gsb-picker{display:flex;gap:6px;overflow-x:auto;padding:8px 0;margin-bottom:6px}
+  .gsb-pchip{flex:0 0 auto;font-family:"IBM Plex Mono";font-size:10px;color:var(--faint);
+    background:var(--panel-2);border:1px solid var(--line);border-radius:20px;
+    padding:5px 11px;white-space:nowrap;cursor:pointer}
+  .gsb-pchip.on{color:var(--seam);border-color:var(--seam);background:rgba(224,100,47,.10)}
+  .gsb-stats{display:flex;gap:8px;margin-bottom:12px}
+  .gsb-stat{flex:1;background:var(--panel-2);border-radius:10px;padding:10px}
+  .gsb-stat-l{font-family:"IBM Plex Mono";font-size:8.5px;color:var(--faint);
+    letter-spacing:.05em;margin-bottom:3px}
+  .gsb-stat-v{font-family:"IBM Plex Mono";font-size:20px;font-weight:800}
+  .gsb-listhead{font-family:"IBM Plex Mono";font-size:10px;color:var(--seam);
+    letter-spacing:.04em;margin:4px 0 8px}
+  .gsb-row{display:flex;align-items:center;gap:9px;background:var(--panel-2);
+    border-left:3px solid var(--faint);border-radius:0 8px 8px 0;padding:9px 10px;
+    margin-bottom:5px;cursor:pointer}
+  .gsb-row:active{background:var(--panel-3)}
+  .gsb-rank{flex:0 0 auto;font-family:"IBM Plex Mono";font-size:15px;font-weight:800;width:22px}
+  .gsb-mid{flex:1;min-width:0}
+  .gsb-nm b{font-size:13px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+  .gsb-sub{font-family:"IBM Plex Mono";font-size:8.5px;color:var(--faint);margin-top:1px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .gsb-odds{flex:0 0 auto;font-family:"IBM Plex Mono";font-size:11px;color:var(--muted);width:44px;text-align:right}
+  .gsb-prob{flex:0 0 auto;font-family:"IBM Plex Mono";font-size:13px;font-weight:800;width:52px;text-align:right}
+  .gsb-tier{flex:0 0 auto;font-family:"IBM Plex Mono";font-size:7.5px;font-weight:700;
+    border:1px solid;border-radius:4px;padding:2px 5px;white-space:nowrap}
+  /* Jackpot pool tracker box -- shared between the Grand Slam card/board and the Long Ball
+     card/board, since the flat-$50K Long Ball version reuses the same visual container with
+     no buttons inside it. */
+  .gsp-box{background:var(--panel-2);border-radius:10px;padding:11px;margin-bottom:10px;
+    text-align:center}
+  .gsp-amt{font-family:"IBM Plex Mono";font-size:26px;font-weight:800}
+  .gsp-btns{display:flex;gap:6px;margin-top:8px}
+  .gsp-btn{flex:1;font-family:"IBM Plex Mono";font-size:9.5px;color:var(--muted);
+    background:var(--panel-3);border:1px solid var(--line);border-radius:7px;padding:8px 5px;
+    cursor:pointer}
+  .gsp-btn:active{background:var(--line)}
+  .gsp-btn.hit{color:var(--hot);border-color:rgba(200,70,60,.4)}
+  .gsp-note{font-family:"IBM Plex Mono";font-size:9px;color:var(--faint);margin-top:6px}
   .elite-chip{font-family:"IBM Plex Mono";font-size:8px;font-weight:800;padding:1px 4px;border-radius:3px;margin-left:4px;letter-spacing:.03em;vertical-align:middle}
   .elite-chip.el{color:var(--good);background:rgba(120,178,145,.16)}
   .elite-chip.el-plus{color:#fff;background:var(--good)}
@@ -5270,7 +5318,7 @@ function renderView(){
   // Weather is a live standalone view again (park + wind arrow, plus slate park ranking).
   if(view==="stacks"){ view="scan"; }
   else if(view==="matchup"){ view="edges"; }
-  if(view==="today") safe(renderToday); else if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else if(view==="weather") safe(renderWeather); else if(view==="qualified") safe(renderQualified); else if(view==="toppicks") safe(renderTopPicks); else if(view==="calendar") safe(renderCalendar); else if(view==="targets") safe(renderTargets); else if(view==="scanner") safe(renderParlayScanner); else if(view==="hrpatterns") safe(renderHrPatterns); else if(view==="jackpot") { view="parlays"; safe(renderParlays); } else if(view==="sgp") safe(renderSGP); else if(view==="faq") safe(renderFaq); else if(view==="ladder") safe(renderLadder); else if(view==="pitchmix") safe(renderPitchMix); else if(view==="converge") safe(renderConverge); else safe(render);
+  if(view==="today") safe(renderToday); else if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else if(view==="weather") safe(renderWeather); else if(view==="qualified") safe(renderQualified); else if(view==="toppicks") safe(renderTopPicks); else if(view==="calendar") safe(renderCalendar); else if(view==="targets") safe(renderTargets); else if(view==="scanner") safe(renderParlayScanner); else if(view==="hrpatterns") safe(renderHrPatterns); else if(view==="jackpot") { view="parlays"; safe(renderParlays); } else if(view==="gsboard") safe(renderGrandSlamBoard); else if(view==="lbboard") safe(renderLongBallBoard); else if(view==="sgp") safe(renderSGP); else if(view==="faq") safe(renderFaq); else if(view==="ladder") safe(renderLadder); else if(view==="pitchmix") safe(renderPitchMix); else if(view==="converge") safe(renderConverge); else safe(render);
 }
 
 // Weather dashboard: today's slate, one card per game — conditions, roof call,
@@ -7994,6 +8042,205 @@ function pgenBuild(ranked){
   return {picks, ev, allPriced, dec, mp};
 }
 
+// ---------------------------------------------------------------------------
+// Jackpot pool tracking. No backend exists to know real-world jackpot outcomes, so this is
+// state Travis tells the app about, kept in localStorage -- real, standard web storage for a
+// genuine deployed site (not an Artifacts restriction, which is about ephemeral in-chat
+// previews, not standalone HTML pages like this one). Real tradeoff, stated plainly: this is
+// per-device. A different phone or a cleared Safari cache loses the count.
+//
+// Grand Slam: $500K base, +$500K for every day nobody hits one, until it's hit -- then it's
+// dead until the following Monday, when a fresh $500K cycle starts. Long Ball: flat $50K every
+// day regardless of outcome -- genuinely no state to track, so there's no button for it at all.
+// ---------------------------------------------------------------------------
+const GS_POOL_KEY = "gy_gs_pool_v1";
+const GS_POOL_BASE = 500000;
+const GS_POOL_INCREMENT = 500000;
+
+function gsPoolLoad(){
+  try {
+    const raw = localStorage.getItem(GS_POOL_KEY);
+    if(raw) return JSON.parse(raw);
+  } catch(e){}
+  return {pool: GS_POOL_BASE, hitDate: null};
+}
+function gsPoolSave(state){
+  try { localStorage.setItem(GS_POOL_KEY, JSON.stringify(state)); } catch(e){}
+}
+function _nextMonday(fromDate){
+  const d = new Date(fromDate);
+  const day = d.getDay();                    // 0=Sun..6=Sat
+  const add = day === 1 ? 7 : ((8 - day) % 7 || 7);
+  d.setDate(d.getDate() + add);
+  d.setHours(0,0,0,0);
+  return d;
+}
+function gsPoolState(){
+  // Auto-rollover: if it was hit and today has reached the following Monday, the cycle resets
+  // on its own -- real calendar math, not a third button.
+  let s = gsPoolLoad();
+  if(s.hitDate){
+    const monday = _nextMonday(new Date(s.hitDate));
+    if(new Date() >= monday){
+      s = {pool: GS_POOL_BASE, hitDate: null};
+      gsPoolSave(s);
+    }
+  }
+  return s;
+}
+function gsPoolBump(){
+  const s = gsPoolState();
+  if(s.hitDate) return;                       // dead until Monday -- bumping does nothing
+  s.pool += GS_POOL_INCREMENT;
+  gsPoolSave(s);
+  renderParlays(); renderGrandSlamBoard && (view==="gsboard") && renderGrandSlamBoard();
+}
+function gsPoolHit(){
+  const s = gsPoolState();
+  s.hitDate = new Date().toISOString();
+  gsPoolSave(s);
+  renderParlays(); renderGrandSlamBoard && (view==="gsboard") && renderGrandSlamBoard();
+}
+function gsPoolDisplay(){
+  const s = gsPoolState();
+  if(s.hitDate){
+    const monday = _nextMonday(new Date(s.hitDate));
+    const md = monday.toLocaleDateString("en-US",{month:"short",day:"numeric"});
+    return {text: "🏆 WON — restarts " + md, amount: null, won: true};
+  }
+  const amt = "$" + (s.pool/1000).toFixed(0) + "K";
+  return {text: amt, amount: s.pool, won: false};
+}
+function gsPoolControlsHTML(){
+  const d = gsPoolDisplay();
+  return `<div class="gsp-box">
+    <div class="gsp-amt" style="color:${d.won?'var(--good)':'var(--seam)'}">${d.text}</div>
+    ${!d.won?`<div class="gsp-btns">
+      <button class="gsp-btn" onclick="event.stopPropagation();gsPoolBump();">No slam — bump +$500K</button>
+      <button class="gsp-btn hit" onclick="event.stopPropagation();if(confirm('Mark today\\'s Grand Slam as HIT? Pool resets and stays dead until Monday.'))gsPoolHit();">HIT — reset</button>
+    </div>`:`<div class="gsp-note">Tap once the new cycle should start early: <button class="gsp-btn" onclick="event.stopPropagation();gsPoolSave({pool:${GS_POOL_BASE},hitDate:null});renderParlays();">force restart now</button></div>`}
+  </div>`;
+}
+
+// Grand Slam Board -- full per-game ranked list, both teams together: rank badge + colored left
+// border by tier, name/team/slot, fair odds, p_slam %, tier badge.
+let gsBoardGamePk = null;
+function gsBoardGo(gpk){ gsBoardGamePk = gpk; view = "gsboard"; renderGrandSlamBoard(); scrollTo(0,0); }
+
+function renderGrandSlamBoard(){
+  const main = document.getElementById("main");
+  const boards = (BOARD && BOARD.grand_slam_board) || [];
+  if(!boards.length){
+    main.innerHTML = `<div class="empty">No grand slam board yet — needs lineups and starters
+      to post.</div>`;
+    return;
+  }
+  const g = boards.find(b=>b.game_pk===gsBoardGamePk) || boards[0];
+  const tierColor = {STRONG:"var(--good)", SOLID:"var(--seam)", LONGSHOT:"#9B8CE0", DARTS:"var(--faint)"};
+  const amerStr = n => n==null ? "—" : (n>0 ? "+"+n : String(n));
+  const pctStr = p => p==null ? "—" : (100*p).toFixed(2)+"%";
+
+  const gamePicker = boards.length>1 ? `<div class="gsb-picker">
+    ${boards.map(b=>`<button class="gsb-pchip${b.game_pk===g.game_pk?' on':''}"
+      onclick="gsBoardGamePk=${b.game_pk};renderGrandSlamBoard();">${b.away} @ ${b.home}</button>`).join("")}
+  </div>` : "";
+
+  const rowHTML = (b) => {
+    const col = tierColor[b.tier] || "var(--faint)";
+    return `<div class="gsb-row" style="border-left-color:${col}" onclick="scanToPlayer?scanToPlayer(${b.id}):null">
+      <div class="gsb-rank" style="color:${col}">${String(b.rank).padStart(2,"0")}</div>
+      <div class="gsb-mid">
+        <div class="gsb-nm"><b>${b.name}</b></div>
+        <div class="gsb-sub">${b.team} · SLOT ${b.spot||"?"}</div>
+      </div>
+      <div class="gsb-odds">${amerStr(b.fair_odds)}</div>
+      <div class="gsb-prob"><span style="color:${col}">${pctStr(b.p_slam)}</span></div>
+      <div class="gsb-tier" style="color:${col};border-color:${col}">${b.tier}</div>
+    </div>`;
+  };
+
+  main.innerHTML = `<div class="cv-wrap gsb-wrap">
+    <div class="gsb-head">
+      <div class="gsb-title">${g.away} @ ${g.home}</div>
+      <div class="gsb-sub2">GRAND SLAM BOARD</div>
+      <div class="gsb-meta">${g.park||""}${g.time?` · ${g.time}`:""}</div>
+    </div>
+    ${gsPoolControlsHTML()}
+    ${gamePicker}
+    <div class="gsb-stats">
+      <div class="gsb-stat"><div class="gsb-stat-l">GAME SLAM PROB</div>
+        <div class="gsb-stat-v" style="color:var(--good)">${pctStr(g.game_slam_prob)}</div></div>
+      <div class="gsb-stat"><div class="gsb-stat-l">BEST INDIVIDUAL</div>
+        <div class="gsb-stat-v" style="color:var(--seam)">${pctStr(g.best_individual_prob)}</div></div>
+    </div>
+    <div class="gsb-listhead">RANKED // ${g.away} @ ${g.home} · ${g.n_batters} BATS</div>
+    ${g.batters.map(rowHTML).join("")}
+    <div class="zd-note">Tap a name to open their card. Tiers are readability buckets over
+    this app's own p_slam range (STRONG 0.45%+, SOLID 0.30%+, LONGSHOT 0.15%+, DARTS below) —
+    not a separately validated system. Pool tracking is manual, kept on this device only —
+    tap the buttons above once you know the real-world outcome each day.</div>
+  </div>`;
+}
+
+// Long Ball Board -- same layout, no odds/probability (it's a distance contest, not a priced
+// market), so rows show score + specific driver text instead. team_a/team_b, not away/home --
+// build_long_ball_jackpot only sees batters, not the schedule, so it can't know true direction.
+let lbBoardGamePk = null;
+function lbBoardGo(gpk){ lbBoardGamePk = gpk; view = "lbboard"; renderLongBallBoard(); scrollTo(0,0); }
+
+function renderLongBallBoard(){
+  const main = document.getElementById("main");
+  const boards = ((BOARD && BOARD.long_ball_jackpot) || {}).board || [];
+  if(!boards.length){
+    main.innerHTML = `<div class="empty">No long ball board yet — needs lineups and power
+      profiles to post.</div>`;
+    return;
+  }
+  const g = boards.find(b=>b.game_pk===lbBoardGamePk) || boards[0];
+  const tierColor = {STRONG:"var(--good)", SOLID:"var(--seam)", LONGSHOT:"#9B8CE0", DARTS:"var(--faint)"};
+
+  const gamePicker = boards.length>1 ? `<div class="gsb-picker">
+    ${boards.map(b=>`<button class="gsb-pchip${b.game_pk===g.game_pk?' on':''}"
+      onclick="lbBoardGamePk=${b.game_pk};renderLongBallBoard();">${b.team_a||"?"} vs ${b.team_b||"?"}</button>`).join("")}
+  </div>` : "";
+
+  const rowHTML = (b) => {
+    const col = tierColor[b.tier] || "var(--faint)";
+    const drv = (b.drivers||[]).slice(0,1).join("");
+    return `<div class="gsb-row" style="border-left-color:${col}" onclick="scanToPlayer?scanToPlayer(${b.id}):null">
+      <div class="gsb-rank" style="color:${col}">${String(b.rank).padStart(2,"0")}</div>
+      <div class="gsb-mid">
+        <div class="gsb-nm"><b>${b.name}</b></div>
+        <div class="gsb-sub">${b.team} · SLOT ${b.spot||"?"}${drv?` · ${drv}`:""}</div>
+      </div>
+      <div class="gsb-odds">${b.ceiling_ft?b.ceiling_ft+"ft":"—"}</div>
+      <div class="gsb-prob"><span style="color:${col}">${b.score}</span></div>
+      <div class="gsb-tier" style="color:${col};border-color:${col}">${b.tier}</div>
+    </div>`;
+  };
+
+  main.innerHTML = `<div class="cv-wrap gsb-wrap">
+    <div class="gsb-head">
+      <div class="gsb-title">${g.team_a||"?"} vs ${g.team_b||"?"}</div>
+      <div class="gsb-sub2">LONG BALL BOARD</div>
+    </div>
+    <div class="gsp-box"><div class="gsp-amt" style="color:var(--seam)">$50K</div>
+      <div class="gsp-note">Flat every day, win or not — no tracking needed for this one.</div></div>
+    ${gamePicker}
+    <div class="gsb-stats">
+      <div class="gsb-stat"><div class="gsb-stat-l">BEST CEILING</div>
+        <div class="gsb-stat-v" style="color:var(--good)">${g.best_ceiling_ft?g.best_ceiling_ft+"ft":"—"}</div></div>
+      <div class="gsb-stat"><div class="gsb-stat-l">BATTERS SCORED</div>
+        <div class="gsb-stat-v" style="color:var(--seam)">${g.n_batters}</div></div>
+    </div>
+    <div class="gsb-listhead">RANKED // ${g.team_a||"?"} VS ${g.team_b||"?"} · ${g.n_batters} BATS</div>
+    ${g.batters.map(rowHTML).join("")}
+    <div class="zd-note">Tap a name to open their card. Tiers are score-based readability
+    buckets (STRONG 75+, SOLID 55+, LONGSHOT 35+, DARTS below) — there's no real probability
+    for a distance contest, only a ranking. No book-odds comparison exists for this market.</div>
+  </div>`;
+}
+
 function renderParlays(){
   const main=document.getElementById("main");
   if(!BOARD||!BOARD.players){ main.innerHTML=`<div class="empty">Board not loaded.</div>`; return; }
@@ -8129,7 +8376,10 @@ function renderParlays(){
       (best overall ceiling), <b>The Weather/Altitude Play</b> (top exit velo in tonight's best
       carry environment), and <b>The Mega-Leverage Nuke</b> (top 5% of MLB in max exit
       velocity, off the board's own top-10 radar).</div>
+      <div class="gsp-box"><div class="gsp-amt" style="color:var(--seam)">$50K</div>
+        <div class="gsp-note">Flat every day, win or not — nothing to track for this one.</div></div>
       ${picks.map(rowHTML).join("")}
+      ${((BOARD&&BOARD.long_ball_jackpot)||{}).board?.length?`<button class="gsb-link" onclick="event.stopPropagation();lbBoardGo(${picks[0]?.game_pk||"null"});">View full ranked board, every batter →</button>`:""}
       <div class="pl-foot">Single entries, not a parlay — the jackpot pays for the one longest
       HR. No book-odds comparison: this is a distance contest, not a standard prop market, so
       there's no live line to check the score against — treat it as ranking, not a probability.</div>
@@ -8360,7 +8610,9 @@ function renderParlays(){
         spots 1-5, maximum plate appearances), and a <b>Mega-Leverage Deep Target</b> (best hitter
         at spot 6 or lower, batting behind the on-base traffic without competing with the
         cleanup-hitter chalk for the same jackpot pool).</div></div>
+      ${gsPoolControlsHTML()}
       ${picks.map(leg2).join("")}
+      ${((BOARD&&BOARD.grand_slam_board)||[]).length?`<button class="gsb-link" onclick="event.stopPropagation();gsBoardGo(${picks[0]?.game_pk||"null"});">View full ranked board, every batter →</button>`:""}
       <div class="pl-gs-legend">Each shows <b>GS score</b> (0-100), the drivers (ahead OBP, SP
       walk rate + bullpen state, barrel%/badges), and the elite tier.</div>
       <div class="pl-foot">⚠︎ Experimental — grand slams are rare and high-variance by nature;
