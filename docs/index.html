@@ -1758,20 +1758,24 @@
   .cgp-th{font-size:13px;font-weight:800;color:var(--ink);margin-bottom:8px}
   .cgp-th span{display:block;font-family:"IBM Plex Mono";font-size:9.5px;font-weight:400;
     color:var(--faint);margin-top:2px}
-  .cgp-leg{position:relative;display:flex;align-items:center;gap:8px;
-    background:var(--panel-3);border-radius:8px;padding:7px 9px;margin-bottom:6px}
+  .cgp-leg{position:relative;background:var(--panel-3);border-radius:8px;padding:7px 9px;margin-bottom:6px}
+  .cgp-leg-top{display:flex;align-items:center;gap:8px}
   .cgp-leg-l{flex:1;min-width:0;cursor:pointer}
   .cgp-leg-l b{display:block;font-size:12px;color:var(--ink)}
   .cgp-leg-l span{font-size:10px;color:var(--faint);margin-left:2px}
-  .cgp-leg-l i{display:block;font-style:normal;font-family:"IBM Plex Mono";font-size:8.5px;
-    color:var(--seam);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .cgp-leg-r{flex:0 0 auto;text-align:right}
   .cgp-leg-r b{display:block;font-family:"IBM Plex Mono";font-size:14px;font-weight:800;color:var(--seam)}
   .cgp-book{display:block;font-family:"IBM Plex Mono";font-size:8.5px;color:var(--faint);margin-top:1px}
   .cgp-warn{color:var(--hot);font-size:11px;margin-left:3px}
+  /* Trait chips -- the specific empirical signals that earned this leg its spot, wrapping
+     freely rather than truncating on one line, since these are the whole point of the two
+     tickets and were getting cut off at 2 items before. */
+  .cgp-traits{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+  .cgp-trait{font-family:"IBM Plex Mono";font-size:8px;color:var(--seam);
+    background:rgba(214,106,54,.10);border-radius:5px;padding:2px 6px;line-height:1.4}
   .cgp-swap{flex:0 0 auto;font-family:"IBM Plex Mono";font-size:9px;color:var(--faint);
     background:transparent;border:1px solid var(--line);border-radius:6px;padding:4px 7px;
-    cursor:pointer}
+    cursor:pointer;margin-top:6px}
   .cgp-swap:active{background:var(--line)}
   .cgp-sum{margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
   .cgp-sum-row{display:flex;justify-content:space-between;align-items:center;
@@ -10009,16 +10013,19 @@ function cgpTicketHTML(ticketKey, t){
   const legsHTML = t.legs.map((defaultLeg,i)=>{
     const leg = cgpLegDisplay(ticketKey, i, defaultLeg);
     const alts = ((BOARD.cross_game_parlays||{}).alternates_by_game||{})[String(leg.game_pk)]||[];
+    const traits = (leg.drivers||[]).slice(0,3).map(d=>`<span class="cgp-trait">${d}</span>`).join("");
     return `<div class="cgp-leg">
-      <div class="cgp-leg-l" onclick="event.stopPropagation();scanToPlayer(${leg.id})">
-        <b>${leg.name}</b><span>${leg.team} vs ${leg.opp_team}${leg.spot?` · #${leg.spot}`:""}</span>
-        <i>${(leg.drivers||[]).slice(0,2).join(" · ")}</i>
+      <div class="cgp-leg-top">
+        <div class="cgp-leg-l" onclick="event.stopPropagation();scanToPlayer(${leg.id})">
+          <b>${leg.name}</b><span>${leg.team} vs ${leg.opp_team}${leg.spot?` · #${leg.spot}`:""}</span>
+        </div>
+        <div class="cgp-leg-r">
+          <b>${pctStr(leg.prob)}</b>
+          ${leg.book_odds!=null?`<span class="cgp-book">book ${amerStr(leg.book_odds)}</span>`:""}
+          ${leg.edge_extreme?`<span class="cgp-warn" title="Model/book gap unusually large -- verify manually">⚠</span>`:""}
+        </div>
       </div>
-      <div class="cgp-leg-r">
-        <b>${pctStr(leg.prob)}</b>
-        ${leg.book_odds!=null?`<span class="cgp-book">book ${amerStr(leg.book_odds)}</span>`:""}
-        ${leg.edge_extreme?`<span class="cgp-warn" title="Model/book gap unusually large -- verify manually">⚠</span>`:""}
-      </div>
+      ${traits?`<div class="cgp-traits">${traits}</div>`:""}
       ${alts.length>=2?`<button class="cgp-swap" onclick="event.stopPropagation();cgpSwap('${ticketKey}',${i})">⟳ swap</button>`:""}
     </div>`;
   }).join("");
