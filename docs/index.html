@@ -1155,6 +1155,30 @@
   .gsp-btn:active{background:var(--line)}
   .gsp-btn.hit{color:var(--hot);border-color:rgba(200,70,60,.4)}
   .gsp-note{font-family:"IBM Plex Mono";font-size:9px;color:var(--faint);margin-top:6px}
+
+  /* Jackpot EV badge -- the primary number now, replaces the plain score display */
+  .jev-badge{display:inline-flex;align-items:baseline;gap:3px;margin-left:8px;
+    font-family:"IBM Plex Mono";font-weight:800;font-size:16px;
+    border:1.5px solid;border-radius:7px;padding:2px 7px}
+  .jev-badge i{font-style:normal;font-size:8px;font-weight:400;color:var(--faint)}
+
+  /* Secondary stat row -- pure physics ceiling + raw score, clearly subordinate to jackpot_ev */
+  .lb-sec{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin:4px 0}
+  .lb-sec-item{font-family:"IBM Plex Mono";font-size:10px;color:var(--faint)}
+  .lb-sec-item b{color:var(--muted);font-weight:700}
+
+  /* Ownership tier pill -- high-contrast, dark-mode: filled background + matching border, not
+     just a colored outline, so Chalk/Standard/Leverage/Deep Sleeper are readable at a glance
+     even on the compact per-game board row. Explicit rgba() per tier rather than color-mix()
+     -- matches this app's own established pill pattern elsewhere (.tg-p.hi etc.) and doesn't
+     depend on a newer CSS function's support on whatever iOS Safari version this actually runs. */
+  .ot-pill{display:inline-block;font-family:"IBM Plex Mono";font-size:9px;font-weight:700;
+    letter-spacing:.03em;border:1.5px solid;border-radius:6px;padding:3px 8px}
+  .ot-pill[style*="faint"]{background:rgba(255,255,255,.06)}
+  .ot-pill[style*="muted"]{background:rgba(255,255,255,.09)}
+  .ot-pill[style*="seam"]{background:rgba(224,106,54,.14)}
+  .ot-pill[style*="good"]{background:rgba(127,180,145,.14)}
+
   .elite-chip{font-family:"IBM Plex Mono";font-size:8px;font-weight:800;padding:1px 4px;border-radius:3px;margin-left:4px;letter-spacing:.03em;vertical-align:middle}
   .elite-chip.el{color:var(--good);background:rgba(120,178,145,.16)}
   .elite-chip.el-plus{color:#fff;background:var(--good)}
@@ -8196,8 +8220,12 @@ function renderLongBallBoard(){
       profiles to post.</div>`;
     return;
   }
+  // Ranked by jackpot_ev now (backend sorts this way), so the badge/color here reflects
+  // ownership_tier -- the strategic signal -- not the old score-based STRONG/SOLID/LONGSHOT/
+  // DARTS tier, which still shows in the sub-line as a smaller, secondary reference.
   const g = boards.find(b=>b.game_pk===lbBoardGamePk) || boards[0];
-  const tierColor = {STRONG:"var(--good)", SOLID:"var(--seam)", LONGSHOT:"#9B8CE0", DARTS:"var(--faint)"};
+  const OT_COLOR = {Chalk:"var(--faint)", Standard:"var(--muted)", Leverage:"var(--seam)", "Deep Sleeper":"var(--good)"};
+  const scoreTierColor = {STRONG:"var(--good)", SOLID:"var(--seam)", LONGSHOT:"#9B8CE0", DARTS:"var(--faint)"};
 
   const gamePicker = boards.length>1 ? `<div class="gsb-picker">
     ${boards.map(b=>`<button class="gsb-pchip${b.game_pk===g.game_pk?' on':''}"
@@ -8205,17 +8233,16 @@ function renderLongBallBoard(){
   </div>` : "";
 
   const rowHTML = (b) => {
-    const col = tierColor[b.tier] || "var(--faint)";
-    const drv = (b.drivers||[]).slice(0,1).join("");
-    return `<div class="gsb-row" style="border-left-color:${col}" onclick="scanToPlayer?scanToPlayer(${b.id}):null">
-      <div class="gsb-rank" style="color:${col}">${String(b.rank).padStart(2,"0")}</div>
+    const otCol = OT_COLOR[b.ownership_tier] || "var(--faint)";
+    const stCol = scoreTierColor[b.tier] || "var(--faint)";
+    return `<div class="gsb-row" style="border-left-color:${otCol}" onclick="scanToPlayer?scanToPlayer(${b.id}):null">
+      <div class="gsb-rank" style="color:${otCol}">${String(b.rank).padStart(2,"0")}</div>
       <div class="gsb-mid">
         <div class="gsb-nm"><b>${b.name}</b></div>
-        <div class="gsb-sub">${b.team} · SLOT ${b.spot||"?"}${drv?` · ${drv}`:""}</div>
+        <div class="gsb-sub">${b.team} · SLOT ${b.spot||"?"} · ceiling ${b.ceiling_ft?b.ceiling_ft+"ft":"—"} · <span style="color:${stCol}">${b.tier}</span></div>
       </div>
-      <div class="gsb-odds">${b.ceiling_ft?b.ceiling_ft+"ft":"—"}</div>
-      <div class="gsb-prob"><span style="color:${col}">${b.score}</span></div>
-      <div class="gsb-tier" style="color:${col};border-color:${col}">${b.tier}</div>
+      <div class="gsb-odds">${b.jackpot_ev!=null?b.jackpot_ev:"—"}<i style="display:block;font-size:7px;color:var(--faint)">EV</i></div>
+      <div class="ot-pill" style="color:${otCol};border-color:${otCol}">${b.ownership_tier||"—"}</div>
     </div>`;
   };
 
@@ -8356,15 +8383,25 @@ function renderParlays(){
     const picks=lb.picks||[];
     if(!picks.length) return thinCard("Long Ball Jackpot — distance ceiling",
       "Fills once lineups and power profiles post. Requires real trajectory data (launch angle 20-35° share and exit velocity on elevated contact) — probability of a hit doesn't matter for this contest, but a ball that never gets airborne at the right angle has no real distance case regardless of exit velocity.");
+    const TIER_COLOR={Chalk:"var(--faint)", Standard:"var(--muted)", Leverage:"var(--seam)", "Deep Sleeper":"var(--good)"};
     const rowHTML=(p,i)=>{
       const col=i===0?"var(--hot)":i===1?"var(--good)":"var(--seam)";
+      const tCol=TIER_COLOR[p.ownership_tier]||"var(--faint)";
       const drv=(p.drivers||[]).map(d=>`<span class="pl-tag up">${d}</span>`).join("");
       return `<div class="lb-row" onclick="scanToPlayer?scanToPlayer(${p.id}):null">
         <div class="lb-rank" style="color:${col}">${i+1}</div>
         <div class="lb-body">
-          <div class="lb-top"><b>${p.name}</b><span class="lb-score" style="color:${col}">${p.score}</span></div>
+          <div class="lb-top">
+            <b>${p.name}</b>
+            <span class="jev-badge" style="color:${col};border-color:${col}">${p.jackpot_ev!=null?p.jackpot_ev:"—"}<i>EV</i></span>
+          </div>
+          <div class="lb-sec">
+            <span class="lb-sec-item">ceiling <b>${p.ceiling_ft?p.ceiling_ft+"ft":"—"}</b></span>
+            <span class="lb-sec-item">score <b>${p.score}</b></span>
+            ${p.ownership_tier?`<span class="ot-pill" style="color:${tCol};border-color:${tCol}">${p.ownership_tier}</span>`:""}
+          </div>
           <div class="gs-pick-label">${p.pick_label}${p.pick_note?` · <i>${p.pick_note}</i>`:""}</div>
-          <div class="pl-meta">${p.team} → ${p.opp_team}${p.ceiling_ft?` · ${p.ceiling_ft}ft ceiling`:""}</div>
+          <div class="pl-meta">${p.team} → ${p.opp_team}</div>
           <div class="pl-tags">${drv}</div>
         </div>
       </div>`;
