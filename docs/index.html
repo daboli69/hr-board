@@ -9135,7 +9135,8 @@ function computeBetGuideHTML(){
       <li><b>Verify the matchup</b> (opener flag, park/weather boost, the 30-park read) — these are facts, not stats.</li>
       <li><b>Break ties with Barrel% margin</b> (season-strongest single signal in the model).</li>
       <li><b>Price it in Find Edge</b> before firing.</li></ol>
-      <p style="font-size:11px;color:var(--muted)">Come back once you have a week of graded data — the signal buckets below rewrite themselves with your numbers.</p>`;
+      <p style="font-size:11px;color:var(--muted)">Come back once you have a week of graded data — the signal buckets below rewrite themselves with your numbers.</p>
+      <p style="font-size:11px;color:var(--faint)">Grand Slam and Long Ball Jackpot have their own real probability/ceiling math, pool tracking, and ownership tiers independent of tracker size — see Parlays & Jackpots directly, or come back here once graded data exists for the full breakdown.</p>`;
   }
 
   // aggregate (mirrors renderTracker)
@@ -9255,6 +9256,52 @@ function computeBetGuideHTML(){
 
     <h3>On parlays</h3>
     <p>HR at ~15% × 3 legs ≈ <b>0.3–0.6%</b> combined. Prefer single bets over stacking legs. If parlaying, use the app's Round Robin format — pairs of legs pay out, not all-or-nothing.</p>
+
+    <h3>Grand Slam Jackpot — the pool, the picks, the tiers</h3>
+    <p>Parlays & Jackpots, or tap "View full ranked board" for every batter on the slate.
+    <b>Pool:</b> starts at <b>$500K</b>, adds <b>+$500K</b> for every real-world day nobody hits
+    one — tap "No slam — bump" once you know today's outcome. Once it's hit, tap "HIT — reset";
+    the pool goes dead until the following Monday, when a fresh cycle starts automatically.
+    Tracked on your device only — there's no way for the app to know the real-world outcome
+    on its own.</p>
+    <p><b>Three picks, not the same top-3 sorted three ways:</b> <b>Primary Target</b> (best
+    overall probability, any spot), <b>Top-of-Order Mash</b> (best hitter batting 1st–5th),
+    and <b>Mega-Leverage Deep Target</b> (best hitter batting 6th or lower — behind the on-base
+    traffic, without competing with the obvious chalk for the same pool).</p>
+    <p><b>The number that matters is p_slam</b> — a real, calibrated probability with a fair
+    American price, not a ranking score. It chains real per-PA math: how likely the three
+    hitters ahead of him actually reach base tonight, times how likely HE homers in that at-bat
+    against this specific pitcher (Log5, park-adjusted), across ~4.3 PAs. Layered on top: the
+    opposing bullpen's real exploitability and workload, the starter's real 0–100 HR
+    Vulnerability score (a real bump once it clears 70), his own currently-graded badge edges
+    against tonight's pitcher (POW, HOT, PITCH EDGE, HR vs PEN), and a small tie-breaker for how
+    many signals agree overall. <b>Tiers</b> (STRONG/SOLID/LONGSHOT/DARTS) are readability
+    buckets over this app's own probability range, not a separately validated system — grand
+    slams stay rare and high-variance no matter how good the matchup looks.</p>
+
+    <h3>Long Ball Jackpot — distance ceiling, ownership leverage, Gold Bar picks</h3>
+    <p>Same location, own full board. <b>Pool is flat $50K every day</b>, win or not — nothing
+    to track. Probability of a hit doesn't matter here — only how far it goes if it connects.</p>
+    <p>The <b>score</b> (0–100) is pure physics: real Statcast exit velocity and EV50 from a
+    league-wide leaderboard, real launch-angle/elevated-contact quality, and the park's own
+    measured carry — capped against the real Statcast-era HR record so a bad sensor reading
+    can't produce an impossible number. <b>J-EV is what the board actually ranks by</b> — score
+    layered with a real Log5 HR probability, the opposing pitcher's exit-velocity-allowed
+    profile, and the signal tie-breaker. A hitter needs a real 420ft+ season ceiling to avoid a
+    penalty, and an elite or scorching-hot power profile gets pushed into Chalk automatically —
+    the crowd already knows about him.</p>
+    <p><b>Ownership tier (Chalk / Standard / Leverage / Deep Sleeper)</b> is built from a real,
+    favorite-weighted implied team total and whether the score clears tonight's top decile.
+    <b>Chalk</b> = obvious spot + obvious score, or the hype penalty. <b>Standard</b> = good
+    spot, unremarkable score. <b>Leverage</b> = a real case the crowd is less likely on.
+    <b>Deep Sleeper</b> = neither obvious signal — genuinely off the radar. For a shared pool,
+    a real Leverage or Deep Sleeper hit is worth more than the same outcome from a name everyone
+    already picked. <b>Gold Bar</b> rows (gold border) are a tighter cut: top 3 per game among
+    hitters already in the slate's top half by J-EV, re-ranked by real badge/barrel criteria —
+    legitimately rare on most nights, not a bug if a game shows none.</p>
+    <p style="font-size:11px;color:var(--faint)">Neither jackpot board has a live book price to
+    check against — these are contests, not standard prop markets. Treat both as rankings built
+    from real, checked data, not guaranteed probabilities.</p>
 
     <p style="font-size:11px;color:var(--faint);margin-top:16px;padding:10px;background:var(--panel-2);border-radius:8px">This guide auto-updates as your tracker grows. Signals move buckets as their sample sizes cross thresholds (n≥100 = trustworthy). Not betting advice.</p>`;
 }
