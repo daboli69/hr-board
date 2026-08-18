@@ -1184,6 +1184,12 @@
      border + subtle glow instead of competing for the same edge). */
   .lb-row.gold-pick{border:1.5px solid #D4AF37;box-shadow:0 0 0 1px rgba(212,175,55,.15) inset;
     background:rgba(212,175,55,.06)}
+  /* .gsb-row already uses an inline border-left-color for the ownership-tier accent (set per
+     row in JS), so the gold treatment here only touches top/right/bottom -- overriding
+     border-left would erase the tier color the row is already showing. */
+  .gsb-row.gold-pick{border-top:1.5px solid #D4AF37;border-right:1.5px solid #D4AF37;
+    border-bottom:1.5px solid #D4AF37;box-shadow:0 0 0 1px rgba(212,175,55,.15) inset;
+    background:rgba(212,175,55,.06)}
   .gold-tag{display:inline-block;font-family:"IBM Plex Mono";font-size:7px;font-weight:800;
     color:#1a1400;background:#D4AF37;border-radius:4px;padding:2px 5px;margin-left:6px;
     letter-spacing:.04em;vertical-align:middle}
@@ -8244,10 +8250,10 @@ function renderLongBallBoard(){
   const rowHTML = (b) => {
     const otCol = OT_COLOR[b.ownership_tier] || "var(--faint)";
     const stCol = scoreTierColor[b.tier] || "var(--faint)";
-    return `<div class="gsb-row" style="border-left-color:${otCol}" onclick="scanToPlayer?scanToPlayer(${b.id}):null">
+    return `<div class="gsb-row${b.is_gold_pick?' gold-pick':''}" style="border-left-color:${otCol}" onclick="scanToPlayer?scanToPlayer(${b.id}):null">
       <div class="gsb-rank" style="color:${otCol}">${String(b.rank).padStart(2,"0")}</div>
       <div class="gsb-mid">
-        <div class="gsb-nm"><b>${b.name}</b></div>
+        <div class="gsb-nm"><b>${b.name}</b>${b.is_gold_pick?'<span class="gold-tag">GOLD</span>':''}</div>
         <div class="gsb-sub">${b.team} · SLOT ${b.spot||"?"} · ceiling ${b.ceiling_ft?b.ceiling_ft+"ft":"—"} · <span style="color:${stCol}">${b.tier}</span></div>
       </div>
       <div class="gsb-odds">${b.jackpot_ev!=null?b.jackpot_ev:"—"}<i style="display:block;font-size:7px;color:var(--faint)">EV</i></div>
