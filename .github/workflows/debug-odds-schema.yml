@@ -1,0 +1,21 @@
+name: Debug Odds Schema (one-off, delete after use)
+# Runs etl/debug_odds_schema.py in Actions so the real /odds response shape can be seen without
+# local Python execution. Trigger it manually: GitHub app or website -> Actions -> this workflow
+# -> "Run workflow". Output appears in the run's log -- tap into the run, then the "Dump raw
+# odds schema" step, to read it. Delete this file once fetch_odds.py's build_game_lines() is
+# actually fixed; it has no reason to exist afterward.
+on:
+  workflow_dispatch:
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Dump raw odds schema
+        env:
+          PARLAY_API_KEY: ${{ secrets.PARLAY_API_KEY }}
+        run: python3 etl/debug_odds_schema.py
