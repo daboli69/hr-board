@@ -140,7 +140,17 @@ def _longball_score(p):
     """
     lb = p.get("long_ball") or {}
     hp = (p.get("features") or {}).get("hr_power") or {}
+    # ceiling_ft blends the batter's OWN proven max with what this specific park's carry has
+    # actually produced this season -- his personal max_dist alone says nothing about tonight's
+    # park, and this park's own max/avg says nothing about whether HE can reach it. The higher
+    # of the two is the honest "ceiling" a hitter with real power in a real carry park could
+    # plausibly reach -- not a scoring weight, just a better number for the one stat literally
+    # named "ceiling." Scoring itself (below) is untouched from before this addition.
     max_dist = hp.get("max_dist")
+    park_avg = lb.get("park_avg_hr_dist")
+    park_max = lb.get("park_max_hr_dist")
+    if max_dist is not None and park_avg is not None:
+        max_dist = max(max_dist, park_avg)
 
     def cl(v):
         return max(0.0, min(1.0, v))
@@ -188,36 +198,24 @@ def _longball_score(p):
             drivers.append(f"{fbld_ev:.1f} mph on FB/LD")
     traj = (traj_parts / traj_n) if traj_n else 0.0
 
-    # ---- Pillar 3: Environmental Physics (25%) ----
-    # park_hr_factor is a RUNS-based park factor (the same number the rest of the app already
-    # shows) -- a genuinely different thing from a distance figure. park_max_hr_dist/
-    # park_avg_hr_dist are real, measured HR distances at THIS park so far this season (from
-    # park_hr_distance_profile(), computed off the shared Statcast frame, capped at 520ft --
-    # 15ft above the real 505ft Statcast-era record, so a bad sensor row can't produce an
-    # in-app number that never happened in real life).
+    # ---- Pillar 3: Environmental Physics (25%) -- unchanged from before the park-distance
+    # addition. park_hr_factor is the same runs-based park number the rest of the app already
+    # shows; it was the SOLE input here before, and averaging park_avg/park_max in as two more
+    # equally-weighted sub-components diluted the pillar for almost every real park (checked
+    # against the live board: real park_avg_hr_dist runs 382-418ft, mostly 392-403ft -- below
+    # the 395ft floor that version used for ANY credit, so nearly every game scored near zero
+    # on that sub-component and dragged the whole pillar down with it). Park distance context
+    # now lives in ceiling_ft above instead, where it belongs without diluting the score. ----
     pf = p.get("park_hr_factor")
     park_c = 0.0
-    park_n = 0
     if pf is not None:
-        c = cl((pf - 0.90) / 0.30)
-        if pf <= 0.93:
-            c *= 0.5
-        park_c += c; park_n += 1
+        park_c = cl((pf - 0.90) / 0.30)
         if pf >= 1.05:
             drivers.append(f"Carry: {pf:.2f}x")
-    park_max = lb.get("park_max_hr_dist")
-    park_avg = lb.get("park_avg_hr_dist")
-    if park_avg is not None:
-        c = cl((park_avg - 395) / 30)
-        park_c += c; park_n += 1
-        if park_avg >= 410:
-            drivers.append(f"Park avg HR: {park_avg:.0f}ft")
-    if park_max is not None:
-        c = cl((park_max - 440) / 60)
-        park_c += c * 0.6; park_n += 0.6
-        if park_max >= 460:
-            drivers.append(f"Park max HR this yr: {park_max:.0f}ft")
-    park_c = (park_c / park_n) if park_n else 0.0
+        elif pf <= 0.93:
+            park_c *= 0.5
+    if park_max is not None and park_max >= 460:
+        drivers.append(f"Park max HR this yr: {park_max:.0f}ft")
 
     score = power * 40 + traj * 35 + park_c * 25
     return round(max(0, min(100, score)), 1), drivers[:6], max_dist
