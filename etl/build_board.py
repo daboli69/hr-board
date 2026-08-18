@@ -317,7 +317,27 @@ def build_long_ball_jackpot(players, lb_evbarrels=None, lb_pitcher_ev=None):
         implied_total, total_method = _implied_team_total(x.get("team"), x.get("opp_team"), None)
         tier = ownership_tier(implied_total, x["score"], slate_p90_score)
 
+        # Distance Floor Gate: requires a PROVEN historical max_dist (the batter's own real
+        # season-long ceiling, features.hr_power.max_dist -- deliberately NOT ceiling_ft, which
+        # is already park-blended and would make this gate partly circular against itself).
+        _hp = (p.get("features") or {}).get("hr_power") or {}
+        _own_max_dist = _hp.get("max_dist")
+        _floor_penalty = 0.5 if (_own_max_dist is None or _own_max_dist < 420) else 1.0
+
+        # Statcast & Recent Heat Hype Penalty: elite historical power or scorching-hot recent
+        # form gets forced into Chalk -- the crowd backs the obvious viral/hot name, splitting
+        # a shared pari-mutuel pot, so this app's own leverage framing should not also chase it.
+        _lb_max_ev = (p.get("long_ball") or {}).get("max_hit_speed")
+        _hot_l14_barrel = (_w14.get("barrel_pct") is not None and _w14.get("bb_count") is not None
+                          and _w14["bb_count"] >= 15 and _w14["barrel_pct"] >= 12.0)
+        _elite_power = ((_own_max_dist is not None and _own_max_dist >= 450) or
+                       (_lb_max_ev is not None and _lb_max_ev >= 115))
+        if _elite_power or _hot_l14_barrel:
+            tier = "Chalk"
+
         jev = jackpot_ev_score(x["score"], log5_hr_prob, ev_boost_mult, tier)
+        if jev is not None:
+            jev = round(jev * _floor_penalty, 1)
 
         x["log5_hr_prob"] = round(log5_hr_prob, 4) if log5_hr_prob is not None else None
         x["ev_boost_mult"] = round(ev_boost_mult, 3) if ev_boost_mult is not None else None
@@ -379,6 +399,54 @@ def build_long_ball_jackpot(players, lb_evbarrels=None, lb_pitcher_ev=None):
                          "best_ceiling_ft": max((b.get("ceiling_ft") or 0) for b in batters),
                          "batters": batters})
     lb_board.sort(key=lambda g: -g["best_ceiling_ft"])
+
+    # Gold Bar Convergence Score -- top 3 per game, using the SAME real, currently-graded
+    # badge/metric lifts as Task 2/4 above (checked fresh against the live tracker, not
+    # assumed): pow 1.43x, hot 1.12x, 12%+ barrel (min 15 BBE) 1.80x. There is no "PITCH EDGE"
+    # badge anywhere in this app -- dropped rather than substituted with a fabricated stand-in.
+    # The 1.98x "hit 3+ criteria" bonus reuses this app's real 1.98x "4 families converging"
+    # number (validated for a different, general-HR-outcome composition, n=278) -- a
+    # deliberate reuse across a related composition, not an independent validation of this
+    # exact combination, same caveat as Grand Slam's Part C.
+    GOLD_BADGE_LIFT = {"pow": 1.43, "hot": 1.12}
+    GOLD_BARREL_LIFT = 1.80
+    all_batters = [x for g in lb_board for x in g["batters"]]
+    all_batters_by_gpk = {}
+    for x in all_batters:
+        all_batters_by_gpk.setdefault(x.get("game_pk", None), []).append(x)
+    slate_jev = sorted((x.get("jackpot_ev") for x in scored if x.get("jackpot_ev") is not None))
+    jev_p50 = slate_jev[len(slate_jev) // 2] if slate_jev else None
+
+    def _gold_score(batter_id):
+        p = _players_by_id.get(batter_id) or {}
+        gscore = 1.0
+        n_hit = 0
+        badges = {b.get("k") for b in (p.get("badges") or []) if b.get("k")}
+        for bk, lift in GOLD_BADGE_LIFT.items():
+            if bk in badges:
+                gscore *= lift
+                n_hit += 1
+        _w = (p.get("windows") or {}).get("L14d") or {}
+        if _w.get("bb_count") and _w["bb_count"] >= 15 and (_w.get("barrel_pct") or 0) >= 12.0:
+            gscore *= GOLD_BARREL_LIFT
+            n_hit += 1
+        if n_hit >= 3:
+            gscore *= 1.98
+        return gscore
+
+    for gpk, g_batters in all_batters_by_gpk.items():
+        # Base Gate: must be in the slate's own top 50% by jackpot_ev before Gold Bar scoring
+        # even applies -- this is a refinement layered on top of jackpot_ev's own ranking, not
+        # a replacement for it.
+        eligible = [x for x in g_batters
+                   if jev_p50 is not None and (x.get("jackpot_ev") or 0) >= jev_p50]
+        for x in g_batters:
+            x["is_gold_pick"] = False
+        scored_gold = sorted(((x, _gold_score(x["id"])) for x in eligible), key=lambda t: -t[1])
+        for x, gscore in scored_gold[:3]:
+            x["is_gold_pick"] = True
+            x["gold_score"] = round(gscore, 3)
+
 
     top10_ids = {x["id"] for x in scored[:10]}
     mlb_max_evs = sorted((v.get("max_hit_speed") for v in (lb_evbarrels or {}).values()
@@ -1125,12 +1193,14 @@ def build(date_str: str | None = None) -> dict:
             lb_evbarrels = statcast_data.batter_exitvelo_barrels()
             lb_park_dist = statcast_data.park_hr_distance_profile(df)  # real HR ft by park
             lb_pitcher_ev = statcast_data.pitcher_batted_ev_profile(df, pitcher_ids)  # Jackpot
+            gs_pitcher_traffic = statcast_data.pitcher_traffic_profile(df, pitcher_ids)  # Grand Slam Part A
             print(f"[build] long ball ceiling: {len(lb_ceiling)} batters (trajectory/bat speed) "
                   f"| {len(lb_evbarrels)} batters (MLB-wide ev50/max EV leaderboard) "
                   f"| {len(lb_park_dist)} parks (real HR distance) "
-                  f"| {len(lb_pitcher_ev)} pitchers (EV/hard-hit allowed, Jackpot EV)")
+                  f"| {len(lb_pitcher_ev)} pitchers (EV/hard-hit allowed, Jackpot EV) "
+                  f"| {len(gs_pitcher_traffic)} pitchers (bases-loaded traffic, Grand Slam)")
         except Exception as e:
-            lb_ceiling, lb_evbarrels, lb_park_dist, lb_pitcher_ev = {}, {}, {}, {}
+            lb_ceiling, lb_evbarrels, lb_park_dist, lb_pitcher_ev, gs_pitcher_traffic = {}, {}, {}, {}, {}
             _hnote("long ball ceiling metrics", e)
             print(f"[build] long ball ceiling metrics skipped: {e}")
         print(f"[build] bvp tables: {len(bat_tables)} hitters, {len(arm_tables)} arms, "
@@ -2199,9 +2269,23 @@ def build(date_str: str | None = None) -> dict:
                                 _hrpa = 0.6 * _hrpa + 0.4 * 0.032    # regress a 2-week sample
                             _pk2 = ((p.get("park_hr") or {}).get("boost") or 0) / 100.0
                             _nm2 = (p.get("near_miss") or {}).get("near") or 0
+                            # Part A: this pitcher's own bases-loaded rate vs league average
+                            _opp_id = (p.get("opp_pitcher") or {}).get("id")
+                            _traffic_rec = gs_pitcher_traffic.get(_opp_id) or {}
+                            _traffic_mult = _traffic_rec.get("pitcher_traffic_multiplier", 1.0)
+                            # Part B: real, currently-graded matchup edges vs this pitcher
+                            _gs_badges = {b.get("k") for b in (p.get("badges") or []) if b.get("k")}
+                            _gs_brl = _w14.get("barrel_pct")
+                            _gs_bbe = _w14.get("bb_count")
+                            _lift_mult, _n_hit = grandslam.matchup_lift_multiplier(
+                                _gs_badges, _gs_brl, _gs_bbe)
+                            # Part C: 3+ of Part B's criteria -> the borrowed 1.98x convergence
+                            _conv_mult = grandslam.grand_slam_convergence_multiplier(_n_hit)
                             _p_slam = grandslam.slam_probability(
                                 _pl_prob, _hrpa, park_mult=1.0 + _pk2 * 0.45,
-                                near_miss_boost=min(0.12, 0.04 * _nm2))
+                                near_miss_boost=min(0.12, 0.04 * _nm2),
+                                traffic_mult=_traffic_mult, matchup_lift_mult=_lift_mult,
+                                convergence_mult=_conv_mult)
                 except Exception:
                     _p_slam = None
                 gs = grandslam.grand_slam_score(traffic, punish, pen_boost=pen_boost,

@@ -116,6 +116,14 @@ def _better_over(a: int, b: int) -> int:
     return a if _american_to_prob(a) <= _american_to_prob(b) else b
 
 
+def _better_decimal(a: float, b: float) -> float:
+    """Decimal-odds equivalent of _better_over() -- unlike American odds, decimal has no sign
+    branching to worry about: a higher decimal price is ALWAYS the better payout for the
+    bettor, full stop. Used now that the real API (parlay-api.com) confirmed to return decimal
+    prices directly, not American."""
+    return max(a, b)
+
+
 def _fetch(url: str, api_key: str, retries: int = 2):
     """GET a parlay-api URL with retry/backoff, returning parsed JSON."""
     last_err = None
@@ -177,7 +185,8 @@ def build_game_lines(events: list) -> dict:
             key = f"{_norm_name(away)}@{_norm_name(home)}"
             slot = out.setdefault(key, {
                 "home": home, "away": away,
-                "ml": {"home": None, "away": None, "home_book": None, "away_book": None},
+                "ml": {"home": None, "away": None, "home_american": None, "away_american": None,
+                      "home_book": None, "away_book": None},
                 "total": {"line": None, "over": None, "under": None, "over_book": None, "under_book": None},
                 "commence_time": ev.get("commence_time"),
                 "fallback_only": True,   # flipped False if any primary book prices it
@@ -197,22 +206,27 @@ def build_game_lines(events: list) -> dict:
                     outcomes = mk.get("outcomes", [])
                     if mkey == "h2h":
                         for o in outcomes:
-                            price = _safe_int(o.get("price"))
-                            if price is None:
+                            # The real API returns DECIMAL odds (2.0, 1.909, ...), confirmed
+                            # directly via etl/debug_odds_schema.py against the live feed --
+                            # _safe_int() on a decimal price was truncating 1.909 -> 1 and
+                            # 2.0 -> 2, which was the entire root cause of ml.home/ml.away
+                            # always showing 1 or 2. _safe_float() preserves the real value.
+                            price = _safe_float(o.get("price"))
+                            if price is None or price <= 1.0:
                                 continue
                             side = "home" if o.get("name") == home else ("away" if o.get("name") == away else None)
                             if side is None:
                                 continue
-                            # best (longest) price for a bettor
                             cur = slot["ml"][side]
-                            if cur is None or _better_over(cur, price) == price:
+                            if cur is None or _better_decimal(cur, price) == price:
                                 slot["ml"][side] = price
+                                slot["ml"][side + "_american"] = decimal_to_american(price)
                                 slot["ml"][side + "_book"] = book
                     elif mkey == "totals":
                         for o in outcomes:
-                            price = _safe_int(o.get("price"))
+                            price = _safe_float(o.get("price"))
                             line = o.get("point")
-                            if price is None or line is None:
+                            if price is None or price <= 1.0 or line is None:
                                 continue
                             name = (o.get("name") or "").lower()
                             side = "over" if "over" in name else ("under" if "under" in name else None)
@@ -224,7 +238,7 @@ def build_game_lines(events: list) -> dict:
                             if slot["total"]["line"] != line:
                                 continue
                             cur = slot["total"][side]
-                            if cur is None or _better_over(cur, price) == price:
+                            if cur is None or _better_decimal(cur, price) == price:
                                 slot["total"][side] = price
                                 slot["total"][side + "_book"] = book
         except Exception:
@@ -232,9 +246,26 @@ def build_game_lines(events: list) -> dict:
     return out
 
 
+def decimal_to_american(decimal_odds: float) -> int:
+    """Decimal -> American, for DISPLAY only (docs/odds.json's ml.home/ml.away are shown
+    elsewhere as American odds, matching every other odds figure this app surfaces -- e.g.
+    Grand Slam's fair_odds). The de-vig math below uses the raw decimal price directly, not
+    this converted value -- converting to American and back would lose precision for no
+    reason when the source data is already decimal."""
+    if decimal_odds is None or decimal_odds <= 1.0:
+        return None
+    d = float(decimal_odds)
+    if d >= 2.0:
+        return round((d - 1.0) * 100)
+    return round(-100.0 / (d - 1.0))
+
+
 def american_to_implied_prob(american_odds: float) -> float:
-    """Standard American-odds -> implied win probability. Includes the book's own vig -- this
-    number is NOT a true probability on its own, which is exactly why de-vig below matters."""
+    """Standard American-odds -> implied win probability. Kept for anywhere that still has
+    American odds on hand; the decimal-native path below is now the primary one, since the
+    real odds API (checked directly: parlay-api.com's /odds response) returns decimal prices
+    (2.0, 1.909, etc.), not American -- feeding those through _safe_int() before was truncating
+    them to 1 or 2, which was the entire root cause of the original bug."""
     if american_odds is None:
         return None
     o = float(american_odds)
@@ -243,63 +274,65 @@ def american_to_implied_prob(american_odds: float) -> float:
     return -o / (-o + 100.0)
 
 
-def implied_team_totals(game_total: float, ml_home: float = None, ml_away: float = None,
+def implied_team_totals(game_total: float, dec_home: float = None, dec_away: float = None,
                         shift_factor: float = 0.60) -> dict:
     """A real, favorite-weighted split of a game's total into home/away implied team totals --
-    NOT the lazy 50/50 split. Uses standard American-odds de-vig, then shifts the total toward
-    the favorite proportional to how lopsided the de-vigged win probability actually is.
+    NOT the lazy 50/50 split. De-vigs the REAL decimal moneyline directly (no American
+    round-trip), then shifts the total toward the favorite proportional to how lopsided the
+    de-vigged win probability actually is.
 
-    There is no single universally "correct" published formula for this split -- different
-    books and models use different approaches, and this app has no historical team-total data
-    to backtest one against. What's implemented here is a defensible, commonly-used shape
-    (de-vig the moneyline, then shift proportional to the edge), stated as a modeled
-    approximation rather than claimed as precisely correct, the same honesty standard as this
-    app's other stated-not-hidden heuristics (ownership_tier, Grand Slam's tier cutoffs).
+    Decimal-native de-vig, per the real schema:
+        raw_home = 1.0 / dec_home
+        raw_away = 1.0 / dec_away
+        fair_home_win_prob = raw_home / (raw_home + raw_away)
+    This is the same standard two-outcome de-vig as before, just applied to decimal odds
+    directly instead of going decimal -> American -> implied-prob, which would lose precision
+    for no reason once the source data is confirmed to be decimal.
 
-    De-vig: American odds imply a probability that sums to MORE than 100% across both sides
-    (that overage is the book's built-in edge). Dividing each side's raw implied probability by
-    the sum of both removes that vig proportionally -- the standard two-outcome de-vig method.
+    There is no single universally "correct" published formula for the total-split step below.
+    This app has no historical team-total data to backtest one against. shift_factor=0.60 is a
+    moderate, stated-as-modeled choice, the same honesty standard as this app's other
+    stated-not-hidden heuristics (ownership_tier, Grand Slam's tier cutoffs) -- not claimed as
+    precisely correct.
 
-    shift_factor=0.60: a 20-point win-probability edge (e.g. 60/40) shifts about 0.6 runs of an
-    8.5 total toward the favorite in this model. Chosen as a moderate, plausible middle ground
-    -- not fit against real outcomes, since none exist to fit against. Uses numpy for the
-    clamping so this composes cleanly if ever vectorized across a whole slate's games at once.
-
-    Falls back to an even 50/50 split (with a `"method": "even_split"` flag on the output) when
-    moneyline data isn't usable -- never raises, never silently guesses past what the inputs
-    actually support.
+    Sanity guard: real decimal odds are always > 1.0, and 50.0 is a generous ceiling for even
+    an extreme underdog price. Values outside [1.01, 50.0] are treated as unusable and this
+    falls back to an honest even split rather than a confident number built on bad input --
+    checked directly against the live feed before choosing this range, not guessed.
 
     Returns {"home": float, "away": float, "method": "moneyline_devig" | "even_split",
             "home_win_prob": float | None}.
     """
     if game_total is None:
         return {"home": None, "away": None, "method": "no_total", "home_win_prob": None}
-    # Sanity guard: real American odds are never between -99 and +99 (a book always prices at
-    # least a small edge past even money). docs/odds.json's ml.home/ml.away were checked and
-    # found to be literally 1 or 2 across every game -- not real odds. Treating those as valid
-    # inputs would produce a confidently-shaped but garbage-driven split, which is worse than
-    # the honest even_split fallback below: it would LOOK like a real answer while being wrong.
+
     def _plausible(v):
-        return v is not None and abs(float(v)) >= 100
-    if not _plausible(ml_home) or not _plausible(ml_away):
+        return v is not None and 1.01 <= float(v) <= 50.0
+    if not _plausible(dec_home) or not _plausible(dec_away):
         half = round(game_total / 2.0, 2)
         return {"home": half, "away": half, "method": "even_split", "home_win_prob": None}
 
-    p_home_raw = american_to_implied_prob(ml_home)
-    p_away_raw = american_to_implied_prob(ml_away)
-    vig_sum = p_home_raw + p_away_raw
+    raw_home = 1.0 / float(dec_home)
+    raw_away = 1.0 / float(dec_away)
+    vig_sum = raw_home + raw_away
     if vig_sum <= 0:
         half = round(game_total / 2.0, 2)
         return {"home": half, "away": half, "method": "even_split", "home_win_prob": None}
 
-    p_home = p_home_raw / vig_sum   # de-vigged: now genuinely sums to 1.0 across both sides
-    edge = np.clip(p_home - 0.5, -0.45, 0.45)   # clamp -- an extreme mismatched-price data
-                                                  # error shouldn't blow the split past sane
+    p_home = raw_home / vig_sum   # de-vigged: now genuinely sums to 1.0 across both sides
+    edge = np.clip(p_home - 0.5, -0.45, 0.45)
     shift = round(float(edge) * shift_factor * game_total, 2)
     home_total = round(game_total / 2.0 + shift, 2)
     away_total = round(game_total / 2.0 - shift, 2)
     return {"home": home_total, "away": away_total, "method": "moneyline_devig",
            "home_win_prob": round(float(p_home), 4)}
+
+
+def _safe_float(v):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
 
 
 def _safe_int(v):
@@ -311,6 +344,7 @@ def _safe_int(v):
 
 def _is_hr_prop(row: dict) -> bool:
     """True if this row is the standard 'does he hit a home run tonight' bet.
+
 
     This market shows up TWO ways depending on the book:
       1. market_key 'player_home_runs' with line 0.5  (most books)

@@ -2091,6 +2091,58 @@ def park_hr_distance_profile(df: pd.DataFrame, days: int = None) -> dict:
     return out
 
 
+def pitcher_traffic_profile(df: pd.DataFrame, pitcher_ids: list[int]) -> dict:
+    """Season-long 'Pitcher Traffic Multiplier' for the Grand Slam engine -- how much MORE
+    likely a bases-loaded PA is against this specific pitcher, relative to league average.
+
+    Bases loaded = on_1b, on_2b, AND on_3b all non-null on the same plate appearance. These
+    are real, standard Statcast per-pitch columns (each holds the batter ID of the runner on
+    that base, or is null if empty) -- not previously used anywhere in this pipeline, but
+    genuinely real and available in the shared frame already loaded, so this needs no new
+    fetch.
+
+    Deduplicated by (game_pk, at_bat_number) since a PA has many pitches -- counting every
+    pitch instead of every PA would inflate both the bases-loaded count and the PA denominator
+    by the same rough factor and mostly cancel out, but doing it right rather than relying on
+    that coincidence is the honest way to compute a rate.
+
+    Returns {pitcher_id: {bases_loaded_rate, pitcher_traffic_multiplier, n_pa}}. The
+    multiplier is bases_loaded_rate / league_avg_bases_loaded_rate, computed from the same
+    slate-wide population passed in -- not an externally asserted league constant, so it
+    stays internally consistent with whatever this app's own data actually shows.
+    """
+    need = {"pitcher", "game_pk", "at_bat_number", "on_1b", "on_2b", "on_3b"}
+    if df is None or df.empty or not pitcher_ids or not need.issubset(df.columns):
+        return {}
+    d = df[df["pitcher"].isin(pitcher_ids)].copy()
+    if d.empty:
+        return {}
+    # one row per real PA, not per pitch
+    pa = d.drop_duplicates(subset=["pitcher", "game_pk", "at_bat_number"])
+    pa_counts = pa.groupby("pitcher").size()
+    loaded = pa[pa["on_1b"].notna() & pa["on_2b"].notna() & pa["on_3b"].notna()]
+    loaded_counts = loaded.groupby("pitcher").size()
+
+    total_pa = int(pa_counts.sum())
+    total_loaded = int(loaded_counts.reindex(pa_counts.index, fill_value=0).sum())
+    if total_pa < 100:      # too little of the slate's own pitchers represented to trust a
+        return {}           # league-average anchor computed from it
+    league_rate = total_loaded / total_pa
+
+    out = {}
+    for pid, n_pa in pa_counts.items():
+        if n_pa < 30:        # a handful of PAs is not a real rate for one pitcher
+            continue
+        n_loaded = int(loaded_counts.get(pid, 0))
+        rate = n_loaded / n_pa
+        out[int(pid)] = {
+            "bases_loaded_rate": round(rate, 4),
+            "pitcher_traffic_multiplier": round(rate / league_rate, 3) if league_rate else 1.0,
+            "n_pa": int(n_pa),
+        }
+    return out
+
+
 def pitcher_batted_ev_profile(df: pd.DataFrame, pitcher_ids: list[int]) -> dict:
     """Per-pitcher average exit velocity allowed and hard-hit% allowed -- this genuinely does
     not exist anywhere else in this pipeline. pitcher_edges.season only has bb/era/h/hr/ip/so/
