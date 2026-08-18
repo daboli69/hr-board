@@ -2033,6 +2033,64 @@ def hr_last_game(df: pd.DataFrame, slate_date: str = None, max_gap_days: int = 1
     return out
 
 
+def park_hr_distance_profile(df: pd.DataFrame, days: int = None) -> dict:
+    """Real per-park home run distance context for the Long Ball Jackpot's Environmental Physics
+    pillar -- max_dist and avg_dist are actual measured HR distances at that park THIS SEASON,
+    not the runs-based park_hr_factor (a different number: run-scoring environment, not a
+    distance figure) the rest of the app already shows.
+
+    Computed from the shared Statcast frame (no new fetch), grouped by park via the same
+    park_for_row() resolver near-miss geometry already uses.
+
+    STATCAST_MAX_PLAUSIBLE_HR_FT = 505 -- the real, verified Statcast-era record (Nomar Mazara,
+    2019). No batted ball has ever been tracked past that. A row reporting further than a small
+    buffer above it is far more likely a sensor/tracking error in the raw feed than a genuine
+    new record, and was worth guarding against directly: an early version of this function had
+    no such cap and, when exercised against synthetic test data with wide random noise, produced
+    a 540ft reading that would have been a real, in-app, physically-impossible number had it
+    come from an actual bad row in production rather than a test. 520ft leaves 15ft of headroom
+    for a genuine new record without accepting an obviously bad sensor read.
+
+    Returns {park_name: {max_dist, avg_dist, n_hr}}.
+    """
+    STATCAST_MAX_PLAUSIBLE_HR_FT = 505
+    HR_DIST_CAP = STATCAST_MAX_PLAUSIBLE_HR_FT + 15
+    if df is None or df.empty or "events" not in df.columns:
+        return {}
+    d = df.copy()
+    if days and "game_date" in d.columns:
+        try:
+            cutoff = pd.to_datetime(d["game_date"]).max() - pd.Timedelta(days=days)
+            d = d[pd.to_datetime(d["game_date"]) >= cutoff]
+        except Exception:
+            pass
+    hr = d[d["events"] == "home_run"].copy()
+    if hr.empty or "hit_distance_sc" not in hr.columns:
+        return {}
+    hr = hr.dropna(subset=["hit_distance_sc"])
+    _n_before = len(hr)
+    hr = hr[hr["hit_distance_sc"] <= HR_DIST_CAP]
+    _n_dropped = _n_before - len(hr)
+    if _n_dropped:
+        import sys as _s
+        print(f"[longball] park_hr_distance_profile: dropped {_n_dropped} row(s) reporting "
+              f"a HR past {HR_DIST_CAP}ft -- the real Statcast-era record is "
+              f"{STATCAST_MAX_PLAUSIBLE_HR_FT}ft, so this is a tracking-data error, not a "
+              f"real distance", file=_s.stderr)
+    from etl import environment as env_mod   # local import -- avoids a circular import risk,
+                                              # environment.py is not otherwise imported here
+    hr["_park"] = hr.apply(lambda r: env_mod.park_for_row(r), axis=1)
+    hr = hr.dropna(subset=["_park"])
+    out = {}
+    for park, g in hr.groupby("_park"):
+        n = len(g)
+        if n < 5:
+            continue
+        out[park] = {"max_dist": round(float(g["hit_distance_sc"].max())),
+                    "avg_dist": round(float(g["hit_distance_sc"].mean())), "n_hr": n}
+    return out
+
+
 def pitcher_batted_profile(df: pd.DataFrame) -> dict:
     """{pitcher_id: {fb_pct, ld_pct, gb_pct, n}} — season batted-ball mix allowed.
     GB = launch angle < 10 deg, LD = 10-24 deg, FB = >= 25 deg. The three sum to

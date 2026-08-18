@@ -188,19 +188,39 @@ def _longball_score(p):
             drivers.append(f"{fbld_ev:.1f} mph on FB/LD")
     traj = (traj_parts / traj_n) if traj_n else 0.0
 
-    # ---- Pillar 3: Environmental Physics (25%) -- the same park_hr_factor the rest of the app
-    # already shows, not a separately re-derived environment score. ----
+    # ---- Pillar 3: Environmental Physics (25%) ----
+    # park_hr_factor is a RUNS-based park factor (the same number the rest of the app already
+    # shows) -- a genuinely different thing from a distance figure. park_max_hr_dist/
+    # park_avg_hr_dist are real, measured HR distances at THIS park so far this season (from
+    # park_hr_distance_profile(), computed off the shared Statcast frame, capped at 520ft --
+    # 15ft above the real 505ft Statcast-era record, so a bad sensor row can't produce an
+    # in-app number that never happened in real life).
     pf = p.get("park_hr_factor")
     park_c = 0.0
+    park_n = 0
     if pf is not None:
-        park_c = cl((pf - 0.90) / 0.30)
+        c = cl((pf - 0.90) / 0.30)
+        if pf <= 0.93:
+            c *= 0.5
+        park_c += c; park_n += 1
         if pf >= 1.05:
             drivers.append(f"Carry: {pf:.2f}x")
-        elif pf <= 0.93:
-            park_c *= 0.5
+    park_max = lb.get("park_max_hr_dist")
+    park_avg = lb.get("park_avg_hr_dist")
+    if park_avg is not None:
+        c = cl((park_avg - 395) / 30)
+        park_c += c; park_n += 1
+        if park_avg >= 410:
+            drivers.append(f"Park avg HR: {park_avg:.0f}ft")
+    if park_max is not None:
+        c = cl((park_max - 440) / 60)
+        park_c += c * 0.6; park_n += 0.6
+        if park_max >= 460:
+            drivers.append(f"Park max HR this yr: {park_max:.0f}ft")
+    park_c = (park_c / park_n) if park_n else 0.0
 
     score = power * 40 + traj * 35 + park_c * 25
-    return round(max(0, min(100, score)), 1), drivers[:5], max_dist
+    return round(max(0, min(100, score)), 1), drivers[:6], max_dist
 
 
 def build_long_ball_jackpot(players, lb_evbarrels=None):
@@ -903,10 +923,12 @@ def build(date_str: str | None = None) -> dict:
         try:
             lb_ceiling = statcast_data.batter_ceiling_profile(df, batter_ids)
             lb_evbarrels = statcast_data.batter_exitvelo_barrels()
+            lb_park_dist = statcast_data.park_hr_distance_profile(df)  # real HR ft by park
             print(f"[build] long ball ceiling: {len(lb_ceiling)} batters (trajectory/bat speed) "
-                  f"| {len(lb_evbarrels)} batters (MLB-wide ev50/max EV leaderboard)")
+                  f"| {len(lb_evbarrels)} batters (MLB-wide ev50/max EV leaderboard) "
+                  f"| {len(lb_park_dist)} parks (real HR distance)")
         except Exception as e:
-            lb_ceiling, lb_evbarrels = {}, {}
+            lb_ceiling, lb_evbarrels, lb_park_dist = {}, {}, {}
             _hnote("long ball ceiling metrics", e)
             print(f"[build] long ball ceiling metrics skipped: {e}")
         print(f"[build] bvp tables: {len(bat_tables)} hitters, {len(arm_tables)} arms, "
@@ -1738,7 +1760,9 @@ def build(date_str: str | None = None) -> dict:
             # Long Ball Jackpot's real ceiling metrics -- launch35_pct/fbld_ev/avg_bat_speed/
             # fast_swing_rate from the shared Statcast frame (batter_ceiling_profile), ev50/
             # max_hit_speed from the true MLB-wide Savant leaderboard (batter_exitvelo_barrels).
-            "long_ball": {**(lb_ceiling.get(int(bid)) or {}), **(lb_evbarrels.get(int(bid)) or {})},
+            "long_ball": {**(lb_ceiling.get(int(bid)) or {}), **(lb_evbarrels.get(int(bid)) or {}),
+                         **({"park_max_hr_dist": _pd["max_dist"], "park_avg_hr_dist": _pd["avg_dist"],
+                            "park_hr_n": _pd["n_hr"]} if (_pd := lb_park_dist.get(g["park"])) else {})},
             "heat_mix": heat_mix,
             "mix": mix_prof,
             "ev_overall": recent.get("avg_ev"),
