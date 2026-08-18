@@ -233,6 +233,10 @@ def build_long_ball_jackpot(players, lb_evbarrels=None, lb_pitcher_ev=None):
     No book-odds comparison for the base score: "longest HR of the day" is a distance CONTEST,
     not a standard HR-prop market, and docs/odds.json has no equivalent line to compare against.
     """
+    from etl import grandslam   # local import -- grandslam is imported locally inside build()
+                                # too (not at module level), so this standalone function needs
+                                # its own import; a pyflakes check caught the missing reference
+                                # here before this was shipped.
     scored = []
     for p in players:
         score, drivers, ceiling = _longball_score(p)
@@ -338,6 +342,14 @@ def build_long_ball_jackpot(players, lb_evbarrels=None, lb_pitcher_ev=None):
         jev = jackpot_ev_score(x["score"], log5_hr_prob, ev_boost_mult, tier)
         if jev is not None:
             jev = round(jev * _floor_penalty, 1)
+
+        # Task 4: measured+provisional signal count, strict tie-breaker only -- same
+        # signal_tiebreaker_multiplier() Grand Slam uses, same 1.0+count*0.015 cap at 8.
+        _conv_lb = (p.get("converge") or {}).get("hr") or {}
+        _sig_count_lb = len(_conv_lb.get("measured", [])) + len(_conv_lb.get("provisional", []))
+        _sig_mult_lb = grandslam.signal_tiebreaker_multiplier(_sig_count_lb)
+        if jev is not None and _sig_mult_lb != 1.0:
+            jev = round(jev * _sig_mult_lb, 1)
 
         x["log5_hr_prob"] = round(log5_hr_prob, 4) if log5_hr_prob is not None else None
         x["ev_boost_mult"] = round(ev_boost_mult, 3) if ev_boost_mult is not None else None
@@ -2260,7 +2272,8 @@ def build(date_str: str | None = None) -> dict:
                                 _ahead.append(_perpa + (float(_bb2 or 8.5) / 100.0))
                         if len(_ahead) >= 3:
                             _wild = float(opp_bb or 8.5) / 100.0
-                            _pl_prob = grandslam.loaded_bases_prob(_ahead, wildness=_wild)
+                            _pl_prob = grandslam.loaded_bases_prob(
+                                _ahead, wildness=_wild, hitter_spot=p.get("lineup_spot"))
                             _w14 = (p.get("windows") or {}).get("L14d") or {}
                             _hrpa = None
                             if _w14.get("pa") and _w14.get("hr") is not None and _w14["pa"] >= 20:
@@ -3843,6 +3856,47 @@ def build(date_str: str | None = None) -> dict:
         print(f"[build] bullpen rankings: {len(bullpen_rankings)} pens ranked (renovated: ERA/HR/wear/platoon)")
     except Exception as e:
         _hnote("bullpen rankings", e); print(f"[build] bullpen rankings skipped: {e}")
+
+    # ---- Grand Slam late-stage adjustment (Tasks 2a/3/4) -- pitcher_edges (vuln score),
+    # bullpen_rankings (exploitability), and converge (signal count) are ALL built AFTER the
+    # main grand slam loop runs (confirmed by line position before writing this: pitcher_edges
+    # starts at 2722, bullpen_rankings at 3682, converge attaches at 3472 -- all later than the
+    # grand slam loop at ~2284). Rather than reorder a large, entangled section of the
+    # pipeline, this re-scales the already-computed p_slam/fair_odds once everything three
+    # of these exist, in one pass. ----
+    try:
+        _vuln_by_pid = {}
+        for _pe in pitcher_edges:
+            _v = (_pe.get("vuln") or {}).get("score")
+            if _v is not None and _pe.get("id") is not None:
+                _vuln_by_pid[_pe["id"]] = _v
+        _pen_by_team_rk = {r["team"]: r for r in bullpen_rankings if r.get("team")}
+        _n_adj = 0
+        for p in players:
+            gs = p.get("grand_slam")
+            if not gs or gs.get("p_slam") is None:
+                continue
+            _opp_id = (p.get("opp_pitcher") or {}).get("id")
+            _vuln_mult = grandslam.vuln_probability_boost(_vuln_by_pid.get(_opp_id))
+            _pen_rk = _pen_by_team_rk.get(p.get("opp_team")) or {}
+            _bp_mult = grandslam.bullpen_exploit_multiplier(_pen_rk.get("rank_val"), _pen_rk.get("label"))
+            _conv = (p.get("converge") or {}).get("hr") or {}
+            _sig_count = len(_conv.get("measured", [])) + len(_conv.get("provisional", []))
+            _sig_mult = grandslam.signal_tiebreaker_multiplier(_sig_count)
+            if _vuln_mult == 1.0 and _bp_mult == 1.0 and _sig_mult == 1.0:
+                continue
+            _new_p = max(0.0, min(0.08, gs["p_slam"] * _vuln_mult * _bp_mult * _sig_mult))
+            gs["p_slam"] = round(_new_p, 5)
+            if _new_p > 0:
+                _dec = 1.0 / _new_p
+                gs["fair_odds"] = (round((_dec - 1.0) * 100) if _dec >= 2.0
+                                  else round(-100.0 / (_dec - 1.0)))
+            _n_adj += 1
+        print(f"[build] grand slam late-stage adjustment: {_n_adj} hitters rescaled "
+              f"(vuln score, bullpen exploitability, signal tie-breaker)")
+    except Exception as e:
+        _hnote("grand slam late-stage adjustment", e)
+        print(f"[build] grand slam late-stage adjustment skipped: {e}")
 
     # ---- PARK RANKS: best/worst HR park on tonight's slate, for the Weather view's ranking.
     # Prefer Ballpark Pal's per-game HR factor (the authoritative park+weather model); fall back

@@ -117,8 +117,31 @@ def bullpen_wildness(pen: dict) -> float:
     return w
 
 
-def loaded_bases_prob(ahead_p_ob, wildness=0.085):
+# Task 1: lineup slot modifier for P(bases loaded) -- standard historical baseball frequencies
+# (NOT this app's own backtest -- checked directly: there is no bases-loaded-by-slot number
+# anywhere in BACKTEST.by_edge, so this is a reasoned general heuristic, not a verified figure,
+# and is labelled that way rather than dressed up as backtested).
+#
+# IMPORTANT CAVEAT, read before trusting this at full strength: loaded_bases_prob() already
+# computes P(bases loaded) from the REAL on-base probability of the three hitters actually
+# batting ahead of this specific batter tonight. The reason slots 3-5 see more bases-loaded
+# PAs in real baseball IS that they bat behind good-OBP hitters -- which the _ahead OBP
+# calculation already captures directly, specifically, for tonight's real lineup. Applying a
+# second, generic slot-based multiplier on top double-counts that same underlying cause through
+# a blunter instrument. Damped to 25% of the stated bump/reduction for exactly that reason --
+# a light nudge for anything the specific-hitters calculation might still miss (e.g. real
+# lineup-construction tendencies beyond just OBP), not a full second correction.
+LINEUP_SLOT_MODIFIER_FULL = {1: 0.92, 2: 1.00, 3: 1.06, 4: 1.08, 5: 1.05,
+                             6: 1.00, 7: 1.00, 8: 0.94, 9: 0.90}
+_SLOT_DAMP = 0.25
+lineup_slot_modifier = {s: 1.0 + (m - 1.0) * _SLOT_DAMP for s, m in LINEUP_SLOT_MODIFIER_FULL.items()}
+
+
+def loaded_bases_prob(ahead_p_ob, wildness=0.085, hitter_spot=None):
     """P(bases loaded when this hitter comes up), from the three hitters ahead of him.
+
+    hitter_spot: Task 1's lineup_slot_modifier, applied at 25% strength -- see the module-level
+    comment above for why this is damped rather than applied at full stated strength.
 
     The old traffic score was a 0-100 heuristic built from an OBP proxy. This computes the thing
     itself: a grand slam needs all three preceding hitters to reach and none of them to be erased
@@ -150,23 +173,32 @@ def loaded_bases_prob(ahead_p_ob, wildness=0.085):
     for ob in ahead_p_ob[:3]:
         ob = max(0.10, min(0.60, float(ob) + wildness - 0.085))
         p *= ob * (1.0 - ERASE)
-    return max(0.0, min(0.25, p * ROUTES))
+    p = p * ROUTES
+    if hitter_spot is not None:
+        p *= lineup_slot_modifier.get(int(hitter_spot), 1.0)
+    return max(0.0, min(0.25, p))
 
 
-# Real, currently-graded badge/metric lifts for Grand Slam's Matchup Lift (Part B) -- checked
-# directly against the live tracker (season-scope, n>=25 filter) before writing this, not
-# assumed. These are DIFFERENT from and MORE CURRENT than any numbers quoted earlier in this
-# project's history -- the tracker accumulates real games every day, so even a number verified
-# a few weeks ago can already be stale; this is why every check re-pulls fresh rather than
-# reusing a remembered figure.
-#   plat (platoon advantage): 1.17x, n=2,106
-#   hot:                       1.12x, n=2,243
-#   pow:                       1.43x, n=1,727
+# Real, currently-graded badge/metric lifts for Grand Slam's Matchup Lift (Part B) -- officially
+# greenlit after resolving a discrepancy against the live app's own Trends UI (docs/index.html's
+# BKLABEL mapping): the raw key `mix` displays as "PITCH EDGE" (not `arm`+`mix` combined), and
+# the raw key `lock` displays as "HOT" -- the raw key literally named `hot` displays as
+# "WARMING" instead, a genuine naming collision. All anchored to BACKTEST.base_pct (10.92%),
+# the same denominator every other lift in this app uses.
+#   pow  (UI: POWER)      1.43x, n=1,727
+#   lock (UI: HOT)        1.45x, n=802
+#   mix  (UI: PITCH EDGE) 1.51x, n=103
+#   hrbp (UI: HR vs PEN)  1.21x, n=1,232
 #   12%+ barrel (min 15 BBE, a raw metric threshold, not a badge): 1.80x, n=340
-# There is no "PITCH EDGE" badge anywhere in this app's badge system (the real set is arm/
-# cool/due/hot/hrbp/hrsp/lock/mix/plat/pow) -- dropped rather than substituted with a
-# plausible-sounding but fabricated stand-in.
-GS_MATCHUP_LIFT = {"plat": 1.17, "hot": 1.12, "pow": 1.43}
+# Platoon (`plat`) and the raw `hot` key are deliberately NOT in this set -- the officially
+# greenlit criteria are exactly these badges plus the barrel threshold.
+#
+# `pen` (UI: WEAK PEN) is a real, defined badge in this app's own BKLABEL mapping -- but checked
+# directly against the full tracked history and it has ZERO holders (n=0) in the entire graded
+# window. There is no real number to put here. Included at a neutral 1.0x (contributes nothing,
+# doesn't count toward the convergence total) rather than a plausible-sounding guess, so this
+# stops being silently missing without becoming silently fabricated.
+GS_MATCHUP_LIFT = {"pow": 1.43, "lock": 1.45, "mix": 1.51, "hrbp": 1.21, "pen": 1.0}
 GS_BARREL_THRESHOLD_LIFT = 1.80
 
 
@@ -185,7 +217,11 @@ def matchup_lift_multiplier(badges: set, l14_barrel_pct: float = None,
     mult = 1.0
     n_hit = 0
     for bk, lift in GS_MATCHUP_LIFT.items():
-        if badges and bk in badges:
+        if badges and bk in badges and lift != 1.0:
+            # lift==1.0 means no real graded evidence exists yet (currently only `pen`, which
+            # has zero holders in the tracked history) -- included for completeness but must
+            # NOT count toward the convergence total, or a batter with zero real evidence
+            # behind a badge could still help trigger the 1.98x bonus.
             mult *= 1.0 + (lift - 1.0) * 0.5
             n_hit += 1
     if l14_barrel_pct is not None and l14_bbe is not None and l14_bbe >= 15 and l14_barrel_pct >= 12.0:
@@ -204,21 +240,85 @@ def grand_slam_convergence_multiplier(n_criteria_hit: int) -> float:
     return 1.98 if n_criteria_hit >= 3 else 1.0
 
 
+def vuln_probability_boost(vuln_score: float) -> float:
+    """Task 3 -- scales the HR-probability side of the Grand Slam equation using the real,
+    already-computed 0-100 SP HR Vulnerability score (pe['vuln']['score'] on pitcher_edges;
+    >=70 = 'elite_target', >=50 = 'strong', confirmed directly against the live payload and
+    its own documented point budget: ERA 30, park 20, HR-splits by hand 15, WHIP 15, zone
+    damage 12, dangerous bats 8).
+
+    The vuln score itself is real and already validated for what it measures (general HR
+    susceptibility). The SPECIFIC multiplier magnitude below for grand-slam probability
+    specifically is a new composition -- this app has not independently backtested "grand slam
+    rate by vuln score" -- so this is a reasoned scaling, stated as such, not a second
+    claimed-backtested number.
+    """
+    if vuln_score is None:
+        return 1.0
+    if vuln_score >= 70:
+        return 1.25
+    if vuln_score >= 50:
+        return 1.10
+    return 1.0
+
+
+def bullpen_exploit_multiplier(rank_val: float, label: str = None) -> float:
+    """Task 2a -- the real bullpen_rankings payload (rank_val 0-100, label e.g. 'WORN'/'GASSED')
+    already built by the main pipeline's bullpen loop, scaling Grand Slam probability.
+
+    Continuous scaling above the 50 midpoint rather than an arbitrary cliff, since rank_val is
+    itself a continuous composite (ERA/HR9/fatigue/platoon-gap components, confirmed directly
+    against a live entry: KC = 60.6). A rank_val of 100 caps at +30%; the label check adds a
+    further +8% specifically when the pen is confirmed WORN or GASSED, since workload state is
+    real information rank_val alone doesn't fully capture (rank_val is season-long; label
+    reflects live/recent workload).
+
+    This is DIFFERENT from and additional to the existing pen_boost in grand_slam_score() --
+    pen_boost (late_hr feature + pen_state's simpler bb_pct/fatigue) adjusts the ORDINAL 0-100
+    ranking score; this adjusts the REAL p_slam probability, using the more comprehensive
+    bullpen_rankings payload specifically. Not backtested as a grand-slam-specific multiplier
+    magnitude -- rank_val itself is real and already used elsewhere, this specific scaling of
+    it for grand slam probability is a reasoned composition, stated as such.
+    """
+    if rank_val is None:
+        return 1.0
+    mult = 1.0 + max(0.0, (float(rank_val) - 50.0)) / 50.0 * 0.30
+    if str(label or "").upper() in ("WORN", "GASSED"):
+        mult *= 1.08
+    return mult
+
+
+def signal_tiebreaker_multiplier(signal_count: int) -> float:
+    """Task 4 -- a strict, fractional tie-breaker ONLY, per spec: 1.0 + signal_count*0.015,
+    capped so it can nudge between near-equal candidates but can never let a weak signal-heavy
+    hitter leapfrog a genuine power threat. signal_count is measured+provisional combined --
+    the exact same count docs/index.html's own cvMeasured/provisional computation displays as
+    the "+N" tag (checked directly: `(c.measured||[]).length + (c.provisional||[]).length`).
+
+    Capped at 8 signals (~12% max) even if a hitter somehow carries more -- the UI's own stated
+    context is "heat separates roughly twice the spread convergence does," so this must stay a
+    genuine tie-breaker, not a real driver of the ranking.
+    """
+    if not signal_count:
+        return 1.0
+    return 1.0 + min(int(signal_count), 8) * 0.015
+
+
 def slam_probability(p_loaded, hr_per_pa, park_mult=1.0, near_miss_boost=0.0,
-                     traffic_mult=1.0, matchup_lift_mult=1.0, convergence_mult=1.0):
+                     traffic_mult=1.0, matchup_lift_mult=1.0, convergence_mult=1.0,
+                     vuln_mult=1.0, signal_mult=1.0):
     """P(grand slam this game) = P(bases loaded in a PA) x P(he homers in it), across ~4.3 PAs.
 
     traffic_mult: Part A -- this specific pitcher's own bases-loaded rate vs league average
     (pitcher_traffic_profile() in statcast_data.py), applied to p_loaded.
     matchup_lift_mult: Part B -- this batter's real, currently-graded edges against THIS
-    pitcher (platoon/badges/barrel%), applied to hr_per_pa alongside the existing park factor.
+    pitcher (badges/barrel%), applied to hr_per_pa alongside the existing park factor.
     convergence_mult: Part C -- the "hits 3+ of the Part B criteria" bonus. Reuses the real
     1.98x number this app already validated for "4 measured signal families converging" on
-    general HR outcomes (n=278, checked directly against the tracker) -- but that number was
-    measured for THAT specific 4-signal composition, not for this platoon/hot/pow/barrel
-    4-criterion set specifically. Applying it here is a deliberate, requested reuse of a real
-    number across a related-but-different composition, not an independent validation of this
-    exact combination -- stated plainly rather than implied as separately proven.
+    general HR outcomes (n=278) -- a deliberate reuse across a related but different
+    composition, not an independent validation of this exact combination.
+    vuln_mult: Task 3 -- the opposing starter's real 0-100 HR Vulnerability score, scaled.
+    signal_mult: Task 4 -- the measured+provisional signal count, strict tie-breaker only.
 
     Reported as a real probability so it can be compared against a book price.
     """
@@ -226,10 +326,11 @@ def slam_probability(p_loaded, hr_per_pa, park_mult=1.0, near_miss_boost=0.0,
         return None
     p_loaded_adj = min(1.0, max(0.0, float(p_loaded) * float(traffic_mult or 1.0)))
     hr = (float(hr_per_pa) * float(park_mult or 1.0) * (1.0 + float(near_miss_boost or 0.0))
-         * float(matchup_lift_mult or 1.0))
+         * float(matchup_lift_mult or 1.0) * float(vuln_mult or 1.0))
     per_pa = p_loaded_adj * hr
     base_prob = max(0.0, min(0.08, 1.0 - (1.0 - per_pa) ** 4.3))
-    return max(0.0, min(0.08, base_prob * float(convergence_mult or 1.0)))
+    final = base_prob * float(convergence_mult or 1.0) * float(signal_mult or 1.0)
+    return max(0.0, min(0.08, final))
 
 
 def grand_slam_score(traffic: dict, punish: dict, pen_boost: float = 0.0,
