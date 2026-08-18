@@ -28,6 +28,7 @@ import urllib.request
 import urllib.parse
 import urllib.error
 from pathlib import Path
+import numpy as np
 
 API_BASE = "https://parlay-api.com/v1"
 SPORT = "baseball_mlb"
@@ -229,6 +230,76 @@ def build_game_lines(events: list) -> dict:
         except Exception:
             continue
     return out
+
+
+def american_to_implied_prob(american_odds: float) -> float:
+    """Standard American-odds -> implied win probability. Includes the book's own vig -- this
+    number is NOT a true probability on its own, which is exactly why de-vig below matters."""
+    if american_odds is None:
+        return None
+    o = float(american_odds)
+    if o > 0:
+        return 100.0 / (o + 100.0)
+    return -o / (-o + 100.0)
+
+
+def implied_team_totals(game_total: float, ml_home: float = None, ml_away: float = None,
+                        shift_factor: float = 0.60) -> dict:
+    """A real, favorite-weighted split of a game's total into home/away implied team totals --
+    NOT the lazy 50/50 split. Uses standard American-odds de-vig, then shifts the total toward
+    the favorite proportional to how lopsided the de-vigged win probability actually is.
+
+    There is no single universally "correct" published formula for this split -- different
+    books and models use different approaches, and this app has no historical team-total data
+    to backtest one against. What's implemented here is a defensible, commonly-used shape
+    (de-vig the moneyline, then shift proportional to the edge), stated as a modeled
+    approximation rather than claimed as precisely correct, the same honesty standard as this
+    app's other stated-not-hidden heuristics (ownership_tier, Grand Slam's tier cutoffs).
+
+    De-vig: American odds imply a probability that sums to MORE than 100% across both sides
+    (that overage is the book's built-in edge). Dividing each side's raw implied probability by
+    the sum of both removes that vig proportionally -- the standard two-outcome de-vig method.
+
+    shift_factor=0.60: a 20-point win-probability edge (e.g. 60/40) shifts about 0.6 runs of an
+    8.5 total toward the favorite in this model. Chosen as a moderate, plausible middle ground
+    -- not fit against real outcomes, since none exist to fit against. Uses numpy for the
+    clamping so this composes cleanly if ever vectorized across a whole slate's games at once.
+
+    Falls back to an even 50/50 split (with a `"method": "even_split"` flag on the output) when
+    moneyline data isn't usable -- never raises, never silently guesses past what the inputs
+    actually support.
+
+    Returns {"home": float, "away": float, "method": "moneyline_devig" | "even_split",
+            "home_win_prob": float | None}.
+    """
+    if game_total is None:
+        return {"home": None, "away": None, "method": "no_total", "home_win_prob": None}
+    # Sanity guard: real American odds are never between -99 and +99 (a book always prices at
+    # least a small edge past even money). docs/odds.json's ml.home/ml.away were checked and
+    # found to be literally 1 or 2 across every game -- not real odds. Treating those as valid
+    # inputs would produce a confidently-shaped but garbage-driven split, which is worse than
+    # the honest even_split fallback below: it would LOOK like a real answer while being wrong.
+    def _plausible(v):
+        return v is not None and abs(float(v)) >= 100
+    if not _plausible(ml_home) or not _plausible(ml_away):
+        half = round(game_total / 2.0, 2)
+        return {"home": half, "away": half, "method": "even_split", "home_win_prob": None}
+
+    p_home_raw = american_to_implied_prob(ml_home)
+    p_away_raw = american_to_implied_prob(ml_away)
+    vig_sum = p_home_raw + p_away_raw
+    if vig_sum <= 0:
+        half = round(game_total / 2.0, 2)
+        return {"home": half, "away": half, "method": "even_split", "home_win_prob": None}
+
+    p_home = p_home_raw / vig_sum   # de-vigged: now genuinely sums to 1.0 across both sides
+    edge = np.clip(p_home - 0.5, -0.45, 0.45)   # clamp -- an extreme mismatched-price data
+                                                  # error shouldn't blow the split past sane
+    shift = round(float(edge) * shift_factor * game_total, 2)
+    home_total = round(game_total / 2.0 + shift, 2)
+    away_total = round(game_total / 2.0 - shift, 2)
+    return {"home": home_total, "away": away_total, "method": "moneyline_devig",
+           "home_win_prob": round(float(p_home), 4)}
 
 
 def _safe_int(v):

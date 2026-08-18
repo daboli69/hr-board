@@ -20,6 +20,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from etl import statsapi, statcast_data, parks, compute, park_model, props, targets
+from etl import fetch_odds
 try:
     from etl import features                 # parallel feature-extraction edges (never touch heat)
 except Exception:
@@ -221,11 +222,16 @@ def _longball_score(p):
     return round(max(0, min(100, score)), 1), drivers[:6], max_dist
 
 
-def build_long_ball_jackpot(players, lb_evbarrels=None):
+def build_long_ball_jackpot(players, lb_evbarrels=None, lb_pitcher_ev=None):
     """Long Ball Jackpot -- Distance King / Weather-Altitude Play / Mega-Leverage Nuke.
 
-    No book-odds comparison: "longest HR of the day" is a distance CONTEST, not a standard
-    HR-prop market, and docs/odds.json has no equivalent line to compare against.
+    The original 3-pillar Distance/Physics Score (`score`) is computed first and left
+    completely untouched -- it is the pure ceiling baseline. Jackpot EV (`jackpot_ev`,
+    `log5_hr_prob`, `ev_boost_mult`, `ownership_tier`) is layered on top as ADDITIONAL fields
+    in a second pass. The board now RANKS by jackpot_ev; `score` still ships on every entry.
+
+    No book-odds comparison for the base score: "longest HR of the day" is a distance CONTEST,
+    not a standard HR-prop market, and docs/odds.json has no equivalent line to compare against.
     """
     scored = []
     for p in players:
@@ -240,7 +246,87 @@ def build_long_ball_jackpot(players, lb_evbarrels=None):
             "ceiling_ft": ceiling, "park_hr_factor": p.get("park_hr_factor"),
             "max_ev": lb.get("max_hit_speed"), "ev50": lb.get("ev50"),
         })
-    scored.sort(key=lambda x: -x["score"])
+
+    # ---- Jackpot EV second pass -- additive, does not touch `score` above. ----
+    _players_by_id = {pl.get("id"): pl for pl in players}
+    _slate_scores = sorted(x["score"] for x in scored)
+    slate_p90_score = (_slate_scores[int(len(_slate_scores) * 0.9)] if _slate_scores else None)
+
+    # Real, favorite-weighted team totals via fetch_odds.implied_team_totals() -- de-vigged
+    # moneyline, proportional shift, with its own internal guard against the currently-broken
+    # ml.home/ml.away values (checked live: always 1 or 2, not real American odds) so this
+    # degrades to an honest even split rather than a confident garbage one until that's fixed.
+    _game_totals = {}
+    try:
+        with open("docs/odds.json") as _f:
+            _gl = (json.load(_f).get("game_lines")) or {}
+        for _k, _v in _gl.items():
+            _tl = (_v.get("total") or {}).get("line")
+            _mlh = (_v.get("ml") or {}).get("home")
+            _mla = (_v.get("ml") or {}).get("away")
+            if _tl is not None:
+                _game_totals[_k] = fetch_odds.implied_team_totals(_tl, _mlh, _mla)
+    except Exception:
+        pass
+    _TEAM_FULLNAME = {
+        "ARI": "arizona diamondbacks", "ATL": "atlanta braves", "BAL": "baltimore orioles",
+        "BOS": "boston red sox", "CHC": "chicago cubs", "CWS": "chicago white sox",
+        "CIN": "cincinnati reds", "CLE": "cleveland guardians", "COL": "colorado rockies",
+        "DET": "detroit tigers", "HOU": "houston astros", "KC": "kansas city royals",
+        "LAA": "los angeles angels", "LAD": "los angeles dodgers", "MIA": "miami marlins",
+        "MIL": "milwaukee brewers", "MIN": "minnesota twins", "NYM": "new york mets",
+        "NYY": "new york yankees", "ATH": "athletics", "PHI": "philadelphia phillies",
+        "PIT": "pittsburgh pirates", "SD": "san diego padres", "SF": "san francisco giants",
+        "SEA": "seattle mariners", "STL": "st louis cardinals", "TB": "tampa bay rays",
+        "TEX": "texas rangers", "TOR": "toronto blue jays", "WSH": "washington nationals",
+    }
+
+    def _implied_team_total(team_abbr, opp_abbr, is_home_guess):
+        tn, on = _TEAM_FULLNAME.get(team_abbr), _TEAM_FULLNAME.get(opp_abbr)
+        if not tn or not on:
+            return None, None
+        for key, home_side in ((f"{on}@{tn}", True), (f"{tn}@{on}", False)):
+            rec = _game_totals.get(key)
+            if rec:
+                side = "home" if home_side else "away"
+                return rec.get(side), rec.get("method")
+        return None, None
+
+    for x in scored:
+        p = _players_by_id.get(x["id"]) or {}
+
+        batter_hr_pa = None
+        _w14 = (p.get("windows") or {}).get("L14d") or {}
+        if _w14.get("pa") and _w14.get("hr") is not None and _w14["pa"] >= 20:
+            batter_hr_pa = float(_w14["hr"]) / float(_w14["pa"])
+            batter_hr_pa = min(batter_hr_pa, 0.032 * 3.0)
+            batter_hr_pa = 0.6 * batter_hr_pa + 0.4 * 0.032
+
+        opp = p.get("opp_pitcher") or {}
+        _pitcher_hrpa_raw = (opp.get("season") or {}).get("hr_per_pa")
+        if _pitcher_hrpa_raw is None:
+            _pitcher_hrpa_raw = (opp.get("recent") or {}).get("hr_per_pa")
+        pitcher_hr_pa = (_pitcher_hrpa_raw / 100.0) if _pitcher_hrpa_raw is not None else None
+
+        log5_hr_prob = hr_log5_prob(batter_hr_pa, pitcher_hr_pa)
+
+        _pev = (lb_pitcher_ev or {}).get(opp.get("id")) or {}
+        ev_boost_mult = pitcher_ev_boost_multiplier(_pev.get("avg_ev_allowed"),
+                                                    _pev.get("hard_hit_pct_allowed"))
+
+        implied_total, total_method = _implied_team_total(x.get("team"), x.get("opp_team"), None)
+        tier = ownership_tier(implied_total, x["score"], slate_p90_score)
+
+        jev = jackpot_ev_score(x["score"], log5_hr_prob, ev_boost_mult, tier)
+
+        x["log5_hr_prob"] = round(log5_hr_prob, 4) if log5_hr_prob is not None else None
+        x["ev_boost_mult"] = round(ev_boost_mult, 3) if ev_boost_mult is not None else None
+        x["implied_team_total"] = implied_total
+        x["implied_total_method"] = total_method
+        x["ownership_tier"] = tier
+        x["jackpot_ev"] = jev
+
+    scored.sort(key=lambda x: -(x.get("jackpot_ev") if x.get("jackpot_ev") is not None else x["score"]))
 
     picks = []
     used = set()
@@ -264,10 +350,6 @@ def build_long_ball_jackpot(players, lb_evbarrels=None):
                            key=lambda x: -(x.get("max_ev") or x.get("ev50") or 0))
         _pick(game_pool, "The Weather/Altitude Play")
 
-    # Per-game Long Ball board -- every scored batter from BOTH teams, ranked together, same
-    # shape as the Grand Slam Board. Tier cutoffs are score-based (this contest has no real
-    # probability, only a ranking) -- readability buckets, not a validated system, same
-    # disclaimer as Grand Slam's tiers.
     def _lb_tier(sc):
         if sc >= 75: return "STRONG"
         if sc >= 55: return "SOLID"
@@ -276,18 +358,20 @@ def build_long_ball_jackpot(players, lb_evbarrels=None):
 
     lb_board = []
     for gpk, rows in by_game_pf.items():
-        rows_sorted = sorted(rows, key=lambda x: -x["score"])
+        rows_sorted = sorted(rows, key=lambda x: -(x.get("jackpot_ev")
+                                                    if x.get("jackpot_ev") is not None
+                                                    else x["score"]))
         batters = [{"rank": i + 1, "id": x["id"], "name": x["name"], "team": x["team"],
                    "spot": x.get("spot"), "score": x["score"], "drivers": x["drivers"],
                    "ceiling_ft": x.get("ceiling_ft"), "max_ev": x.get("max_ev"),
-                   "ev50": x.get("ev50"), "tier": _lb_tier(x["score"])}
+                   "ev50": x.get("ev50"), "tier": _lb_tier(x["score"]),
+                   "jackpot_ev": x.get("jackpot_ev"), "ownership_tier": x.get("ownership_tier"),
+                   "implied_team_total": x.get("implied_team_total"),
+                   "implied_total_method": x.get("implied_total_method"),
+                   "log5_hr_prob": x.get("log5_hr_prob")}
                   for i, x in enumerate(rows_sorted)]
         if not batters:
             continue
-        # Team order here reflects whichever team's hitter scored highest first, NOT true
-        # away/home -- this function only sees batters, not the game schedule itself, so
-        # labelling them "team_a"/"team_b" rather than "away"/"home" avoids implying a
-        # direction this data doesn't actually carry.
         _teams = list(dict.fromkeys(x.get("team") for x in rows_sorted if x.get("team")))
         lb_board.append({"game_pk": gpk, "n_batters": len(batters),
                          "team_a": _teams[0] if len(_teams) > 0 else None,
@@ -296,9 +380,6 @@ def build_long_ball_jackpot(players, lb_evbarrels=None):
                          "batters": batters})
     lb_board.sort(key=lambda g: -g["best_ceiling_ft"])
 
-    # Mega-Leverage Nuke -- TRUE MLB-wide top 5% of max_hit_speed, from the full Savant
-    # leaderboard (lb_evbarrels covers every qualified MLB batter, not just tonight's slate),
-    # who is NOT one of the 10 highest-scored names on tonight's own board.
     top10_ids = {x["id"] for x in scored[:10]}
     mlb_max_evs = sorted((v.get("max_hit_speed") for v in (lb_evbarrels or {}).values()
                          if v.get("max_hit_speed") is not None))
@@ -320,7 +401,10 @@ def build_long_ball_jackpot(players, lb_evbarrels=None):
                      "prop market, and there is no equivalent line in docs/odds.json to check "
                      "against.",
                      "Mega-Leverage Nuke uses max_hit_speed's TRUE MLB-wide percentile (from "
-                     "the full Savant leaderboard, not tonight's slate)."]}
+                     "the full Savant leaderboard, not tonight's slate).",
+                     "implied_team_total uses fetch_odds.implied_team_totals() (de-vigged "
+                     "moneyline, favorite-weighted) when real odds are available, else an "
+                     "honest even split -- implied_total_method on each entry says which."]}
 
 
 # ---------------------------------------------------------------------------
@@ -1040,11 +1124,13 @@ def build(date_str: str | None = None) -> dict:
             lb_ceiling = statcast_data.batter_ceiling_profile(df, batter_ids)
             lb_evbarrels = statcast_data.batter_exitvelo_barrels()
             lb_park_dist = statcast_data.park_hr_distance_profile(df)  # real HR ft by park
+            lb_pitcher_ev = statcast_data.pitcher_batted_ev_profile(df, pitcher_ids)  # Jackpot
             print(f"[build] long ball ceiling: {len(lb_ceiling)} batters (trajectory/bat speed) "
                   f"| {len(lb_evbarrels)} batters (MLB-wide ev50/max EV leaderboard) "
-                  f"| {len(lb_park_dist)} parks (real HR distance)")
+                  f"| {len(lb_park_dist)} parks (real HR distance) "
+                  f"| {len(lb_pitcher_ev)} pitchers (EV/hard-hit allowed, Jackpot EV)")
         except Exception as e:
-            lb_ceiling, lb_evbarrels, lb_park_dist = {}, {}, {}
+            lb_ceiling, lb_evbarrels, lb_park_dist, lb_pitcher_ev = {}, {}, {}, {}
             _hnote("long ball ceiling metrics", e)
             print(f"[build] long ball ceiling metrics skipped: {e}")
         print(f"[build] bvp tables: {len(bat_tables)} hitters, {len(arm_tables)} arms, "
@@ -4439,7 +4525,7 @@ def build(date_str: str | None = None) -> dict:
         _hnote("cross-game parlays", e); print(f"[build] cross-game parlays skipped: {e}")
 
     try:
-        board["long_ball_jackpot"] = build_long_ball_jackpot(players, lb_evbarrels)
+        board["long_ball_jackpot"] = build_long_ball_jackpot(players, lb_evbarrels, lb_pitcher_ev)
         _lb = board["long_ball_jackpot"]
         print(f"[build] long ball jackpot: {_lb['candidates_scored']} candidates scored, "
               f"{len(_lb['picks'])}/3 picks selected, MLB p95 max EV: {_lb['mlb_p95_max_ev']}")
