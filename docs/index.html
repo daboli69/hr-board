@@ -1179,6 +1179,15 @@
   .ot-pill[style*="seam"]{background:rgba(224,106,54,.14)}
   .ot-pill[style*="good"]{background:rgba(127,180,145,.14)}
 
+  /* Gold Bar Convergence -- top-3-per-game distinct accent, layered on top of the normal
+     lb-row styling (border-left already used for tier color elsewhere, so this uses a full
+     border + subtle glow instead of competing for the same edge). */
+  .lb-row.gold-pick{border:1.5px solid #D4AF37;box-shadow:0 0 0 1px rgba(212,175,55,.15) inset;
+    background:rgba(212,175,55,.06)}
+  .gold-tag{display:inline-block;font-family:"IBM Plex Mono";font-size:7px;font-weight:800;
+    color:#1a1400;background:#D4AF37;border-radius:4px;padding:2px 5px;margin-left:6px;
+    letter-spacing:.04em;vertical-align:middle}
+
   .elite-chip{font-family:"IBM Plex Mono";font-size:8px;font-weight:800;padding:1px 4px;border-radius:3px;margin-left:4px;letter-spacing:.03em;vertical-align:middle}
   .elite-chip.el{color:var(--good);background:rgba(120,178,145,.16)}
   .elite-chip.el-plus{color:#fff;background:var(--good)}
@@ -8388,16 +8397,17 @@ function renderParlays(){
       const col=i===0?"var(--hot)":i===1?"var(--good)":"var(--seam)";
       const tCol=TIER_COLOR[p.ownership_tier]||"var(--faint)";
       const drv=(p.drivers||[]).map(d=>`<span class="pl-tag up">${d}</span>`).join("");
-      return `<div class="lb-row" onclick="scanToPlayer?scanToPlayer(${p.id}):null">
+      return `<div class="lb-row${p.is_gold_pick?' gold-pick':''}" onclick="scanToPlayer?scanToPlayer(${p.id}):null">
         <div class="lb-rank" style="color:${col}">${i+1}</div>
         <div class="lb-body">
           <div class="lb-top">
-            <b>${p.name}</b>
-            <span class="jev-badge" style="color:${col};border-color:${col}">${p.jackpot_ev!=null?p.jackpot_ev:"—"}<i>EV</i></span>
+            <b>${p.name}</b>${p.is_gold_pick?'<span class="gold-tag">GOLD</span>':''}
+            <span class="jev-badge${p.is_gold_pick?' gold-pick':''}" style="color:${col};border-color:${col}">${p.jackpot_ev!=null?p.jackpot_ev:"—"}<i>J-EV</i></span>
           </div>
           <div class="lb-sec">
             <span class="lb-sec-item">ceiling <b>${p.ceiling_ft?p.ceiling_ft+"ft":"—"}</b></span>
             <span class="lb-sec-item">score <b>${p.score}</b></span>
+            ${p.ev50!=null?`<span class="lb-sec-item">EV50 <b>${p.ev50.toFixed(1)} mph</b></span>`:""}
             ${p.ownership_tier?`<span class="ot-pill" style="color:${tCol};border-color:${tCol}">${p.ownership_tier}</span>`:""}
           </div>
           <div class="gs-pick-label">${p.pick_label}${p.pick_note?` · <i>${p.pick_note}</i>`:""}</div>
