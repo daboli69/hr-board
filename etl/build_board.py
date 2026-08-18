@@ -323,6 +323,124 @@ def build_long_ball_jackpot(players, lb_evbarrels=None):
                      "the full Savant leaderboard, not tonight's slate)."]}
 
 
+# ---------------------------------------------------------------------------
+# JACKPOT EV SCORE -- combines the existing Distance Score with a Log5 HR probability,
+# a pitcher-physics boost, and a heuristic ownership-leverage tier.
+#
+# THREE THINGS ALREADY EXIST AND ARE REUSED HERE, NOT DUPLICATED:
+#   - Log5 itself: kengine._log5(b, p, lg) -- the exact same formula already used for K
+#     matchups. Building a second copy risks the two drifting apart over time for no reason.
+#   - Air-density/temperature carry: environment.carry_multiplier(temp_f, elevation_ft,
+#     humidity_pct) -- a real Nathan-physics model already built and already used by the Long
+#     Ball engine's park factor. There is no separate "environmental modifier" function below
+#     because this already IS that function -- call it directly.
+#
+# ONE THING IS GENUINELY NEW: pitcher_batted_ev_profile() in statcast_data.py. Checked first --
+# neither pitcher_edges nor pitcher_props carries avg-EV-allowed or hard-hit%-allowed anywhere.
+#
+# ONE THING IS A REAL DATA-QUALITY FLAG, NOT SOMETHING TO BUILD AROUND SILENTLY:
+# docs/odds.json's game_lines moneyline (`ml.home`/`ml.away`) and over/under prices
+# (`total.over`/`total.under`) are always exactly 1 or 2 across every game checked -- not real
+# American odds. Only `total.line` (e.g. 8.5) looks like genuine Vegas data. The ownership
+# heuristic below uses ONLY the real total line, split evenly between the two teams, rather
+# than deriving a favorite-adjusted split from moneyline data that appears broken. Fix
+# fetch_odds.py's moneyline capture before trusting a team-total split more precise than this.
+# ---------------------------------------------------------------------------
+
+def hr_log5_prob(batter_hr_pa, pitcher_hr_pa_allowed, lg_hr_pa=0.032):
+    """P(this batter homers in a given PA against this specific pitcher), via Log5.
+
+    lg_hr_pa=0.032 -- league HR/PA sits close to 3.2% in recent MLB seasons; passed as a
+    parameter rather than hardcoded so it can be re-anchored to whatever this app's own
+    HRPO_BASE_RATE-equivalent measures in a given season, rather than silently drifting stale.
+
+    Reuses kengine._log5() directly -- see module note above for why.
+    """
+    if batter_hr_pa is None or pitcher_hr_pa_allowed is None:
+        return None
+    return kengine._log5(batter_hr_pa, pitcher_hr_pa_allowed, lg_hr_pa)
+
+
+def pitcher_ev_boost_multiplier(avg_ev_allowed, hard_hit_pct_allowed):
+    """A pitcher who allows hard contact makes EVERY batter he faces a better distance-ceiling
+    play, independent of that batter's own power -- this is the opposing-arm side of the
+    equation the base Distance Score does not otherwise account for.
+
+    League average EV allowed sits near 88.0 mph; league average hard-hit% allowed sits near
+    36%. Thresholds below are anchored to those league averages, not independently backtested
+    -- stated as a heuristic, the same way this app's other untested nudges are labelled.
+
+    Returns a multiplier centered at 1.0 (neutral), clamped to a modest [0.92, 1.15] range so
+    this cannot single-handedly override a hitter's own real power profile.
+    """
+    def cl(v, lo, hi):
+        return max(lo, min(hi, v))
+    mult = 1.0
+    if avg_ev_allowed is not None:
+        mult *= cl(1.0 + (avg_ev_allowed - 88.0) / 100.0, 0.95, 1.08)
+    if hard_hit_pct_allowed is not None:
+        mult *= cl(1.0 + (hard_hit_pct_allowed - 36.0) / 200.0, 0.95, 1.08)
+    return cl(mult, 0.92, 1.15)
+
+
+def ownership_tier(implied_team_total, distance_score, slate_p90_score):
+    """Chalk / Standard / Leverage / Deep Sleeper -- bucketed strictly from observable slate
+    inputs, per spec. This is a proxy for where the crowd's attention will go, not a measured
+    ownership percentage -- this app has no actual entry data from any real contest to calibrate
+    against, so these are readability buckets, the same honest caveat as every other tier system
+    in this codebase (Grand Slam's STRONG/SOLID/LONGSHOT/DARTS, Long Ball's own score tiers).
+
+    implied_team_total: this team's share of the real Vegas game total, split evenly (see the
+    module-level note on why moneyline data isn't used to weight this split unevenly).
+    distance_score: this player's own 0-100 Distance/Physics Score.
+    slate_p90_score: the 90th-percentile Distance Score across tonight's whole scored slate --
+    passed in rather than hardcoded, since "top-decile" is relative to the field playing tonight.
+    """
+    high_total = implied_team_total is not None and implied_team_total >= 4.6
+    top_decile = slate_p90_score is not None and distance_score >= slate_p90_score
+    if high_total and top_decile:
+        return "Chalk"          # obvious team context + obvious score -- everyone sees this
+    if top_decile and not high_total:
+        return "Leverage"       # real distance case the crowd is less likely to be on
+    if high_total and not top_decile:
+        return "Standard"       # good spot, unremarkable score -- normal-ownership territory
+    return "Deep Sleeper"       # neither obvious signal -- true off-radar territory
+
+
+def jackpot_ev_score(distance_score, log5_hr_prob, ev_boost_mult, tier, lg_hr_pa=0.032):
+    """The closed-form formula uniting all three pieces.
+
+    JackpotEV = DistanceScore x EVBoostMultiplier x (1 + Log5HRProb/LgHRRate - 1) x TierWeight
+
+    Read left to right: start from the pure physics ceiling (DistanceScore, 0-100, already
+    weighting power/trajectory/park -- unchanged from the existing Long Ball engine), scale it
+    by the opposing pitcher's contact quality (EVBoostMultiplier, ~0.92-1.15x), then scale AGAIN
+    by how much more or less likely this specific matchup is to produce a HR at all relative to
+    league average (Log5HRProb / LgHRRate -- a hitter at exactly league-average HR odds against
+    this arm contributes a neutral 1.0x; a favorable Log5 matchup pushes the multiplier above
+    1.0, an unfavorable one below it), then finally scale by an inverse-ownership tier weight so
+    a leverage play with a real distance case is worth MORE toward a shared pari-mutuel pot than
+    the same score sitting in chalk territory.
+
+    TierWeight: Chalk 0.85, Standard 1.00, Leverage 1.20, Deep Sleeper 1.35 -- NOT proportional
+    to actual ownership percentages (this app has none to calibrate against), just an ordinal
+    ranking that a leverage/deep-sleeper play should outrank an equal-score chalk play for a
+    shared-pot contest specifically, stated as a chosen ranking, not a measured one.
+    """
+    if distance_score is None:
+        return None
+    TIER_WEIGHT = {"Chalk": 0.85, "Standard": 1.00, "Leverage": 1.20, "Deep Sleeper": 1.35}
+    hr_mult = 1.0
+    if log5_hr_prob is not None and lg_hr_pa:
+        hr_mult = max(0.5, min(2.0, log5_hr_prob / lg_hr_pa))
+    tier_w = TIER_WEIGHT.get(tier, 1.0)
+    ev = distance_score * (ev_boost_mult or 1.0) * hr_mult * tier_w
+    return round(min(150.0, ev), 1)   # capped well above 100 -- this is no longer a 0-100
+                                       # score, it is an EV-style ranking number, sized so a
+                                       # perfect-storm leverage play can clearly outrank a
+                                       # chalk 100 without the number becoming meaningless
+
+
 def _hrpo_calibrated_prob(heat, backtest_calib):
     """Same heat-band calibration the frontend's calibratedHRprob() uses, computed server-side.
     Used as the FLOOR/anchor, not the whole score -- see _hrpo_raw_signals for why this

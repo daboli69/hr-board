@@ -2091,6 +2091,38 @@ def park_hr_distance_profile(df: pd.DataFrame, days: int = None) -> dict:
     return out
 
 
+def pitcher_batted_ev_profile(df: pd.DataFrame, pitcher_ids: list[int]) -> dict:
+    """Per-pitcher average exit velocity allowed and hard-hit% allowed -- this genuinely does
+    not exist anywhere else in this pipeline. pitcher_edges.season only has bb/era/h/hr/ip/so/
+    whip; pitcher_props has no batted-ball-quality-allowed fields at all. Checked directly
+    before building this rather than assumed.
+
+    Computed from the shared Statcast frame already in memory -- no new fetch, same efficient
+    groupby pattern as batter_ceiling_profile()/park_hr_distance_profile().
+
+    hard_hit_pct uses the real, standard MLB definition: exit velocity >= 95 mph.
+
+    Returns {pitcher_id: {avg_ev_allowed, hard_hit_pct_allowed, n_bb}}.
+    """
+    if df is None or df.empty or not pitcher_ids:
+        return {}
+    d = df[df["pitcher"].isin(pitcher_ids)]
+    if "type" in d.columns:
+        d = d[d["type"] == "X"]
+    if "launch_speed" not in d.columns:
+        return {}
+    d = d.dropna(subset=["launch_speed"])
+    out = {}
+    for pid, g in d.groupby("pitcher"):
+        n = len(g)
+        if n < 15:            # thin sample -- a handful of batted balls tells you nothing
+            continue
+        hh = (g["launch_speed"] >= 95).sum()
+        out[int(pid)] = {"avg_ev_allowed": round(float(g["launch_speed"].mean()), 1),
+                        "hard_hit_pct_allowed": round(100.0 * float(hh) / n, 1), "n_bb": n}
+    return out
+
+
 def pitcher_batted_profile(df: pd.DataFrame) -> dict:
     """{pitcher_id: {fb_pct, ld_pct, gb_pct, n}} — season batted-ball mix allowed.
     GB = launch angle < 10 deg, LD = 10-24 deg, FB = >= 25 deg. The three sum to
