@@ -1122,6 +1122,11 @@
     background:var(--panel-2);border:1px solid var(--line);border-radius:20px;
     padding:5px 11px;white-space:nowrap;cursor:pointer}
   .gsb-pchip.on{color:var(--seam);border-color:var(--seam);background:rgba(224,100,47,.10)}
+  .lb-sort-toggle{display:flex;gap:6px;margin-bottom:10px}
+  .lb-sort-btn{flex:1;font-family:"IBM Plex Mono";font-size:11px;font-weight:700;
+    color:var(--faint);background:var(--panel-2);border:1px solid var(--line);
+    border-radius:8px;padding:7px 0;cursor:pointer;letter-spacing:.04em}
+  .lb-sort-btn.on{color:var(--seam);border-color:var(--seam);background:rgba(224,100,47,.10)}
   .gsb-stats{display:flex;gap:8px;margin-bottom:12px}
   .gsb-stat{flex:1;background:var(--panel-2);border-radius:10px;padding:10px}
   .gsb-stat-l{font-family:"IBM Plex Mono";font-size:8.5px;color:var(--faint);
@@ -1134,11 +1139,11 @@
     margin-bottom:5px;cursor:pointer}
   .gsb-row:active{background:var(--panel-3)}
   .gsb-rank{flex:0 0 auto;font-family:"IBM Plex Mono";font-size:15px;font-weight:800;width:22px}
-  .gsb-mid{flex:1;min-width:0}
+  .gsb-mid{flex:1;min-width:0;overflow:hidden}
   .gsb-nm b{font-size:13px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
   .gsb-sub{font-family:"IBM Plex Mono";font-size:8.5px;color:var(--faint);margin-top:1px;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .gsb-odds{flex:0 0 auto;font-family:"IBM Plex Mono";font-size:11px;color:var(--muted);width:44px;text-align:right}
+  .gsb-odds{flex:0 0 auto;font-family:"IBM Plex Mono";font-size:11px;color:var(--muted);width:50px;text-align:right}
   .gsb-prob{flex:0 0 auto;font-family:"IBM Plex Mono";font-size:13px;font-weight:800;width:52px;text-align:right}
   .gsb-tier{flex:0 0 auto;font-family:"IBM Plex Mono";font-size:7.5px;font-weight:700;
     border:1px solid;border-radius:4px;padding:2px 5px;white-space:nowrap}
@@ -1172,12 +1177,20 @@
      even on the compact per-game board row. Explicit rgba() per tier rather than color-mix()
      -- matches this app's own established pill pattern elsewhere (.tg-p.hi etc.) and doesn't
      depend on a newer CSS function's support on whatever iOS Safari version this actually runs. */
-  .ot-pill{display:inline-block;font-family:"IBM Plex Mono";font-size:9px;font-weight:700;
+  .ot-pill{display:inline-block;flex:0 0 auto;white-space:nowrap;font-family:"IBM Plex Mono";font-size:9px;font-weight:700;
     letter-spacing:.03em;border:1.5px solid;border-radius:6px;padding:3px 8px}
   .ot-pill[style*="faint"]{background:rgba(255,255,255,.06)}
   .ot-pill[style*="muted"]{background:rgba(255,255,255,.09)}
   .ot-pill[style*="seam"]{background:rgba(224,106,54,.14)}
   .ot-pill[style*="good"]{background:rgba(127,180,145,.14)}
+  /* POW indicator -- small, inline with the name, never adds meaningful width. A distinct
+     color/shape from .gold-tag so both can appear together on the same row (a POW hitter who
+     is ALSO a Gold Bar pick) without looking like the same thing twice. */
+  .pow-star{display:inline-block;color:#E0642F;font-size:11px;margin-left:3px;vertical-align:middle}
+  .lb-sort-toggle{display:flex;gap:6px;margin:8px 0}
+  .lb-sort-btn{flex:1;font-family:"IBM Plex Mono";font-size:10px;font-weight:700;color:var(--faint);
+    background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:6px;cursor:pointer}
+  .lb-sort-btn.on{color:var(--seam);border-color:var(--seam);background:rgba(224,100,47,.10)}
 
   /* Gold Bar Convergence -- top-3-per-game distinct accent, layered on top of the normal
      lb-row styling (border-left already used for tier color elsewhere, so this uses a full
@@ -8225,7 +8238,25 @@ function renderGrandSlamBoard(){
 // market), so rows show score + specific driver text instead. team_a/team_b, not away/home --
 // build_long_ball_jackpot only sees batters, not the schedule, so it can't know true direction.
 let lbBoardGamePk = null;
+let lbSortMode = "jev";   // "jev" (default, backend order) or "maxev" (real distance sort)
 function lbBoardGo(gpk){ lbBoardGamePk = gpk; view = "lbboard"; renderLongBallBoard(); scrollTo(0,0); }
+
+// Shared POW-badge lookup for the Long Ball card and board. long_ball_jackpot's own batter
+// records (both the picks array and the per-game board) don't carry `badges` -- checked
+// directly, that field only lives on the main BOARD.players entries. Cached per board load
+// (BOARD reference as the cache key) so this Set is only ever built once, not recomputed on
+// every render call.
+let _powIdsCache = null, _powIdsCacheBoard = null;
+function powBadgeIds(){
+  if(_powIdsCacheBoard === BOARD && _powIdsCache) return _powIdsCache;
+  const s = new Set();
+  ((BOARD && BOARD.players) || []).forEach(p=>{
+    if((p.badges||[]).some(b=>b.k==="pow")) s.add(p.id);
+  });
+  _powIdsCache = s; _powIdsCacheBoard = BOARD;
+  return s;
+}
+function lbSortSet(mode){ lbSortMode = mode; renderLongBallBoard(); }
 
 function renderLongBallBoard(){
   const main = document.getElementById("main");
@@ -8242,6 +8273,20 @@ function renderLongBallBoard(){
   const OT_COLOR = {Chalk:"var(--faint)", Standard:"var(--muted)", Leverage:"var(--seam)", "Deep Sleeper":"var(--good)"};
   const scoreTierColor = {STRONG:"var(--good)", SOLID:"var(--seam)", LONGSHOT:"#9B8CE0", DARTS:"var(--faint)"};
 
+  // Real sort toggle -- J-EV (backend default, probability-weighted) vs Max EV (real Savant
+  // exit velo, falling back to EV50 when max_ev is missing). The How to Bet guide tells
+  // people to "sort by Max EV for the longest HR specifically" -- that instruction needs an
+  // actual control to act on, not just a suggestion to scan for it visually.
+  const sortedBatters = lbSortMode === "maxev"
+    ? [...g.batters].sort((a,b)=>(b.max_ev ?? b.ev50 ?? -1) - (a.max_ev ?? a.ev50 ?? -1))
+    : g.batters;
+  const displayBatters = sortedBatters.map((b,i)=>({...b, _displayRank: i+1}));
+
+  const sortToggle = `<div class="lb-sort-toggle">
+    <button class="lb-sort-btn${lbSortMode==='jev'?' on':''}" onclick="lbSortSet('jev')">J-EV</button>
+    <button class="lb-sort-btn${lbSortMode==='maxev'?' on':''}" onclick="lbSortSet('maxev')">Max EV</button>
+  </div>`;
+
   const gamePicker = boards.length>1 ? `<div class="gsb-picker">
     ${boards.map(b=>`<button class="gsb-pchip${b.game_pk===g.game_pk?' on':''}"
       onclick="lbBoardGamePk=${b.game_pk};renderLongBallBoard();">${b.team_a||"?"} vs ${b.team_b||"?"}</button>`).join("")}
@@ -8250,13 +8295,16 @@ function renderLongBallBoard(){
   const rowHTML = (b) => {
     const otCol = OT_COLOR[b.ownership_tier] || "var(--faint)";
     const stCol = scoreTierColor[b.tier] || "var(--faint)";
+    const primaryStat = lbSortMode === "maxev"
+      ? `${(b.max_ev ?? b.ev50) != null ? (b.max_ev ?? b.ev50).toFixed(1) : "—"}<i style="display:block;font-size:7px;color:var(--faint)">${b.max_ev!=null?"MAX EV":"EV50"}</i>`
+      : `${b.jackpot_ev!=null?b.jackpot_ev:"—"}<i style="display:block;font-size:7px;color:var(--faint)">EV</i>`;
     return `<div class="gsb-row${b.is_gold_pick?' gold-pick':''}" style="border-left-color:${otCol}" onclick="scanToPlayer?scanToPlayer(${b.id}):null">
-      <div class="gsb-rank" style="color:${otCol}">${String(b.rank).padStart(2,"0")}</div>
+      <div class="gsb-rank" style="color:${otCol}">${String(b._displayRank).padStart(2,"0")}</div>
       <div class="gsb-mid">
-        <div class="gsb-nm"><b>${b.name}</b>${b.is_gold_pick?'<span class="gold-tag">GOLD</span>':''}</div>
+        <div class="gsb-nm"><b>${b.name}</b>${powBadgeIds().has(b.id)?'<span class="pow-star" title="POW badge">★</span>':''}${b.is_gold_pick?'<span class="gold-tag">GOLD</span>':''}</div>
         <div class="gsb-sub">${b.team} · SLOT ${b.spot||"?"} · ceiling ${b.ceiling_ft?b.ceiling_ft+"ft":"—"} · <span style="color:${stCol}">${b.tier}</span></div>
       </div>
-      <div class="gsb-odds">${b.jackpot_ev!=null?b.jackpot_ev:"—"}<i style="display:block;font-size:7px;color:var(--faint)">EV</i></div>
+      <div class="gsb-odds">${primaryStat}</div>
       <div class="ot-pill" style="color:${otCol};border-color:${otCol}">${b.ownership_tier||"—"}</div>
     </div>`;
   };
@@ -8269,14 +8317,15 @@ function renderLongBallBoard(){
     <div class="gsp-box"><div class="gsp-amt" style="color:var(--seam)">$50K</div>
       <div class="gsp-note">Flat every day, win or not — no tracking needed for this one.</div></div>
     ${gamePicker}
+    ${sortToggle}
     <div class="gsb-stats">
       <div class="gsb-stat"><div class="gsb-stat-l">BEST CEILING</div>
         <div class="gsb-stat-v" style="color:var(--good)">${g.best_ceiling_ft?g.best_ceiling_ft+"ft":"—"}</div></div>
       <div class="gsb-stat"><div class="gsb-stat-l">BATTERS SCORED</div>
         <div class="gsb-stat-v" style="color:var(--seam)">${g.n_batters}</div></div>
     </div>
-    <div class="gsb-listhead">RANKED // ${g.team_a||"?"} VS ${g.team_b||"?"} · ${g.n_batters} BATS</div>
-    ${g.batters.map(rowHTML).join("")}
+    <div class="gsb-listhead">RANKED // ${g.team_a||"?"} VS ${g.team_b||"?"} · ${g.n_batters} BATS ${lbSortMode==='maxev'?'· BY MAX EV':''}</div>
+    ${displayBatters.map(rowHTML).join("")}
     <div class="zd-note">Tap a name to open their card. Tiers are score-based readability
     buckets (STRONG 75+, SOLID 55+, LONGSHOT 35+, DARTS below) — there's no real probability
     for a distance contest, only a ranking. No book-odds comparison exists for this market.</div>
@@ -8407,7 +8456,7 @@ function renderParlays(){
         <div class="lb-rank" style="color:${col}">${i+1}</div>
         <div class="lb-body">
           <div class="lb-top">
-            <b>${p.name}</b>${p.is_gold_pick?'<span class="gold-tag">GOLD</span>':''}
+            <b>${p.name}</b>${powBadgeIds().has(p.id)?'<span class="pow-star" title="POW badge">★</span>':''}${p.is_gold_pick?'<span class="gold-tag">GOLD</span>':''}
             <span class="jev-badge${p.is_gold_pick?' gold-pick':''}" style="color:${col};border-color:${col}">${p.jackpot_ev!=null?p.jackpot_ev:"—"}<i>J-EV</i></span>
           </div>
           <div class="lb-sec">
