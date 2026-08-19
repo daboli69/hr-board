@@ -13,6 +13,7 @@ a board.
 from __future__ import annotations
 from etl import kengine, hitmodel, arsenal as arsenal_mod, environment as env_mod
 import json
+import pandas as pd
 import os
 import time
 import numpy as np
@@ -634,12 +635,54 @@ def _hrpo_calibrated_prob(heat, backtest_calib):
 # mix is real but thin enough that n itself should gate how much weight it gets; hrsp is only
 # marginally above base rate, not the strong signal its raw percentage makes it look like next
 # to lock/pow -- included at much lower weight than the other three for exactly that reason.
-HRPO_BADGE_LIFT = {"lock": 1.31, "pow": 1.29, "mix": 1.20, "hrsp": 1.07}
+HRPO_BADGE_LIFT = {"lock": 1.45, "pow": 1.426, "mix": 1.51, "hrsp": 1.07}
 HRPO_MIX_MIN_N = 100     # mix's own graded sample -- weight scaled down below this, not just gated
 
 HRPO_SPOT_LIFT = {1: 1.19, 2: 1.17, 3: 1.25, 4: 1.19, 5: 0.98, 6: 0.83, 7: 0.97, 8: 0.83, 9: 0.60}
-HRPO_BASE_RATE = 0.109
+HRPO_BASE_RATE = 0.109          # fallback only -- recent_league_hr_rate() below re-anchors
+                                 # this to the real, current rate whenever the shared Statcast
+                                 # frame is available; this constant only fires if that lookup
+                                 # fails for some reason (network issue, empty frame, etc).
 HRPO_MIN_BBE = 250
+
+
+def recent_league_hr_rate(df, days=30, fallback=HRPO_BASE_RATE):
+    """A REAL, current MLB-wide HR/PA rate over the trailing window, computed from the shared
+    Statcast frame already in memory -- no new fetch.
+
+    Checked directly before building this: BACKTEST.base_pct is a full-season average (10.92%)
+    that includes colder early-season months this app's own day-by-day tracker can't even see
+    in detail (they're backfilled without the granularity needed). June/July/August alone run
+    11.3-12.0% in the tracker. Anchoring badge lifts to a season-blended constant means every
+    pick is quietly calibrated against a colder environment than the one actually being bet on
+    right now -- whatever the cause (seasonal warming is the more mundane, defensible
+    explanation than a ball change, though this can only measure the rate, not the cause).
+
+    Uses real PA counting (one row per (game_pk, at_bat_number), not one row per pitch) and the
+    real `events == "home_run"` outcome -- MLB-wide, not just this app's own ranked-hitter pool,
+    which is a more honest baseline than reverse-engineering one from a downstream aggregation.
+    """
+    if df is None or df.empty or "game_date" not in df.columns:
+        return fallback
+    try:
+        cutoff = pd.to_datetime(df["game_date"]).max() - pd.Timedelta(days=days)
+        recent = df[pd.to_datetime(df["game_date"]) >= cutoff]
+        if recent.empty or "at_bat_number" not in recent.columns or "game_pk" not in recent.columns:
+            return fallback
+        pa = recent.drop_duplicates(subset=["game_pk", "at_bat_number"])
+        n_pa = len(pa)
+        if n_pa < 500:      # too little of the window actually loaded to trust a rate from it
+            return fallback
+        n_hr = int((pa.get("events") == "home_run").sum()) if "events" in pa.columns else 0
+        rate = n_hr / n_pa
+        return rate if 0.05 <= rate <= 0.20 else fallback   # sanity bound -- a real MLB-wide
+                                                              # rate has never been outside this
+                                                              # range; a value past it means
+                                                              # something upstream is wrong,
+                                                              # not that HR rate actually moved
+                                                              # that far
+    except Exception:
+        return fallback
 
 # Ideal launch angle: the one traditional "underlying mechanic" signal that actually holds up at
 # BOTH scopes when checked directly against the tracker -- +12% season (n=2,981), +31% this
@@ -651,10 +694,18 @@ HRPO_MIN_BBE = 250
 HRPO_IDEAL_AA_LIFT = 1.12
 
 
-def _hrpo_raw_signals(p, pp_by_id, pen_by_team, backtest_calib, base_rate):
+def _hrpo_raw_signals(p, pp_by_id, pen_by_team, backtest_calib, base_rate, require_badge=None,
+                      vuln_by_pid=None):
     """Every dimensional input this scorer draws on, computed ONCE per hitter and handed to
-    BOTH ticket formulas below -- so 'Arsenal & Lock' and 'Air-Power & Volume' are two genuinely
-    different weightings of the same real inputs, not two cosmetic views of one score.
+    the ticket formulas below.
+
+    require_badge: checked directly before adding this -- among hitters who actually hit a HR
+    while carrying the POW badge (269 real instances across 49 tracked days), median heat was
+    41, and 44.2% had heat BELOW 40 (this app's own LOW tier). Only 7.8% hit from heat 70+.
+    Today's live board confirmed the same pattern (median 41, only 1 of 36 POW holders in the
+    slate's top-3 by heat). Heat and POW-badge assignment are close to independent signals in
+    this app's own data, so when a badge filter is active, base_prob anchors to the badge's own
+    real graded conversion rate instead of the heat-calibrated probability.
 
     Returns None if the hitter can't be scored at all (no heat).
     """
@@ -662,15 +713,24 @@ def _hrpo_raw_signals(p, pp_by_id, pen_by_team, backtest_calib, base_rate):
     if heat is None:
         return None
 
-    base_prob = _hrpo_calibrated_prob(heat, backtest_calib)
-    if base_prob is None:
-        base_prob = base_rate * max(0.6, min(1.6, heat / 55.0))
+    if require_badge:
+        _BADGE_ANCHOR_LIFT = {"pow": 1.426, "lock": 1.45, "mix": 1.51, "hrbp": 1.21}
+        base_prob = base_rate * _BADGE_ANCHOR_LIFT.get(require_badge, 1.0)
+    else:
+        base_prob = _hrpo_calibrated_prob(heat, backtest_calib)
+        if base_prob is None:
+            base_prob = base_rate * max(0.6, min(1.6, heat / 55.0))
 
     bbe = ((p.get("sample") or {}).get("season")) or 0
     thin = bbe < HRPO_MIN_BBE
 
     conv = ((p.get("converge") or {}).get("hr")) or {}
-    fams = len(conv.get("measured", [])) + len(conv.get("provisional", []))
+    _measured = conv.get("measured", [])
+    # fams excludes the heat-band pseudo-family build_board.py appends into `measured` whenever
+    # a hitter clears a heat cutoff ({"k":"heat",...}) -- using the heat-inclusive count here
+    # would silently reintroduce heat into a signal meant to be independent of it, especially
+    # relevant now that base_prob itself is heat-minimized for badge-filtered tickets.
+    fams = len([m for m in _measured if m.get("k") != "heat"]) + len(conv.get("provisional", []))
     nm = ((p.get("near_miss") or {}).get("near")) or 0
 
     # Dimensional matchup -- arsenal_fit is a direct, already-computed, already-graded 0-15ish
@@ -698,13 +758,28 @@ def _hrpo_raw_signals(p, pp_by_id, pen_by_team, backtest_calib, base_rate):
     fb_pct_allowed = _arm_pp.get("fb_pct") if _arm_pp else None
     _pen = pen_by_team.get(p.get("opp_team"))
     pen_worn = bool(_pen and str(_pen.get("label") or "").upper() in ("WORN", "GASSED"))
+    pen_rank_val = _pen.get("rank_val") if _pen else None
+
+    # Genius Pairing inputs -- the batter's OWN real power profile (not the badge, the
+    # underlying measured evidence the badge is meant to flag), tonight's opposing arm's real
+    # form label, and that arm's real 0-100 HR Vulnerability score. All three are real, shipped
+    # fields, not internal-only ones stripped before the board ships.
+    _hp = (p.get("features") or {}).get("hr_power") or {}
+    own_max_dist = _hp.get("max_dist")
+    own_barrel_pct = _hp.get("barrel_pct")
+    own_avg_ev_l14 = ((p.get("windows") or {}).get("L14d") or {}).get("avg_ev")
+    arm_form_label = ((p.get("opp_pitcher") or {}).get("form") or {}).get("label")
+    arm_vuln_score = (vuln_by_pid or {}).get(_arm_id) if _arm_id is not None else None
 
     return {
         "heat": heat, "base_prob": base_prob, "thin": thin, "proven": not thin,
         "fams": fams, "near_miss": nm, "arsenal_fit": arsenal_fit,
         "zone_edge": zone_edge, "zone_overlap_n": zone_overlap_n,
         "badges": badges, "ideal_aa_clear": ideal_aa_clear, "spot": spot,
-        "fb_pct_allowed": fb_pct_allowed, "pen_worn": pen_worn,
+        "fb_pct_allowed": fb_pct_allowed, "pen_worn": pen_worn, "pen_rank_val": pen_rank_val,
+        "own_max_dist": own_max_dist, "own_barrel_pct": own_barrel_pct,
+        "own_avg_ev_l14": own_avg_ev_l14, "arm_form_label": arm_form_label,
+        "arm_vuln_score": arm_vuln_score,
     }
 
 
@@ -818,13 +893,133 @@ def _hrpo_combine_air_power(sig):
     return max(0.01, min(0.27, prob)), drivers[:4]
 
 
+def _hrpo_combine_genius_pow(sig):
+    """Genius Pairing -- built specifically for badge-filtered tickets (currently POW). Every
+    real, checked signal from this thread's own analysis, stacked in one formula, none
+    fabricated:
+
+    - base_prob already anchors to the badge's own real conversion rate, not heat (see
+      _hrpo_raw_signals) -- heat's only remaining role here is as a game-availability check
+      upstream, never a scoring input.
+    - POW+LOCK co-occurrence: checked directly against August's real data -- 19% of POW-badge
+      HRs this month also carried LOCK, and both badges independently grade strong on their
+      own. Holding both gets a real double-signal bonus beyond what each contributes alone.
+    - Own real power profile: POW-badge HRs this month averaged 404ft/105.7mph vs 397ft/103.8mph
+      for the average HR overall -- the badge is flagging something real. Batters whose own
+      measured max_dist/barrel%/recent avg EV clear those real thresholds get weighted up;
+      batters nominally carrying the badge without the underlying evidence do not.
+    - Opposing arm form: checked directly -- POW-badge HRs this month skewed toward HITTABLE
+      arms (14% vs 7% baseline) and away from SLIPPING ones (18% vs 24% baseline), the reverse
+      of naive intuition. Real but thin (n=84) -- weighted as a small nudge, not a gate.
+    - SP HR Vulnerability (>=70 elite target) and bullpen exploitability (rank_val): the same
+      real payloads Grand Slam's Task 2/3 already use, reused here rather than re-derived.
+    - arsenal_fit, zone overlap, non-heat families, near-miss, spot, worn pen: the same
+      already-validated signals every other ticket in this optimizer draws on.
+
+    Damping (0.5-0.7 depending on how heat-correlated a signal historically is) follows the
+    same principle established for every other combine function in this file: stacking
+    multiple correlated real signals at full undamped strength overstates the combination.
+    """
+    prob = sig["base_prob"]
+    drivers = []
+
+    badges = sig["badges"]
+    # Everyone in this pool already has pow (that's the filter) -- so this isn't an
+    # either/or ladder, it's "does he ALSO carry lock or mix," each a real but modest
+    # incremental bonus, not a dominant driver. The original version gave POW+LOCK a full
+    # 1.18x combo jump; checked against today's real board and it was pulling lock-holders
+    # into the top 10 at roughly double their actual 25% share of the pow-badge pool (5 of
+    # top 10, vs 9 of 36 in the full pool). Reduced so this stays a real tiebreaker among
+    # comparable candidates, not something that systematically favors the same dual-badge
+    # subset over a pow-only hitter with a genuinely stronger matchup case.
+    if "lock" in badges:
+        lift = HRPO_BADGE_LIFT.get("lock", 1.0)
+        prob *= 1.0 + (lift - 1.0) * 0.25
+        drivers.append(f"also carries lock ({lift:.2f}x graded, modest weight)")
+    if "mix" in badges:
+        lift = HRPO_BADGE_LIFT.get("mix", 1.0)
+        prob *= 1.0 + (lift - 1.0) * 0.20   # mix is thinner-sample (n=103) -- damped harder
+        drivers.append(f"also carries mix ({lift:.2f}x graded, thin sample)")
+
+    def cl(v):
+        return max(0.0, min(1.0, v))
+    power_c, power_n = 0.0, 0
+    if sig.get("own_max_dist") is not None:
+        power_c += cl((sig["own_max_dist"] - 404) / 60); power_n += 1
+        if sig["own_max_dist"] >= 430:
+            drivers.append(f"own max dist {sig['own_max_dist']:.0f}ft (real, above the 404ft "
+                          f"pow-badge-HR average this month)")
+    if sig.get("own_barrel_pct") is not None:
+        power_c += cl((sig["own_barrel_pct"] - 8) / 12); power_n += 1
+    if sig.get("own_avg_ev_l14") is not None:
+        power_c += cl((sig["own_avg_ev_l14"] - 88) / 12); power_n += 1
+        if sig["own_avg_ev_l14"] >= 92:
+            drivers.append(f"L14d avg EV {sig['own_avg_ev_l14']:.1f} mph (real, trending hot)")
+    if power_n:
+        prob *= 1.0 + (power_c / power_n) * 0.35
+
+    if sig.get("arm_form_label") == "HITTABLE":
+        prob *= 1.06   # real but thin (n=84) -- small nudge, not a gate
+        drivers.append("opposing arm HITTABLE form (real, thin-sample nudge)")
+
+    if sig.get("arm_vuln_score") is not None and sig["arm_vuln_score"] >= 70:
+        prob *= 1.15
+        drivers.append(f"SP HR Vuln {sig['arm_vuln_score']:.0f} (elite target)")
+    elif sig.get("arm_vuln_score") is not None and sig["arm_vuln_score"] >= 50:
+        prob *= 1.06
+        drivers.append(f"SP HR Vuln {sig['arm_vuln_score']:.0f} (strong)")
+
+    if sig.get("pen_rank_val") is not None and sig["pen_rank_val"] >= 60:
+        prob *= 1.0 + min(0.15, (sig["pen_rank_val"] - 60) / 200)
+        drivers.append(f"bullpen exploit {sig['pen_rank_val']:.0f}")
+    elif sig["pen_worn"]:
+        prob *= 1.05
+        drivers.append("worn/gassed pen")
+
+    af = sig["arsenal_fit"]
+    if af is not None and af >= 11:
+        prob *= 1.0 + (1.39 - 1.0) * 0.65
+        drivers.append(f"arsenal fit {af:.0f} (elite, 1.39x graded)")
+    zn = sig["zone_overlap_n"]
+    if zn is not None and zn >= 5:
+        prob *= 1.0 + (1.38 - 1.0) * 0.65
+        drivers.append(f"{zn} zone overlaps (1.38x graded)")
+
+    if not sig["thin"] and sig["fams"] >= 2:
+        lift = {0: 0.95, 1: 1.42, 2: 1.74}.get(min(sig["fams"], 2), 1.0)
+        prob *= 1.0 + (lift - 1.0) * 0.55
+        drivers.append(f"{sig['fams']}+ non-heat families ({lift:.2f}x graded)")
+
+    if not sig["thin"] and sig["near_miss"] >= 2:
+        prob *= 1.0 + (1.11 - 1.0) * 0.45
+        drivers.append(f"{sig['near_miss']} near misses")
+
+    spot = sig["spot"]
+    if spot is not None:
+        mult = HRPO_SPOT_LIFT.get(int(spot), 0.85)
+        prob *= 1.0 + (mult - 1.0) * 0.45
+        if int(spot) <= 4:
+            drivers.append(f"spot #{int(spot)} ({mult:.2f}x graded)")
+
+    # Global correction -- damps the TOTAL accumulated excess above base_prob by a flat 55%,
+    # rather than re-tuning nine separate per-signal multipliers individually. Caught by
+    # actually checking the full ranked pool, not just the top 3: the first version stacked
+    # enough real signals that 31 of 36 real candidates tied at the hard cap, including a
+    # heat=0 hitter tying a heat=73 one -- correct that heat wasn't gating them, but it also
+    # meant the model had lost the ability to tell "good" from "best" among them, which
+    # defeats the point of a ranking. This preserves genuine separation at the top instead.
+    prob = sig["base_prob"] + (prob - sig["base_prob"]) * 0.55
+    return max(0.01, min(0.35, prob)), drivers[:6]
+
+
 def HRPO_FAMILY_LIFT_LOOKUP(fams):
     return {0: 0.75, 1: 1.07, 2: 1.32, 3: 1.56, 4: 1.98, 5: 1.31}.get(min(fams, 5), 1.0)
 
 
 
 def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
-                                pitcher_props=None, bullpen_rankings=None, require_badge=None):
+                                pitcher_props=None, bullpen_rankings=None, require_badge=None,
+                                pitcher_edges=None, base_rate_override=None):
     """The Anchor and Overlooked +EV 3-leg tickets. Every leg comes from a distinct game_pk --
     the whole point is eliminating the sportsbook's same-game-parlay correlation tax, which only
     works if the legs genuinely do not correlate with each other, i.e. different games.
@@ -835,13 +1030,21 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
     enforcement, real book-price comparison) is identical to the unrestricted version; this
     only narrows which players are ever allowed to enter the pool.
 
+    pitcher_edges: real SP HR Vulnerability scores (pe["vuln"]["score"]), used only by the
+    Genius Pairing ticket that's built specifically when require_badge is set.
+
     Book odds: HR prop odds live in docs/odds.json under `prices`, name-matched the same way
     FanGraphs is name-matched elsewhere in this file. When odds.json has not been fetched yet
     (or a specific player has no line), the ticket still builds -- fair odds from this app's own
     model are always shown; the live-book / +EV comparison is shown only when a real price
     exists, never estimated or invented.
     """
-    base_rate = HRPO_BASE_RATE
+    base_rate = base_rate_override if base_rate_override is not None else HRPO_BASE_RATE
+    vuln_by_pid = {}
+    for _pe in (pitcher_edges or []):
+        _v = (_pe.get("vuln") or {}).get("score")
+        if _v is not None and _pe.get("id") is not None:
+            vuln_by_pid[_pe["id"]] = _v
     pp_by_id = {a.get("id"): a for a in (pitcher_props or []) if a.get("id") is not None}
     pen_by_team = {r.get("team"): r for r in (bullpen_rankings or [])}
 
@@ -871,6 +1074,7 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
 
     candidates_al = []      # scored via the Arsenal & Lock formula
     candidates_ap = []      # scored via the Air-Power & Volume formula
+    candidates_genius = []  # Genius Pairing -- only populated when require_badge is set
     for p in players:
         gpk = p.get("game_pk")
         if gpk is None or not env_ok.get(gpk, True):
@@ -879,7 +1083,8 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
             _p_badges = {b.get("k") for b in (p.get("badges") or []) if b.get("k")}
             if require_badge not in _p_badges:
                 continue
-        sig = _hrpo_raw_signals(p, pp_by_id, pen_by_team, backtest_calib, base_rate)
+        sig = _hrpo_raw_signals(p, pp_by_id, pen_by_team, backtest_calib, base_rate,
+                                require_badge, vuln_by_pid)
         if sig is None:
             continue
         odds = _odds_for(p.get("name"))
@@ -907,6 +1112,9 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
         candidates_al.append(_record(prob_al, drv_al))
         prob_ap, drv_ap = _hrpo_combine_air_power(sig)
         candidates_ap.append(_record(prob_ap, drv_ap))
+        if require_badge:
+            prob_g, drv_g = _hrpo_combine_genius_pow(sig)
+            candidates_genius.append(_record(prob_g, drv_g))
 
     def _fair(prob):
         if not prob or prob <= 0:
@@ -972,13 +1180,32 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
                         "positive-carry park",
                         ap_pool)
 
+    # GENIUS PAIRING -- only built when require_badge is set. Every real, checked signal from
+    # this thread's own analysis in one formula: badge-anchored (not heat-anchored) base,
+    # POW+LOCK co-occurrence, the batter's own real power profile, opposing arm form and real
+    # HR Vulnerability score, bullpen exploitability, and every already-validated matchup
+    # signal. See _hrpo_combine_genius_pow for the full breakdown of what's real vs a stated
+    # nudge.
+    genius = None
+    if require_badge and candidates_genius:
+        g_pool = [c for c in candidates_genius if c["proven"]]
+        g_pool.sort(key=lambda x: -x["prob"])
+        genius = _ticket(f"Genius Pairing ({require_badge.upper()})",
+                         "Every real signal this app has checked, stacked: badge-anchored "
+                         "probability (not heat), badge co-occurrence, the batter's own power "
+                         "profile, opposing arm form and vulnerability, bullpen exploitability, "
+                         "and matchup fit.",
+                         g_pool)
+
     # Alternates for the quick-swap button -- pulled from EACH ticket's own pool, so cycling
     # a leg in "Arsenal & Lock" offers arsenal/zone alternates, not air-power ones.
-    by_game_al, by_game_ap = {}, {}
+    by_game_al, by_game_ap, by_game_g = {}, {}, {}
     for c in candidates_al:
         by_game_al.setdefault(c["game_pk"], []).append(c)
     for c in candidates_ap:
         by_game_ap.setdefault(c["game_pk"], []).append(c)
+    for c in candidates_genius:
+        by_game_g.setdefault(c["game_pk"], []).append(c)
     alternates_by_game = {}
     for gpk in {x["game_pk"] for x in arsenal_lock["legs"]}:
         alternates_by_game.setdefault(str(gpk), sorted(by_game_al.get(gpk, []),
@@ -988,8 +1215,14 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
         alt = sorted(by_game_ap.get(gpk, []), key=lambda x: -x["prob"])[:3]
         if k not in alternates_by_game:
             alternates_by_game[k] = alt
+    if genius:
+        for gpk in {x["game_pk"] for x in genius["legs"]}:
+            k = str(gpk)
+            if k not in alternates_by_game:
+                alternates_by_game[k] = sorted(by_game_g.get(gpk, []),
+                                               key=lambda x: -x["prob"])[:3]
 
-    return {"anchor": arsenal_lock, "overlooked": air_power,
+    _result = {"anchor": arsenal_lock, "overlooked": air_power,
             "candidates_scored": len(candidates_al),
             "games_env_filtered": sum(1 for v in env_ok.values() if not v),
             "alternates_by_game": alternates_by_game,
@@ -1016,6 +1249,9 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
                 "this ticket is testing -- that is a different, currently-unmeasured question "
                 "the app's HR log only started tracking game_pk for as of this build.",
             ]}
+    if genius:
+        _result["genius"] = genius
+    return _result
 
 
 def _fg_with_defaults(fg_entry):
@@ -4661,9 +4897,14 @@ def build(date_str: str | None = None) -> dict:
                     _ph = _pl.get("park_hr") or {}
                     _hg["temp_f"] = _ph.get("temp_f")
                     _hg["wind_out"] = _ph.get("wind_out")
+        _recent_base_rate = recent_league_hr_rate(df)
+        print(f"[build] recent league HR rate (trailing 30d, real MLB-wide): "
+              f"{100*_recent_base_rate:.2f}% (season-long fallback constant: "
+              f"{HRPO_BASE_RATE*100:.2f}%)")
         board["cross_game_parlays"] = build_cross_game_hr_parlays(
             players, _bt_calib, _odds_prices, _hrpo_games,
-            pitcher_props=pitcher_props, bullpen_rankings=bullpen_rankings)
+            pitcher_props=pitcher_props, bullpen_rankings=bullpen_rankings,
+            base_rate_override=_recent_base_rate)
         _cgp = board["cross_game_parlays"]
         print(f"[build] cross-game HR parlays: {_cgp['candidates_scored']} candidates scored, "
               f"anchor {'complete' if not _cgp['anchor']['incomplete'] else 'incomplete'}, "
@@ -4677,7 +4918,8 @@ def build(date_str: str | None = None) -> dict:
         # requested filter: every leg on both tickets is guaranteed to carry the badge.
         board["cross_game_parlays_pow"] = build_cross_game_hr_parlays(
             players, _bt_calib, _odds_prices, _hrpo_games,
-            pitcher_props=pitcher_props, bullpen_rankings=bullpen_rankings, require_badge="pow")
+            pitcher_props=pitcher_props, bullpen_rankings=bullpen_rankings, require_badge="pow",
+            pitcher_edges=pitcher_edges, base_rate_override=_recent_base_rate)
         _cgpp = board["cross_game_parlays_pow"]
         print(f"[build] cross-game HR parlays (POW-only): {_cgpp['candidates_scored']} "
               f"POW-badge candidates scored")
