@@ -924,18 +924,14 @@ def _hrpo_combine_genius_pow(sig):
     drivers = []
 
     badges = sig["badges"]
-    # Everyone in this pool already has pow (that's the filter) -- so this isn't an
-    # either/or ladder, it's "does he ALSO carry lock or mix," each a real but modest
-    # incremental bonus, not a dominant driver. The original version gave POW+LOCK a full
-    # 1.18x combo jump; checked against today's real board and it was pulling lock-holders
-    # into the top 10 at roughly double their actual 25% share of the pow-badge pool (5 of
-    # top 10, vs 9 of 36 in the full pool). Reduced so this stays a real tiebreaker among
-    # comparable candidates, not something that systematically favors the same dual-badge
-    # subset over a pow-only hitter with a genuinely stronger matchup case.
-    if "lock" in badges:
-        lift = HRPO_BADGE_LIFT.get("lock", 1.0)
-        prob *= 1.0 + (lift - 1.0) * 0.25
-        drivers.append(f"also carries lock ({lift:.2f}x graded, modest weight)")
+    # "also carries lock" bonus REMOVED -- the earlier version (even after reducing it from a
+    # full 1.18x combo jump to a modest 0.25-weighted nudge) was still based on one month's
+    # data (n=84 total pow HRs). The full backtest replay came back with a real, much larger
+    # sample: pow_only = 1.763x (n=915) vs pow+lock = 1.744x (n=310) -- holding lock ALONGSIDE
+    # pow shows no real additional benefit over pow alone, and if anything a hair less. Lock
+    # is still a real, strong signal on its own (1.297x standalone) -- it just doesn't stack
+    # additively with pow the way the smaller sample suggested. Removed rather than left in at
+    # a token weight that isn't backed by the fuller data.
     if "mix" in badges:
         lift = HRPO_BADGE_LIFT.get("mix", 1.0)
         prob *= 1.0 + (lift - 1.0) * 0.20   # mix is thinner-sample (n=103) -- damped harder
@@ -1083,6 +1079,16 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
             _p_badges = {b.get("k") for b in (p.get("badges") or []) if b.get("k")}
             if require_badge not in _p_badges:
                 continue
+            # B2B exclusion applies to the WHOLE badge-filtered card (Arsenal & Lock,
+            # Air-Power, AND Genius Pairing), not just one ticket -- a previous version scoped
+            # this to Genius Pairing only, but a hitter still showed up in the other two
+            # tickets and via the swap/alternates feature, which isn't what "keep him out of
+            # the parlays" meant. Only hr_last_game (the previous game specifically) is a real,
+            # available field -- there is no "hit in each of the last two games" flag anywhere
+            # in this pipeline for a true b2b2b check. General, unrestricted cross_game_parlays
+            # (require_badge=None) is untouched.
+            if p.get("hr_last_game"):
+                continue
         sig = _hrpo_raw_signals(p, pp_by_id, pen_by_team, backtest_calib, base_rate,
                                 require_badge, vuln_by_pid)
         if sig is None:
@@ -1113,19 +1119,8 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
         prob_ap, drv_ap = _hrpo_combine_air_power(sig)
         candidates_ap.append(_record(prob_ap, drv_ap))
         if require_badge:
-            # Genius Pairing specifically excludes anyone who homered in their last game.
-            # Requested directly: the ticket was leaning on back-to-back (sometimes
-            # back-to-back-to-back) HR hitters more than felt right. Only hr_last_game (the
-            # previous game specifically) is a real, available field -- there is no
-            # "hit in each of the last two games" flag anywhere in this pipeline to build a
-            # true b2b2b check on; noted here rather than silently only handling half of what
-            # was asked. This is a requested exclusion, not a claim that recent HR hitters
-            # underperform -- by_b2b IS tracked daily in track.py but wasn't in any currently
-            # stored history.json day yet (an older field predates the current data), so
-            # there's no real graded rate to check yet either way.
-            if not p.get("hr_last_game"):
-                prob_g, drv_g = _hrpo_combine_genius_pow(sig)
-                candidates_genius.append(_record(prob_g, drv_g))
+            prob_g, drv_g = _hrpo_combine_genius_pow(sig)
+            candidates_genius.append(_record(prob_g, drv_g))
 
     def _fair(prob):
         if not prob or prob <= 0:

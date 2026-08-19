@@ -1049,7 +1049,7 @@ def replay_grand_slam(df: pd.DataFrame, start: str | None = None, end: str | Non
     checked against something real instead of general sabermetric priors.
     """
     need = {"game_pk", "at_bat_number", "on_1b", "on_2b", "on_3b", "events", "inning_topbot",
-           "home_team", "away_team", "batter", "pitcher", "game_date"}
+           "batter", "pitcher", "game_date"}
     if df is None or df.empty or not need.issubset(df.columns):
         return {"error": "missing required columns for grand slam replay"}
 
@@ -1066,10 +1066,16 @@ def replay_grand_slam(df: pd.DataFrame, start: str | None = None, end: str | Non
         return {"error": "no plate-appearance rows in this window"}
     pa = pa.drop_duplicates(subset=["game_pk", "at_bat_number"])
 
-    # real batting slot, identical derivation to hr_by_lineup_spot()
-    pa["bteam"] = np.where(pa["inning_topbot"].eq("Top"), pa["away_team"], pa["home_team"])
-    pa = pa.sort_values(["game_pk", "bteam", "at_bat_number"])
-    pa["tidx"] = pa.groupby(["game_pk", "bteam"]).cumcount()
+    # real batting slot, identical derivation to hr_by_lineup_spot() -- grouped by
+    # (game_pk, inning_topbot) rather than by team NAME. home_team/away_team were checked
+    # directly and found to be inconsistently present in the real production frame
+    # (backtest.py's own _has_geo check already treats home_team as sometimes-absent,
+    # falling back to venue) -- this function never actually needed team names in the first
+    # place: Top vs Bot already distinguishes the two teams within a single game_pk without
+    # them. First real run came back "missing required columns" because of this unnecessary
+    # dependency; this removes it rather than adding a second, more fragile fallback.
+    pa = pa.sort_values(["game_pk", "inning_topbot", "at_bat_number"])
+    pa["tidx"] = pa.groupby(["game_pk", "inning_topbot"]).cumcount()
     pa["slot"] = (pa["tidx"] % 9) + 1
 
     loaded = pa["on_1b"].notna() & pa["on_2b"].notna() & pa["on_3b"].notna()
