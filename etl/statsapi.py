@@ -294,6 +294,54 @@ def get_pitcher_stats(pitcher_ids: list[int], season: int | None = None) -> dict
     return out
 
 
+def recent_hr_hitters_from_boxscore(date_str: str) -> set:
+    """Which real MLB player IDs hit a home run on the given date, straight from the OFFICIAL
+    box score -- not Statcast.
+
+    Why this exists: hr_last_game() in statcast_data.py derives "did he homer yesterday" from
+    the shared Statcast pitch-tracking frame, which has a real, well-known publication lag --
+    Baseball Savant often does not have a night's full pitch-by-pitch data processed until well
+    into the following day. Checked directly: a live board built at 7:23 AM ET the morning
+    after a slate needed that night's games to already be in the Statcast frame -- very likely
+    still processing at that hour, especially for games ending after midnight ET. That's the
+    real, most likely explanation for a hitter who genuinely homered the night before still
+    showing hr_last_game=False.
+
+    MLB's own official box score (this is the same live-scoreboard data ESPN/MLB.com use)
+    publishes within minutes of a game ending -- a completely different, faster pipeline than
+    Statcast's full tracking data. Player IDs here are the same MLB Advanced Media numeric ID
+    space Statcast's own `batter` column already uses, so this is directly compatible with the
+    rest of this app without any name-matching.
+
+    Non-fatal by design, matching the rest of this file: any failure (network, schema, a
+    postponed game, a field name that's changed) returns an empty set rather than raising, so a
+    boxscore hiccup degrades this one signal instead of breaking the whole build.
+    """
+    out = set()
+    try:
+        sched = _get(f"{BASE}/schedule", {"sportId": 1, "date": date_str})
+        game_pks = [g["gamePk"] for day in sched.get("dates", []) for g in day.get("games", [])
+                   if str(g.get("status", {}).get("abstractGameState", "")).lower() == "final"]
+    except Exception as e:
+        print(f"[statsapi] recent_hr_hitters_from_boxscore schedule fetch failed (non-fatal): {e}")
+        return out
+    for gpk in game_pks:
+        try:
+            box = _get(f"{BASE}/game/{gpk}/boxscore")
+            for side in ("home", "away"):
+                players = ((box.get("teams") or {}).get(side) or {}).get("players") or {}
+                for _pkey, pdata in players.items():
+                    hr = (((pdata.get("stats") or {}).get("batting") or {}).get("homeRuns"))
+                    if hr and hr > 0:
+                        _pid = (pdata.get("person") or {}).get("id")
+                        if _pid is not None:
+                            out.add(int(_pid))
+        except Exception as e:
+            print(f"[statsapi] boxscore fetch failed for game {gpk} (non-fatal): {e}")
+            continue
+    return out
+
+
 def get_recent_lineup(team_id: int, before_date: str) -> list[int]:
     """
     A team's most recent posted batting order (player ids, in order), used as a

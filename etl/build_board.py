@@ -1735,6 +1735,26 @@ def build(date_str: str | None = None) -> dict:
     except Exception as e:
         b2b_set = set(); _hnote("hr_last_game", e); print(f"[build] hr_last_game skipped: {e}")
 
+    try:
+        # Statcast's own pitch-tracking data has a real publication lag -- checked directly:
+        # a board built at 7:23 AM ET the morning after a slate needs that night's games
+        # already fully processed by Baseball Savant, which is often not the case that early,
+        # especially for late-ending games. That's the real, most likely reason a hitter who
+        # genuinely homered the night before still showed hr_last_game=False. MLB's own
+        # official box score (statsapi, not Statcast) publishes within minutes of a game
+        # ending -- a different, faster pipeline. Union of both sources: a hitter counts as
+        # B2B if EITHER confirms it, since either source can independently have its own gap.
+        import datetime as _dt
+        _yesterday = (_dt.date.fromisoformat(date_str) - _dt.timedelta(days=1)).isoformat()
+        _box_b2b = statsapi.recent_hr_hitters_from_boxscore(_yesterday)
+        _n_before = len(b2b_set)
+        b2b_set = b2b_set | _box_b2b
+        print(f"[build] hr_last_game: {_n_before} from Statcast, {len(_box_b2b)} from official "
+              f"box score, {len(b2b_set)} combined")
+    except Exception as e:
+        _hnote("hr_last_game box score", e)
+        print(f"[build] hr_last_game box score supplement skipped: {e}")
+
     try:                                           # per-park wind sensitivity (weekly, archived wx)
         from etl import wind_sens as WS
         ws_cache = os.path.join(os.path.dirname(__file__), "..", "docs", "wind_sens.json")
