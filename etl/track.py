@@ -30,7 +30,8 @@ def _load_day(date):
     if os.path.exists(snap):
         with open(snap) as f:
             d = json.load(f)
-            return d.get("players", []), d.get("parlay_picks", []), d.get("pitcher_props", [])
+            return (d.get("players", []), d.get("parlay_picks", []), d.get("pitcher_props", []),
+                   d.get("long_ball_jackpot") or {})
     if os.path.exists(BOARD_PATH):
         with open(BOARD_PATH) as f:
             b = json.load(f)
@@ -46,8 +47,15 @@ def _load_day(date):
                 "hit_heat": p.get("hit_heat"),
                 "hrr_heat": p.get("hrr_heat"),
                 "k_heat_bat": p.get("k_heat_bat"),
-            } for p in b.get("players", [])], b.get("parlay_picks", []), b.get("pitcher_props", [])
-    return None, [], []
+                # Added alongside this thread's Grand Slam/Long Ball tracking work -- this
+                # whitelist previously dropped grand_slam entirely on the live-board fallback
+                # path (the saved-snapshot path above preserves it since it returns full,
+                # unfiltered player dicts; this manually-constructed path did not), caught
+                # while wiring the new hr_log fields, not before.
+                "grand_slam": p.get("grand_slam"),
+            } for p in b.get("players", [])], b.get("parlay_picks", []), b.get("pitcher_props", []), (b.get("long_ball_jackpot") or {})
+    return None, [], [], {}
+
 
 
 def _normalize_sc(sc):
@@ -231,7 +239,7 @@ def _tier(h):
 def grade_date(date):
     """Grade a single date -> record dict, or None if it can't be graded yet (no snapshot,
     or results not posted). Pure: does not read or write history.json."""
-    players, parlay_picks, pitcher_props = _load_day(date)
+    players, parlay_picks, pitcher_props, long_ball_jackpot = _load_day(date)
     if not players:
         print(f"[track] no snapshot for {date}; skip.")
         return None
@@ -315,6 +323,19 @@ def grade_date(date):
         print(f"[track] rank capture skipped (non-fatal): {_e}")
 
     hr_log = []
+    # Real, per-player Long Ball board context (jackpot_ev/ownership_tier/is_gold_pick) --
+    # unlike grand_slam, this doesn't live on the player object itself, it's nested inside the
+    # top-level long_ball_jackpot.board structure. Built once here, checked directly against
+    # the real board shape before assuming it, not guessed.
+    _lb_by_id = {}
+    try:
+        for _g in (long_ball_jackpot.get("board") or []):
+            for _bt in (_g.get("batters") or []):
+                if _bt.get("id") is not None:
+                    _lb_by_id[_bt["id"]] = _bt
+    except Exception as _e:
+        print(f"[track] long ball lookup skipped (non-fatal): {_e}")
+
     for p in players:
         hit = homered(p)
         t = _tier(p.get("heat")); tt = tiers.setdefault(t, {"n": 0, "hr": 0})
@@ -423,6 +444,17 @@ def grade_date(date):
                            # cannot be reconstructed after the fact without a much riskier
                            # per-name-per-date roster lookup that risks silently wrong matches.
                            "team": p.get("team"), "game_pk": p.get("game_pk"),
+                           # Real, board-computed context this thread built -- recorded going
+                           # forward so future analysis can actually check whether jackpot_ev/
+                           # ownership_tier/gold-pick status and pre-game grand slam probability
+                           # predicted anything real, instead of only being checkable
+                           # retroactively via raw Statcast (which can't see badges or board
+                           # context at all, only physical outcomes).
+                           "gs_p_slam": (p.get("grand_slam") or {}).get("p_slam"),
+                           "gs_fair_odds": (p.get("grand_slam") or {}).get("fair_odds"),
+                           "lb_jackpot_ev": (_lb_by_id.get(p.get("id")) or {}).get("jackpot_ev"),
+                           "lb_ownership_tier": (_lb_by_id.get(p.get("id")) or {}).get("ownership_tier"),
+                           "lb_is_gold_pick": (_lb_by_id.get(p.get("id")) or {}).get("is_gold_pick", False),
                            # where he ranked on the slate BEFORE the games — the honest test of
                            # whether the boards actually surfaced him. cv_rank is convergence
                            # WITHOUT heat, so it answers "did the non-heat evidence find him?"

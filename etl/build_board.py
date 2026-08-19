@@ -1113,8 +1113,19 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
         prob_ap, drv_ap = _hrpo_combine_air_power(sig)
         candidates_ap.append(_record(prob_ap, drv_ap))
         if require_badge:
-            prob_g, drv_g = _hrpo_combine_genius_pow(sig)
-            candidates_genius.append(_record(prob_g, drv_g))
+            # Genius Pairing specifically excludes anyone who homered in their last game.
+            # Requested directly: the ticket was leaning on back-to-back (sometimes
+            # back-to-back-to-back) HR hitters more than felt right. Only hr_last_game (the
+            # previous game specifically) is a real, available field -- there is no
+            # "hit in each of the last two games" flag anywhere in this pipeline to build a
+            # true b2b2b check on; noted here rather than silently only handling half of what
+            # was asked. This is a requested exclusion, not a claim that recent HR hitters
+            # underperform -- by_b2b IS tracked daily in track.py but wasn't in any currently
+            # stored history.json day yet (an older field predates the current data), so
+            # there's no real graded rate to check yet either way.
+            if not p.get("hr_last_game"):
+                prob_g, drv_g = _hrpo_combine_genius_pow(sig)
+                candidates_genius.append(_record(prob_g, drv_g))
 
     def _fair(prob):
         if not prob or prob <= 0:

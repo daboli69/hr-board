@@ -490,6 +490,12 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
     top_n = {"5": {"n": 0, "hr": 0}, "10": {"n": 0, "hr": 0}, "25": {"n": 0, "hr": 0}}
     calib = {}
     n_tot = hr_tot = 0
+    # Real month-by-month base rate, tracked alongside the season aggregate. Checked directly
+    # a couple turns ago: June 11.30%, July 11.97%, August 11.46%, all above the season-long
+    # base_pct (10.92%) that badge lifts and everything else anchor to -- because the season
+    # average includes colder early-season months. Formalized here so this gets tracked
+    # automatically going forward instead of requiring a manual pull every time it's asked.
+    by_month = {}
     graded_days = 0
     # props accumulators — hit1/hit2 keyed by hit_heat tier, hrr by hrr_heat tier,
     # bku (batter K under) by k-side of hit profile is intentionally NOT here: the
@@ -527,6 +533,8 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
         for i, (bid, r) in enumerate(ranked):
             hit = r["hr"]
             n_tot += 1; hr_tot += 1 if hit else 0
+            _mk = by_month.setdefault(D[:7], {"n": 0, "hr": 0})
+            _mk["n"] += 1; _mk["hr"] += 1 if hit else 0
             t = by_tier[_tier(r["heat"])]
             t["n"] += 1; t["hr"] += 1 if hit else 0
             for k in ("5", "10", "25"):
@@ -606,9 +614,18 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
             if _hp is not None:
                 _edge("hr_power", "12%+ barrel" if _hp >= 12 else "8-11%" if _hp >= 8 else "<8%", hit)
             # badge tally: each badge this hitter carries gets a plate appearance + HR credit
-            for bk in r.get("badges", []):
+            _badges_today = r.get("badges", [])
+            for bk in _badges_today:
                 bb = by_badge.setdefault(bk, {"n": 0, "hr": 0})
                 bb["n"] += 1; bb["hr"] += 1 if hit else 0
+            # badge COMBO tally -- formalizes the POW+LOCK co-occurrence check into automatic,
+            # ongoing grading instead of a one-off manual pull. Mutually exclusive buckets
+            # among hitters who carry at least one of the two, so "pow+lock" isn't diluted by
+            # the much larger population that has neither.
+            _has_pow, _has_lock = "pow" in _badges_today, "lock" in _badges_today
+            if _has_pow or _has_lock:
+                _combo = "pow+lock" if (_has_pow and _has_lock) else ("pow_only" if _has_pow else "lock_only")
+                _edge("badge_combo", _combo, hit)
         # --- props: hit1/hit2 tiers by hit_heat ---
         hh_ranked = sorted((kv for kv in heats.items() if kv[1]["hit_heat"] is not None),
                            key=lambda kv: -kv[1]["hit_heat"])
@@ -674,10 +691,19 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
                     if actual >= 7: tn["o6"] += 1
         if graded_days % 10 == 0:
             print(f"[backtest] {graded_days} days graded through {D}")
+    _base_rate_final = hr_tot / n_tot if n_tot else 0
+    _by_month_rates = {}
+    for m, v in sorted(by_month.items()):
+        if v["n"] < 200:      # too little of a month graded to trust its own rate
+            continue
+        _rate = v["hr"] / v["n"]
+        _by_month_rates[m] = {"n": v["n"], "pct": round(100 * _rate, 2),
+                              "vs_season_lift": round(_rate / _base_rate_final, 3) if _base_rate_final else None}
     return {
         "days": graded_days, "pool": n_tot, "hr": hr_tot,
         "model_version": compute.MODEL_VERSION,
         "base_pct": round(100 * hr_tot / n_tot, 2) if n_tot else None,
+        "by_month": _by_month_rates,
         "by_tier": by_tier, "top_n": top_n, "by_edge": by_edge,
         "by_badge": _badge_lift(by_badge, hr_tot / n_tot if n_tot else 0),
         "by_converge_prop": by_conv,   # convergence graded per prop, on that prop's outcome
@@ -892,6 +918,18 @@ def main():
     except Exception as e:
         rec["grand_slam"] = {"error": f"{type(e).__name__}: {e}"}
         print(f"[backtest:grand_slam] skipped: {e}")
+    try:
+        rec["long_ball"] = replay_longest_hr(df, start=start, end=end)
+        lb = rec["long_ball"]
+        if lb.get("n_days_checked"):
+            print(f"[backtest:long_ball] {lb['n_days_checked']} days checked, daily-longest-HR "
+                  f"winners averaged {lb.get('avg_own_max_ev_of_daily_longest_hr_winner')} mph "
+                  f"own max EV vs league p90 {lb.get('avg_league_90th_pctile_max_ev_same_days')}")
+        else:
+            print(f"[backtest:long_ball] skipped: {lb.get('error')}")
+    except Exception as e:
+        rec["long_ball"] = {"error": f"{type(e).__name__}: {e}"}
+        print(f"[backtest:long_ball] skipped: {e}")
     out = os.path.join(os.path.dirname(__file__), "..", "docs", "backtest.json")
     json.dump(rec, open(out, "w"))
     print(f"[backtest] wrote {out}: {rec.get('days')} days, base {rec.get('base_pct')}%")
@@ -910,6 +948,87 @@ def main():
 #   * Total MAE: mean absolute error on the run total. Books are typically within
 #     ~2.6 runs. Beating that is the (hard) bar for betting totals.
 # ---------------------------------------------------------------------------
+def replay_longest_hr(df: pd.DataFrame, start: str | None = None, end: str | None = None) -> dict:
+    """Real, retroactive validation for Long Ball's core premise -- does a batter's OWN
+    measured power, known BEFORE that day, actually predict him hitting the day's longest HR?
+
+    Same constraint as replay_grand_slam(): neither this file's replay() nor track.py's live
+    log has ever recorded "longest HR of the day" as a tracked outcome (checked directly).
+    Derived here from real historical Statcast instead: for each day, the actual longest real
+    HR (max hit_distance_sc among real HR events) is real ground truth Statcast already
+    carries. What's NOT retroactively reconstructable is which badges a hitter carried that
+    day (badges are a live, board-computed snapshot) -- so this checks the measurable
+    UNDERLYING evidence the badges are meant to flag (own rolling max EV / avg distance),
+    not the badges themselves.
+
+    Strictly no-leakage: each batter's "own power" input on day D uses ONLY his own batted
+    balls strictly BEFORE D, the same temporal-validity pattern the rest of this file's
+    replay() already uses for heat.
+    """
+    need = {"game_pk", "game_date", "events", "hit_distance_sc", "launch_speed", "batter"}
+    if df is None or df.empty or not need.issubset(df.columns):
+        return {"error": "missing required columns for longest-HR replay"}
+
+    d = df.copy()
+    d["_gd"] = d["game_date"].astype(str).str[:10]
+    if start:
+        d = d[d["_gd"] >= start]
+    if end:
+        d = d[d["_gd"] <= end]
+
+    hr = d[d["events"].eq("home_run") & d["hit_distance_sc"].notna()].copy()
+    if hr.empty:
+        return {"error": "no home runs with distance data in this window"}
+
+    dates = sorted(hr["_gd"].unique())
+    if len(dates) < 20:
+        return {"error": f"only {len(dates)} days with HR data -- too few to grade"}
+
+    league_max_evs = []
+    winner_own_max_evs = []
+    n_days_checked = 0
+    for D in dates:
+        today_hrs = hr[hr["_gd"] == D]
+        if today_hrs.empty:
+            continue
+        longest = today_hrs.loc[today_hrs["hit_distance_sc"].idxmax()]
+        winner_id = longest["batter"]
+
+        # this specific batter's OWN rolling max EV, strictly BEFORE today -- no leakage
+        past_bip = d[(d["_gd"] < D) & d["launch_speed"].notna()]
+        winner_past = past_bip[past_bip["batter"] == winner_id]
+        if len(winner_past) < 15:      # too little of his own history to trust a "his own
+            continue                   # power" reading yet
+        winner_own_max = float(winner_past["launch_speed"].max())
+
+        league_past = past_bip["launch_speed"]
+        if len(league_past) < 500:
+            continue
+        league_max_evs.append(float(league_past.quantile(0.90)))   # league's own 90th-pctile
+        winner_own_max_evs.append(winner_own_max)
+        n_days_checked += 1
+
+    if n_days_checked < 15:
+        return {"error": f"only {n_days_checked} days had enough prior-history data to grade "
+                         f"-- too few to trust a comparison"}
+
+    avg_winner_max = sum(winner_own_max_evs) / len(winner_own_max_evs)
+    avg_league_p90 = sum(league_max_evs) / len(league_max_evs)
+    n_winner_above_league_p90 = sum(1 for w, lg in zip(winner_own_max_evs, league_max_evs) if w >= lg)
+
+    return {
+        "n_days_checked": n_days_checked,
+        "avg_own_max_ev_of_daily_longest_hr_winner": round(avg_winner_max, 1),
+        "avg_league_90th_pctile_max_ev_same_days": round(avg_league_p90, 1),
+        "pct_winners_above_league_90th_pctile": round(100 * n_winner_above_league_p90 / n_days_checked, 1),
+        "note": "If the daily longest-HR winner's own known max EV (strictly before that day) "
+               "sits meaningfully above the league's own 90th percentile most of the time, "
+               "Long Ball's Pillar 1 premise -- that real, prior, measured power predicts real "
+               "distance-ceiling outcomes -- holds up against actual history. If it's close to "
+               "the league's own p90 baseline, the premise is weaker than assumed.",
+    }
+
+
 def replay_grand_slam(df: pd.DataFrame, start: str | None = None, end: str | None = None) -> dict:
     """Real, retroactive validation for Grand Slam's newer mechanics -- derived directly from
     raw historical Statcast, since neither this file's own replay() nor track.py's live daily
