@@ -9280,10 +9280,33 @@ function computeBetGuideHTML(){
     against this specific pitcher (Log5, park-adjusted), across ~4.3 PAs. Layered on top: the
     opposing bullpen's real exploitability and workload, the starter's real 0–100 HR
     Vulnerability score (a real bump once it clears 70), his own currently-graded badge edges
-    against tonight's pitcher (POW, HOT, PITCH EDGE, HR vs PEN), and a small tie-breaker for how
-    many signals agree overall. <b>Tiers</b> (STRONG/SOLID/LONGSHOT/DARTS) are readability
-    buckets over this app's own probability range, not a separately validated system — grand
-    slams stay rare and high-variance no matter how good the matchup looks.</p>
+    against tonight's pitcher (POW, HOT, PITCH EDGE, HR vs PEN), a lineup-slot adjustment, and a
+    small tie-breaker for how many signals agree overall. <b>Tiers</b> (STRONG/SOLID/LONGSHOT/
+    DARTS) are readability buckets over this app's own probability range, not a separately
+    validated system — grand slams stay rare and high-variance no matter how good the matchup
+    looks. The slot adjustment and pitcher-traffic mechanics are now checked directly against
+    real historical grand slams (not just general sabermetric priors) each time the backtest
+    runs — a real, ongoing validation, not a one-time assumption.</p>
+
+    <h3>Power Badge parlays &amp; Genius Pairing</h3>
+    <p>In Parlays & Jackpots, below the standard Cross-Game Optimizer: a second card restricted
+    to hitters carrying the <b>POW</b> badge specifically. Three tickets — Arsenal & Lock,
+    Air-Power & Volume, and <b>Genius Pairing</b>, which stacks every real, checked signal this
+    app has: the batter's own measured power (season max distance, recent exit velo), the
+    opposing arm's real form label and HR Vulnerability score, bullpen exploitability, and
+    matchup fit — anchored to the badge's own real conversion rate rather than heat, since
+    checked directly: POW-badge home runs this season show a median heat around 41–55, not
+    concentrated near the top of the slate at all.</p>
+    <p><b>Excludes anyone who homered in their last game</b>, across all three tickets and the
+    swap/alternates list — a real, requested filter, not a claim that recent HR hitters
+    underperform. Pulled from the official box score directly (not Statcast, which has a real
+    publication lag that can miss the previous night's games early the next morning).</p>
+    <p>One correction worth knowing: an earlier version of this card gave an extra bonus for
+    holding <b>both</b> POW and LOCK together. Checked against the full backtest — POW alone
+    grades at 1.76x lift (n=915) versus POW+LOCK together at 1.74x (n=310). Holding both shows
+    no real additional benefit over POW alone, so that bonus was removed rather than left in at
+    a reduced weight the fuller data didn't support. LOCK remains a real, strong signal on its
+    own (1.30x) — it just doesn't stack the way a smaller sample first suggested.</p>
 
     <h3>Long Ball Jackpot — distance ceiling, ownership leverage, Gold Bar picks</h3>
     <p>Same location, own full board. <b>Pool is flat $50K every day</b>, win or not — nothing
@@ -9295,7 +9318,11 @@ function computeBetGuideHTML(){
     layered with a real Log5 HR probability, the opposing pitcher's exit-velocity-allowed
     profile, and the signal tie-breaker. A hitter needs a real 420ft+ season ceiling to avoid a
     penalty, and an elite or scorching-hot power profile gets pushed into Chalk automatically —
-    the crowd already knows about him.</p>
+    the crowd already knows about him. Checked directly against real history: across 136 real
+    days, the batter who ended up hitting that day's actual longest HR had his own known power
+    (measured strictly before that day, no lookahead) averaging 112.1 mph max exit velo — the
+    league's own top-10% cutoff on those same days averaged 102.2 mph. The winner cleared that
+    bar on 100% of the days checked.</p>
     <p><b>Ownership tier (Chalk / Standard / Leverage / Deep Sleeper)</b> is built from a real,
     favorite-weighted implied team total and whether the score clears tonight's top decile.
     <b>Chalk</b> = obvious spot + obvious score, or the hype penalty. <b>Standard</b> = good
@@ -9308,6 +9335,14 @@ function computeBetGuideHTML(){
     <p style="font-size:11px;color:var(--faint)">Neither jackpot board has a live book price to
     check against — these are contests, not standard prop markets. Treat both as rankings built
     from real, checked data, not guaranteed probabilities.</p>
+
+    <h3>How current the numbers are</h3>
+    <p>Badge lifts and Genius Pairing's base rate anchor to a trailing window rather than a
+    single season-long average, so a real shift in scoring conditions doesn't sit hidden behind
+    six months of blended data. Checked month by month, though, the real picture is mixed, not
+    a clean "hotter every month" story: <b>April 10.9%, May 10.0%, June 11.9%, July 11.3%,
+    August 10.4%</b> against this app's own base rate. June and July ran meaningfully hot; May
+    and August did not. Worth knowing plainly rather than assumed.</p>
 
     <p style="font-size:11px;color:var(--faint);margin-top:16px;padding:10px;background:var(--panel-2);border-radius:8px">This guide auto-updates as your tracker grows. Signals move buckets as their sample sizes cross thresholds (n≥100 = trustworthy). Not betting advice.</p>`;
 }
