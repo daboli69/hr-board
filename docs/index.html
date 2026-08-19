@@ -9336,6 +9336,51 @@ function computeBetGuideHTML(){
     check against — these are contests, not standard prop markets. Treat both as rankings built
     from real, checked data, not guaranteed probabilities.</p>
 
+    <h3>Using the Long Ball board — picking A homer vs. picking THE longest one</h3>
+    <p>These are two different questions, and the board answers both, but not with the same
+    number. <b>J-EV is the board's default sort</b> — it blends the real 0–100 physics score
+    with a Log5 HR probability, the opposing pitcher's own exit-velocity-allowed profile, and
+    the signal tie-breaker. That mix is built to answer "who's most likely to go deep tonight."
+    It is NOT built to answer "whose homer will travel the farthest if he connects" — those are
+    genuinely different questions, and a hitter can rank high on one without ranking high on
+    the other.</p>
+    <p><b>For picking A homer</b> (Distance King, Gold Bar rows, or just scrolling J-EV top to
+    bottom): the default sort already does this. Layer in ownership tier if you're weighing
+    leverage for a shared pool — Leverage/Deep Sleeper picks that connect are worth more than
+    the same outcome from a Chalk name everyone already has.</p>
+    <p><b>For picking the actual LONGEST homer of the day, weight differently — lean on the
+    physics signals specifically, not J-EV.</b> Checked directly against 136 real days of
+    history: the hitter who ended up hitting that day's actual longest HR had his own known
+    exit velocity (measured strictly before that day) averaging <b>112.1 mph</b>. The league's
+    own top-10% cutoff on those same days averaged only <b>102.2 mph</b> — a real, 10mph gap,
+    and the eventual winner cleared that bar on 100% of the days checked. Translated to what's
+    actually on the board:</p>
+    <ol>
+      <li><b>Sort or scan by the <code>Max EV</code> / <code>EV50</code> driver tags first</b>,
+      not J-EV. These come from a real Savant leaderboard, not a slate estimate. A hitter
+      showing "Max EV: 118+ mph" has a real, measured case for distance that a high J-EV score
+      alone doesn't guarantee — J-EV can be pulled up by favorable matchup probability even
+      when his own raw power is merely good, not elite.</li>
+      <li><b>Require the <code>Launch 20-35°</code> driver</b> — this is already gated into the
+      base score (no ideal-launch hitter clears it at all), but confirm it's actually showing:
+      a ball that doesn't get elevated in the right window has no distance case regardless of
+      how hard it's hit.</li>
+      <li><b>Check <code>ceiling_ft</code></b> — this already blends his own season-long max
+      distance with the park's own real average carry, so it's a genuine single at-a-glance
+      distance number, not just his personal best in a vacuum.</li>
+      <li><b>Look for the <code>Park avg HR</code> / <code>Park max HR this yr</code> driver
+      tags</b> when they appear — real, measured carry at that specific park this season, not
+      a generic park factor. A big raw Max EV in a suppressive park still has to fight physics
+      the rest of the way.</li>
+      <li><b>Treat Gold Bar and ownership tier as secondary here.</b> Both are real, but they're
+      built around badge/barrel convergence and crowd leverage — probability-of-a-hit concepts,
+      not distance-of-a-hit ones. A Gold Bar pick is a strong overall case; it isn't specifically
+      a longest-HR case unless his Max EV/EV50 also clear the numbers above.</li>
+    </ol>
+    <p style="font-size:11px;color:var(--faint)">The 112.1 vs 102.2 mph comparison re-runs every
+    time the backtest does, off real history — if it drifts, that's this app's own data telling
+    you the premise is weakening, not something to take on faith indefinitely.</p>
+
     <h3>How current the numbers are</h3>
     <p>Badge lifts and Genius Pairing's base rate anchor to a trailing window rather than a
     single season-long average, so a real shift in scoring conditions doesn't sit hidden behind
