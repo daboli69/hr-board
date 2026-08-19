@@ -824,10 +824,16 @@ def HRPO_FAMILY_LIFT_LOOKUP(fams):
 
 
 def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
-                                pitcher_props=None, bullpen_rankings=None):
+                                pitcher_props=None, bullpen_rankings=None, require_badge=None):
     """The Anchor and Overlooked +EV 3-leg tickets. Every leg comes from a distinct game_pk --
     the whole point is eliminating the sportsbook's same-game-parlay correlation tax, which only
     works if the legs genuinely do not correlate with each other, i.e. different games.
+
+    require_badge: when set (e.g. "pow"), restricts the ENTIRE candidate pool to hitters
+    carrying that badge before any scoring happens -- every leg on both tickets is guaranteed
+    to hold it. Everything else (calibrated joint probability, fair odds, distinct-game
+    enforcement, real book-price comparison) is identical to the unrestricted version; this
+    only narrows which players are ever allowed to enter the pool.
 
     Book odds: HR prop odds live in docs/odds.json under `prices`, name-matched the same way
     FanGraphs is name-matched elsewhere in this file. When odds.json has not been fetched yet
@@ -869,6 +875,10 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
         gpk = p.get("game_pk")
         if gpk is None or not env_ok.get(gpk, True):
             continue
+        if require_badge:
+            _p_badges = {b.get("k") for b in (p.get("badges") or []) if b.get("k")}
+            if require_badge not in _p_badges:
+                continue
         sig = _hrpo_raw_signals(p, pp_by_id, pen_by_team, backtest_calib, base_rate)
         if sig is None:
             continue
@@ -4661,6 +4671,20 @@ def build(date_str: str | None = None) -> dict:
     except Exception as e:
         board["cross_game_parlays"] = None
         _hnote("cross-game parlays", e); print(f"[build] cross-game parlays skipped: {e}")
+
+    try:
+        # Same optimizer, same real math -- restricted to POW-badge holders only. A real,
+        # requested filter: every leg on both tickets is guaranteed to carry the badge.
+        board["cross_game_parlays_pow"] = build_cross_game_hr_parlays(
+            players, _bt_calib, _odds_prices, _hrpo_games,
+            pitcher_props=pitcher_props, bullpen_rankings=bullpen_rankings, require_badge="pow")
+        _cgpp = board["cross_game_parlays_pow"]
+        print(f"[build] cross-game HR parlays (POW-only): {_cgpp['candidates_scored']} "
+              f"POW-badge candidates scored")
+    except Exception as e:
+        board["cross_game_parlays_pow"] = None
+        _hnote("cross-game parlays (POW-only)", e)
+        print(f"[build] cross-game parlays (POW-only) skipped: {e}")
 
     try:
         board["long_ball_jackpot"] = build_long_ball_jackpot(players, lb_evbarrels, lb_pitcher_ev)
