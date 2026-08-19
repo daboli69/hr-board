@@ -881,6 +881,17 @@ def main():
     except Exception as e:
         rec["runs"] = {"error": f"{type(e).__name__}: {e}"}
         print(f"[backtest:runs] skipped: {e}")
+    try:
+        rec["grand_slam"] = replay_grand_slam(df, start=start, end=end)
+        gs = rec["grand_slam"]
+        if gs.get("n_real_grand_slams"):
+            print(f"[backtest:grand_slam] {gs['n_real_grand_slams']} real historical grand "
+                  f"slams found, pitcher traffic multiplier {gs.get('avg_pitcher_traffic_multiplier_on_real_slams')}")
+        else:
+            print(f"[backtest:grand_slam] skipped: {gs.get('error')}")
+    except Exception as e:
+        rec["grand_slam"] = {"error": f"{type(e).__name__}: {e}"}
+        print(f"[backtest:grand_slam] skipped: {e}")
     out = os.path.join(os.path.dirname(__file__), "..", "docs", "backtest.json")
     json.dump(rec, open(out, "w"))
     print(f"[backtest] wrote {out}: {rec.get('days')} days, base {rec.get('base_pct')}%")
@@ -899,6 +910,100 @@ def main():
 #   * Total MAE: mean absolute error on the run total. Books are typically within
 #     ~2.6 runs. Beating that is the (hard) bar for betting totals.
 # ---------------------------------------------------------------------------
+def replay_grand_slam(df: pd.DataFrame, start: str | None = None, end: str | None = None) -> dict:
+    """Real, retroactive validation for Grand Slam's newer mechanics -- derived directly from
+    raw historical Statcast, since neither this file's own replay() nor track.py's live daily
+    log has ever recorded grand slam occurrences specifically (checked directly before writing
+    this). Rather than fabricate a validation for an outcome nobody tracked, this derives real
+    ground truth from data that was already in the historical frame:
+
+    - A real grand slam PA = bases loaded (on_1b/on_2b/on_3b all populated) AND
+      events == "home_run" on that same plate appearance.
+    - Batting slot uses the EXACT same derivation etl/statcast_data.py's hr_by_lineup_spot()
+      already uses (cumulative team PA count mod 9 + 1) -- not a second, differently-computed
+      version of the same idea.
+    - Pitcher bases-loaded rate uses the same logic pitcher_traffic_profile() computes live,
+      applied here retroactively per pitcher across the full window.
+
+    Returns real slot-share and pitcher-bases-loaded-rate numbers for actual historical grand
+    slams, so Task 1's lineup_slot_modifier and Part A's pitcher_traffic_multiplier can be
+    checked against something real instead of general sabermetric priors.
+    """
+    need = {"game_pk", "at_bat_number", "on_1b", "on_2b", "on_3b", "events", "inning_topbot",
+           "home_team", "away_team", "batter", "pitcher", "game_date"}
+    if df is None or df.empty or not need.issubset(df.columns):
+        return {"error": "missing required columns for grand slam replay"}
+
+    d = df.copy()
+    d["_gd"] = d["game_date"].astype(str).str[:10]
+    if start:
+        d = d[d["_gd"] >= start]
+    if end:
+        d = d[d["_gd"] <= end]
+
+    # one row per real PA
+    pa = d[d["events"].notna()].copy()
+    if pa.empty:
+        return {"error": "no plate-appearance rows in this window"}
+    pa = pa.drop_duplicates(subset=["game_pk", "at_bat_number"])
+
+    # real batting slot, identical derivation to hr_by_lineup_spot()
+    pa["bteam"] = np.where(pa["inning_topbot"].eq("Top"), pa["away_team"], pa["home_team"])
+    pa = pa.sort_values(["game_pk", "bteam", "at_bat_number"])
+    pa["tidx"] = pa.groupby(["game_pk", "bteam"]).cumcount()
+    pa["slot"] = (pa["tidx"] % 9) + 1
+
+    loaded = pa["on_1b"].notna() & pa["on_2b"].notna() & pa["on_3b"].notna()
+    slams = pa[loaded & pa["events"].eq("home_run")]
+    n_slams = len(slams)
+    if n_slams < 15:
+        return {"error": f"only {n_slams} real grand slams in this window -- too few to grade "
+                         f"a slot distribution or pitcher-rate correlation meaningfully"}
+
+    # real slot distribution among actual grand slams, vs. the naive 1/9 = 11.1% each expectation
+    slot_counts = slams["slot"].value_counts().to_dict()
+    slot_dist = {int(s): {"n": int(c), "pct": round(100 * c / n_slams, 1),
+                          "vs_even_share": round((c / n_slams) / (1 / 9), 2)}
+                for s, c in sorted(slot_counts.items())}
+
+    # Real pitcher bases-loaded rate, weighted by actual slam EVENTS, not unique pitchers who
+    # allowed one. Caught by testing against synthetic data with a known 2x wild-pitcher
+    # effect built in: iterating unique pitchers came back at 1.014x (essentially neutral),
+    # because with enough sample nearly every pitcher -- wild or not -- eventually allows at
+    # least one slam, which washes the signal out entirely. Weighting by event count instead
+    # means a pitcher who allowed 8 real slams contributes 8x to the average, correctly
+    # reflecting that wilder pitchers produce disproportionately MORE slam events, not just
+    # that they're eventually present in the list.
+    loaded_by_pitcher = pa[loaded].groupby("pitcher").size()
+    pa_by_pitcher = pa.groupby("pitcher").size()
+    league_loaded_rate = float(loaded.sum()) / len(pa)
+    _rate_cache = {}
+    slam_pitcher_rates = []
+    for pid in slams["pitcher"].dropna():
+        if pid not in _rate_cache:
+            _n_pa = int(pa_by_pitcher.get(pid, 0))
+            if _n_pa < 100:
+                _rate_cache[pid] = None
+            else:
+                _rate = float(loaded_by_pitcher.get(pid, 0)) / _n_pa
+                _rate_cache[pid] = _rate / league_loaded_rate if league_loaded_rate else 1.0
+        if _rate_cache[pid] is not None:
+            slam_pitcher_rates.append(_rate_cache[pid])
+
+    return {
+        "n_real_grand_slams": n_slams,
+        "slot_distribution": slot_dist,
+        "league_bases_loaded_rate": round(100 * league_loaded_rate, 2),
+        "avg_pitcher_traffic_multiplier_on_real_slams": (
+            round(sum(slam_pitcher_rates) / len(slam_pitcher_rates), 3)
+            if slam_pitcher_rates else None),
+        "n_pitchers_with_enough_sample": len(slam_pitcher_rates),
+        "note": "slot_distribution's vs_even_share compares each slot's real share of grand "
+               "slams to what an even 1-in-9 split would predict -- 1.0 means that slot hits "
+               "its naive share exactly, above 1.0 means it over-produces real slams.",
+    }
+
+
 def replay_runs(df: pd.DataFrame, start: str | None = None, end: str | None = None) -> dict:
     from etl import runs as RUNS
     df = df.copy()
