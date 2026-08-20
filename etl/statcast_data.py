@@ -61,6 +61,17 @@ def pull_season(start: str, end: str) -> pd.DataFrame:
         "attack_angle", "bat_speed", "swing_length", "release_speed", "pitch_type",
         "inning", "inning_topbot", "at_bat_number", "pitch_number",
         "home_team", "away_team",
+        # Bases-loaded state -- real, standard Statcast per-pitch columns, each holding the
+        # runner's batter ID on that base or null if empty. Checked directly against the real
+        # overnight backtest output: replay_grand_slam() still errored with "missing required
+        # columns" even after removing its home_team/away_team dependency, which meant these
+        # three were the actual gap all along. More significant than just the backtest --
+        # pitcher_traffic_profile() (Grand Slam's real Part A "Pitcher Traffic Multiplier")
+        # needs these same three columns and has the exact same silent-empty-dict failure mode
+        # when they're missing. Since this same pull_season() feeds the live board build too,
+        # that multiplier has very likely been silently neutral in production this whole time,
+        # not just in the backtest.
+        "on_1b", "on_2b", "on_3b",
         "post_home_score", "post_away_score",
         "estimated_woba_using_speedangle", "estimated_ba_using_speedangle",
         "woba_value", "woba_denom",
