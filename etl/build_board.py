@@ -695,7 +695,7 @@ HRPO_IDEAL_AA_LIFT = 1.12
 
 
 def _hrpo_raw_signals(p, pp_by_id, pen_by_team, backtest_calib, base_rate, require_badge=None,
-                      vuln_by_pid=None):
+                      vuln_by_pid=None, pen_avail_by_team=None):
     """Every dimensional input this scorer draws on, computed ONCE per hitter and handed to
     the ticket formulas below.
 
@@ -759,6 +759,8 @@ def _hrpo_raw_signals(p, pp_by_id, pen_by_team, backtest_calib, base_rate, requi
     _pen = pen_by_team.get(p.get("opp_team"))
     pen_worn = bool(_pen and str(_pen.get("label") or "").upper() in ("WORN", "GASSED"))
     pen_rank_val = _pen.get("rank_val") if _pen else None
+    _acute = (pen_avail_by_team or {}).get(p.get("opp_team"))
+    acute_bp_pitches = _acute.get("pen_pitches_l2") if _acute else None
 
     # Genius Pairing inputs -- the batter's OWN real power profile (not the badge, the
     # underlying measured evidence the badge is meant to flag), tonight's opposing arm's real
@@ -777,6 +779,7 @@ def _hrpo_raw_signals(p, pp_by_id, pen_by_team, backtest_calib, base_rate, requi
         "zone_edge": zone_edge, "zone_overlap_n": zone_overlap_n,
         "badges": badges, "ideal_aa_clear": ideal_aa_clear, "spot": spot,
         "fb_pct_allowed": fb_pct_allowed, "pen_worn": pen_worn, "pen_rank_val": pen_rank_val,
+        "acute_bp_pitches": acute_bp_pitches,
         "own_max_dist": own_max_dist, "own_barrel_pct": own_barrel_pct,
         "own_avg_ev_l14": own_avg_ev_l14, "arm_form_label": arm_form_label,
         "arm_vuln_score": arm_vuln_score,
@@ -972,6 +975,17 @@ def _hrpo_combine_genius_pow(sig):
         prob *= 1.05
         drivers.append("worn/gassed pen")
 
+    # Acute bullpen fatigue -- uses the EXISTING bullpen_availability()'s pen_pitches_l2 (real
+    # trailing-2-day bullpen pitch count, already computed every build for the Bullpen tab's
+    # "worn" reasons text) rather than a new computation. No validated threshold yet:
+    # backtest.py's own replay_acute_bullpen_fatigue() (a genuinely different, longer 3-day
+    # window, kept separate as a research check) needs several real runs before its quartile
+    # output can set a real number here. 100+ pitches over 2 days is a reasoned placeholder,
+    # not backtested -- tighten or loosen once there's real data to say so.
+    if sig.get("acute_bp_pitches") is not None and sig["acute_bp_pitches"] >= 100:
+        prob *= 1.08
+        drivers.append(f"acute bullpen load {sig['acute_bp_pitches']} pitches/2d (unvalidated threshold)")
+
     af = sig["arsenal_fit"]
     if af is not None and af >= 11:
         prob *= 1.0 + (1.39 - 1.0) * 0.65
@@ -1015,7 +1029,8 @@ def HRPO_FAMILY_LIFT_LOOKUP(fams):
 
 def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
                                 pitcher_props=None, bullpen_rankings=None, require_badge=None,
-                                pitcher_edges=None, base_rate_override=None):
+                                pitcher_edges=None, base_rate_override=None,
+                                pen_avail_by_team=None):
     """The Anchor and Overlooked +EV 3-leg tickets. Every leg comes from a distinct game_pk --
     the whole point is eliminating the sportsbook's same-game-parlay correlation tax, which only
     works if the legs genuinely do not correlate with each other, i.e. different games.
@@ -1090,7 +1105,7 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
             if p.get("hr_last_game"):
                 continue
         sig = _hrpo_raw_signals(p, pp_by_id, pen_by_team, backtest_calib, base_rate,
-                                require_badge, vuln_by_pid)
+                                require_badge, vuln_by_pid, pen_avail_by_team)
         if sig is None:
             continue
         odds = _odds_for(p.get("name"))
@@ -4090,6 +4105,12 @@ def build(date_str: str | None = None) -> dict:
                 "label": label,
                 "n_available": n_avail,
                 "n_unavailable": n_out,
+                # Real, previously only embedded in the reasons TEXT string ("...pitches over
+                # 2 days") -- exposed here as clean, direct fields so anything reading
+                # bullpen_rankings (the Bullpen tab, Genius Pairing, any future consumer) can
+                # use the actual number instead of parsing it back out of a sentence.
+                "pen_pitches_l1": avail.get("pen_pitches_l1"),
+                "pen_pitches_l2": avail.get("pen_pitches_l2"),
                 "platoon": ({"worse": platoon.get("worse"), "gap": platoon.get("gap"),
                              "R": platoon.get("R"), "L": platoon.get("L")} if platoon else None),
                 "form": form.get("label") if isinstance(form, dict) else form,
@@ -4945,7 +4966,8 @@ def build(date_str: str | None = None) -> dict:
         board["cross_game_parlays_pow"] = build_cross_game_hr_parlays(
             players, _bt_calib, _odds_prices, _hrpo_games,
             pitcher_props=pitcher_props, bullpen_rankings=bullpen_rankings, require_badge="pow",
-            pitcher_edges=pitcher_edges, base_rate_override=_recent_base_rate)
+            pitcher_edges=pitcher_edges, base_rate_override=_recent_base_rate,
+            pen_avail_by_team=pen_avail)
         _cgpp = board["cross_game_parlays_pow"]
         print(f"[build] cross-game HR parlays (POW-only): {_cgpp['candidates_scored']} "
               f"POW-badge candidates scored")
