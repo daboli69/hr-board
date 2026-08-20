@@ -5873,6 +5873,12 @@ function renderEdges(){
       if(p.bp_era!=null) stats.push(`<b style="color:${p.bp_era>=4.5?'var(--hot)':p.bp_era<=3.5?'var(--good)':'var(--ink)'}">${(+p.bp_era).toFixed(2)}</b> ERA`);
       if(p.hr9!=null) stats.push(`<b style="color:${p.hr9>=1.4?'var(--hot)':p.hr9<=1.0?'var(--good)':'var(--ink)'}">${(+p.hr9).toFixed(2)}</b> HR/9${p.season_hr!=null?` (${p.season_hr} HR)`:""}`);
       if(p.n_available!=null) stats.push(`${p.n_available} fresh${p.n_unavailable?` / ${p.n_unavailable} down`:""}`);
+      // Acute fatigue -- real trailing pitch counts, shown as their own always-visible stat
+      // rather than only appearing embedded in the reasons text for pens already flagged worn.
+      if(p.pen_pitches_l2!=null){
+        const acuteHot = p.pen_pitches_l2>=100;
+        stats.push(`<span${acuteHot?` style="color:var(--hot)"`:``} title="Bullpen pitches thrown over the trailing 2 days">${p.pen_pitches_l2} pitches/2d</span>`);
+      }
       // Boxscore-based availability, read from actual pitch counts over the trailing three days.
       // Shown next to the Statcast-derived count rather than replacing it — where the two
       // disagree, that gap is information about how reliable tonight's read is.
