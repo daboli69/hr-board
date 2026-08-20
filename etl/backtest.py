@@ -930,6 +930,28 @@ def main():
     except Exception as e:
         rec["long_ball"] = {"error": f"{type(e).__name__}: {e}"}
         print(f"[backtest:long_ball] skipped: {e}")
+    try:
+        rec["signal_redundancy"] = replay_signal_redundancy()
+        sr = rec["signal_redundancy"]
+        if sr.get("n_pooled_pow_badge_player_days"):
+            print(f"[backtest:signal_redundancy] {sr['n_snapshot_days_used']} snapshot days, "
+                  f"{len(sr.get('likely_redundant_pairs', []))} likely-redundant pairs found")
+        else:
+            print(f"[backtest:signal_redundancy] skipped: {sr.get('error')}")
+    except Exception as e:
+        rec["signal_redundancy"] = {"error": f"{type(e).__name__}: {e}"}
+        print(f"[backtest:signal_redundancy] skipped: {e}")
+    try:
+        rec["acute_bullpen_fatigue"] = replay_acute_bullpen_fatigue(df, start=start, end=end)
+        abf = rec["acute_bullpen_fatigue"]
+        if abf.get("by_acute_fatigue_quartile"):
+            print(f"[backtest:acute_bullpen_fatigue] base rate {abf.get('base_rate_pct')}%, "
+                  f"quartile breakdown computed")
+        else:
+            print(f"[backtest:acute_bullpen_fatigue] skipped: {abf.get('error')}")
+    except Exception as e:
+        rec["acute_bullpen_fatigue"] = {"error": f"{type(e).__name__}: {e}"}
+        print(f"[backtest:acute_bullpen_fatigue] skipped: {e}")
     out = os.path.join(os.path.dirname(__file__), "..", "docs", "backtest.json")
     json.dump(rec, open(out, "w"))
     print(f"[backtest] wrote {out}: {rec.get('days')} days, base {rec.get('base_pct')}%")
@@ -948,6 +970,184 @@ def main():
 #   * Total MAE: mean absolute error on the run total. Books are typically within
 #     ~2.6 runs. Beating that is the (hard) bar for betting totals.
 # ---------------------------------------------------------------------------
+def replay_signal_redundancy() -> dict:
+    """Data-analyst pass: how much of Genius Pairing's 'convergence' is genuinely independent
+    evidence versus the same underlying fact counted several times under different names?
+
+    Uses the real board snapshots in docs/snapshots/ -- pre-game player states saved once per
+    day, 16 real days as of this build (2026-08-04 through 2026-08-19). This is signal-to-signal
+    correlation, not signal-to-outcome, so no HR result is needed -- whether two numbers move
+    together is a fact about the numbers themselves, checkable from the pre-game snapshot alone.
+
+    Pools every POW-badge holder across all 16 real days (not just one day's ~33 players) for a
+    real sample, then computes pairwise Pearson correlation across every signal Genius Pairing
+    actually uses: heat, barrel_pct, iso, hr_power, zone (overlap count), sp_vuln, bp_score.
+
+    A correlation above ~0.5 between two signals means they are substantially the same
+    information under two names -- stacking both as if independent overstates the combination
+    (exactly the mechanism that caused the ceiling-saturation bug this thread already found and
+    fixed once, in a different pair of signals).
+    """
+    import glob as _glob
+    snap_dir = os.path.join(os.path.dirname(__file__), "..", "docs", "snapshots")
+    files = sorted(_glob.glob(os.path.join(snap_dir, "20*.json")))
+    if len(files) < 5:
+        return {"error": f"only {len(files)} board snapshots available -- too few for a real "
+                         f"multi-day correlation, not just a single cross-section"}
+
+    keys = ["heat", "barrel_pct", "iso", "hr_power", "zone", "sp_vuln", "bp_score"]
+    pooled = {k: [] for k in keys}
+    n_days_used = 0
+    for fp in files:
+        try:
+            with open(fp) as f:
+                d = json.load(f)
+        except Exception:
+            continue
+        pow_players = [p for p in d.get("players", []) if "pow" in (p.get("badges") or [])]
+        if not pow_players:
+            continue
+        n_days_used += 1
+        for p in pow_players:
+            for k in keys:
+                pooled[k].append(p.get(k))
+
+    n_pool = len(pooled["heat"])
+    if n_pool < 30:
+        return {"error": f"only {n_pool} pooled pow-badge player-days -- too thin to trust a "
+                         f"correlation matrix"}
+
+    def _corr(a, b):
+        pts = [(x, y) for x, y in zip(a, b) if x is not None and y is not None]
+        if len(pts) < 15:
+            return None
+        xs, ys = zip(*pts)
+        mx, my = sum(xs) / len(xs), sum(ys) / len(ys)
+        num = sum((x - mx) * (y - my) for x, y in pts)
+        denx = sum((x - mx) ** 2 for x in xs) ** 0.5
+        deny = sum((y - my) ** 2 for y in ys) ** 0.5
+        return round(num / (denx * deny), 3) if denx and deny else None
+
+    matrix = {}
+    redundant_pairs = []
+    for i, k1 in enumerate(keys):
+        for k2 in keys[i + 1:]:
+            r = _corr(pooled[k1], pooled[k2])
+            matrix[f"{k1}__vs__{k2}"] = r
+            if r is not None and abs(r) >= 0.5:
+                redundant_pairs.append({"pair": [k1, k2], "r": r})
+
+    return {
+        "n_snapshot_days_used": n_days_used,
+        "n_pooled_pow_badge_player_days": n_pool,
+        "correlation_matrix": matrix,
+        "likely_redundant_pairs": redundant_pairs,
+        "note": "Correlation is across POW-badge holders' own pre-game signal values, pooled "
+               "over every real snapshot day -- not a single day's cross-section. |r|>=0.5 "
+               "flagged as likely measuring substantially the same underlying fact.",
+    }
+
+
+def replay_acute_bullpen_fatigue(df: pd.DataFrame, start: str | None = None,
+                                 end: str | None = None, window_days: int = 3) -> dict:
+    """Does a bullpen's ACUTE recent workload (trailing 2-3 days specifically) predict real HR
+    outcomes against that pen, beyond what a season-long exploitability average would catch?
+
+    Real, checkable, and genuinely different from the existing season-trailing bullpen
+    exploitability score: a pen that threw 200+ pitches in extra innings two nights ago is a
+    sharper, more acute signal than a slow-moving season average, and the season number cannot
+    see it at all.
+
+    Computed directly from the raw Statcast frame already in memory -- no new fetch. For each
+    real day, each team's bullpen (non-starter) pitch count over the trailing `window_days` is
+    bucketed into quartiles; real HR rate against that bullpen's relief innings on that day is
+    checked across quartiles.
+    """
+    need = {"game_pk", "game_date", "events", "pitcher", "inning", "at_bat_number",
+           "inning_topbot", "home_team", "away_team"}
+    if df is None or df.empty or not need.issubset(df.columns):
+        return {"error": "missing required columns for acute bullpen fatigue replay"}
+
+    d = df.copy()
+    d["_gd"] = pd.to_datetime(d["game_date"]).dt.date
+    if start:
+        d = d[d["_gd"] >= pd.to_datetime(start).date()]
+    if end:
+        d = d[d["_gd"] <= pd.to_datetime(end).date()]
+
+    # identify starters per game (first pitcher to appear, by team) so "bullpen" pitches exclude
+    # the starter's own workload -- a starter throwing 100 pitches is not bullpen fatigue.
+    d = d.sort_values(["game_pk", "at_bat_number"])
+    d["_pteam"] = np.where(d["inning_topbot"].eq("Top"), d["home_team"], d["away_team"])
+    starters = d.groupby(["game_pk", "_pteam"])["pitcher"].first()
+    d["_is_starter"] = d.apply(
+        lambda r: starters.get((r["game_pk"], r["_pteam"])) == r["pitcher"], axis=1)
+    bullpen_rows = d[~d["_is_starter"]]
+
+    # team-day bullpen pitch counts (one row per pitch already, so len() is pitch count)
+    team_day_pitches = bullpen_rows.groupby(["_pteam", "_gd"]).size()
+
+    # for each real day, each team's trailing window_days bullpen pitch total (excluding today)
+    all_dates = sorted(d["_gd"].unique())
+    if len(all_dates) < window_days + 5:
+        return {"error": f"only {len(all_dates)} days in this window -- too few to build a "
+                         f"trailing {window_days}-day bullpen load and still have days to grade"}
+
+    fatigue_hr = {"q1_freshest": {"n": 0, "hr": 0}, "q2": {"n": 0, "hr": 0},
+                 "q3": {"n": 0, "hr": 0}, "q4_most_taxed": {"n": 0, "hr": 0}}
+    all_loads = []
+    rows_by_day = {}
+    for gd in all_dates:
+        prior = [gd - pd.Timedelta(days=i) for i in range(1, window_days + 1)]
+        for team in bullpen_rows["_pteam"].unique():
+            load = sum(team_day_pitches.get((team, pd_), 0) for pd_ in prior)
+            all_loads.append(load)
+            rows_by_day.setdefault(gd, {})[team] = load
+    if not all_loads:
+        return {"error": "no bullpen workload data found"}
+    all_loads.sort()
+    q1c = all_loads[len(all_loads) // 4]
+    q2c = all_loads[len(all_loads) // 2]
+    q3c = all_loads[3 * len(all_loads) // 4]
+
+    for gd, team_loads in rows_by_day.items():
+        today_bp = bullpen_rows[bullpen_rows["_gd"] == gd]
+        for team, load in team_loads.items():
+            pa = today_bp[today_bp["_pteam"] == team].drop_duplicates(
+                subset=["game_pk", "at_bat_number"])
+            if pa.empty:
+                continue
+            n_pa = len(pa)
+            n_hr = int((pa["events"] == "home_run").sum())
+            bucket = ("q1_freshest" if load <= q1c else "q2" if load <= q2c
+                     else "q3" if load <= q3c else "q4_most_taxed")
+            fatigue_hr[bucket]["n"] += n_pa
+            fatigue_hr[bucket]["hr"] += n_hr
+
+    result = {}
+    base_n = sum(v["n"] for v in fatigue_hr.values())
+    base_hr = sum(v["hr"] for v in fatigue_hr.values())
+    base_rate = base_hr / base_n if base_n else 0
+    for k, v in fatigue_hr.items():
+        if v["n"] >= 200:
+            rate = v["hr"] / v["n"]
+            result[k] = {"n": v["n"], "pct": round(100 * rate, 2),
+                        "lift": round(rate / base_rate, 3) if base_rate else None}
+        else:
+            result[k] = {"n": v["n"], "note": "too thin to grade"}
+
+    return {
+        "base_rate_pct": round(100 * base_rate, 2),
+        "by_acute_fatigue_quartile": result,
+        "window_days": window_days,
+        "note": "q4_most_taxed = bullpen threw the most pitches in the trailing window "
+               "days specifically, not a season average. If q4's lift is real and separate "
+               "from q1's, acute fatigue is adding information the season-long exploitability "
+               "score can't see; if the quartiles look flat, this specific window isn't "
+               "adding anything beyond what's already captured.",
+    }
+
+
 def replay_longest_hr(df: pd.DataFrame, start: str | None = None, end: str | None = None) -> dict:
     """Real, retroactive validation for Long Ball's core premise -- does a batter's OWN
     measured power, known BEFORE that day, actually predict him hitting the day's longest HR?
