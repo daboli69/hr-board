@@ -66,6 +66,24 @@ def _badge_lift(by_badge: dict, base_rate: float) -> dict:
                        key=lambda kv: (-(kv[1]["lift"] or 0), -kv[1]["n"])))
 
 
+def _badge_lift_prop(by_badge: dict, base_rate: float) -> dict:
+    """Same as _badge_lift, for tallies shaped {n, hit} instead of {n, hr} -- ADDED this
+    session for the hit1/hit2/hrr-vs-badge cross-tabs, which grade a badge against that prop's
+    own real outcome rather than HR. A separate function rather than a shape-parameter on
+    _badge_lift so existing HR call sites can't be touched by a signature change here."""
+    out = {}
+    for k, v in by_badge.items():
+        n, hit = v["n"], v["hit"]
+        rate = hit / n if n else 0.0
+        out[k] = {
+            "n": n, "hit": hit,
+            "rate_pct": round(100 * rate, 2),
+            "lift": round(rate / base_rate, 3) if base_rate > 0 else None,
+        }
+    return dict(sorted(out.items(),
+                       key=lambda kv: (-(kv[1]["lift"] or 0), -kv[1]["n"])))
+
+
 def _tier(h):
     for name, lo, hi in TIERS:
         if lo <= h < hi:
@@ -482,6 +500,18 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
 
     by_tier = {name: {"n": 0, "hr": 0} for name, _, _ in TIERS}
     by_badge = {}   # badge_key -> {n, hr}: HR rate for hitters carrying each badge
+    # ADDED this session: the same badges have carried every hitter-side scoring engine in this
+    # app (Genius Pairing, Long Ball, Gold Bar, the Ladder) since they were introduced -- but
+    # checked directly, and confirmed nowhere in this file until now: they had only ever been
+    # cross-tabbed against the HR outcome (by_badge above). POW is defined by raw max exit
+    # velocity, LOCK by expected contact quality (xwOBAcon) -- neither definition has anything
+    # to do with whether a ball in play becomes a hit, and there was no real data anywhere
+    # answering whether a POW badge holder's hit rate is average, above it, or (plausible, given
+    # power/contact-rate tend to trade off in real hitters) below it. These three mirror
+    # by_badge's tally exactly, just against each prop's own real outcome instead of HR.
+    by_badge_hit1 = {}
+    by_badge_hit2 = {}
+    by_badge_hrr = {}
     # convergence graded against EACH prop's own outcome, not the HR outcome
     by_conv = {}    # prop -> bucket -> {n, hit}
     def _conv_tally(prop, bucket, ok):
@@ -635,6 +665,14 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
             P["hit1"][tier]["n"] += 1; P["hit1"][tier]["hit"] += 1 if got1 else 0
             P["hit2"][tier]["n"] += 1; P["hit2"][tier]["hit"] += 1 if got2 else 0
             hit_n += 1; hit1_tot += 1 if got1 else 0; hit2_tot += 1 if got2 else 0
+            # ADDED this session -- same badges (r["badges"]) the HR by_badge tally above
+            # already reads on this exact row, graded here against the real hit1/hit2 outcome
+            # instead. First real answer to "do these correlate with hits at all."
+            for bk in r.get("badges", []):
+                b1 = by_badge_hit1.setdefault(bk, {"n": 0, "hit": 0})
+                b1["n"] += 1; b1["hit"] += 1 if got1 else 0
+                b2 = by_badge_hit2.setdefault(bk, {"n": 0, "hit": 0})
+                b2["n"] += 1; b2["hit"] += 1 if got2 else 0
             # Rows for the side-by-side graders. replay() aggregates straight into tier dicts,
             # so there was nothing for grade_hit_side_by_side() to consume — it was defined and
             # uncallable. Collected on the SAME player-days the tiers are built from, so the two
@@ -657,6 +695,10 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
             tier = _tier(r["hrr_heat"])
             got = r["hrr"] >= 2
             P["hrr"][tier]["n"] += 1; P["hrr"][tier]["hit"] += 1 if got else 0
+            # ADDED this session -- same pattern as the hit1/hit2 badge tally above.
+            for bk in r.get("badges", []):
+                bh = by_badge_hrr.setdefault(bk, {"n": 0, "hit": 0})
+                bh["n"] += 1; bh["hit"] += 1 if got else 0
             _cvr = r.get("cv_hrr")
             if _cvr is not None:
                 _conv_tally("hrr", f"{_cvr} measured", got)
@@ -721,11 +763,14 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
         },
         "props": {
             "hit1": {"by_tier": P["hit1"], "top_n": p_top["hit1"],
-                     "base_pct": round(100 * hit1_tot / hit_n, 2) if hit_n else None},
+                     "base_pct": round(100 * hit1_tot / hit_n, 2) if hit_n else None,
+                     "by_badge": _badge_lift_prop(by_badge_hit1, hit1_tot / hit_n if hit_n else 0)},
             "hit2": {"by_tier": P["hit2"],
-                     "base_pct": round(100 * hit2_tot / hit_n, 2) if hit_n else None},
+                     "base_pct": round(100 * hit2_tot / hit_n, 2) if hit_n else None,
+                     "by_badge": _badge_lift_prop(by_badge_hit2, hit2_tot / hit_n if hit_n else 0)},
             "hrr":  {"by_tier": P["hrr"], "top_n": p_top["hrr"],
-                     "base_pct": round(100 * hrr2_tot / hrr_n, 2) if hrr_n else None},
+                     "base_pct": round(100 * hrr2_tot / hrr_n, 2) if hrr_n else None,
+                     "by_badge": _badge_lift_prop(by_badge_hrr, hrr2_tot / hrr_n if hrr_n else 0)},
             "pk":   {"by_tier": P["pk"], "top_n": p_top["pk"],
                      "n": pk_n, "avg_ks": round(pk_ks / pk_n, 2) if pk_n else None,
                      "o5_pct": round(100 * pk_o5 / pk_n, 1) if pk_n else None,
@@ -739,6 +784,14 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
                   "opposing SP = actual first pitcher; the live board uses the morning probable, so replayed matchup info is marginally sharper than production — treat calibration as a slight ceiling, not a floor",
                   "props replayed with same leak contract; hrr graded WITHOUT lineup-spot multiplier (no morning lineups in replay)",
                   "hrr runs/rbis approximated identically to the live tracker",
+                  "props.hit1/hit2/hrr.by_badge (ADDED this session): the SAME hitter badges "
+                  "graded against HR in the top-level by_badge, cross-tabbed here against each "
+                  "prop's own real outcome instead -- first real answer to whether POW/DUE/COOL/"
+                  "LOCK/WARMING correlate with hits or HRR at all, rather than assuming a badge "
+                  "built and validated for HR carries over. Same omission as top-level by_badge: "
+                  "opponent-context badges (WEAK ARM/PLATOON/PITCH EDGE/WEAK PEN) aren't "
+                  "reconstructable in the replay frame, so they're absent here too -- this "
+                  "covers hitter-only badges only.",
                   f"first {WARMUP_DAYS} days used as feature warm-up, not graded"],
     }
 
