@@ -1873,6 +1873,11 @@
   .cgp-traits{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
   .cgp-trait{font-family:"IBM Plex Mono";font-size:8px;color:var(--seam);
     background:rgba(214,106,54,.10);border-radius:5px;padding:2px 6px;line-height:1.4}
+  /* Power-profile chip -- barrel% (12%+/15+ BBE graded 1.80x, the single strongest standalone
+     lift in the whole backtest) surfaced directly on the leg card so it's visible while
+     scanning parlay candidates, not just buried in the Long Ball tab. */
+  .cgp-power{font-family:"IBM Plex Mono";font-size:8px;color:var(--good);
+    background:rgba(127,180,145,.12);border-radius:5px;padding:2px 6px;line-height:1.4}
   .cgp-swap{flex:0 0 auto;font-family:"IBM Plex Mono";font-size:9px;color:var(--faint);
     background:transparent;border:1px solid var(--line);border-radius:6px;padding:4px 7px;
     cursor:pointer;margin-top:6px}
@@ -8262,6 +8267,14 @@ function powBadgeIds(){
   _powIdsCache = s; _powIdsCacheBoard = BOARD;
   return s;
 }
+let _playersByIdCache = null, _playersByIdCacheBoard = null;
+function playersById(){
+  if(_playersByIdCacheBoard === BOARD && _playersByIdCache) return _playersByIdCache;
+  const m = new Map();
+  ((BOARD && BOARD.players) || []).forEach(p=>{ m.set(p.id, p); });
+  _playersByIdCache = m; _playersByIdCacheBoard = BOARD;
+  return m;
+}
 function lbSortSet(mode){ lbSortMode = mode; renderLongBallBoard(); }
 
 function renderLongBallBoard(){
@@ -10505,6 +10518,14 @@ function cgpTicketHTML(sourceKey, ticketKey, t){
     const leg = cgpLegDisplay(sourceKey, ticketKey, i, defaultLeg);
     const alts = ((BOARD[sourceKey]||{}).alternates_by_game||{})[String(leg.game_pk)]||[];
     const traits = (leg.drivers||[]).slice(0,3).map(d=>`<span class="cgp-trait">${d}</span>`).join("");
+    // Raw power profile lives on the full player record (players[].long_ball), not on the leg
+    // object itself -- looked up once per render via the cached id map, same pattern as
+    // powBadgeIds(). Gated on n_bb>=15 (this app's own thin-sample convention) so a barrel%
+    // computed off a handful of batted balls never renders as if it were the real, graded
+    // 12%+/15-BBE signal (1.80x, the strongest standalone lift in the backtest).
+    const _lb = (playersById().get(leg.id) || {}).long_ball;
+    const powerChip = (_lb && _lb.n_bb >= 15 && _lb.brl_percent >= 12)
+      ? `<span class="cgp-power" title="${_lb.n_bb} batted balls, trailing window">⚡ ${_lb.brl_percent.toFixed(1)}% barrel</span>` : "";
     return `<div class="cgp-leg">
       <div class="cgp-leg-top">
         <div class="cgp-leg-l" onclick="event.stopPropagation();scanToPlayer(${leg.id})">
@@ -10516,7 +10537,7 @@ function cgpTicketHTML(sourceKey, ticketKey, t){
           ${leg.edge_extreme?`<span class="cgp-warn" title="Model/book gap unusually large -- verify manually">⚠</span>`:""}
         </div>
       </div>
-      ${traits?`<div class="cgp-traits">${traits}</div>`:""}
+      ${(traits||powerChip)?`<div class="cgp-traits">${powerChip}${traits}</div>`:""}
       ${alts.length>=2?`<button class="cgp-swap" onclick="event.stopPropagation();cgpSwap('${sourceKey}','${ticketKey}',${i})">⟳ swap</button>`:""}
     </div>`;
   }).join("");
