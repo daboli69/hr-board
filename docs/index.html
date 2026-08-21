@@ -1144,6 +1144,13 @@
   .gsb-sub{font-family:"IBM Plex Mono";font-size:8.5px;color:var(--faint);margin-top:1px;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .gsb-odds{flex:0 0 auto;font-family:"IBM Plex Mono";font-size:11px;color:var(--muted);width:50px;text-align:right}
+  /* Driver chips -- the real signals behind a row's rank (SP HR Vuln, bullpen exploit, today's
+     wind/carry, thin-sample flags, etc.), capped to the top 2 since these rows run 15-30+ deep
+     per game and a full 6-driver dump per row would bury the list rather than help scan it. */
+  .gsb-drivers{display:flex;flex-wrap:wrap;gap:3px;margin-top:3px}
+  .gsb-chip{font-family:"IBM Plex Mono";font-size:7px;color:var(--seam);
+    background:rgba(214,106,54,.10);border-radius:4px;padding:1.5px 5px;line-height:1.3;
+    white-space:nowrap}
   .gsb-prob{flex:0 0 auto;font-family:"IBM Plex Mono";font-size:13px;font-weight:800;width:52px;text-align:right}
   .gsb-tier{flex:0 0 auto;font-family:"IBM Plex Mono";font-size:7.5px;font-weight:700;
     border:1px solid;border-radius:4px;padding:2px 5px;white-space:nowrap}
@@ -8317,11 +8324,13 @@ function renderLongBallBoard(){
     const primaryStat = lbSortMode === "maxev"
       ? `${(b.max_ev ?? b.ev50) != null ? (b.max_ev ?? b.ev50).toFixed(1) : "—"}<i style="display:block;font-size:7px;color:var(--faint)">${b.max_ev!=null?"MAX EV":"EV50"}</i>`
       : `${b.jackpot_ev!=null?b.jackpot_ev:"—"}<i style="display:block;font-size:7px;color:var(--faint)">EV</i>`;
+    const chips = (b.drivers||[]).slice(0,2).map(d=>`<span class="gsb-chip">${d}</span>`).join("");
     return `<div class="gsb-row${b.is_gold_pick?' gold-pick':''}" style="border-left-color:${otCol}" onclick="scanToPlayer?scanToPlayer(${b.id}):null">
       <div class="gsb-rank" style="color:${otCol}">${String(b._displayRank).padStart(2,"0")}</div>
       <div class="gsb-mid">
         <div class="gsb-nm"><b>${b.name}</b>${powBadgeIds().has(b.id)?'<span class="pow-star" title="POW badge">★</span>':''}${b.is_gold_pick?'<span class="gold-tag">GOLD</span>':''}</div>
         <div class="gsb-sub">${b.team} · SLOT ${b.spot||"?"} · ceiling ${b.ceiling_ft?b.ceiling_ft+"ft":"—"} · <span style="color:${stCol}">${b.tier}</span></div>
+        ${chips?`<div class="gsb-drivers">${chips}</div>`:""}
       </div>
       <div class="gsb-odds">${primaryStat}</div>
       <div class="ot-pill" style="color:${otCol};border-color:${otCol}">${b.ownership_tier||"—"}</div>
