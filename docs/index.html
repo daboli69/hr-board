@@ -325,17 +325,10 @@
   .lad-track.under{background:rgba(224,160,72,.14);color:var(--warm)}
   .lad-pick{background:var(--panel);border:1px solid var(--line-2);border-radius:12px;padding:14px;margin-top:10px}
   .lad-pick-h{font-family:"IBM Plex Mono";font-size:10px;color:var(--seam);text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-bottom:10px}
-  .lad-leg{padding:9px 0;border-bottom:1px solid var(--line)}
-  .lad-leg-top{display:flex;align-items:center;justify-content:space-between}
+  .lad-leg{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line)}
   .lad-leg-nm b{font-size:14px}.lad-leg-lab{font-family:"IBM Plex Mono";font-size:11px;color:var(--muted);margin-left:6px}
   .lad-leg-r{display:flex;align-items:center;gap:12px}
   .lad-leg-p{font-family:"IBM Plex Mono";font-weight:700;font-size:14px;color:var(--good)}.lad-leg-o{font-family:"IBM Plex Mono";font-size:12px;color:var(--muted)}
-  /* Driver chips -- the real signals behind an HR leg's ladder-specific probability (badge
-     anchor, converging families, barrel%). Only HR legs carry these today; Hit/HRR/Ks/ML legs
-     render no chip row, same as before. */
-  .lad-leg-drivers{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
-  .lad-chip{font-family:"IBM Plex Mono";font-size:8px;color:var(--seam);
-    background:rgba(214,106,54,.10);border-radius:5px;padding:2px 6px;line-height:1.4}
   .lad-pick-sum{display:flex;justify-content:space-between;margin-top:11px;gap:8px}
   .lad-pick-sum div{flex:1;text-align:center}.lad-pick-sum span{display:block;font-family:"IBM Plex Mono";font-size:9px;color:var(--faint);text-transform:uppercase;letter-spacing:.04em}
   .lad-pick-sum b{font-family:"IBM Plex Mono";font-size:15px}
@@ -2629,6 +2622,7 @@
       <button class="nav-item" data-nav="converge" onclick="drawerGo('converge')">Signal Convergence<i>where independent reads agree — measured lift first</i></button>
       <button class="nav-item" data-nav="sgp" onclick="drawerGo('sgp')">Parlay Builder<i>SGP generator — pick the mix &amp; goal</i></button>
       <button class="nav-item" data-nav="ladder" onclick="drawerGo('ladder')">Ladder Challenge<i>roll a small stake up to a target, safest legs daily</i></button>
+      <button class="nav-item" data-nav="altlines" onclick="drawerGo('altlines')">Alt Line Finder<i>real book alt lines, ranked by model confidence, plus money only</i></button>
       <button class="nav-item" data-nav="qualified" onclick="drawerGo('qualified')">Qualified Bets<i>every market, only where price beats fair · Kelly sized</i></button>
       <button class="nav-item" data-nav="edges" onclick="drawerGo('edges','arms')">Vulnerable Arms<i>HR Vuln score · zone maps</i></button>
       <button class="nav-item" data-nav="pitchmix" onclick="drawerGo('pitchmix')">Team vs Pitch Mix<i>lineup vs the arsenal he actually throws</i></button>
@@ -5088,77 +5082,125 @@ function _ladDaysLeft(deadline){
   const d=new Date(deadline+"T23:59:59"), now=new Date();
   return Math.max(1, Math.ceil((d-now)/86400000)+1);   // inclusive of today
 }
-// Ladder-specific HR probability -- ADDED this session. sgpPool()'s plain calibratedHRprob(heat)
-// is the crudest probability estimate anywhere in this app: heat-tier lookup only, no badges,
-// no convergence families, no barrel%, nothing this session's Genius Pairing / Long Ball work
-// already leans on. But this app's own docstrings (build_cross_game_hr_parlays) found heat and
-// POW-badge status are CLOSE TO INDEPENDENT signals (median heat 41 among real POW-badge HR
-// hitters, only 7.8% from heat 70+) -- so for a badge holder, the honest anchor is the badge's
-// own real conversion rate, not heat-calibrated probability, same as the server engine, rather
-// than multiplying the two and double-counting.
-//
-// Deliberately narrow: only the strongest, best-sampled, real signals in the whole backtest --
-// badge-anchor lift (pow/lock, the SAME 123-day-backtest figures build_board.py's
-// _BADGE_ANCHOR_LIFT uses), convergence-family lift (the cleanest monotonic staircase in the
-// whole app: 0.76x/1.06x/1.32x/1.58x/1.97x at 0-4 families, large samples throughout), and
-// barrel% 12%+/15+BBE (1.80x). Everything this app's OWN docstrings label as an "untested
-// nudge" elsewhere (FB-heavy arm, thin-sample arm form, acute bullpen -- since removed
-// entirely from Genius Pairing this session for the same reason, zone-edge at n=78) is left
-// OUT on purpose. A ladder needs an honest probability more than a maximal one: a single
-// overconfident leg ends the whole climb, where a parlay leg just costs one combination among
-// several. Damped at 45% (vs Genius Pairing's 55%) for the same reason -- more conservative on
-// purpose, not an oversight.
-//
-// Falls back to plain calibratedHRprob when season BBE < 250 (this app's own HRPO_MIN_BBE
-// convention) -- a thin sample doesn't get to borrow the confidence of a real one.
-const LADDER_BASE_RATE = 0.109;                       // same anchor build_board.py's HRPO_BASE_RATE uses
-const LADDER_BADGE_LIFT = {pow: 1.757, lock: 1.352};  // same 123-day backtest figures _BADGE_ANCHOR_LIFT uses
-const LADDER_FAMILY_LIFT = {0:0.75, 1:1.07, 2:1.32, 3:1.56, 4:1.98, 5:1.31};
-function ladderHRProb(p){
+// Alt Line Finder -- ADDED this session. With the deadened ball dragging real HR counts down,
+// alt props (a K line well below the pitcher's real total, a 2+ hits line, etc.) are where
+// the market still prices generously -- a book sets its PRIMARY line tight, but alt lines
+// further from the primary get wider, plus-money prices even when the true probability of
+// clearing them is still fairly high. This scans every real alt line fetch_odds.py now
+// retains (see build_prop_odds's alt_lines, previously discarded down to a single line per
+// player/prop) and prices each one with this app's own real model -- kProbAtLine for Ks (the
+// SAME function allPropEV/sgpPool use, not a fabricated one), smoothPropProb("hit2",...) for
+// 2+ hits, backed by real backtest data (19.56% base, n=491-17616 per tier). Deliberately
+// scoped to Ks and hit2 -- HRR and HR have no alt-line model built yet (see fetch_odds.py's
+// own note on why HRR's gate stayed narrow), so nothing here pretends to price them.
+// Badge-aware Hit/HRR probability -- ADDED this session. smoothPropProb() alone is a pure
+// heat-tier lookup with no badge information at all. Fresh backtest data (124 days,
+// props.hit1/hit2/hrr.by_badge, added earlier this session and now run for real) found POW
+// correlates with hits/HRR much more than expected -- raw max EV >=114mph isn't just a power
+// signal, it's a real quality-of-contact signal too:
+//   POW: 1.186x (1+ hits, n=1240) · 1.317x (2+ hits) · 1.205x (HRR 2+)
+//   LOCK: 1.042x (1+ hits, n=2256) · 1.060x (2+ hits) · 1.076x (HRR 2+) -- smaller, still real
+// DUE/COOL deliberately excluded -- both checked directly and came back essentially flat
+// (0.97-1.02x across all three props, n=5911-7767), no real transfer from their HR-specific
+// luck-gap definition. "hot"/WARMING still can't be evaluated -- it's never once been tallied
+// in the replay's by_badge output despite firing regularly on the live board, a separate,
+// still-open gap, not assumed to be zero.
+const HIT_BADGE_LIFT = { hit1: {pow:1.186, lock:1.042}, hit2: {pow:1.317, lock:1.060},
+                         hrr: {pow:1.205, lock:1.076} };
+function badgeAwarePropProb(kind, p){
+  const base = kind==="hrr" ? smoothPropProb("hrr", p.hrr_heat) : smoothPropProb(kind, p.hit_heat);
+  if(base==null) return base;
   const badges = new Set((p.badges||[]).map(b=>b.k));
-  const heatProb = calibratedHRprob(p.heat);
-  let base, drivers=[];
-  if(badges.has("pow")){ base = LADDER_BASE_RATE*LADDER_BADGE_LIFT.pow; drivers.push("POW badge (1.76x, 123d backtest)"); }
-  else if(badges.has("lock")){ base = LADDER_BASE_RATE*LADDER_BADGE_LIFT.lock; drivers.push("LOCK badge (1.35x, 123d backtest)"); }
-  else base = heatProb;
-  if(base==null) return null;
-
-  const bbe = (p.sample && p.sample.season) || 0;
-  if(bbe < 250) return {prob: base, drivers};
-
-  let prob = base;
-  const conv = ((p.converge||{}).hr) || {};
-  const fams = (conv.measured||[]).filter(m=>m.k!=="heat").length + (conv.provisional||[]).length;
-  if(fams >= 2){
-    const lift = LADDER_FAMILY_LIFT[Math.min(fams,5)] ?? 1.0;
-    prob *= 1.0 + (lift-1.0)*0.45;
-    drivers.push(`${fams} converging signal families (${lift.toFixed(2)}x, backtest)`);
+  const lifts = HIT_BADGE_LIFT[kind] || {};
+  const mult = badges.has("pow") ? (lifts.pow||1.0) : badges.has("lock") ? (lifts.lock||1.0) : 1.0;
+  if(mult===1.0) return base;
+  // Damped at 50% -- base already reflects heat, a real but different signal from badge
+  // status (this app's own docstrings found the two are close to independent), so this isn't
+  // double-counting the same information, but stacking a second real signal at full strength
+  // still deserves the same caution every other combine function in this app already applies.
+  return Math.max(0, Math.min(0.95, base * (1 + (mult-1)*0.5)));
+}
+function altLinePool(){
+  const out=[];
+  if(!ODDS || !ODDS.props || !oddsMatchSlate()) return out;
+  const pkBucket = ODDS.props.pk || {};
+  (BOARD.pitcher_props||[]).forEach(a=>{
+    if(a.est_ks==null) return;
+    const e = pkBucket[normName(a.name||"")];
+    if(!e || !e.alt_lines) return;
+    Object.values(e.alt_lines).forEach(al=>{
+      if(al.over==null || al.over<=0) return;   // plus money only -- Travis's own framing
+      const prob = kProbAtLine(a, al.line);
+      if(prob==null) return;
+      const dec = americanToDecimal(al.over);
+      const impliedP = impliedProb(al.over);
+      out.push({name:a.name, team:a.team, opp:a.opp_team, game_pk:a.game_pk, tk:"Ks",
+                label:`Over ${al.line} K`, line:al.line, price:al.over, book:al.over_book,
+                prob, edge: prob-impliedP, dec});
+    });
+  });
+  const hitsBucket = ODDS.props.hits || {};
+  (BOARD.players||[]).filter(p=>p.lineup_status!=="out").forEach(p=>{
+    const e = hitsBucket[normName(p.name||"")];
+    const al = e && e.alt_lines && e.alt_lines["1.5"];
+    if(!al || al.over==null || al.over<=0) return;
+    const prob = badgeAwarePropProb("hit2", p);
+    if(prob==null) return;
+    const dec = americanToDecimal(al.over);
+    const impliedP = impliedProb(al.over);
+    const badges = new Set((p.badges||[]).map(b=>b.k));
+    const badgeNote = badges.has("pow") ? "POW badge (1.32x, backtest)"
+                     : badges.has("lock") ? "LOCK badge (1.06x, backtest)" : null;
+    out.push({id:p.id, name:p.name, team:p.team, opp:p.opp_team, game_pk:p.game_pk, tk:"Hit2",
+              label:"Over 1.5 Hits", line:1.5, price:al.over, book:al.over_book,
+              prob, edge: prob-impliedP, dec, badgeNote});
+  });
+  return out.sort((a,b)=>b.prob-a.prob);
+}
+function renderAltLines(){
+  const main=document.getElementById("main");
+  const pool=altLinePool();
+  if(!pool.length){
+    main.innerHTML=`<div class="empty">No plus-money alt lines available yet -- needs
+      docs/odds.json to carry real alt-line prices for tonight's slate (Ks or 2+ Hits), and
+      the corresponding model projection (est_ks / hit_heat) to already be posted.</div>`;
+    return;
   }
-  const w14 = (p.windows||{}).L14d || {};
-  if(w14.bb_count>=15 && (w14.barrel_pct||0)>=12.0){
-    prob *= 1.0 + (1.80-1.0)*0.45;
-    drivers.push("12%+ barrel, 15+ BBE (1.80x, backtest)");
-  }
-  return {prob: Math.max(0, Math.min(0.55, prob)), drivers};
+  const amerStr=n=>n==null?"—":(n>0?"+"+n:String(n));
+  const pctStr=p=>p==null?"—":Math.round(100*p)+"%";
+  const row=(l)=>`<div class="psc-row" onclick="${l.id!=null?`event.stopPropagation();scanToPlayer(${l.id})`:""}">
+    <div class="psc-l"><b>${l.name}</b><span>${l.team} vs ${l.opp_team}</span>
+      <i>${l.label}${l.book?` · ${l.book}`:""}${l.badgeNote?` · ${l.badgeNote}`:""}${l.edge>0?` · edge +${Math.round(100*l.edge)}pp`:""}</i></div>
+    <div class="psc-r"><b>${amerStr(l.price)}</b><span>${pctStr(l.prob)} model</span></div>
+  </div>`;
+  const ks = pool.filter(l=>l.tk==="Ks").slice(0,12);
+  const hits = pool.filter(l=>l.tk==="Hit2").slice(0,12);
+  main.innerHTML=`<div class="lad-wrap">
+    <div class="q-head"><b>Alt Line Finder</b></div>
+    <div class="q-sub">Every real alt line the book actually posted tonight, priced by this
+      app's own model at that exact line -- plus money only, most confident first.</div>
+    <div class="rank-key">Ranked by model probability, not edge -- a confident 65% at +120
+      beats a shakier 55% at +160 for a round-robin, since the whole point is clearing each
+      leg. Edge (model prob minus the book's own implied prob) is shown per row so you can see
+      which ones the market may be underpricing too, but confidence is the sort.</div>
+    <div class="psc-step"><div class="psc-h">Pitcher Ks</div>
+      <div class="psc-sub">Real alt K totals, priced with the same model that runs everywhere
+        else in this app -- not a separate guess.</div>
+      ${ks.map(row).join("") || `<div class="psc-empty">No plus-money K alt lines tonight.</div>`}
+    </div>
+    <div class="psc-step"><div class="psc-h">2+ Hits</div>
+      <div class="psc-sub">Backtest base rate 19.6% league-wide -- these are the hitters
+        clearing that bar by a real margin.</div>
+      ${hits.map(row).join("") || `<div class="psc-empty">No plus-money 2+ Hits lines tonight.</div>`}
+    </div>
+    <div class="zd-note">HRR and HR alt lines aren't priced here yet -- no alt-line model
+    exists for either today (HRR only has a real model at its standard 1.5 line; HR is a
+    milestone market with no alt structure to price). Tap a name to open their card.</div>
+  </div>`;
 }
 function ladderPool(){
   let pool=[];
   try{ pool=sgpPool().slice(); }catch(_){ pool=[]; }
-  // Upgrade HR legs specifically to ladderHRProb -- only within the ladder's own pool copy,
-  // never mutating sgpPool()'s own output, since sgpPool() is shared with the Parlay Builder
-  // (SGP) tab and that tab's own numbers shouldn't silently change as a side effect of this.
-  // Real book price is left untouched when one exists (hasOdds) -- only the model-fair
-  // fallback price is recomputed to match the richer probability.
-  const byId={}; (BOARD.players||[]).forEach(p=>{ if(p.id!=null) byId[p.id]=p; });
-  pool = pool.map(l=>{
-    if(l.tk!=="HR" || l.id==null) return l;
-    const p=byId[l.id]; if(!p) return l;
-    const r=ladderHRProb(p);
-    if(!r || r.prob==null) return l;
-    const price = l.hasOdds ? l.price : americanFair(r.prob);
-    const dec = l.hasOdds ? l.dec : americanToDecimal(price);
-    return {...l, prob:r.prob, drivers:r.drivers, price, dec};
-  });
   // add moneyline legs (favorite and dog) from the run model
   (BOARD.game_projections||[]).forEach(g=>{
     [["home",g.home_wp,g.home_fair,g.home],["away",g.away_wp,g.away_fair,g.away]].forEach(([side,wp,fair,team])=>{
@@ -5277,15 +5319,10 @@ function renderLadder(){
   const pick = won?null: ladderPick(reqDec, legMode);
   if(pick){ _ladCur={...pick, reqDec}; _ladCur.userDec=_ladCur.legs.reduce((a,l)=>a*l.dec,1); _ladCur.legs.forEach(l=>{l.userPrice=l.price;l.userDec=l.dec;}); }
   const pctTo=Math.min(100, 100*Math.log(st.current/st.start)/Math.log(st.target/st.start||1));
-  const legRow=(l,i)=>{
-    const chips=(l.drivers||[]).slice(0,3).map(d=>`<span class="lad-chip">${d}</span>`).join("");
-    return `<div class="lad-leg">
-    <div class="lad-leg-top">
-      <div class="lad-leg-nm"><b>${l.name}</b> <span class="lad-leg-lab">${l.label}</span><span class="lad-leg-p">${Math.round(l.prob*100)}% model</span></div>
-      <div class="lad-leg-odd"><span>odds</span><input id="ladOdd${i}" type="number" inputmode="numeric" value="${Math.round(parseFloat(l.price))}" onchange="ladderRecalc()" onkeyup="ladderRecalc()"></div>
-    </div>
-    ${chips?`<div class="lad-leg-drivers">${chips}</div>`:""}
-  </div>`;};
+  const legRow=(l,i)=>`<div class="lad-leg">
+    <div class="lad-leg-nm"><b>${l.name}</b> <span class="lad-leg-lab">${l.label}</span><span class="lad-leg-p">${Math.round(l.prob*100)}% model</span></div>
+    <div class="lad-leg-odd"><span>odds</span><input id="ladOdd${i}" type="number" inputmode="numeric" value="${Math.round(parseFloat(l.price))}" onchange="ladderRecalc()" onkeyup="ladderRecalc()"></div>
+  </div>`;
   const legChips=["auto","1","2","3"].map(m=>`<button class="lad-legchip${legMode===m?" on":""}" onclick="ladderSetLegs('${m}')">${m==="auto"?"Safest":m+" leg"+(m==="1"?"":"s")}</button>`).join("");
   let bodyHTML;
   if(won){
@@ -5462,7 +5499,7 @@ function renderView(){
   // Weather is a live standalone view again (park + wind arrow, plus slate park ranking).
   if(view==="stacks"){ view="scan"; }
   else if(view==="matchup"){ view="edges"; }
-  if(view==="today") safe(renderToday); else if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else if(view==="weather") safe(renderWeather); else if(view==="qualified") safe(renderQualified); else if(view==="toppicks") safe(renderTopPicks); else if(view==="calendar") safe(renderCalendar); else if(view==="targets") safe(renderTargets); else if(view==="scanner") safe(renderParlayScanner); else if(view==="hrpatterns") safe(renderHrPatterns); else if(view==="jackpot") { view="parlays"; safe(renderParlays); } else if(view==="gsboard") safe(renderGrandSlamBoard); else if(view==="lbboard") safe(renderLongBallBoard); else if(view==="sgp") safe(renderSGP); else if(view==="faq") safe(renderFaq); else if(view==="ladder") safe(renderLadder); else if(view==="pitchmix") safe(renderPitchMix); else if(view==="converge") safe(renderConverge); else safe(render);
+  if(view==="today") safe(renderToday); else if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else if(view==="weather") safe(renderWeather); else if(view==="qualified") safe(renderQualified); else if(view==="toppicks") safe(renderTopPicks); else if(view==="calendar") safe(renderCalendar); else if(view==="targets") safe(renderTargets); else if(view==="scanner") safe(renderParlayScanner); else if(view==="hrpatterns") safe(renderHrPatterns); else if(view==="jackpot") { view="parlays"; safe(renderParlays); } else if(view==="gsboard") safe(renderGrandSlamBoard); else if(view==="lbboard") safe(renderLongBallBoard); else if(view==="sgp") safe(renderSGP); else if(view==="faq") safe(renderFaq); else if(view==="ladder") safe(renderLadder); else if(view==="altlines") safe(renderAltLines); else if(view==="pitchmix") safe(renderPitchMix); else if(view==="converge") safe(renderConverge); else safe(render);
 }
 
 // Weather dashboard: today's slate, one card per game — conditions, roof call,
@@ -7353,6 +7390,7 @@ function calibratedPropProb(kind, score){
 // everyone in a band). Monotonic in score, so ranking by it = ranking by likelihood. Anchored to
 // real backtest rates at tier midpoints; falls back to baked-in rates if the backtest isn't loaded.
 const _PROP_FALLBACK={ hit1:[[30,.513],[47,.567],[62,.593],[80,.635]],
+                       hit2:[[30,.1495],[47,.1895],[62,.2287],[80,.2363]],
                        hrr:[[30,.360],[47,.402],[62,.423],[80,.461]] };
 function smoothPropProb(kind, score){
   if(score==null) return null;
@@ -7410,7 +7448,8 @@ function ksProjection(a){
 function kOverProbMeasured(kHeat, line){
   const col = line===5.5?"o5" : line===6.5?"o6" : line===7.5?"o7" : null;
   if(!col) return null;
-  return _pkInterp(v=>v[col]/v.n, kHeat);
+  const r = _pkInterp(v=>v[col]/v.n, kHeat);
+  return (r!=null && isFinite(r)) ? r : null;
 }
 // The OVER line the model actually likes = the half-line just BELOW the projection. Using
 // floor(est)+0.5 put the line ABOVE the projection whenever the decimal was under .5 (e.g. 6.2
@@ -7743,12 +7782,29 @@ function sgpPool(){
     pool.push({...o, price, ev:od?od.ev:null, hasOdds:!!od, dec:americanToDecimal(price)}); };
   (BOARD.players||[]).filter(p=>p.lineup_status!=="out").forEach(p=>{
     push({id:p.id,name:p.name,team:p.team,opp:p.opp_team,game_pk:p.game_pk,tk:"HR",label:"HR",prob:calibratedHRprob(p.heat)});
-    push({id:p.id,name:p.name,team:p.team,opp:p.opp_team,game_pk:p.game_pk,tk:"Hit",label:"1+ Hits",prob:smoothPropProb("hit1",p.hit_heat)});
-    push({id:p.id,name:p.name,team:p.team,opp:p.opp_team,game_pk:p.game_pk,tk:"HRR",label:"HRR 1.5+",prob:smoothPropProb("hrr",p.hrr_heat)});
+    push({id:p.id,name:p.name,team:p.team,opp:p.opp_team,game_pk:p.game_pk,tk:"Hit",label:"1+ Hits",prob:badgeAwarePropProb("hit1",p)});
+    push({id:p.id,name:p.name,team:p.team,opp:p.opp_team,game_pk:p.game_pk,tk:"HRR",label:"HRR 1.5+",prob:badgeAwarePropProb("hrr",p)});
   });
   (BOARD.pitcher_props||[]).forEach(a=>{ if(a.est_ks==null) return;
     const _kp=ksProjection(a);
-    push({id:null,name:a.name,team:a.team,opp:a.opp_team,game_pk:a.game_pk,tk:"Ks",label:`Over ${kOverLine(_kp).toFixed(1)} K`,prob:kOverProb(_kp,a.k_heat)}); });
+    // FIXED this session -- see full reasoning where this pool feeds the Ladder. Real book
+    // line (when one exists) drives label + probability + price together via kProbAtLine, the
+    // same function allPropEV() already uses correctly. Falls back to the model's own
+    // self-selected "line I expect to clear" (kOverLine/kOverProb) only when there's no real
+    // market to match against -- same fallback semantics every other leg type already uses.
+    const _real=fetchedPropFor("pk", a.name||"");
+    let _line=null, _prob=null, _best=null;
+    if(_real && _real.line!=null){
+      const p=kProbAtLine(a, _real.line);
+      if(p!=null){ _line=_real.line; _prob=p; _best=propEV(p, _real.over, _real.under); }
+    }
+    if(_line==null){ _line=kOverLine(_kp); _prob=kOverProb(_kp, a.k_heat); }
+    if(_prob==null) return;
+    const price=_best?_best.price:americanFair(_prob);
+    pool.push({id:null,name:a.name,team:a.team,opp:a.opp_team,game_pk:a.game_pk,tk:"Ks",
+              label:`Over ${_line.toFixed(1)} K`,prob:_prob,price,
+              ev:_best?_best.ev:null,hasOdds:!!_best,dec:americanToDecimal(price)});
+  });
   return pool;
 }
 function genParlay(pool){
@@ -10480,9 +10536,19 @@ function scanStep1_games(){
   return (BOARD.game_projections||[])
     .map(g=>{
       const dist=(g.markov||{}).total_dist; if(!dist) return null;
-      const pOver=Object.entries(dist).reduce((s,[k,v])=>s+(parseFloat(k)>7.5?v:0),0);
+      // FIXED this session: was a hardcoded 7.5 for every game regardless of what's actually
+      // being bet -- that drifts stale as the league-wide scoring environment shifts (the
+      // deadened ball has been pulling real totals down) and never matched any specific game's
+      // REAL book total anyway. Uses the real market line per game (same fetchedGameLine()
+      // data totalEV() already reads elsewhere in this file) when one's posted, so this stays
+      // anchored to whatever books are actually setting right now rather than a constant that
+      // needs manual upkeep. Falls back to 7.5 only for games with no real total posted yet.
+      const gl = fetchedGameLine(g.away, g.home);
+      const hasRealLine = !!(gl && gl.total && gl.total.line!=null);
+      const line = hasRealLine ? gl.total.line : 7.5;
+      const pOver=Object.entries(dist).reduce((s,[k,v])=>s+(parseFloat(k)>line?v:0),0);
       return {game_pk:g.game_pk, away:g.away, home:g.home, park:g.park,
-              total:g.total, pOver75:pOver};
+              total:g.total, line, hasRealLine, pOver75:pOver};
     })
     .filter(Boolean)
     .sort((a,b)=>b.pOver75-a.pOver75)
@@ -10554,21 +10620,38 @@ function scanStep3_contact(){
 }
 
 function scanStep4_power(){
-  return (BOARD.players||[])
+  // ADDED this session: the strict gate (250+ BBE AND 4+ families AND 2+ near misses AND
+  // specifically an ELITE TARGET arm, all four at once) is a genuinely narrow intersection --
+  // fams>=4 alone is only ~285 real player-days across a full 123-day backtest, roughly 2/day
+  // league-wide -- and the empty state already anticipated this being blank most nights ("try
+  // Target Teams instead"). With real HR counts down since the ball change, that's likely more
+  // true now, not less. Rather than loosen the strict tier itself (which would just be
+  // guessing a new number the same way the old 7.5 in Step 1 was), it stays exactly as
+  // strict -- a real second tier (fams>=3, nm>=1, STRONG-or-better arm) now renders
+  // UNDERNEATH it, clearly labeled as relaxed, only when the strict tier doesn't fill on its
+  // own. Nothing about the strict tier's own bar moved.
+  const build = (minFams, minNm, arms) => (BOARD.players||[])
     .map(p=>{
       const bbe=bbeCount(p), fams=covFamCount(p), nm=nearMissCount(p);
       const hrrP=(p.hrr_proj||{}).p_over15;
       if(!hrrP) return null;
-      if(bbe<250 || fams<4 || nm<2) return null;
+      if(bbe<250 || fams<minFams || nm<minNm) return null;
       const armId=(p.opp_pitcher||{}).id;
       const label=armId!=null?_scanArmLabel(armId):null;
-      if(label!=="ELITE TARGET") return null;
+      if(!arms.includes(label)) return null;
       return {id:p.id, name:p.name, team:p.team, opp_team:p.opp_team, spot:p.lineup_spot,
-              bbe, fams, nm, hrrP};
+              bbe, fams, nm, hrrP, relaxed:false};
     })
     .filter(Boolean)
-    .sort((a,b)=>b.hrrP-a.hrrP)
-    .slice(0,6);
+    .sort((a,b)=>b.hrrP-a.hrrP);
+  const strict = build(4, 2, ["ELITE TARGET"]).slice(0,6);
+  if(strict.length >= 3) return strict;   // enough of a real list -- don't dilute it
+  const usedIds = new Set(strict.map(x=>x.id));
+  const relaxed = build(3, 1, ["ELITE TARGET","STRONG"])
+    .filter(x=>!usedIds.has(x.id))
+    .map(x=>({...x, relaxed:true}))
+    .slice(0, 6-strict.length);
+  return [...strict, ...relaxed];
 }
 
 // Cross-Game 3-Leg HR Parlay Optimizer -- state for the quick-swap button. Each swap cycles
@@ -10659,10 +10742,11 @@ function renderParlayScanner(){
   const pct=x=>x==null?"—":`${Math.round(100*x)}%`;
 
   const step1=`<div class="psc-step"><div class="psc-h">1 · Game totals</div>
-    <div class="psc-sub">Highest chance of clearing 7.5 total runs</div>
+    <div class="psc-sub">Highest chance of clearing the game's own total -- real market line
+      when one's posted, 7.5 fallback otherwise</div>
     ${s1.map(g=>`<div class="psc-row" onclick="filterToGame(${g.game_pk})">
-      <div class="psc-l"><b>${g.away}</b><span>at</span><b>${g.home}</b><i>${g.park||""}</i></div>
-      <div class="psc-r"><b>${pct(g.pOver75)}</b><span>O7.5</span></div>
+      <div class="psc-l"><b>${g.away}</b><span>at</span><b>${g.home}</b><i>${g.park||""}${g.hasRealLine?"":" · no line posted, 7.5 fallback"}</i></div>
+      <div class="psc-r"><b>${pct(g.pOver75)}</b><span>O${g.line}</span></div>
     </div>`).join("") || `<div class="psc-empty">No graded totals yet.</div>`}</div>`;
 
   const step2=`<div class="psc-step"><div class="psc-h">2 · F5 / RL favorite</div>
@@ -10682,12 +10766,14 @@ function renderParlayScanner(){
     </div>`).join("") || `<div class="psc-empty">No hitter qualifies yet — needs starters/target teams to post.</div>`}</div>`;
 
   const step4=`<div class="psc-step"><div class="psc-h">4 · Power-to-HRR floor</div>
-    <div class="psc-sub">250+ BBE · 4+ families · 2+ near misses · vs an ELITE TARGET arm</div>
+    <div class="psc-sub">250+ BBE · 4+ families · 2+ near misses · vs an ELITE TARGET arm --
+      relaxed to 3+ families · 1+ near miss · STRONG-or-better arm when the strict list runs
+      short of 3</div>
     ${s4.map(p=>`<div class="psc-row" onclick="event.stopPropagation();scanToPlayer(${p.id})">
-      <div class="psc-l"><b>${p.name}</b><span>${p.team} vs ${p.opp_team}${p.spot?` · #${p.spot}`:""}</span>
+      <div class="psc-l"><b>${p.name}</b><span>${p.team} vs ${p.opp_team}${p.spot?` · #${p.spot}`:""}${p.relaxed?" · relaxed tier":""}</span>
         <i>${p.bbe} BBE · ${p.fams} families · ${p.nm} near miss${p.nm===1?"":"es"}</i></div>
       <div class="psc-r"><b>${pct(p.hrrP)}</b><span>2+ HRR</span></div>
-    </div>`).join("") || `<div class="psc-empty">No hitter clears every gate tonight — try Target Teams · 3+ instead.</div>`}</div>`;
+    </div>`).join("") || `<div class="psc-empty">No hitter clears even the relaxed gate tonight — try Target Teams · 3+ instead.</div>`}</div>`;
 
   main.innerHTML=`<div class="cv-wrap">
     <div class="q-head"><b>Daily Parlay Scanner</b></div>
