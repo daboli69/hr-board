@@ -415,13 +415,22 @@ def build_long_ball_jackpot(players, lb_evbarrels=None, lb_pitcher_ev=None):
 
     # Gold Bar Convergence Score -- top 3 per game, using the SAME real, currently-graded
     # badge/metric lifts as Task 2/4 above (checked fresh against the live tracker, not
-    # assumed): pow 1.43x, hot 1.12x, 12%+ barrel (min 15 BBE) 1.80x. There is no "PITCH EDGE"
+    # assumed): pow 1.43x, lock 1.12x, 12%+ barrel (min 15 BBE) 1.80x. There is no "PITCH EDGE"
     # badge anywhere in this app -- dropped rather than substituted with a fabricated stand-in.
     # The 1.98x "hit 3+ criteria" bonus reuses this app's real 1.98x "4 families converging"
     # number (validated for a different, general-HR-outcome composition, n=278) -- a
     # deliberate reuse across a related composition, not an independent validation of this
     # exact combination, same caveat as Grand Slam's Part C.
-    GOLD_BADGE_LIFT = {"pow": 1.43, "hot": 1.12}
+    # NOTE (fixed this session): this dict previously keyed on the raw badge "hot", which
+    # displays in the UI as "WARMING", not "HOT" -- the raw key "lock" is the one that
+    # displays as "HOT". Gold Bar was scoring on the wrong badge since it was introduced.
+    # Values intentionally left as originally tuned (1.43/1.12) rather than bumped to the
+    # freshest backtest numbers (pow 1.76x/lock 1.30x isolated, 122 days) -- per Travis's
+    # call, this pass fixes only the key, not the stacking behavior or the magnitudes.
+    # Multiplicative stacking is kept as-is by explicit choice even though badge_combo data
+    # shows pow+lock together (1.74x, n=310) gives no lift over pow alone (1.76x, n=915) --
+    # flagged, not silently "corrected," since Travis chose to leave this behavior in place.
+    GOLD_BADGE_LIFT = {"pow": 1.43, "lock": 1.12}
     GOLD_BARREL_LIFT = 1.80
     all_batters = [x for g in lb_board for x in g["batters"]]
     all_batters_by_gpk = {}
