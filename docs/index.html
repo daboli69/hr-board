@@ -325,10 +325,17 @@
   .lad-track.under{background:rgba(224,160,72,.14);color:var(--warm)}
   .lad-pick{background:var(--panel);border:1px solid var(--line-2);border-radius:12px;padding:14px;margin-top:10px}
   .lad-pick-h{font-family:"IBM Plex Mono";font-size:10px;color:var(--seam);text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-bottom:10px}
-  .lad-leg{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line)}
+  .lad-leg{padding:9px 0;border-bottom:1px solid var(--line)}
+  .lad-leg-top{display:flex;align-items:center;justify-content:space-between}
   .lad-leg-nm b{font-size:14px}.lad-leg-lab{font-family:"IBM Plex Mono";font-size:11px;color:var(--muted);margin-left:6px}
   .lad-leg-r{display:flex;align-items:center;gap:12px}
   .lad-leg-p{font-family:"IBM Plex Mono";font-weight:700;font-size:14px;color:var(--good)}.lad-leg-o{font-family:"IBM Plex Mono";font-size:12px;color:var(--muted)}
+  /* Driver chips -- the real signals behind an HR leg's ladder-specific probability (badge
+     anchor, converging families, barrel%). Only HR legs carry these today; Hit/HRR/Ks/ML legs
+     render no chip row, same as before. */
+  .lad-leg-drivers{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+  .lad-chip{font-family:"IBM Plex Mono";font-size:8px;color:var(--seam);
+    background:rgba(214,106,54,.10);border-radius:5px;padding:2px 6px;line-height:1.4}
   .lad-pick-sum{display:flex;justify-content:space-between;margin-top:11px;gap:8px}
   .lad-pick-sum div{flex:1;text-align:center}.lad-pick-sum span{display:block;font-family:"IBM Plex Mono";font-size:9px;color:var(--faint);text-transform:uppercase;letter-spacing:.04em}
   .lad-pick-sum b{font-family:"IBM Plex Mono";font-size:15px}
@@ -5081,9 +5088,77 @@ function _ladDaysLeft(deadline){
   const d=new Date(deadline+"T23:59:59"), now=new Date();
   return Math.max(1, Math.ceil((d-now)/86400000)+1);   // inclusive of today
 }
+// Ladder-specific HR probability -- ADDED this session. sgpPool()'s plain calibratedHRprob(heat)
+// is the crudest probability estimate anywhere in this app: heat-tier lookup only, no badges,
+// no convergence families, no barrel%, nothing this session's Genius Pairing / Long Ball work
+// already leans on. But this app's own docstrings (build_cross_game_hr_parlays) found heat and
+// POW-badge status are CLOSE TO INDEPENDENT signals (median heat 41 among real POW-badge HR
+// hitters, only 7.8% from heat 70+) -- so for a badge holder, the honest anchor is the badge's
+// own real conversion rate, not heat-calibrated probability, same as the server engine, rather
+// than multiplying the two and double-counting.
+//
+// Deliberately narrow: only the strongest, best-sampled, real signals in the whole backtest --
+// badge-anchor lift (pow/lock, the SAME 123-day-backtest figures build_board.py's
+// _BADGE_ANCHOR_LIFT uses), convergence-family lift (the cleanest monotonic staircase in the
+// whole app: 0.76x/1.06x/1.32x/1.58x/1.97x at 0-4 families, large samples throughout), and
+// barrel% 12%+/15+BBE (1.80x). Everything this app's OWN docstrings label as an "untested
+// nudge" elsewhere (FB-heavy arm, thin-sample arm form, acute bullpen -- since removed
+// entirely from Genius Pairing this session for the same reason, zone-edge at n=78) is left
+// OUT on purpose. A ladder needs an honest probability more than a maximal one: a single
+// overconfident leg ends the whole climb, where a parlay leg just costs one combination among
+// several. Damped at 45% (vs Genius Pairing's 55%) for the same reason -- more conservative on
+// purpose, not an oversight.
+//
+// Falls back to plain calibratedHRprob when season BBE < 250 (this app's own HRPO_MIN_BBE
+// convention) -- a thin sample doesn't get to borrow the confidence of a real one.
+const LADDER_BASE_RATE = 0.109;                       // same anchor build_board.py's HRPO_BASE_RATE uses
+const LADDER_BADGE_LIFT = {pow: 1.757, lock: 1.352};  // same 123-day backtest figures _BADGE_ANCHOR_LIFT uses
+const LADDER_FAMILY_LIFT = {0:0.75, 1:1.07, 2:1.32, 3:1.56, 4:1.98, 5:1.31};
+function ladderHRProb(p){
+  const badges = new Set((p.badges||[]).map(b=>b.k));
+  const heatProb = calibratedHRprob(p.heat);
+  let base, drivers=[];
+  if(badges.has("pow")){ base = LADDER_BASE_RATE*LADDER_BADGE_LIFT.pow; drivers.push("POW badge (1.76x, 123d backtest)"); }
+  else if(badges.has("lock")){ base = LADDER_BASE_RATE*LADDER_BADGE_LIFT.lock; drivers.push("LOCK badge (1.35x, 123d backtest)"); }
+  else base = heatProb;
+  if(base==null) return null;
+
+  const bbe = (p.sample && p.sample.season) || 0;
+  if(bbe < 250) return {prob: base, drivers};
+
+  let prob = base;
+  const conv = ((p.converge||{}).hr) || {};
+  const fams = (conv.measured||[]).filter(m=>m.k!=="heat").length + (conv.provisional||[]).length;
+  if(fams >= 2){
+    const lift = LADDER_FAMILY_LIFT[Math.min(fams,5)] ?? 1.0;
+    prob *= 1.0 + (lift-1.0)*0.45;
+    drivers.push(`${fams} converging signal families (${lift.toFixed(2)}x, backtest)`);
+  }
+  const w14 = (p.windows||{}).L14d || {};
+  if(w14.bb_count>=15 && (w14.barrel_pct||0)>=12.0){
+    prob *= 1.0 + (1.80-1.0)*0.45;
+    drivers.push("12%+ barrel, 15+ BBE (1.80x, backtest)");
+  }
+  return {prob: Math.max(0, Math.min(0.55, prob)), drivers};
+}
 function ladderPool(){
   let pool=[];
   try{ pool=sgpPool().slice(); }catch(_){ pool=[]; }
+  // Upgrade HR legs specifically to ladderHRProb -- only within the ladder's own pool copy,
+  // never mutating sgpPool()'s own output, since sgpPool() is shared with the Parlay Builder
+  // (SGP) tab and that tab's own numbers shouldn't silently change as a side effect of this.
+  // Real book price is left untouched when one exists (hasOdds) -- only the model-fair
+  // fallback price is recomputed to match the richer probability.
+  const byId={}; (BOARD.players||[]).forEach(p=>{ if(p.id!=null) byId[p.id]=p; });
+  pool = pool.map(l=>{
+    if(l.tk!=="HR" || l.id==null) return l;
+    const p=byId[l.id]; if(!p) return l;
+    const r=ladderHRProb(p);
+    if(!r || r.prob==null) return l;
+    const price = l.hasOdds ? l.price : americanFair(r.prob);
+    const dec = l.hasOdds ? l.dec : americanToDecimal(price);
+    return {...l, prob:r.prob, drivers:r.drivers, price, dec};
+  });
   // add moneyline legs (favorite and dog) from the run model
   (BOARD.game_projections||[]).forEach(g=>{
     [["home",g.home_wp,g.home_fair,g.home],["away",g.away_wp,g.away_fair,g.away]].forEach(([side,wp,fair,team])=>{
@@ -5202,10 +5277,15 @@ function renderLadder(){
   const pick = won?null: ladderPick(reqDec, legMode);
   if(pick){ _ladCur={...pick, reqDec}; _ladCur.userDec=_ladCur.legs.reduce((a,l)=>a*l.dec,1); _ladCur.legs.forEach(l=>{l.userPrice=l.price;l.userDec=l.dec;}); }
   const pctTo=Math.min(100, 100*Math.log(st.current/st.start)/Math.log(st.target/st.start||1));
-  const legRow=(l,i)=>`<div class="lad-leg">
-    <div class="lad-leg-nm"><b>${l.name}</b> <span class="lad-leg-lab">${l.label}</span><span class="lad-leg-p">${Math.round(l.prob*100)}% model</span></div>
-    <div class="lad-leg-odd"><span>odds</span><input id="ladOdd${i}" type="number" inputmode="numeric" value="${Math.round(parseFloat(l.price))}" onchange="ladderRecalc()" onkeyup="ladderRecalc()"></div>
-  </div>`;
+  const legRow=(l,i)=>{
+    const chips=(l.drivers||[]).slice(0,3).map(d=>`<span class="lad-chip">${d}</span>`).join("");
+    return `<div class="lad-leg">
+    <div class="lad-leg-top">
+      <div class="lad-leg-nm"><b>${l.name}</b> <span class="lad-leg-lab">${l.label}</span><span class="lad-leg-p">${Math.round(l.prob*100)}% model</span></div>
+      <div class="lad-leg-odd"><span>odds</span><input id="ladOdd${i}" type="number" inputmode="numeric" value="${Math.round(parseFloat(l.price))}" onchange="ladderRecalc()" onkeyup="ladderRecalc()"></div>
+    </div>
+    ${chips?`<div class="lad-leg-drivers">${chips}</div>`:""}
+  </div>`;};
   const legChips=["auto","1","2","3"].map(m=>`<button class="lad-legchip${legMode===m?" on":""}" onclick="ladderSetLegs('${m}')">${m==="auto"?"Safest":m+" leg"+(m==="1"?"":"s")}</button>`).join("");
   let bodyHTML;
   if(won){
