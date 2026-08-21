@@ -200,14 +200,33 @@ def _longball_score(p):
             drivers.append(f"{fbld_ev:.1f} mph on FB/LD")
     traj = (traj_parts / traj_n) if traj_n else 0.0
 
-    # ---- Pillar 3: Environmental Physics (25%) -- unchanged from before the park-distance
-    # addition. park_hr_factor is the same runs-based park number the rest of the app already
-    # shows; it was the SOLE input here before, and averaging park_avg/park_max in as two more
-    # equally-weighted sub-components diluted the pillar for almost every real park (checked
-    # against the live board: real park_avg_hr_dist runs 382-418ft, mostly 392-403ft -- below
-    # the 395ft floor that version used for ANY credit, so nearly every game scored near zero
-    # on that sub-component and dragged the whole pillar down with it). Park distance context
-    # now lives in ceiling_ft above instead, where it belongs without diluting the score. ----
+    # ADDED this session: sample-size damping. batter_ceiling_profile() (the source of
+    # launch35_pct/fbld_ev) only requires n_bb>=8 batted balls in the trailing 30 days before
+    # it emits a rate at all -- a real floor, but a thin one for a metric that's about to decide
+    # a real leaderboard. A hitter at n_bb=8 with 3 well-placed fly balls and one at n_bb=40
+    # with a genuinely sustained 25% launch35_pct were, until now, trusted identically. Pulls
+    # traj toward a neutral-ish 0.45 as n_bb approaches that floor, full trust by n_bb=30 --
+    # the same shape of gate HRPO_MIN_BBE/park_model.MIN_BALLS already use elsewhere in this
+    # codebase for comparable reasons, sized for a 30-day window rather than a full season.
+    n_bb = lb.get("n_bb")
+    if n_bb is not None:
+        conf = cl((n_bb - 8) / 22)
+        traj = traj * conf + 0.45 * (1 - conf)
+        if n_bb < 15:
+            drivers.append(f"thin sample ({n_bb} BBE, 30d)")
+
+    # ---- Pillar 3: Environmental Physics (25%) -- park_hr_factor (season-long, static) blended
+    # ADDED this session with p["park_hr"]["boost"] (park_model.py's per-HITTER, weather-aware
+    # read: THIS batter's own real batted balls run through TODAY's actual forecast temp/wind at
+    # this specific park vs. a neutral 70F/calm baseline -- already computed every build for the
+    # Parks tab, requires n>=20 real deep/liftable batted balls, and was sitting unused by this
+    # function the whole time). For a same-day "farthest ball wins" contest, today's actual wind
+    # is a bigger real lever on carry than any static seasonal number -- checked directly:
+    # environment.carry_multiplier() shows roughly 0.32% more distance per 1% drop in air
+    # density, which is why Coors plays 5-6% longer even on a calm day, and real wind adds on
+    # top of that. Weighted 60% toward boost when park_hr["weather"] is True (a real forecast
+    # was actually fetched and applied, not just park geometry at a neutral default) and 35%
+    # when it's False (boost is geometry-only in that case, still real, just not TODAY-specific).
     pf = p.get("park_hr_factor")
     park_c = 0.0
     if pf is not None:
@@ -216,6 +235,18 @@ def _longball_score(p):
             drivers.append(f"Carry: {pf:.2f}x")
         elif pf <= 0.93:
             park_c *= 0.5
+    _phr = p.get("park_hr") or {}
+    boost = _phr.get("boost")
+    if boost is not None:
+        boost_c = cl((boost + 30) / 90)   # -30% -> 0.0, 0% neutral -> ~0.33 (matches pf=1.0
+                                          # above), +60% -> 1.0
+        w = 0.60 if _phr.get("weather") else 0.35
+        park_c = park_c * (1 - w) + boost_c * w
+        if boost >= 15 and _phr.get("weather"):
+            drivers.append(f"Today's carry: {boost:+d}% ({_phr.get('wind_mph','?')}mph wind, "
+                          f"{_phr.get('temp_f','?')}\u00b0F)")
+        elif boost <= -15 and _phr.get("weather"):
+            drivers.append(f"Today's conditions suppress carry: {boost:+d}%")
     if park_max is not None and park_max >= 460:
         drivers.append(f"Park max HR this yr: {park_max:.0f}ft")
 
@@ -1001,16 +1032,23 @@ def _hrpo_combine_genius_pow(sig):
         prob *= 1.05
         drivers.append("worn/gassed pen")
 
-    # Acute bullpen fatigue -- uses the EXISTING bullpen_availability()'s pen_pitches_l2 (real
-    # trailing-2-day bullpen pitch count, already computed every build for the Bullpen tab's
-    # "worn" reasons text) rather than a new computation. No validated threshold yet:
-    # backtest.py's own replay_acute_bullpen_fatigue() (a genuinely different, longer 3-day
-    # window, kept separate as a research check) needs several real runs before its quartile
-    # output can set a real number here. 100+ pitches over 2 days is a reasoned placeholder,
-    # not backtested -- tighten or loosen once there's real data to say so.
-    if sig.get("acute_bp_pitches") is not None and sig["acute_bp_pitches"] >= 100:
-        prob *= 1.08
-        drivers.append(f"acute bullpen load {sig['acute_bp_pitches']} pitches/2d (unvalidated threshold)")
+    # Acute bullpen fatigue -- REMOVED this session. This was flagged "no validated threshold
+    # yet, tighten or loosen once there's real data to say so." That data now exists:
+    # backtest.py's replay_acute_bullpen_fatigue() has been run twice (122 days, then 123 days
+    # after a fresh re-run) and both times comes back flat-to-INVERTED -- q1_freshest 1.03x,
+    # q2 1.00x, q3 1.01x, q4_most_taxed 0.96x, on a 61,700+ sample. That's the opposite
+    # direction of this driver's premise: real bullpens more taxed over the trailing window did
+    # NOT give up more real HRs; if anything, fresher pens showed a hair more. The window isn't
+    # identical (backtest checks 3 days, this used pen_pitches_l2's 2-day figure), so this
+    # isn't a perfect apples-to-apples kill -- but it's real evidence against the premise, not
+    # just an absence of evidence for it, and the honest move is to stop applying an unearned
+    # 1.08x to real parlay legs on the strength of a placeholder that was already labeled
+    # unvalidated. pen_pitches_l2 itself is untouched and still feeds the Bullpen tab's "worn"
+    # reasons text -- only the probability multiplier here is removed.
+    #
+    # if sig.get("acute_bp_pitches") is not None and sig["acute_bp_pitches"] >= 100:
+    #     prob *= 1.08
+    #     drivers.append(f"acute bullpen load {sig['acute_bp_pitches']} pitches/2d (unvalidated threshold)")
 
     af = sig["arsenal_fit"]
     if af is not None and af >= 11:
@@ -5029,6 +5067,19 @@ def main():
         # (no write) so the page keeps serving the last good data instead of zeros.
         print(f"[build] SKIPPED write — Statcast unavailable ({e}). Last good board preserved.")
         return
+
+    # Drop confirmed-dead payload -- checked with tests/check_dead_fields.py: player["grand_slam"]
+    # (present on every hitter) and the top-level board["grand_slam"] leaderboard are both fully
+    # superseded by grand_slam_board/grand_slam_jackpot, which are built from this same data
+    # earlier in build() and don't need it to still be attached afterward. Nothing in the UI
+    # reads either one -- confirmed via check_dead_fields.py, which flags a field only when it
+    # carries real data AND has no frontend reference. Stripped here, after every real consumer
+    # inside build() has already run, rather than never computing it -- the per-player scoring
+    # pass still needs it in-flight to build the two boards that DO ship.
+    for _p in board.get("players", []):
+        _p.pop("grand_slam", None)
+    board.pop("grand_slam", None)
+
     os.makedirs(os.path.dirname(OUT_PATH) or ".", exist_ok=True)
     with open(OUT_PATH, "w") as f:
         # compact: the client parses/holds this in mobile memory, so drop pretty-print whitespace
