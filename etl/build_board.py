@@ -254,7 +254,25 @@ def _longball_score(p):
     return round(max(0, min(100, score)), 1), drivers[:6], max_dist
 
 
-def build_long_ball_jackpot(players, lb_evbarrels=None, lb_pitcher_ev=None):
+def _longball_park_rate_mult(pf, park_hr_rec):
+    """A real multiplier on HR-PER-PA odds, for park-adjusting hr_log5_prob -- separate math
+    from _longball_score's Pillar 3 above, which answers a different question (how far does a
+    ball that IS a HR travel) rather than this one (how much more/less likely is a HR at all,
+    here). Blends the static seasonal park_hr_factor with today's real per-hitter weather-aware
+    boost when available (park_model.py's park_hr.boost), same 60/35 weather-applied weighting
+    _longball_score's Pillar 3 uses, for consistency between the two.
+    """
+    mult = pf if pf is not None else 1.0
+    boost = (park_hr_rec or {}).get("boost")
+    if boost is not None:
+        boost_mult = 1.0 + boost / 100.0
+        w = 0.60 if (park_hr_rec or {}).get("weather") else 0.35
+        mult = mult * (1 - w) + boost_mult * w
+    return max(0.75, min(1.60, mult))
+
+
+def build_long_ball_jackpot(players, lb_evbarrels=None, lb_pitcher_ev=None,
+                            pitcher_edges=None, bullpen_rankings=None):
     """Long Ball Jackpot -- Distance King / Weather-Altitude Play / Mega-Leverage Nuke.
 
     The original 3-pillar Distance/Physics Score (`score`) is computed first and left
@@ -264,11 +282,37 @@ def build_long_ball_jackpot(players, lb_evbarrels=None, lb_pitcher_ev=None):
 
     No book-odds comparison for the base score: "longest HR of the day" is a distance CONTEST,
     not a standard HR-prop market, and docs/odds.json has no equivalent line to compare against.
+
+    FOUR real upgrades this session, all additive -- nothing above is touched:
+    1. log5_hr_prob is now park-adjusted (see _longball_park_rate_mult) -- previously pure
+       batter/pitcher HR-per-PA with no park context at all, even though real park data was
+       sitting right there in the same function the whole time.
+    2. pitcher_edges/bullpen_rankings (new params) feed a real pitching_matchup_multiplier --
+       the SAME real SP HR Vulnerability score and bullpen exploitability signals Genius
+       Pairing already grades, damped for stacking on top of the existing contact-quality
+       ev_boost_mult rather than replacing it. `ev_boost_mult` ships unchanged for
+       transparency; `pitching_mult` is the richer number that actually feeds jackpot_ev.
+    3. The distance-floor gate is now a smooth ramp (400-420ft) instead of a hard step at
+       420ft, and "no proven max_dist on record" is penalized differently (0.75x, genuine
+       uncertainty) than "proven sub-400ft" (0.5x floor, a real known ceiling).
+    4. Slate size (n_games) ships as board-level context, NOT a per-player multiplier -- a
+       bigger slate raises the real bar for "longest of the day," but it raises it identically
+       for every candidate tonight, so it cannot change any candidate's RANKING relative to
+       the others and multiplying every jackpot_ev by the same constant would be decorative,
+       not functional. Real use for this number: comparing confidence across different
+       nights, which the board doesn't currently do -- exposed so you have it either way.
     """
     from etl import grandslam   # local import -- grandslam is imported locally inside build()
                                 # too (not at module level), so this standalone function needs
                                 # its own import; a pyflakes check caught the missing reference
                                 # here before this was shipped.
+    vuln_by_pid = {}
+    for _pe in (pitcher_edges or []):
+        _v = (_pe.get("vuln") or {}).get("score")
+        if _v is not None and _pe.get("id") is not None:
+            vuln_by_pid[_pe["id"]] = _v
+    pen_by_team = {r.get("team"): r for r in (bullpen_rankings or [])}
+
     scored = []
     for p in players:
         score, drivers, ceiling = _longball_score(p)
@@ -344,11 +388,45 @@ def build_long_ball_jackpot(players, lb_evbarrels=None, lb_pitcher_ev=None):
             _pitcher_hrpa_raw = (opp.get("recent") or {}).get("hr_per_pa")
         pitcher_hr_pa = (_pitcher_hrpa_raw / 100.0) if _pitcher_hrpa_raw is not None else None
 
-        log5_hr_prob = hr_log5_prob(batter_hr_pa, pitcher_hr_pa)
+        # Park-adjust the log5 call -- ADDED this session. Standard sabermetric practice: shift
+        # the CONTEXT rate (lg_hr_pa), not either individual rate, since batter_hr_pa/
+        # pitcher_hr_pa are themselves already a mix of home/road parks and adjusting them
+        # directly would double-count. Blends the static seasonal park_hr_factor with the same
+        # weather-aware, per-hitter park_hr.boost _longball_score's Pillar 3 now uses (see
+        # _longball_park_rate_mult) -- same 60/35 weather-applied weighting, for consistency.
+        _park_rate_mult = _longball_park_rate_mult(x.get("park_hr_factor"), p.get("park_hr"))
+        log5_hr_prob = hr_log5_prob(batter_hr_pa, pitcher_hr_pa, park_factor=_park_rate_mult)
 
         _pev = (lb_pitcher_ev or {}).get(opp.get("id")) or {}
         ev_boost_mult = pitcher_ev_boost_multiplier(_pev.get("avg_ev_allowed"),
                                                     _pev.get("hard_hit_pct_allowed"))
+
+        # Pitching matchup multiplier -- ADDED this session. Wraps ev_boost_mult (contact
+        # quality allowed, unchanged) with the SAME real SP HR Vulnerability score and bullpen
+        # exploitability signals Genius Pairing already grades -- a hitter's realistic path to
+        # today's longest HR isn't only through the first pitcher he sees. See
+        # pitching_matchup_multiplier() for the damping reasoning. ev_boost_mult still ships
+        # on its own below for transparency; pitching_mult is what actually feeds jackpot_ev.
+        _arm_id = opp.get("id")
+        _arm_vuln = vuln_by_pid.get(_arm_id) if _arm_id is not None else None
+        _pen = pen_by_team.get(x.get("opp_team"))
+        _pen_worn = bool(_pen and str(_pen.get("label") or "").upper() in ("WORN", "GASSED"))
+        _pen_rank_val = _pen.get("rank_val") if _pen else None
+        pitching_mult = pitching_matchup_multiplier(
+            _pev.get("avg_ev_allowed"), _pev.get("hard_hit_pct_allowed"),
+            _arm_vuln, _pen_rank_val, _pen_worn)
+        if _arm_vuln is not None and _arm_vuln >= 70:
+            x_drivers = x.setdefault("drivers", [])
+            if len(x_drivers) < 6:
+                x_drivers.append(f"SP HR Vuln {_arm_vuln:.0f} (elite target)")
+        if _pen_rank_val is not None and _pen_rank_val >= 60:
+            x_drivers = x.setdefault("drivers", [])
+            if len(x_drivers) < 6:
+                x_drivers.append(f"bullpen exploit {_pen_rank_val:.0f}")
+        elif _pen_worn:
+            x_drivers = x.setdefault("drivers", [])
+            if len(x_drivers) < 6:
+                x_drivers.append("worn/gassed pen")
 
         implied_total, total_method = _implied_team_total(x.get("team"), x.get("opp_team"), None)
         tier = ownership_tier(implied_total, x["score"], slate_p90_score)
@@ -356,9 +434,20 @@ def build_long_ball_jackpot(players, lb_evbarrels=None, lb_pitcher_ev=None):
         # Distance Floor Gate: requires a PROVEN historical max_dist (the batter's own real
         # season-long ceiling, features.hr_power.max_dist -- deliberately NOT ceiling_ft, which
         # is already park-blended and would make this gate partly circular against itself).
+        # FIXED this session: was a hard step at 420ft (0.5x below, 1.0x at/above) that treated
+        # a proven 419ft ceiling as if it were meaningfully different from 421ft, AND treated
+        # "no max_dist on record at all" identically to "proven sub-420ft power" -- those are
+        # different situations (real uncertainty vs a real known ceiling) and shouldn't be
+        # scored the same. Now a smooth ramp from 400ft (0.5x) to 420ft (1.0x), and unknown
+        # gets its own, softer 0.75x rather than the hard floor.
         _hp = (p.get("features") or {}).get("hr_power") or {}
         _own_max_dist = _hp.get("max_dist")
-        _floor_penalty = 0.5 if (_own_max_dist is None or _own_max_dist < 420) else 1.0
+        if _own_max_dist is None:
+            _floor_penalty = 0.75
+        elif _own_max_dist < 420:
+            _floor_penalty = 0.5 + 0.5 * max(0.0, min(1.0, (_own_max_dist - 400) / 20))
+        else:
+            _floor_penalty = 1.0
 
         # Statcast & Recent Heat Hype Penalty: elite historical power or scorching-hot recent
         # form gets forced into Chalk -- the crowd backs the obvious viral/hot name, splitting
@@ -371,7 +460,7 @@ def build_long_ball_jackpot(players, lb_evbarrels=None, lb_pitcher_ev=None):
         if _elite_power or _hot_l14_barrel:
             tier = "Chalk"
 
-        jev = jackpot_ev_score(x["score"], log5_hr_prob, ev_boost_mult, tier)
+        jev = jackpot_ev_score(x["score"], log5_hr_prob, pitching_mult, tier)
         if jev is not None:
             jev = round(jev * _floor_penalty, 1)
 
@@ -385,12 +474,29 @@ def build_long_ball_jackpot(players, lb_evbarrels=None, lb_pitcher_ev=None):
 
         x["log5_hr_prob"] = round(log5_hr_prob, 4) if log5_hr_prob is not None else None
         x["ev_boost_mult"] = round(ev_boost_mult, 3) if ev_boost_mult is not None else None
+        x["pitching_mult"] = round(pitching_mult, 3) if pitching_mult is not None else None
         x["implied_team_total"] = implied_total
         x["implied_total_method"] = total_method
         x["ownership_tier"] = tier
         x["jackpot_ev"] = jev
 
     scored.sort(key=lambda x: -(x.get("jackpot_ev") if x.get("jackpot_ev") is not None else x["score"]))
+
+    # Slate-size context -- ADDED this session, board-level metadata rather than a per-player
+    # multiplier. See docstring point 4: a bigger slate raises the real bar for "longest of the
+    # day," but identically for every candidate tonight, so it cannot move any candidate's
+    # ranking relative to the others -- scaling every jackpot_ev by the same constant would be
+    # decorative, not functional. Exposed here for cross-night comparison, which the board
+    # doesn't otherwise do.
+    _n_games_lb = len({x.get("game_pk") for x in scored if x.get("game_pk") is not None})
+    slate_context = {
+        "n_games": _n_games_lb,
+        "n_candidates_scored": len(scored),
+        "note": ("Bigger slates mean more total real HRs league-wide, which raises the bar "
+                "for 'longest of the day' -- this does not change tonight's relative ranking "
+                "below, only how confident to be in an equally-ranked pick on a different "
+                "night."),
+    }
 
     picks = []
     used = set()
@@ -515,6 +621,7 @@ def build_long_ball_jackpot(players, lb_evbarrels=None, lb_pitcher_ev=None):
 
     return {"picks": picks, "candidates_scored": len(scored),
             "mlb_p95_max_ev": p95_threshold, "board": lb_board,
+            "slate_context": slate_context,
             "notes": ["Absolute Power Ceiling uses real max_hit_speed/ev50/bat speed from a "
                      "Savant leaderboard fetch and the shared Statcast frame -- not an "
                      "avg_ev-percentile approximation.",
@@ -525,7 +632,11 @@ def build_long_ball_jackpot(players, lb_evbarrels=None, lb_pitcher_ev=None):
                      "the full Savant leaderboard, not tonight's slate).",
                      "implied_team_total uses fetch_odds.implied_team_totals() (de-vigged "
                      "moneyline, favorite-weighted) when real odds are available, else an "
-                     "honest even split -- implied_total_method on each entry says which."]}
+                     "honest even split -- implied_total_method on each entry says which.",
+                     "pitching_mult (SP HR Vuln + bullpen exploitability, layered on the "
+                     "existing contact-quality ev_boost_mult) and park-adjusted log5_hr_prob "
+                     "both added this session -- ev_boost_mult ships unchanged alongside "
+                     "pitching_mult for comparison."]}
 
 
 # ---------------------------------------------------------------------------
@@ -552,18 +663,62 @@ def build_long_ball_jackpot(players, lb_evbarrels=None, lb_pitcher_ev=None):
 # fetch_odds.py's moneyline capture before trusting a team-total split more precise than this.
 # ---------------------------------------------------------------------------
 
-def hr_log5_prob(batter_hr_pa, pitcher_hr_pa_allowed, lg_hr_pa=0.032):
+def hr_log5_prob(batter_hr_pa, pitcher_hr_pa_allowed, lg_hr_pa=0.032, park_factor=1.0):
     """P(this batter homers in a given PA against this specific pitcher), via Log5.
 
     lg_hr_pa=0.032 -- league HR/PA sits close to 3.2% in recent MLB seasons; passed as a
     parameter rather than hardcoded so it can be re-anchored to whatever this app's own
     HRPO_BASE_RATE-equivalent measures in a given season, rather than silently drifting stale.
 
+    park_factor: ADDED this session, applied as a multiplicative scale on the RESULTING log5
+    probability, not on lg_hr_pa. Tried scaling lg_hr_pa first (park-adjusting the reference
+    rate log5 compares both real rates against, the more "textbook log5" place to put it) and
+    checked it by hand before shipping: for a batter/pitcher pair only modestly above league
+    average (0.05/0.04 vs g=0.032), raising g to represent a hitter's park pulled the answer
+    DOWN (0.0622 -> 0.0521 at a 20% hitter's park) -- the wrong direction, because log5 pulls
+    the answer toward whatever g is set to, and raising g moved g closer to those specific real
+    rates rather than raising the real rates' odds. Scaling the final probability instead is the
+    standard odds-ratio park adjustment and always moves the intuitive way: a hitter's park
+    raises this matchup's odds, a pitcher's park lowers them, regardless of how far the real
+    rates already sit from league average. Clipped to [0.005, 0.35], matching the sane-range
+    convention this codebase already uses for other real-probability outputs.
+
     Reuses kengine._log5() directly -- see module note above for why.
     """
     if batter_hr_pa is None or pitcher_hr_pa_allowed is None:
         return None
-    return kengine._log5(batter_hr_pa, pitcher_hr_pa_allowed, lg_hr_pa)
+    p = kengine._log5(batter_hr_pa, pitcher_hr_pa_allowed, lg_hr_pa)
+    return max(0.005, min(0.35, p * (park_factor or 1.0)))
+
+
+def pitching_matchup_multiplier(avg_ev_allowed, hard_hit_pct_allowed, arm_vuln_score,
+                                pen_rank_val, pen_worn):
+    """ADDED this session. Wraps pitcher_ev_boost_multiplier (contact quality allowed) with the
+    SAME real SP HR Vulnerability score and bullpen exploitability signals Genius Pairing
+    already grades (_hrpo_combine_genius_pow) -- a hitter's realistic path to today's longest
+    HR isn't only through the first pitcher he sees.
+
+    Each additional signal is damped (55%/50%) using this codebase's own established pattern
+    (prob *= 1.0 + (real_lift - 1.0) * DAMP) rather than multiplying raw ratios together --
+    arm_vuln_score and ev_boost_mult measure related but not identical things (a broader
+    HR-proneness composite vs. raw contact quality allowed), so stacking both at full strength
+    would credit the same underlying "this pitcher gets hit hard" fact twice.
+
+    Returns a multiplier clamped to [0.80, 1.35] -- wider than pitcher_ev_boost_multiplier's own
+    [0.92, 1.15] alone since two more real, independently-graded signals now feed it, but still
+    bounded so this cannot dominate a hitter's own real power profile.
+    """
+    mult = pitcher_ev_boost_multiplier(avg_ev_allowed, hard_hit_pct_allowed)
+    if arm_vuln_score is not None:
+        if arm_vuln_score >= 70:
+            mult *= 1.0 + (1.15 - 1.0) * 0.55
+        elif arm_vuln_score >= 50:
+            mult *= 1.0 + (1.06 - 1.0) * 0.55
+    if pen_rank_val is not None and pen_rank_val >= 60:
+        mult *= 1.0 + min(0.15, (pen_rank_val - 60) / 200) * 0.50
+    elif pen_worn:
+        mult *= 1.0 + (1.05 - 1.0) * 0.50
+    return max(0.80, min(1.35, mult))
 
 
 def pitcher_ev_boost_multiplier(avg_ev_allowed, hard_hit_pct_allowed):
@@ -5048,10 +5203,13 @@ def build(date_str: str | None = None) -> dict:
         print(f"[build] cross-game parlays (POW-only) skipped: {e}")
 
     try:
-        board["long_ball_jackpot"] = build_long_ball_jackpot(players, lb_evbarrels, lb_pitcher_ev)
+        board["long_ball_jackpot"] = build_long_ball_jackpot(
+            players, lb_evbarrels, lb_pitcher_ev,
+            pitcher_edges=pitcher_edges, bullpen_rankings=bullpen_rankings)
         _lb = board["long_ball_jackpot"]
         print(f"[build] long ball jackpot: {_lb['candidates_scored']} candidates scored, "
-              f"{len(_lb['picks'])}/3 picks selected, MLB p95 max EV: {_lb['mlb_p95_max_ev']}")
+              f"{len(_lb['picks'])}/3 picks selected, MLB p95 max EV: {_lb['mlb_p95_max_ev']}, "
+              f"slate: {_lb['slate_context']['n_games']} games")
     except Exception as e:
         board["long_ball_jackpot"] = {"picks": [], "candidates_scored": 0, "notes": []}
         _hnote("long ball jackpot", e); print(f"[build] long ball jackpot skipped: {e}")
