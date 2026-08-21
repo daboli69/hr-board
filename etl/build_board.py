@@ -723,7 +723,24 @@ def _hrpo_raw_signals(p, pp_by_id, pen_by_team, backtest_calib, base_rate, requi
         return None
 
     if require_badge:
-        _BADGE_ANCHOR_LIFT = {"pow": 1.426, "lock": 1.45, "mix": 1.51, "hrbp": 1.21}
+        # Anchors base_prob to the badge's own real graded conversion rate (see docstring
+        # above) rather than the heat-calibrated curve. FIXED this session: "pow" was hardcoded
+        # at 1.426, a stale number -- backtest.json (123 days, re-run 8/21, by_badge.pow) shows
+        # 1.757x (n=1234, all real POW-badge player-days, essentially unchanged from the prior
+        # 122-day run's 1.758x -- the number is stable, not a fluke of sample size). The
+        # surrounding docstring above had already been updated to cite the correct current
+        # figures in a prior session; this constant just hadn't been brought into line with its
+        # own documentation. Since require_badge is only ever called with "pow" in production
+        # (build() only ever passes require_badge="pow" -- checked directly against every call
+        # site), this was quietly understating every POW-filtered leg's base probability by
+        # ~24% (1.757/1.426) across all three cross-game parlay tickets.
+        # lock/mix/hrbp entries are kept for when/if a badge-specific ticket besides POW ships,
+        # but are currently dead code -- flagged here rather than silently left to look "live."
+        # lock anchored to by_badge.lock (any lock holder, 1.352x, n=2243) rather than the
+        # lock_only-isolated figure (1.288x) -- matches how pow is anchored above (any pow
+        # holder, including the ones who also carry lock), so if this key is ever activated it
+        # anchors on the same "any holder of this badge" basis, not a mixed convention.
+        _BADGE_ANCHOR_LIFT = {"pow": 1.757, "lock": 1.352, "mix": 1.51, "hrbp": 1.21}
         base_prob = base_rate * _BADGE_ANCHOR_LIFT.get(require_badge, 1.0)
     else:
         base_prob = _hrpo_calibrated_prob(heat, backtest_calib)
@@ -1005,9 +1022,16 @@ def _hrpo_combine_genius_pow(sig):
         drivers.append(f"{zn} zone overlaps (1.38x graded)")
 
     if not sig["thin"] and sig["fams"] >= 2:
-        lift = {0: 0.95, 1: 1.42, 2: 1.74}.get(min(sig["fams"], 2), 1.0)
+        # FIXED this session: previously used an inline table capped at "2+" families
+        # ({0:0.95, 1:1.42, 2:1.74}), so a 4-family candidate scored identically to a 2-family
+        # one. Ticket 1 (_hrpo_combine_arsenal_lock) already calls the real, full 0-5 staircase
+        # via HRPO_FAMILY_LIFT_LOOKUP -- backtest.json's by_edge.converge_families confirms it
+        # closely (0.76/1.06/1.32/1.58/1.97x at 0/1/2/3/4 families, 123 days, re-run 8/21).
+        # Genius Pairing was the one ticket in this file NOT using it. Fixed by calling the same
+        # lookup every other ticket already uses, rather than maintaining a second, weaker copy.
+        lift = HRPO_FAMILY_LIFT_LOOKUP(sig["fams"])
         prob *= 1.0 + (lift - 1.0) * 0.55
-        drivers.append(f"{sig['fams']}+ non-heat families ({lift:.2f}x graded)")
+        drivers.append(f"{sig['fams']} non-heat families ({lift:.2f}x graded)")
 
     if not sig["thin"] and sig["near_miss"] >= 2:
         prob *= 1.0 + (1.11 - 1.0) * 0.45
