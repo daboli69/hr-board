@@ -4490,6 +4490,36 @@ def build(date_str: str | None = None) -> dict:
                     r_n += 1
             return round(r_n / len(lineup), 3)
 
+        def _target_bat_rank(x):
+            """ADDED this session. 'the hitters you'd actually be targeting' was pure heat sort
+            -- but this app's own docstrings (build_cross_game_hr_parlays) found heat and badge
+            status are close to independent (median heat 41 among real POW-badge HR hitters).
+            A pure heat sort was quietly passing over a genuine POW-badge holder or a 4-family
+            convergence sitting at ordinary heat, in favor of a merely-high-heat hitter with
+            neither. This is a RANKING heuristic only -- the heat number shown on each bat
+            (`"heat": x.get("heat")` below) is completely untouched, only which 3 hitters get
+            selected and what order they're shown in changes. Point-boost rather than a
+            multiplicative lift like elsewhere in this file, because heat itself is a 0-100
+            score, not a probability -- there's no real "lift" to apply to it, only a tie-break
+            preference for real corroborating signal when two hitters' heat is close.
+            """
+            score = x.get("heat") or 0
+            badges = {b.get("k") for b in (x.get("badges") or [])}
+            if "pow" in badges:
+                score += 18
+            elif "lock" in badges:
+                score += 12
+            conv = ((x.get("converge") or {}).get("hr")) or {}
+            fams = (len([m for m in conv.get("measured", []) if m.get("k") != "heat"])
+                    + len(conv.get("provisional", [])))
+            if fams >= 4:
+                score += 15
+            elif fams >= 3:
+                score += 9
+            elif fams >= 2:
+                score += 4
+            return score
+
         for _g in (games or []):
             for _bat, _def in (("away", "home"), ("home", "away")):
                 _bt, _dt = _g.get(_bat), _g.get(_def)
@@ -4535,10 +4565,10 @@ def build(date_str: str | None = None) -> dict:
                                            lineup_hand_pct=_lhp, location_plus=_loc_plus)
                 if not _sc:
                     continue
-                # the hitters you'd actually be targeting, best first
+                # the hitters you'd actually be targeting, best first -- see _target_bat_rank
                 _bats = sorted(
                     [x for x in players if x.get("team") == _bt and x.get("heat") is not None],
-                    key=lambda x: -x["heat"])[:4]
+                    key=lambda x: -_target_bat_rank(x))[:4]
                 team_targets.append({
                     "bat_team": _bt, "def_team": _dt, "game_pk": _g.get("game_pk"),
                     "time": _g.get("time"), "park": _g.get("park"),

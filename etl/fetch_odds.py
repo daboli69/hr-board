@@ -390,11 +390,18 @@ def build_prop_odds(rows: list) -> dict:
             line = row.get("line")
             if line is None:
                 continue
-            # Per-prop line gate. HITS must be the 0.5 line (1+ hits) — NOT 1.5 (2+ hits) or
-            # 2.5. HRR standard market is the 1.5 line. Pitcher Ks keep their real varying line
-            # (each pitcher has a different K total). This is the fix for "hits showing 2-hit
-            # lines": we were accepting any line for player_hits.
-            if prop == "hits" and line != 0.5:
+            # Per-prop line gate. HITS keeps 0.5 (1+ hits, the standard line) AND 1.5 (2+ hits,
+            # this app's own hit2 model already exists for it -- see build_board.py's
+            # jackpot_ev-adjacent hit2 tier grading) -- but not 2.5+, which nothing in this app
+            # currently prices against. HRR standard market is the 1.5 line only -- no hrr-at-
+            # a-different-line model exists yet, so there's nothing to compare an alt HRR line
+            # against; extending that is future work, not silently half-built here. Pitcher Ks
+            # keep every real O/U total a book posts (each pitcher has a different central line,
+            # AND books commonly post several alt totals around it) -- this is the fix for
+            # "hits showing 2-hit lines" (we were accepting any line for player_hits) combined
+            # this session with ADDED alt-line retention (see alt_lines below) rather than
+            # keeping the fix as narrow as it shipped.
+            if prop == "hits" and line not in (0.5, 1.5):
                 continue
             if prop == "hrr" and line != 1.5:
                 continue
@@ -436,12 +443,33 @@ def build_prop_odds(rows: list) -> dict:
                 "name": name, "line": line,
                 "over": None, "under": None, "over_book": None, "under_book": None,
                 "books": {},
+                # ADDED this session -- every real line this player/prop was actually priced
+                # at, not just the first one seen. {line_str: {line, over, under, over_book,
+                # under_book}}, same best-price-across-books logic as the primary line below,
+                # applied independently per line. This is what an Alt Line Finder needs: the
+                # primary fields alone only ever carried the ONE line every other feature in
+                # this app already expects (unchanged, so nothing downstream needs to change),
+                # but a pitcher routinely has 3-5 real alt K totals posted the same night, and
+                # those were being silently thrown away before this session.
+                "alt_lines": {},
                 "home_team": row.get("home_team"), "away_team": row.get("away_team"),
                 "last_update": row.get("last_update"),
             })
-            # only compare prices at the SAME line (mixing lines would be apples/oranges)
+            # Alt-line tally -- EVERY distinct line seen, line-shopped across primary books
+            # exactly like the primary fields below, independently per line.
+            alt_key = str(line)
+            aslot = slot["alt_lines"].setdefault(alt_key, {
+                "line": line, "over": None, "under": None, "over_book": None, "under_book": None,
+            })
+            if over is not None and (aslot["over"] is None or _better_over(aslot["over"], over) == over):
+                aslot["over"], aslot["over_book"] = over, book
+            if under is not None and (aslot["under"] is None or _better_over(aslot["under"], under) == under):
+                aslot["under"], aslot["under_book"] = under, book
+            # Primary line/over/under/books -- UNCHANGED behavior, anchored to first-seen line,
+            # exactly what every existing consumer of odds.json already expects. A later,
+            # different line no longer gets silently dropped (it landed in alt_lines above) --
+            # it just doesn't touch the primary fields.
             if slot["line"] != line and slot["over"] is not None:
-                # a different line already recorded; prefer the more common (keep first seen)
                 continue
             slot["line"] = line
             slot["books"][book] = {"line": line, "over": over, "under": under}
