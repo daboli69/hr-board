@@ -2611,6 +2611,7 @@
     <div class="drawer-hd"><span>Navigate</span><button class="drawer-x" onclick="document.getElementById('moreSheet').classList.remove('show')">✕</button></div>
     <div class="drawer-scroll">
       <div class="nav-sec">DAILY</div>
+      <button class="nav-item" data-nav="dailycard" onclick="drawerGo('dailycard')">Daily Card<i>your 4-bet routine, top to bottom, one screen</i></button>
       <button class="nav-item" data-nav="board" onclick="drawerGo('board')">Board<i>every hitter, ranked by Heat</i></button>
       <button class="nav-item" onclick="goMyList()">My List<i>just the hitters you starred</i></button>
       <button class="nav-item" data-nav="scan" onclick="drawerGo('scan')">Scan<i>slate by game — arms, weather, stacks</i></button>
@@ -5198,6 +5199,163 @@ function renderAltLines(){
     milestone market with no alt structure to price). Tap a name to open their card.</div>
   </div>`;
 }
+
+// ===================== DAILY CARD =====================
+// ADDED this session. A single, unified, top-to-bottom dashboard for the exact 4-bet daily
+// routine -- Longball, 3-Leg HR Parlay, 3-6 Leg Game/Prop Parlay, optional 5-Leg RR. Everything
+// here is assembled from data this app already computes elsewhere in this file (Genius
+// Pairing's now-de-chalked ranking, the real run-line/F5-model probabilities added this
+// session, sgpPool's props, Alt Line Finder's real alt-line pricing) -- nothing new is
+// invented, this view is purely an assembly/presentation layer. ADDITIVE ONLY: every existing
+// view stays exactly as it was. See the UI consolidation plan in this session's response for
+// which of those existing views are real candidates to merge or retire once this has been used
+// for a while -- that's a deliberate follow-up, not done here, since ripping out working views
+// in the same pass as adding a new one is how a large edit quietly breaks something nobody
+// notices until game time.
+
+function dechalkRankKey(l){
+  // Client-side mirror of build_board.py's _dechalk_rank_key -- same math, same reasoning: a
+  // leg's raw probability stays the dominant term (it's still what determines whether the
+  // whole parlay has any real chance at all), real market edge nudges the ranking among
+  // otherwise-similar legs, damped to 35% and capped at a 1.0 edge ratio so a suspicious
+  // model/book gap can't take over the ranking on its own.
+  if(l.hasOdds && l.price!=null){
+    const impliedP = impliedProb(l.price);
+    if(impliedP && impliedP>0){
+      let edgeRatio = (l.prob - impliedP) / impliedP;
+      edgeRatio = Math.max(-0.5, Math.min(1.0, edgeRatio));
+      return l.prob * (1 + 0.35*edgeRatio);
+    }
+  }
+  return l.prob;
+}
+
+function dailyMixedPool(){
+  // Bet 3's pool: ML, run line, F3/F5 ML, and non-HR props (Hits/HRR/Ks) -- HR is deliberately
+  // excluded here since Bets 1 and 2 already own the HR angle; this section is everything else
+  // in the daily routine.
+  const pool = sgpPool().filter(l=>l.tk!=="HR");
+  (BOARD.game_projections||[]).forEach(g=>{
+    if(g.pending || g.home_wp==null) return;
+    const gl = fetchedGameLine(g.away, g.home);
+    const rl = fetchedRunLine(g.away, g.home);
+    const mev = mlEV(g.home_wp, gl);
+    if(mev){
+      const team = mev.side==="home"?g.home:g.away;
+      pool.push({name:team, team, opp:mev.side==="home"?g.away:g.home, game_pk:g.game_pk,
+                tk:"ML", label:`${team} ML`, prob:mev.prob, price:mev.price, ev:mev.ev,
+                hasOdds:true, dec:americanToDecimal(mev.price)});
+    } else {
+      const side = g.home_wp>=0.5?"home":"away";
+      const prob = side==="home"?g.home_wp:1-g.home_wp;
+      const price = americanFair(prob);
+      const team = side==="home"?g.home:g.away;
+      pool.push({name:team, team, opp:side==="home"?g.away:g.home, game_pk:g.game_pk, tk:"ML",
+                label:`${team} ML (model fair -- no book price yet)`, prob, price, ev:null,
+                hasOdds:false, dec:americanToDecimal(price)});
+    }
+    const rev = runLineEV(g.markov, rl);
+    if(rev){
+      const team = rev.side==="home"?g.home:g.away;
+      pool.push({name:team, team, opp:rev.side==="home"?g.away:g.home, game_pk:g.game_pk,
+                tk:"RL", label:`${team} ${rev.line>0?"+":""}${rev.line}`, prob:rev.prob,
+                price:rev.price, ev:rev.ev, hasOdds:true, dec:americanToDecimal(rev.price)});
+    }
+    // F5 -- real, backtest-graded model (54.5% accuracy, Brier 0.2471 per the Parlay Scanner's
+    // own note), but no real F5 market price fetched yet (see this session's honest scoping
+    // note on F5 market-key uncertainty) -- always model-fair, always labeled as such, never
+    // presented as if it were a real market comparison.
+    if(g.f5_home_wp!=null){
+      const side = g.f5_home_wp>=0.5?"home":"away";
+      const prob = side==="home"?g.f5_home_wp:1-g.f5_home_wp;
+      const price = americanFair(prob);
+      const team = side==="home"?g.home:g.away;
+      pool.push({name:team, team, opp:side==="home"?g.away:g.home, game_pk:g.game_pk, tk:"F5",
+                label:`${team} F5 ML (model fair -- no market price yet)`, prob, price, ev:null,
+                hasOdds:false, dec:americanToDecimal(price)});
+    }
+  });
+  return pool.filter(l=>l.prob!=null && l.prob>0 && l.dec>1.01)
+             .sort((a,b)=>dechalkRankKey(b)-dechalkRankKey(a));
+}
+
+function _dcPickDistinct(pool, n){
+  const picked=[], usedG=new Set(), usedN=new Set();
+  for(const l of pool){
+    if(usedG.has(l.game_pk) || usedN.has(l.name)) continue;
+    picked.push(l); usedG.add(l.game_pk); usedN.add(l.name);
+    if(picked.length===n) break;
+  }
+  return picked;
+}
+
+function renderDailyCard(){
+  const main=document.getElementById("main");
+  const amerStr=n=>n==null?"—":(n>0?"+"+n:String(n));
+  const pctStr=p=>p==null?"—":Math.round(100*p)+"%";
+
+  // ---- Bet 1: The Longball -- the single highest de-chalked HR pick tonight ----
+  const geniusTicket = ((BOARD.cross_game_parlays_pow||{}).genius) || null;
+  const longball = geniusTicket && geniusTicket.legs && geniusTicket.legs[0];
+
+  // ---- Bet 2: 3-Leg HR Parlay -- the Genius Pairing ticket itself, already de-chalked ----
+  // (same geniusTicket object as above)
+
+  // ---- Bet 3: 3-6 leg game/prop parlay ----
+  const mixedPool = dailyMixedPool();
+  const mixedPicks = _dcPickDistinct(mixedPool, 6);
+
+  // ---- Bet 4 (optional): 5-leg RR candidates from the Alt Line Finder ----
+  const altPool = altLinePool().slice(0, 8);
+
+  const legRow=(l, showTier)=>`<div class="psc-row" onclick="${l.id!=null?`event.stopPropagation();scanToPlayer(${l.id})`:""}">
+    <div class="psc-l"><b>${l.name}</b><span>${l.team}${l.opp?` vs ${l.opp}`:""}</span>
+      <i>${l.label}${l.ownership_tier&&showTier?` · ${l.ownership_tier}`:""}${l.ev!=null&&l.ev>0?` · edge +${Math.round(100*l.ev)}%`:""}</i></div>
+    <div class="psc-r"><b>${amerStr(l.price)}</b><span>${pctStr(l.prob)} model</span></div>
+  </div>`;
+
+  main.innerHTML=`<div class="lad-wrap">
+    <div class="q-head"><b>Daily Card</b></div>
+    <div class="q-sub">Your 4-bet routine, top to bottom, built from this app's real signals --
+      nothing here is a new model, just everything else in one place.</div>
+
+    <div class="psc-step"><div class="psc-h">1 · The Longball</div>
+      <div class="psc-sub">Single highest-confidence, de-chalked HR pick -- POW-anchored, real
+        signal stack, ranked with the anti-chalk edge nudge so this isn't just tonight's most
+        obvious name.</div>
+      ${longball ? legRow(longball, true) : `<div class="psc-empty">No Genius Pairing leg cleared the bar tonight.</div>`}
+    </div>
+
+    <div class="psc-step"><div class="psc-h">2 · 3-Leg Cross-Game HR Parlay</div>
+      <div class="psc-sub">${geniusTicket && geniusTicket.subtitle || "Genius Pairing"}</div>
+      ${geniusTicket && !geniusTicket.incomplete ? `
+        ${(geniusTicket.legs||[]).map(l=>legRow(l,true)).join("")}
+        <div class="psc-row" style="border-top:1px solid var(--line);margin-top:4px;padding-top:9px">
+          <div class="psc-l"><b>Combined</b><span>model fair ${amerStr(geniusTicket.fair_odds)}</span></div>
+          <div class="psc-r"><b>${pctStr(geniusTicket.combined_prob)}</b>${geniusTicket.ev_pct!=null?`<span>${geniusTicket.ev_pct>0?"+":""}${geniusTicket.ev_pct}% vs book</span>`:""}</div>
+        </div>` : `<div class="psc-empty">${(geniusTicket&&geniusTicket.note)||"Not enough qualifying legs across distinct games tonight."}</div>`}
+    </div>
+
+    <div class="psc-step"><div class="psc-h">3 · Game/Prop Parlay (3-6 legs)</div>
+      <div class="psc-sub">ML, run line, F5 ML, and non-HR props -- ranked by the same
+        anti-chalk key as the HR parlay. Take the top 3 for a tighter ticket, or scroll to 6
+        for more legs at lower combined probability. Distinct games enforced.</div>
+      ${mixedPicks.length ? mixedPicks.map(l=>legRow(l,false)).join("") : `<div class="psc-empty">No qualifying legs across distinct games tonight.</div>`}
+    </div>
+
+    <div class="psc-step"><div class="psc-h">4 · 5-Leg Round Robin (optional)</div>
+      <div class="psc-sub">Real alt lines, plus money only, most confident first -- pick any 5
+        for a round robin. Full list and Ks/2+ Hits breakdown in Alt Line Finder.</div>
+      ${altPool.length ? altPool.slice(0,5).map(l=>legRow(l,false)).join("") : `<div class="psc-empty">No plus-money alt lines available tonight.</div>`}
+    </div>
+
+    <div class="zd-note">This assembles Genius Pairing (POW), the real run-line/F5 model added
+    this session, sgpPool's props, and Alt Line Finder -- it does not replace any of those
+    views, it just puts your 4 bets in one place. Open any of them directly for the full
+    detail, alternates, and swap options this condensed view leaves out.</div>
+  </div>`;
+}
+
 function ladderPool(){
   let pool=[];
   try{ pool=sgpPool().slice(); }catch(_){ pool=[]; }
@@ -5499,7 +5657,7 @@ function renderView(){
   // Weather is a live standalone view again (park + wind arrow, plus slate park ranking).
   if(view==="stacks"){ view="scan"; }
   else if(view==="matchup"){ view="edges"; }
-  if(view==="today") safe(renderToday); else if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else if(view==="weather") safe(renderWeather); else if(view==="qualified") safe(renderQualified); else if(view==="toppicks") safe(renderTopPicks); else if(view==="calendar") safe(renderCalendar); else if(view==="targets") safe(renderTargets); else if(view==="scanner") safe(renderParlayScanner); else if(view==="hrpatterns") safe(renderHrPatterns); else if(view==="jackpot") { view="parlays"; safe(renderParlays); } else if(view==="gsboard") safe(renderGrandSlamBoard); else if(view==="lbboard") safe(renderLongBallBoard); else if(view==="sgp") safe(renderSGP); else if(view==="faq") safe(renderFaq); else if(view==="ladder") safe(renderLadder); else if(view==="altlines") safe(renderAltLines); else if(view==="pitchmix") safe(renderPitchMix); else if(view==="converge") safe(renderConverge); else safe(render);
+  if(view==="today") safe(renderToday); else if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else if(view==="weather") safe(renderWeather); else if(view==="qualified") safe(renderQualified); else if(view==="toppicks") safe(renderTopPicks); else if(view==="calendar") safe(renderCalendar); else if(view==="targets") safe(renderTargets); else if(view==="scanner") safe(renderParlayScanner); else if(view==="hrpatterns") safe(renderHrPatterns); else if(view==="jackpot") { view="parlays"; safe(renderParlays); } else if(view==="gsboard") safe(renderGrandSlamBoard); else if(view==="lbboard") safe(renderLongBallBoard); else if(view==="sgp") safe(renderSGP); else if(view==="faq") safe(renderFaq); else if(view==="ladder") safe(renderLadder); else if(view==="altlines") safe(renderAltLines); else if(view==="dailycard") safe(renderDailyCard); else if(view==="pitchmix") safe(renderPitchMix); else if(view==="converge") safe(renderConverge); else safe(render);
 }
 
 // Weather dashboard: today's slate, one card per game — conditions, roof call,
@@ -7481,19 +7639,50 @@ function _poissonCdf(k, lambda){
   return Math.min(1, sum);
 }
 // Fetched game-line odds for a matchup (moneyline + total), joined by normalized away@home.
+// Team abbreviation -> full name, for joining game_projections (which carries abbreviations,
+// confirmed against the live board.json) to ODDS.game_lines/run_lines (keyed by the odds API's
+// full team names). Mirrors build_board.py's _TEAM_FULLNAME exactly -- same real fix this
+// session's testing found was needed server-side, just never carried over to the frontend.
+const TEAM_FULLNAME = {
+  ARI:"arizona diamondbacks", ATL:"atlanta braves", BAL:"baltimore orioles",
+  BOS:"boston red sox", CHC:"chicago cubs", CWS:"chicago white sox", CHW:"chicago white sox",
+  CIN:"cincinnati reds", CLE:"cleveland guardians", COL:"colorado rockies",
+  DET:"detroit tigers", HOU:"houston astros", KC:"kansas city royals", KCR:"kansas city royals",
+  LAA:"los angeles angels", LAD:"los angeles dodgers", MIA:"miami marlins",
+  MIL:"milwaukee brewers", MIN:"minnesota twins", NYM:"new york mets",
+  NYY:"new york yankees", ATH:"athletics", OAK:"athletics", PHI:"philadelphia phillies",
+  PIT:"pittsburgh pirates", SD:"san diego padres", SDP:"san diego padres",
+  SF:"san francisco giants", SFG:"san francisco giants", SEA:"seattle mariners",
+  STL:"st louis cardinals", TB:"tampa bay rays", TBR:"tampa bay rays",
+  TEX:"texas rangers", TOR:"toronto blue jays", WSH:"washington nationals", WSN:"washington nationals",
+  AZ:"arizona diamondbacks",
+};
+function _teamOddsKey(away, home){
+  const a=TEAM_FULLNAME[away], h=TEAM_FULLNAME[home];
+  if(!a || !h) return null;
+  return normName(a)+"@"+normName(h);
+}
 function fetchedGameLine(away, home){
   if(!ODDS || !ODDS.game_lines || !oddsMatchSlate()) return null;
-  const key=normName(away)+"@"+normName(home);
-  return ODDS.game_lines[key] || null;
+  const key=_teamOddsKey(away, home);
+  return key ? (ODDS.game_lines[key] || null) : null;
+}
+function fetchedRunLine(away, home){
+  if(!ODDS || !ODDS.run_lines || !oddsMatchSlate()) return null;
+  const key=_teamOddsKey(away, home);
+  return key ? (ODDS.run_lines[key] || null) : null;
 }
 // Moneyline EV: model home win prob vs the book's home/away prices. Returns better side.
 function mlEV(homeWP, gl){
   if(homeWP==null || !gl || !gl.ml) return null;
-  const evSide=(p,price)=>{ if(price==null) return null;
-    const dec=americanToDecimal(price); return p*(dec-1)-(1-p); };
+  // gl.ml.home/away are already real decimal odds -- use directly, no conversion. Display
+  // price is the separately-stored _american field, not a re-derivation from the decimal.
+  const evSide=(p,dec)=>{ if(dec==null||dec<=1.0) return null; return p*(dec-1)-(1-p); };
   const opts=[];
-  const eh=evSide(homeWP, gl.ml.home); if(eh!=null) opts.push({side:"home", team:gl.home, ev:eh, price:gl.ml.home, prob:homeWP});
-  const ea=evSide(1-homeWP, gl.ml.away); if(ea!=null) opts.push({side:"away", team:gl.away, ev:ea, price:gl.ml.away, prob:1-homeWP});
+  const eh=evSide(homeWP, gl.ml.home);
+  if(eh!=null) opts.push({side:"home", team:gl.home, ev:eh, price:gl.ml.home_american, prob:homeWP});
+  const ea=evSide(1-homeWP, gl.ml.away);
+  if(ea!=null) opts.push({side:"away", team:gl.away, ev:ea, price:gl.ml.away_american, prob:1-homeWP});
   if(!opts.length) return null;
   return opts.sort((a,b)=>b.ev-a.ev)[0];
 }
@@ -7505,11 +7694,47 @@ function totalEV(projTotal, gl){
   // P(actual total > line) via normal CDF approximation
   const z=(line-projTotal)/sd;
   const pOver=1-_normCdf(z);
-  const evSide=(p,price)=>{ if(price==null) return null;
-    const dec=americanToDecimal(price); return p*(dec-1)-(1-p); };
+  const evSide=(p,dec)=>{ if(dec==null||dec<=1.0) return null; return p*(dec-1)-(1-p); };
   const opts=[];
-  const eo=evSide(pOver, gl.total.over); if(eo!=null) opts.push({side:"over", ev:eo, price:gl.total.over, prob:pOver, line});
-  const eu=evSide(1-pOver, gl.total.under); if(eu!=null) opts.push({side:"under", ev:eu, price:gl.total.under, prob:1-pOver, line});
+  const eo=evSide(pOver, gl.total.over);
+  if(eo!=null) opts.push({side:"over", ev:eo, price:gl.total.over_american, prob:pOver, line});
+  const eu=evSide(1-pOver, gl.total.under);
+  if(eu!=null) opts.push({side:"under", ev:eu, price:gl.total.under_american, prob:1-pOver, line});
+  if(!opts.length) return null;
+  return opts.sort((a,b)=>b.ev-a.ev)[0];
+}
+// Run line EV -- ADDED this session. Uses the model's real run_line probability (computed
+// server-side from the same independent per-team Markov distributions total_dist/home_wp
+// already use -- see runs.py's run_line_prob) at whatever standard -1.5/+1.5 line the model
+// itself evaluated, compared against the real book run-line price at that same standard line.
+// If the book's actual posted line isn't -1.5/+1.5 (rare for MLB, but not impossible), this
+// intentionally returns no comparison rather than mismatching a probability computed for one
+// line against a price posted for a different one -- the exact mismatch bug fixed elsewhere
+// in the Ladder's K leg earlier this session.
+function runLineEV(markov, rl){
+  if(!markov || !markov.run_line || !rl) return null;
+  const evSide=(p,dec)=>{ if(dec==null||dec<=1.0) return null; return p*(dec-1)-(1-p); };
+  const opts=[];
+  if(rl.home && rl.home.line===-1.5){
+    const p=markov.run_line.home_minus_1_5;
+    const e=evSide(p, rl.home.price);
+    if(e!=null) opts.push({side:"home", ev:e, price:rl.home.price_american, prob:p, line:-1.5});
+  }
+  if(rl.away && rl.away.line===-1.5){
+    const p=markov.run_line.away_minus_1_5;
+    const e=evSide(p, rl.away.price);
+    if(e!=null) opts.push({side:"away", ev:e, price:rl.away.price_american, prob:p, line:-1.5});
+  }
+  if(rl.home && rl.home.line===1.5){
+    const p=1-markov.run_line.away_minus_1_5;
+    const e=evSide(p, rl.home.price);
+    if(e!=null) opts.push({side:"home", ev:e, price:rl.home.price_american, prob:p, line:1.5});
+  }
+  if(rl.away && rl.away.line===1.5){
+    const p=1-markov.run_line.home_minus_1_5;
+    const e=evSide(p, rl.away.price);
+    if(e!=null) opts.push({side:"away", ev:e, price:rl.away.price_american, prob:p, line:1.5});
+  }
   if(!opts.length) return null;
   return opts.sort((a,b)=>b.ev-a.ev)[0];
 }
