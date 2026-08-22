@@ -543,6 +543,25 @@
     transition:transform .15s ease;margin-left:8px}
   details.sec[open]>summary{color:var(--ink)}
   details.sec[open]>summary::after{transform:rotate(180deg)}
+  /* ADDED this session: player-card jump-nav + top-level collapsible groups */
+  .dcard-nav{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0;position:sticky;top:0;
+    background:var(--bg);padding:8px 0;z-index:5}
+  .dcard-nav button{font-family:"IBM Plex Mono";font-size:10px;font-weight:700;
+    color:var(--muted);background:var(--panel-2);border:1px solid var(--line);
+    border-radius:20px;padding:6px 12px;cursor:pointer;white-space:nowrap;
+    -webkit-tap-highlight-color:transparent}
+  .dcard-nav button:active{color:var(--seam);border-color:var(--seam)}
+  details.dcard-sec{margin-top:6px;border:1px solid var(--line);border-radius:12px;
+    background:var(--panel);overflow:hidden}
+  details.dcard-sec>summary{list-style:none;cursor:pointer;padding:13px 14px;
+    font-family:Archivo;font-weight:800;font-size:13px;color:var(--seam);
+    display:flex;align-items:center;justify-content:space-between;
+    -webkit-tap-highlight-color:transparent}
+  details.dcard-sec>summary::-webkit-details-marker{display:none}
+  details.dcard-sec>summary::after{content:"⌄";font-size:17px;line-height:1;color:var(--faint);
+    transition:transform .15s ease;margin-left:8px}
+  details.dcard-sec[open]>summary::after{transform:rotate(180deg)}
+  details.dcard-sec>*:not(summary){padding:0 14px 14px}
   .row{position:relative}
   .row::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
     background:var(--tc,transparent);border-radius:10px 0 0 10px;pointer-events:none}
@@ -1122,6 +1141,16 @@
     background:var(--panel-2);border:1px solid var(--line);border-radius:20px;
     padding:5px 11px;white-space:nowrap;cursor:pointer}
   .gsb-pchip.on{color:var(--seam);border-color:var(--seam);background:rgba(224,100,47,.10)}
+  /* ADDED this session: top-level Top10/By Game tab bar for the Long Ball board */
+  .lb-tabbar{display:flex;gap:6px;margin-bottom:12px}
+  .lb-tab{flex:1;font-family:"IBM Plex Mono";font-size:12px;font-weight:800;
+    color:var(--faint);background:var(--panel-2);border:1px solid var(--line);
+    border-radius:9px;padding:9px 0;cursor:pointer;letter-spacing:.03em}
+  .lb-tab.on{color:var(--seam);border-color:var(--seam);background:rgba(224,100,47,.10)}
+  .lb10-badge{font-family:"IBM Plex Mono";font-size:8px;font-weight:800;border-radius:4px;
+    padding:1.5px 5px;margin-left:5px;letter-spacing:.03em;vertical-align:middle}
+  .lb10-badge.pow{color:var(--seam);background:rgba(224,100,47,.14)}
+  .lb10-badge.lock{color:var(--good);background:rgba(127,180,145,.14)}
   .lb-sort-toggle{display:flex;gap:6px;margin-bottom:10px}
   .lb-sort-btn{flex:1;font-family:"IBM Plex Mono";font-size:11px;font-weight:700;
     color:var(--faint);background:var(--panel-2);border:1px solid var(--line);
@@ -4455,21 +4484,40 @@ function buildDetail(p){
         ${penLive(p)}
         ${p.opp_bullpen.flags&&p.opp_bullpen.flags.length?`<div class="arm" style="margin-top:6px">pen flags: ${p.opp_bullpen.flags.join(' · ')}</div>`:''}`:''}
   ` : `<div class="arm"><b>Opposing arm:</b> ${op.name||'—'}</div>`;
-  return `
+
+  // ===== ADDED this session: named, collapsible groups + jump-nav bar. =====
+  // Same data as before, every single block below is unchanged -- only the assembly changed.
+  // Header stays always-visible (the "decide fast" info); Signals defaults open since it's
+  // the core read; everything else collapses behind one tap from the nav bar instead of
+  // requiring a long scroll through ~30 blocks in a fixed order to find one thing.
+  const _pid = p.id;
+  const header = `
       <div class="dname"><span class="bats b-${p.bats||'R'}">${p.bats||"?"}</span><span>${p.name}</span>${covChip(p,25)}${p.lineup_spot?`<span class="dspot">#${p.lineup_spot}</span>`:""}</div>
       <button class="listbtn${listHas(p.id)?" on":""}" data-pid="${p.id}" data-nm="${encodeURIComponent(p.name)}" onclick="toggleListBtn(this,event)">${listHas(p.id)?"★ On your list — tap to remove":"☆ Add to my list"}</button>
       ${sm?`<div class="clearnote"><b>Everything's pointing here.</b> ${sm.reasons.length?sm.reasons.slice(0,5).join(" · ")+". ":""}The matchup's already priced into this number — trust it, don't talk yourself out of it over one cold reading.</div>`:""}
       ${(function(){const h=HLAB[p.hit_label];return h?`<div class="hlab-note"><span class="hlab ${h[1]}">${h[0]}</span> ${h[2]} over the trailing 2 weeks — same window as the model. One label max, FB outranks LD, none if any threshold missed.</div>`:"";})()}
-      ${heatSpark(p)}
-      ${sprayChart(p)}
-      ${bullBear(p)}
       ${(function(){try{const ms=hitterScore(p,_RR,_BRR);return `<div class="odds-line">Model odds <b>${(ms.prob*100).toFixed(0)}%</b> · <b>${americanFair(ms.prob)}</b><span>this model only — heat · trend · pitch mix · park+weather · contact luck · your tag history. Fair value, independent of any book; compare it to the posted line to find where they disagree.</span></div>`;}catch(e){return "";}})()}
       ${p.angle?`<div class="angle">${p.angle}</div>`:""}
       ${tradedNote(p)}
       ${tierBlock(p)}
       ${badgeChipsLift(p)}
       <div class="matchup" style="margin-bottom:10px">${p.team} vs ${p.opp_team} · ${timeStr(p.time)} · ${p.park||""} · park ${fmt(p.park_hr_factor,2)}×${parkSrcTag(p)}${p.xbh_factor!=null?` · XBH ${fmt(p.xbh_factor,2)}×`:""} · ${armBadge}</div>
-      ${(p.max_ev&&p.max_ev.season!=null)?`<div class="arm" style="margin:-4px 0 8px"><b>${p.name.split(' ').slice(-1)[0]}'s max EV:</b> <b style="color:var(--hot)">${p.max_ev.season}</b> mph season${p.max_ev.recent!=null?` · ${p.max_ev.recent} last 2wk`:""}</div>`:""}
+      ${(p.max_ev&&p.max_ev.season!=null)?`<div class="arm" style="margin:-4px 0 8px"><b>${p.name.split(' ').slice(-1)[0]}'s max EV:</b> <b style="color:var(--hot)">${p.max_ev.season}</b> mph season${p.max_ev.recent!=null?` · ${p.max_ev.recent} last 2wk`:""}</div>`:""}`;
+
+  const signalsGroup = `
+      ${heatSpark(p)}
+      ${bullBear(p)}
+      ${drivesStrip(p)}
+      <h4>Four signals — recent · season · career</h4>
+      <div class="strip" style="border:1px solid var(--line);border-radius:10px">${strip}</div>
+      ${percentileBars(p)}
+      <details class="sec"><summary>Trend — last 2 wk vs game windows</summary>
+      <table class="win"><thead><tr><th></th><th>L5</th><th>2wk</th><th>L30</th></tr></thead>
+      <tbody>${wrows}</tbody></table></details>
+      <details class="sec"><summary>Context — recent · season · career</summary>
+      <div class="strip" style="border:1px solid var(--line);border-radius:10px">${extra}</div></details>`;
+
+  const parkGroup = `
       ${p.park_hr?`<div class="parkbox">
         <div class="parkbox-h">Park &amp; weather model <span class="pk-boost ${p.park_hr.boost>=0?'pos':'neg'}">${p.park_hr.boost>=0?'+':''}${p.park_hr.boost}% HR</span></div>
         <div class="parkbox-sub"><b style="color:var(--ink)">${p.park_hr.exp100}</b> expected HR per 100 batted balls here vs <b style="color:var(--ink)">${p.park_hr.neutral100}</b> in a neutral park · ${p.park_hr.n} batted balls modeled</div>
@@ -4477,28 +4525,54 @@ function buildDetail(p){
         <div class="parkbox-note">${p.park_hr.savant_pf!=null?"Anchored to this season's empirical HR park factor (computed from Statcast batted balls); physics adds this hitter's spray + today's weather on top. ":""}His real batted balls flown through this park's walls. Secondary read — separate from Heat.</div>
         ${parks30HTML(p)}
       </div>`:parks30Standalone(p)}
-      ${spotBlock(p)}
+      ${spotBlock(p)}`;
+
+  const histGroup = `
       ${bvpBlock(p)}
-      ${drivesStrip(p)}
       ${battedBallLog(p)}
-      <h4>Four signals — recent · season · career</h4>
-      <div class="strip" style="border:1px solid var(--line);border-radius:10px">${strip}</div>
-      <details class="sec"><summary>Trend — last 2 wk vs game windows</summary>
-      <table class="win"><thead><tr><th></th><th>L5</th><th>2wk</th><th>L30</th></tr></thead>
-      <tbody>${wrows}</tbody></table></details>
-      <details class="sec"><summary>Context — recent · season · career</summary>
-      <div class="strip" style="border:1px solid var(--line);border-radius:10px">${extra}</div></details>
+      ${(batTrackBlock(p)||nearMissBlock(p))?`<details class="sec"><summary>Bat tracking &amp; near misses</summary>${batTrackBlock(p)}${nearMissBlock(p)}</details>`:""}`;
+
+  const pitchGroup = `
+      ${sprayChart(p)}
       ${collapseWrap(pitchBlock(p))}
-      ${percentileBars(p)}
       ${zoneDamageGrid(p)}
-      ${(batTrackBlock(p)||nearMissBlock(p))?`<details class="sec"><summary>Bat tracking &amp; near misses</summary>${batTrackBlock(p)}${nearMissBlock(p)}</details>`:""}
       ${vsMixBlock(p)}
-      ${pitchTableBlock(p)}
+      ${pitchTableBlock(p)}`;
+
+  const moreGroup = `
       ${collapseWrap(featureBlock(p))}
       ${collapseWrap(luckBlock(p))}
       ${flagChips?`<div class="bd" style="margin-top:12px">${flagChips}</div>`:""}
-      ${armBlock}
       <div class="bd">${bdChips}</div>`;
+
+  const navBar = `<div class="dcard-nav">
+      <button onclick="dcJump('dc-sig-${_pid}')">Signals</button>
+      <button onclick="dcJump('dc-park-${_pid}')">Park</button>
+      <button onclick="dcJump('dc-hist-${_pid}')">History</button>
+      <button onclick="dcJump('dc-pitch-${_pid}')">Pitch/Zone</button>
+      <button onclick="dcJump('dc-arm-${_pid}')">Opp. Arm</button>
+      <button onclick="dcJump('dc-more-${_pid}')">More</button>
+    </div>`;
+
+  return `
+      ${header}
+      ${navBar}
+      <details class="dcard-sec" id="dc-sig-${_pid}" open><summary>Signals &amp; Trend</summary>${signalsGroup}</details>
+      <details class="dcard-sec" id="dc-park-${_pid}"><summary>Park &amp; Weather</summary>${parkGroup}</details>
+      <details class="dcard-sec" id="dc-hist-${_pid}"><summary>Matchup History</summary>${histGroup}</details>
+      <details class="dcard-sec" id="dc-pitch-${_pid}"><summary>Pitch Data &amp; Zones</summary>${pitchGroup}</details>
+      <details class="dcard-sec" id="dc-arm-${_pid}"><summary>Opposing Arm</summary>${armBlock}</details>
+      <details class="dcard-sec" id="dc-more-${_pid}"><summary>More / Advanced</summary>${moreGroup}</details>`;
+}
+function dcJump(sectionId){
+  // ADDED this session -- jump-nav for the restructured player card. Force-opens the target
+  // <details> (in case it was collapsed) before scrolling, rather than relying on browser
+  // fragment-navigation auto-expand behavior, which isn't consistent enough across browsers
+  // for a control this central to be flaky.
+  const el = document.getElementById(sectionId);
+  if(!el) return;
+  el.open = true;
+  el.scrollIntoView({block:"start", behavior:"smooth"});
 }
 
 function render(){
@@ -8618,7 +8692,9 @@ function renderGrandSlamBoard(){
 // build_long_ball_jackpot only sees batters, not the schedule, so it can't know true direction.
 let lbBoardGamePk = null;
 let lbSortMode = "jev";   // "jev" (default, backend order) or "maxev" (real distance sort)
-function lbBoardGo(gpk){ lbBoardGamePk = gpk; view = "lbboard"; renderLongBallBoard(); scrollTo(0,0); }
+let lbBoardTab = "top10"; // ADDED this session: "top10" (quick-scan) or "bygame" (full per-game board)
+function lbBoardGo(gpk){ lbBoardGamePk = gpk; lbBoardTab = "bygame"; view = "lbboard"; renderLongBallBoard(); scrollTo(0,0); }
+function lbBoardSetTab(t){ lbBoardTab = t; renderLongBallBoard(); }
 
 // Shared POW-badge lookup for the Long Ball card and board. long_ball_jackpot's own batter
 // records (both the picks array and the per-game board) don't carry `badges` -- checked
@@ -8645,14 +8721,112 @@ function playersById(){
 }
 function lbSortSet(mode){ lbSortMode = mode; renderLongBallBoard(); }
 
+// ADDED this session -- quick-scan Top 10, pooled across every game's own already-scored
+// batter list. log5_hr_prob is the real, park-adjusted HR probability build_long_ball_jackpot
+// already computes server-side (hr_log5_prob with the weather-aware park_hr.boost blend added
+// earlier this session) -- not a new number invented for this list, just the existing one
+// finally surfaced as its own rankable, scannable view instead of being buried as a secondary
+// field on the distance-focused per-game board. Badges pulled live via playersById() (same
+// cached lookup the parlay leg power chip already uses) since long_ball_jackpot's own batter
+// records don't carry badge data themselves.
+function renderLongBallTop10(boards){
+  const pool = [];
+  boards.forEach(g=>{
+    (g.batters||[]).forEach(b=>{
+      if(b.log5_hr_prob==null) return;
+      const opp = b.team===g.team_a ? g.team_b : g.team_a;
+      pool.push({...b, opp, game_pk:g.game_pk});
+    });
+  });
+  pool.sort((a,b)=>b.log5_hr_prob-a.log5_hr_prob);
+  const top10 = pool.slice(0,10);
+
+  const pById = playersById();
+  const amerFair = p => { if(p==null||p<=0) return "—"; const dec=1/p;
+    return dec>=2 ? "+"+Math.round((dec-1)*100) : "-"+Math.round(100/(dec-1)); };
+
+  const row = (b,i) => {
+    const pl = pById.get(b.id) || {};
+    const badges = (pl.badges||[]).map(bd=>bd.k);
+    const badgeTags = [];
+    if(badges.includes("pow")) badgeTags.push('<span class="lb10-badge pow">POW</span>');
+    if(badges.includes("lock")) badgeTags.push('<span class="lb10-badge lock">LOCK</span>');
+    const lbStats = pl.long_ball || {};
+    const barrel = lbStats.brl_percent!=null && lbStats.n_bb>=15 ? `${lbStats.brl_percent.toFixed(1)}% barrel` : null;
+    const statsLine = [
+      b.max_ev!=null ? `${b.max_ev.toFixed(1)} max EV` : null,
+      barrel,
+    ].filter(Boolean).join(" · ");
+    const chips = (b.drivers||[]).slice(0,2).map(d=>`<span class="gsb-chip">${d}</span>`).join("");
+    return `<div class="gsb-row" onclick="scanToPlayer?scanToPlayer(${b.id}):null">
+      <div class="gsb-rank" style="color:var(--seam)">${String(i+1).padStart(2,"0")}</div>
+      <div class="gsb-mid">
+        <div class="gsb-nm"><b>${b.name}</b>${badgeTags.join("")}</div>
+        <div class="gsb-sub">${b.team} vs ${b.opp||"?"} · SLOT ${b.spot||"?"}${statsLine?` · ${statsLine}`:""}</div>
+        ${chips?`<div class="gsb-drivers">${chips}</div>`:""}
+      </div>
+      <div class="gsb-odds">${(100*b.log5_hr_prob).toFixed(1)}%<i style="display:block;font-size:7px;color:var(--faint)">${amerFair(b.log5_hr_prob)}</i></div>
+    </div>`;
+  };
+
+  return `<div class="cv-wrap gsb-wrap">
+    <div class="lb-tabbar">
+      <button class="lb-tab on" onclick="lbBoardSetTab('top10')">Top 10</button>
+      <button class="lb-tab" onclick="lbBoardSetTab('bygame')">By Game</button>
+    </div>
+    <div class="gsb-head">
+      <div class="gsb-title">Top 10 Most Likely</div>
+      <div class="gsb-sub2">LONG BALL BOARD · QUICK SCAN</div>
+    </div>
+    <div class="gsp-box"><div class="gsp-amt" style="color:var(--seam)">$50K</div>
+      <div class="gsp-note">Real HR probability, badges, and stats in one glance -- for when
+        you don't have time to dig through the full board.</div></div>
+    <div class="gsb-listhead">RANKED // WHOLE SLATE · BY REAL HR PROBABILITY</div>
+    ${top10.length ? top10.map(row).join("") : `<div class="psc-empty">No probability-scored batters tonight.</div>`}
+    <div class="zd-note">log5_hr_prob: this app's park-adjusted, weather-aware HR probability
+    (see hr_log5_prob) -- the same real number the per-game board carries, just ranked across
+    the whole slate instead of one game at a time. POW/LOCK tags are this app's own real,
+    backtest-verified badges (1.76x/1.35x HR lift), pulled from the player's live record, not
+    computed fresh for this list. Fair odds shown alongside probability for a quick gut check
+    against whatever your book is offering. Tap a name to open their full card.</div>
+  </div>`;
+}
+
 function renderLongBallBoard(){
   const main = document.getElementById("main");
-  const boards = ((BOARD && BOARD.long_ball_jackpot) || {}).board || [];
-  if(!boards.length){
+  const boardsRaw = ((BOARD && BOARD.long_ball_jackpot) || {}).board || [];
+  if(!boardsRaw.length){
     main.innerHTML = `<div class="empty">No long ball board yet — needs lineups and power
       profiles to post.</div>`;
     return;
   }
+  // FIXED this session: boards previously stayed in whatever order build_long_ball_jackpot's
+  // own lb_board.sort(key=best_ceiling_ft) left them in server-side -- a RANKING order that
+  // reshuffles every single night depending on which game currently has the longest ceiling.
+  // That's the wrong order for a NAVIGATION strip: there was no stable left-to-right sequence
+  // to build muscle memory around, which is exactly the bug reported ("doesn't start left to
+  // right"). Re-sorted here by real chronological game time (BOARD.games, joined by game_pk)
+  // -- server-side ranking within each game's own batter list is untouched, this only reorders
+  // which game-tab appears where in the picker.
+  const _timeByGpk = {}; (BOARD.games||[]).forEach(gm=>{ if(gm.game_pk!=null) _timeByGpk[gm.game_pk]=gm.time; });
+  const boards = [...boardsRaw].sort((a,b)=>{
+    const ta=_timeByGpk[a.game_pk], tb=_timeByGpk[b.game_pk];
+    if(ta && tb) return ta<tb?-1:ta>tb?1:0;
+    if(ta) return -1; if(tb) return 1;
+    return 0;   // no time data for either -- leave relative order as-is rather than guess
+  });
+
+  const tabBar = `<div class="lb-tabbar">
+    <button class="lb-tab${lbBoardTab==='top10'?' on':''}" onclick="lbBoardSetTab('top10')">Top 10</button>
+    <button class="lb-tab${lbBoardTab==='bygame'?' on':''}" onclick="lbBoardSetTab('bygame')">By Game</button>
+  </div>`;
+
+  if(lbBoardTab === "top10"){
+    main.innerHTML = renderLongBallTop10(boards);
+    return;
+  }
+
+  // ---- "By Game" -- the existing full per-game board, ranking logic untouched ----
   // Ranked by jackpot_ev now (backend sorts this way), so the badge/color here reflects
   // ownership_tier -- the strategic signal -- not the old score-based STRONG/SOLID/LONGSHOT/
   // DARTS tier, which still shows in the sub-line as a smaller, secondary reference.
@@ -8674,8 +8848,8 @@ function renderLongBallBoard(){
     <button class="lb-sort-btn${lbSortMode==='maxev'?' on':''}" onclick="lbSortSet('maxev')">Max EV</button>
   </div>`;
 
-  const gamePicker = boards.length>1 ? `<div class="gsb-picker">
-    ${boards.map(b=>`<button class="gsb-pchip${b.game_pk===g.game_pk?' on':''}"
+  const gamePicker = boards.length>1 ? `<div class="gsb-picker" id="gsbPicker">
+    ${boards.map(b=>`<button class="gsb-pchip${b.game_pk===g.game_pk?' on':''}" id="${b.game_pk===g.game_pk?'gsbPchipOn':''}"
       onclick="lbBoardGamePk=${b.game_pk};renderLongBallBoard();">${b.team_a||"?"} vs ${b.team_b||"?"}</button>`).join("")}
   </div>` : "";
 
@@ -8699,6 +8873,7 @@ function renderLongBallBoard(){
   };
 
   main.innerHTML = `<div class="cv-wrap gsb-wrap">
+    ${tabBar}
     <div class="gsb-head">
       <div class="gsb-title">${g.team_a||"?"} vs ${g.team_b||"?"}</div>
       <div class="gsb-sub2">LONG BALL BOARD</div>
@@ -8719,6 +8894,13 @@ function renderLongBallBoard(){
     buckets (STRONG 75+, SOLID 55+, LONGSHOT 35+, DARTS below) — there's no real probability
     for a distance contest, only a ranking. No book-odds comparison exists for this market.</div>
   </div>`;
+
+  // Scroll the active game chip into view -- FIXED this session. A horizontally-scrollable
+  // strip always starts at scrollLeft=0 (its true left edge) regardless of which chip is
+  // marked active; if the active game wasn't the first one in the (now-fixed) chronological
+  // order, it could sit off-screen with no indication, which read as "my selection reset."
+  const _activeChip = document.getElementById("gsbPchipOn");
+  if(_activeChip) _activeChip.scrollIntoView({inline:"center", block:"nearest"});
 }
 
 function renderParlays(){
