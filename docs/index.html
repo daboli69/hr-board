@@ -10096,43 +10096,21 @@ function whyBlock(g){
 function renderProps(){
   const main=document.getElementById("main");
   if(!BOARD||!BOARD.players){ main.innerHTML=`<div class="empty">Board not loaded.</div>`; return; }
+  // FIXED this session: propsView could still be a stale "ev"/"parlay" from a saved
+  // preference or an old deep link now that those tabs are gone -- redirect rather than
+  // render a tab with no button pointing at it.
+  if(propsView==="ev" || propsView==="parlay") propsView="hit";
 
   const subTabs=`
     <div class="prop-subtabs">
       <button data-p="hit" class="${propsView==='hit'?'on':''}">Hits</button>
       <button data-p="hrr" class="${propsView==='hrr'?'on':''}">HRR</button>
       <button data-p="k" class="${propsView==='k'?'on':''}">Pitcher Ks</button>
-      <button data-p="ev" class="${propsView==='ev'?'on':''}">+EV</button>
-      <button data-p="parlay" class="${propsView==='parlay'?'on':''}">Parlays</button>
       <button data-p="ml" class="${propsView==='ml'?'on':''}">Game Lines</button>
     </div>`;
 
   let inner="";
-  if(propsView==="ev"){
-    const plays=allPropEV();
-    const rows=plays.map((x,i)=>{
-      const conf = x.prob>=0.5?"high": x.prob>=0.25?"medium":"speculative";
-      const confCls = x.prob>=0.5?"pos": x.prob>=0.25?"":"spec";
-      return `<div class="prop-row" style="background:${x.ev>=0.15?'rgba(120,178,145,.14)':'rgba(120,134,150,.10)'}">
-        <div class="prop-rk">${i+1}</div>
-        <div class="prop-sc" style="color:var(--good)">+${(x.ev*100).toFixed(0)}<span style="font-size:8px">%EV</span></div>
-        <div class="prop-body">
-          <div class="prop-nm"><b>${x.name}</b> <span class="prop-meta">${x.team||"?"}→${x.opp||"?"}</span></div>
-          <div class="prop-sub">${x.propLabel} · <b>${x.side.toUpperCase()}${x.propLabel==="Home Run"?"":" "+x.line}</b> at ${fmtAm(x.price)} · model ${(x.prob*100).toFixed(0)}%${x.fallback?" · FD ref":""}</div>
-          <div class="prop-tags"><span class="prop-ev-chip ${confCls}">${conf} confidence</span></div>
-        </div>
-      </div>`;
-    }).join("");
-    const haveOdds = ODDS && ODDS.props;
-    inner=`
-      <h2 class="prop-h">Most +EV Plays</h2>
-      <div class="prop-lead">Every prop where the model's probability beats the book's price — hits, pitcher Ks, and home runs, ranked by expected value. This is your one-stop "what's worth betting tonight" list.</div>
-      ${subTabs}
-      <div class="prop-note">${plays.length} +EV play${plays.length===1?"":"s"} found across all prop types. Higher confidence = the model gives it a higher chance to hit (shorter-priced, more reliable). Speculative = longshot; treat as a dart. Every edge is a hypothesis until your CLV proves it.</div>
-      ${rows || `<div class="empty">${haveOdds
-        ? "No +EV plays right now — every priced prop is at or below fair value. That's normal and honest; not betting is a fine decision."
-        : "Book odds haven't loaded yet. Once odds.json populates (after the next build with the odds fetch), your +EV plays appear here."}</div>`}`;
-  } else if(propsView==="k"){
+  if(propsView==="k"){
     // Ks = PITCHER-level view. Rank by est. strikeouts (the likelihood of a big K game),
     // falling back to k_heat when the estimate is missing.
     const arms=(BOARD.pitcher_props||[]).slice().sort((a,b)=>((ksProjection(b)??-1)-(ksProjection(a)??-1))||((b.k_heat||0)-(a.k_heat||0)));
@@ -10200,8 +10178,6 @@ function renderProps(){
           : "No arms scored yet — needs probable starters + arm profiles. Should populate on the next build."
       }</div>`}
       <div class="prop-note" style="margin-top:12px"><b>Reading K scores:</b> HIGH k_heat = bet OVER on his K total (typical lines are 5.5 or 6.5). LOW k_heat = bet UNDER. Opener flag means the LISTED pitcher won't throw enough innings for a normal K prop line — usually a play-through-with-caution.</div>`;
-  } else if(propsView==="parlay"){
-    inner=propParlayHTML();
   } else if(propsView==="ml"){
     // Game Lines: run-expectancy engine output — moneyline, total, F5.
     const gp=(BOARD.game_projections||[]).slice();
@@ -10325,7 +10301,12 @@ function renderProps(){
       ${rows||'<div class="empty">No scored players yet — needs lineups + arm data.</div>'}`;
   }
 
-  main.innerHTML=`<div class="prop-wrap">${inner}</div>`;
+  main.innerHTML=`<div class="prop-wrap">${inner}
+    <div class="prop-note" style="margin-top:14px;opacity:.85">Looking for +EV plays across every
+    market, or a real parlay builder? Both moved: <b>Qualified Bets</b> now covers every prop
+    type in one ranked list (min-edge filter, Kelly sizing, line movement) — strictly more than
+    this tab's old +EV list did. <b>Parlay Builder</b> replaces the old fixed Parlays tab with
+    real controls over leg count and prop mix.</div></div>`;
   [...document.querySelectorAll(".prop-subtabs button")].forEach(b=>{
     b.addEventListener("click",()=>{ propsView=b.dataset.p; renderProps(); });
   });
