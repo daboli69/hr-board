@@ -298,3 +298,23 @@ def win_prob_from_dists(home_dist, away_dist):
             elif h == a:
                 tie += ph * pa
     return hw + tie * 0.52
+
+
+def run_line_prob(home_dist, away_dist, home_line):
+    """P(home covers home_line), e.g. home_line=-1.5 -> P(home wins by 2+);
+    home_line=+1.5 -> P(home doesn't lose by 2+, i.e. loses by <=1 or wins outright).
+
+    ADDED this session. home_dist/away_dist (independent per-team run distributions from the
+    same Monte Carlo simulation win_prob_from_dists and game_totals already use) were being
+    computed every build and then discarded before reaching project_game's return dict -- this
+    is the same independence assumption and the same joint-distribution approach those two
+    functions already use, just asking a different question of the same real data (margin,
+    not total or straight win). A half-line (the standard run-line format, e.g. -1.5) always
+    has an exact answer with no push to handle, unlike prob_over's whole-number guard.
+    """
+    p = 0.0
+    for h, ph in home_dist.items():
+        for a, pa in away_dist.items():
+            if (h - a) > -home_line:
+                p += ph * pa
+    return p

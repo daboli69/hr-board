@@ -129,6 +129,58 @@ HRPO_SPOT_LIFT = {1: 1.19, 2: 1.17, 3: 1.25, 4: 1.19, 5: 0.98, 6: 0.83, 7: 0.97,
 HRPO_BASE_RATE = 0.109          # re-anchored from the live backtest's base_pct at call time
 HRPO_MIN_BBE = 250               # below this, convergence is graded WORSE than no signal at all
 
+# Promoted to module level this session (previously a local copy inside build_long_ball_jackpot
+# only) so build_cross_game_hr_parlays' new de-chalk/ownership_tier work can share the exact
+# same real lookup instead of growing a second, drift-prone copy -- the failure mode this app
+# has hit before (Genius Pairing's family-lift table drifting from Ticket 1's).
+_TEAM_FULLNAME = {
+    "ARI": "arizona diamondbacks", "ATL": "atlanta braves", "BAL": "baltimore orioles",
+    "BOS": "boston red sox", "CHC": "chicago cubs", "CWS": "chicago white sox",
+    "CIN": "cincinnati reds", "CLE": "cleveland guardians", "COL": "colorado rockies",
+    "DET": "detroit tigers", "HOU": "houston astros", "KC": "kansas city royals",
+    "LAA": "los angeles angels", "LAD": "los angeles dodgers", "MIA": "miami marlins",
+    "MIL": "milwaukee brewers", "MIN": "minnesota twins", "NYM": "new york mets",
+    "NYY": "new york yankees", "ATH": "athletics", "PHI": "philadelphia phillies",
+    "PIT": "pittsburgh pirates", "SD": "san diego padres", "SF": "san francisco giants",
+    "SEA": "seattle mariners", "STL": "st louis cardinals", "TB": "tampa bay rays",
+    "TEX": "texas rangers", "TOR": "toronto blue jays", "WSH": "washington nationals",
+}
+
+
+def _load_game_totals():
+    """Real, favorite-weighted team totals via fetch_odds.implied_team_totals() -- de-vigged
+    moneyline, proportional shift, with its own internal guard against the currently-broken
+    ml.home/ml.away values (checked live: always 1 or 2, not real American odds) so this
+    degrades to an honest even split rather than a confident garbage one until that's fixed.
+    Wrapped in try/except per this app's own fail-gracefully convention -- a missing or
+    malformed odds.json degrades this to an empty dict, not a crashed build.
+    """
+    game_totals = {}
+    try:
+        with open("docs/odds.json") as _f:
+            gl = (json.load(_f).get("game_lines")) or {}
+        for k, v in gl.items():
+            tl = (v.get("total") or {}).get("line")
+            mlh = (v.get("ml") or {}).get("home")
+            mla = (v.get("ml") or {}).get("away")
+            if tl is not None:
+                game_totals[k] = fetch_odds.implied_team_totals(tl, mlh, mla)
+    except Exception:
+        pass
+    return game_totals
+
+
+def _implied_team_total(team_abbr, opp_abbr, game_totals):
+    tn, on = _TEAM_FULLNAME.get(team_abbr), _TEAM_FULLNAME.get(opp_abbr)
+    if not tn or not on:
+        return None, None
+    for key, home_side in ((f"{on}@{tn}", True), (f"{tn}@{on}", False)):
+        rec = (game_totals or {}).get(key)
+        if rec:
+            side = "home" if home_side else "away"
+            return rec.get(side), rec.get("method")
+    return None, None
+
 
 def _longball_score(p):
     """Distance-ceiling score for the Fanatics Longest HR promo -- probability of a hit does not
@@ -332,45 +384,10 @@ def build_long_ball_jackpot(players, lb_evbarrels=None, lb_pitcher_ev=None,
     _slate_scores = sorted(x["score"] for x in scored)
     slate_p90_score = (_slate_scores[int(len(_slate_scores) * 0.9)] if _slate_scores else None)
 
-    # Real, favorite-weighted team totals via fetch_odds.implied_team_totals() -- de-vigged
-    # moneyline, proportional shift, with its own internal guard against the currently-broken
-    # ml.home/ml.away values (checked live: always 1 or 2, not real American odds) so this
-    # degrades to an honest even split rather than a confident garbage one until that's fixed.
-    _game_totals = {}
-    try:
-        with open("docs/odds.json") as _f:
-            _gl = (json.load(_f).get("game_lines")) or {}
-        for _k, _v in _gl.items():
-            _tl = (_v.get("total") or {}).get("line")
-            _mlh = (_v.get("ml") or {}).get("home")
-            _mla = (_v.get("ml") or {}).get("away")
-            if _tl is not None:
-                _game_totals[_k] = fetch_odds.implied_team_totals(_tl, _mlh, _mla)
-    except Exception:
-        pass
-    _TEAM_FULLNAME = {
-        "ARI": "arizona diamondbacks", "ATL": "atlanta braves", "BAL": "baltimore orioles",
-        "BOS": "boston red sox", "CHC": "chicago cubs", "CWS": "chicago white sox",
-        "CIN": "cincinnati reds", "CLE": "cleveland guardians", "COL": "colorado rockies",
-        "DET": "detroit tigers", "HOU": "houston astros", "KC": "kansas city royals",
-        "LAA": "los angeles angels", "LAD": "los angeles dodgers", "MIA": "miami marlins",
-        "MIL": "milwaukee brewers", "MIN": "minnesota twins", "NYM": "new york mets",
-        "NYY": "new york yankees", "ATH": "athletics", "PHI": "philadelphia phillies",
-        "PIT": "pittsburgh pirates", "SD": "san diego padres", "SF": "san francisco giants",
-        "SEA": "seattle mariners", "STL": "st louis cardinals", "TB": "tampa bay rays",
-        "TEX": "texas rangers", "TOR": "toronto blue jays", "WSH": "washington nationals",
-    }
-
-    def _implied_team_total(team_abbr, opp_abbr, is_home_guess):
-        tn, on = _TEAM_FULLNAME.get(team_abbr), _TEAM_FULLNAME.get(opp_abbr)
-        if not tn or not on:
-            return None, None
-        for key, home_side in ((f"{on}@{tn}", True), (f"{tn}@{on}", False)):
-            rec = _game_totals.get(key)
-            if rec:
-                side = "home" if home_side else "away"
-                return rec.get(side), rec.get("method")
-        return None, None
+    # Real, favorite-weighted team totals -- see module-level _load_game_totals()/
+    # _implied_team_total() (promoted out of this function this session so
+    # build_cross_game_hr_parlays can share the exact same real lookup, not a second copy).
+    _game_totals = _load_game_totals()
 
     for x in scored:
         p = _players_by_id.get(x["id"]) or {}
@@ -428,7 +445,7 @@ def build_long_ball_jackpot(players, lb_evbarrels=None, lb_pitcher_ev=None,
             if len(x_drivers) < 6:
                 x_drivers.append("worn/gassed pen")
 
-        implied_total, total_method = _implied_team_total(x.get("team"), x.get("opp_team"), None)
+        implied_total, total_method = _implied_team_total(x.get("team"), x.get("opp_team"), _game_totals)
         tier = ownership_tier(implied_total, x["score"], slate_p90_score)
 
         # Distance Floor Gate: requires a PROVEN historical max_dist (the batter's own real
@@ -1252,6 +1269,42 @@ def HRPO_FAMILY_LIFT_LOOKUP(fams):
     return {0: 0.75, 1: 1.07, 2: 1.32, 3: 1.56, 4: 1.98, 5: 1.31}.get(min(fams, 5), 1.0)
 
 
+def _dechalk_rank_key(c):
+    """ADDED this session -- the de-chalk fix. Every candidate pool in this file (Arsenal &
+    Lock, Air-Power, Genius Pairing, and their alternates-for-swap) was sorted purely by
+    x["prob"], the model's own composite probability. Checked directly what that actually
+    does: the hitters who score highest on THIS app's own signal stack (badge-anchored base,
+    family convergence, barrel%, arm vuln, bullpen) are disproportionately the same players
+    who score highest on every OTHER model too -- the ones already recognized, heavily bet,
+    and short-priced by books. A pure prob-sort systematically surfaces exactly this app's
+    version of chalk, every single night, which is a bad property for a PARLAY specifically:
+    the whole value of pairing three legs together is that the combination is mispriced
+    relative to its true probability, and that can't happen if every leg is a name the market
+    (and everyone else) already has right.
+
+    This is NOT a switch to pure edge-maximization -- checked that too, and rejected it: a
+    leg's raw probability is still what determines whether the WHOLE 3-leg ticket has any real
+    chance of hitting at all (the actual primary objective), so a low-probability, high-edge
+    play is usually just a worse, noisier leg despite the apparent value. Instead, blends real
+    market edge into the SAME prob-based ranking at a damped weight -- prob stays the dominant
+    term, edge nudges the order among candidates who are otherwise close, exactly the "damped
+    stacking" pattern the rest of this file already uses for combining any two real signals.
+
+    edge_ratio = (model prob - book-implied prob) / book-implied prob, clipped to [-0.5, 1.0]
+    so no single candidate's edge can swing the ranking by more than 35% either direction, and
+    an "edge_extreme" case (model > 2.5x book, already flagged elsewhere as more likely
+    overconfidence than real value) doesn't get to dominate just because the ratio is huge.
+    Falls back to plain prob, completely unchanged, whenever no real book price exists for
+    that candidate -- most nights, most candidates, since docs/odds.json doesn't cover
+    everyone. This is a ranking change only; sig["base_prob"]/combine-function math above is
+    untouched, so `prob` itself still means exactly what it always has.
+    """
+    if c.get("book_prob"):
+        edge_ratio = (c["prob"] - c["book_prob"]) / c["book_prob"]
+        edge_ratio = max(-0.5, min(1.0, edge_ratio))
+        return c["prob"] * (1.0 + 0.35 * edge_ratio)
+    return c["prob"]
+
 
 def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
                                 pitcher_props=None, bullpen_rankings=None, require_badge=None,
@@ -1275,6 +1328,12 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
     (or a specific player has no line), the ticket still builds -- fair odds from this app's own
     model are always shown; the live-book / +EV comparison is shown only when a real price
     exists, never estimated or invented.
+
+    De-chalk ranking (ADDED this session): candidate pools now sort by _dechalk_rank_key, not
+    raw prob -- see that function's docstring. ownership_tier (Chalk/Standard/Leverage/Deep
+    Sleeper) is attached to every candidate, reusing the exact same real function Long Ball
+    Jackpot already uses, so "find the non-chalky value bat" has a visible, explicit tag to
+    filter on, not just an implicit reordering.
     """
     base_rate = base_rate_override if base_rate_override is not None else HRPO_BASE_RATE
     vuln_by_pid = {}
@@ -1284,6 +1343,7 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
             vuln_by_pid[_pe["id"]] = _v
     pp_by_id = {a.get("id"): a for a in (pitcher_props or []) if a.get("id") is not None}
     pen_by_team = {r.get("team"): r for r in (bullpen_rankings or [])}
+    _game_totals = _load_game_totals()   # ADDED this session -- for ownership_tier below
 
     def _odds_for(name):
         if not odds_prices:
@@ -1345,6 +1405,7 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
             # A model/book ratio this extreme is more likely leftover model overconfidence than a
             # real edge a heuristic scorer of this size can reliably claim to have found.
             edge_extreme = bool(book_prob and prob > 2.5 * book_prob)
+            _itot, _ = _implied_team_total(p.get("team"), p.get("opp_team"), _game_totals)
             return {
                 "id": p.get("id"), "name": p.get("name"), "team": p.get("team"),
                 "opp_team": p.get("opp_team"), "game_pk": gpk, "spot": p.get("lineup_spot"),
@@ -1353,6 +1414,7 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
                 "book_odds": odds.get("best") if odds else None,
                 "book_prob": round(book_prob, 4) if book_prob else None,
                 "edge": edge, "edge_extreme": edge_extreme,
+                "implied_team_total": _itot,   # ADDED this session -- feeds ownership_tier below
             }
 
         prob_al, drv_al = _hrpo_combine_arsenal_lock(sig)
@@ -1407,11 +1469,27 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
                 "ev_pct": ev, "incomplete": False,
                 "ev_extreme": any(x.get("edge_extreme") for x in legs)}
 
+    def _tier_pool(pool):
+        """ADDED this session. Attaches ownership_tier (Chalk/Standard/Leverage/Deep Sleeper)
+        to every candidate in one pool, reusing the exact real ownership_tier() function Long
+        Ball Jackpot already uses -- not a new concept invented for this ticket. Each pool's
+        own prob distribution sets its own p90 threshold (Arsenal & Lock, Air-Power, and
+        Genius Pairing are three different formulas on different scales, so "top decile" has
+        to be relative to that formula's own field tonight, same reasoning Long Ball's own
+        slate_p90_score already uses -- passed in, never hardcoded).
+        """
+        probs = sorted(c["prob"] for c in pool)
+        p90 = probs[int(len(probs) * 0.9)] if probs else None
+        for c in pool:
+            c["ownership_tier"] = ownership_tier(c.get("implied_team_total"), c["prob"], p90)
+        return pool
+
     # ARSENAL & LOCK MATCHUP: proven-sample hitters, ranked by the matchup-first formula --
     # allowed to surface a 55-68 heat hitter with a strong arsenal/zone/badge case over a
     # higher-heat hitter with a weaker one, per the brief.
-    al_pool = [c for c in candidates_al if c["proven"]]
-    al_pool.sort(key=lambda x: -x["prob"])
+    al_pool = _tier_pool([c for c in candidates_al if c["proven"]])
+    al_pool.sort(key=_dechalk_rank_key)
+    al_pool.reverse()
     arsenal_lock = _ticket("Arsenal & Lock Matchup",
                           "Pitch-arsenal fit, zone overlap, and lock/mix badges -- allowed to "
                           "outrank raw heat when the matchup case is strong",
@@ -1420,8 +1498,9 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
     # AIR-POWER & VOLUME: proven-sample hitters, ranked by the ideal-launch/badge/volume
     # formula. Both pools are scored on EVERY qualifying hitter -- a hitter can legitimately
     # appear on both tickets if he is strong on both dimensions, or only one if he is not.
-    ap_pool = [c for c in candidates_ap if c["proven"]]
-    ap_pool.sort(key=lambda x: -x["prob"])
+    ap_pool = _tier_pool([c for c in candidates_ap if c["proven"]])
+    ap_pool.sort(key=_dechalk_rank_key)
+    ap_pool.reverse()
     air_power = _ticket("Air-Power & Volume",
                         "Ideal launch angle, the pow badge, and top-of-order PA volume in a "
                         "positive-carry park",
@@ -1432,20 +1511,26 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
     # POW+LOCK co-occurrence, the batter's own real power profile, opposing arm form and real
     # HR Vulnerability score, bullpen exploitability, and every already-validated matchup
     # signal. See _hrpo_combine_genius_pow for the full breakdown of what's real vs a stated
-    # nudge.
+    # nudge. De-chalk ranking + ownership_tier ADDED this session -- see _dechalk_rank_key
+    # and _tier_pool above.
     genius = None
     if require_badge and candidates_genius:
-        g_pool = [c for c in candidates_genius if c["proven"]]
-        g_pool.sort(key=lambda x: -x["prob"])
+        g_pool = _tier_pool([c for c in candidates_genius if c["proven"]])
+        g_pool.sort(key=_dechalk_rank_key)
+        g_pool.reverse()
         genius = _ticket(f"Genius Pairing ({require_badge.upper()})",
                          "Every real signal this app has checked, stacked: badge-anchored "
                          "probability (not heat), badge co-occurrence, the batter's own power "
                          "profile, opposing arm form and vulnerability, bullpen exploitability, "
-                         "and matchup fit.",
+                         "and matchup fit -- ranked with a damped real-market-edge nudge so the "
+                         "same handful of chalky, heavily-recognized names don't automatically "
+                         "win every night (see _dechalk_rank_key).",
                          g_pool)
 
     # Alternates for the quick-swap button -- pulled from EACH ticket's own pool, so cycling
-    # a leg in "Arsenal & Lock" offers arsenal/zone alternates, not air-power ones.
+    # a leg in "Arsenal & Lock" offers arsenal/zone alternates, not air-power ones. De-chalk
+    # ranking applied here too -- an alternate should be a real, considered swap, not just
+    # "second highest raw prob," same reasoning as the primary tickets.
     by_game_al, by_game_ap, by_game_g = {}, {}, {}
     for c in candidates_al:
         by_game_al.setdefault(c["game_pk"], []).append(c)
@@ -1456,10 +1541,10 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
     alternates_by_game = {}
     for gpk in {x["game_pk"] for x in arsenal_lock["legs"]}:
         alternates_by_game.setdefault(str(gpk), sorted(by_game_al.get(gpk, []),
-                                                        key=lambda x: -x["prob"])[:3])
+                                                        key=_dechalk_rank_key, reverse=True)[:3])
     for gpk in {x["game_pk"] for x in air_power["legs"]}:
         k = str(gpk)
-        alt = sorted(by_game_ap.get(gpk, []), key=lambda x: -x["prob"])[:3]
+        alt = sorted(by_game_ap.get(gpk, []), key=_dechalk_rank_key, reverse=True)[:3]
         if k not in alternates_by_game:
             alternates_by_game[k] = alt
     if genius:
@@ -1467,7 +1552,7 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
             k = str(gpk)
             if k not in alternates_by_game:
                 alternates_by_game[k] = sorted(by_game_g.get(gpk, []),
-                                               key=lambda x: -x["prob"])[:3]
+                                               key=_dechalk_rank_key, reverse=True)[:3]
 
     _result = {"anchor": arsenal_lock, "overlooked": air_power,
             "candidates_scored": len(candidates_al),

@@ -759,10 +759,23 @@ def project_game(home_lineup, away_lineup, home_sp, away_sp,
         # Distribution-based outputs. `total_dist` is the payload the over/under grader needs;
         # `markov_delta` exposes how far the simulation's mean sits from the linear one, so a
         # systematic divergence shows up in the backtest instead of hiding.
+        # `run_line` ADDED this session: home_dist/away_dist (independent per-team run
+        # distributions) were already being computed every single build inside markov_project()
+        # and then discarded before reaching here -- the exact same real data total_dist and
+        # home_wp already use, just never asked this particular question of it before. Both
+        # directions computed directly (home favored by 1.5, away favored by 1.5) rather than
+        # derived from each other -- only "home -1.5" and "away +1.5" are exact complements of
+        # one another; "away -1.5" needs its own real computation, not an approximation.
         "markov": ({"home_mean": _mk["home_mean"], "away_mean": _mk["away_mean"],
                     "total_mean": round(_mk["home_mean"] + _mk["away_mean"], 2),
                     "home_wp": _mk["home_wp"],
                     "total_dist": {str(k): v for k, v in _mk["total_dist"].items() if v >= 1e-4},
+                    "run_line": {
+                        "home_minus_1_5": round(markov.run_line_prob(
+                            _mk["home_dist"], _mk["away_dist"], -1.5), 4),
+                        "away_minus_1_5": round(markov.run_line_prob(
+                            _mk["away_dist"], _mk["home_dist"], -1.5), 4),
+                    },
                     # `markov_delta` is only meaningful when the linear engine also produced a
                     # number. team_runs returns None for an empty lineup — which is the NORMAL
                     # state before lineups post, not an error — so this must be guarded or the

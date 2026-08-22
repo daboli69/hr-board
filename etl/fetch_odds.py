@@ -166,6 +166,73 @@ def fetch_game_lines(api_key: str, retries: int = 2) -> list:
     return _fetch(f"{API_BASE}/sports/{SPORT}/odds?{q}", api_key, retries)
 
 
+def fetch_run_line(api_key: str, retries: int = 2) -> list:
+    """Run line (spreads) from the /odds endpoint -- ADDED this session, a SEPARATE call from
+    fetch_game_lines rather than bundled into it. "spreads" is one of the near-universal core
+    markets on this API's schema (h2h/spreads/totals together), so this is a safe addition on
+    its own -- but keeping it as its own call means if this market key is ever wrong/dropped/
+    unsupported, the existing, already-working h2h+totals fetch can't be put at risk by it.
+    Costs 1 market x 1 region = 1 credit -- check your API plan's remaining quota before
+    scheduling this to run every build; this project has historically tracked credit costs
+    precisely (see the /props and /odds comments above) and this is no different.
+    """
+    q = urllib.parse.urlencode({
+        "markets": "spreads",
+        "regions": "us",
+        "apiKey": api_key,
+    })
+    return _fetch(f"{API_BASE}/sports/{SPORT}/odds?{q}", api_key, retries)
+
+
+def build_run_lines(events: list) -> dict:
+    """Parse /odds TOA-format events for the spreads market into
+    {normalized_matchup: {home:{line,price,book}, away:{line,price,book}}}. Same
+    normalized-key join convention as build_game_lines ('away@home'), same line-shopping
+    (best price wins) across primary books, same graceful 'nothing posted yet' empty dict.
+    """
+    out = {}
+    if not isinstance(events, list):
+        return out
+    for ev in events:
+        try:
+            if not isinstance(ev, dict):
+                continue
+            home = ev.get("home_team") or ""
+            away = ev.get("away_team") or ""
+            if not home or not away:
+                continue
+            key = f"{_norm_name(away)}@{_norm_name(home)}"
+            slot = out.setdefault(key, {
+                "home": {"line": None, "price": None, "price_american": None, "book": None},
+                "away": {"line": None, "price": None, "price_american": None, "book": None},
+            })
+            for bm in ev.get("bookmakers", []):
+                raw_book = bm.get("key") or bm.get("title") or ""
+                book = _canon_book(raw_book)
+                if book is None:
+                    book = _canon_fallback(raw_book)
+                if book is None:
+                    continue
+                for mk in bm.get("markets", []):
+                    if mk.get("key") != "spreads":
+                        continue
+                    for o in mk.get("outcomes", []):
+                        price = _safe_float(o.get("price"))
+                        line = o.get("point")
+                        if price is None or price <= 1.0 or line is None:
+                            continue
+                        side = "home" if o.get("name") == home else ("away" if o.get("name") == away else None)
+                        if side is None:
+                            continue
+                        cur = slot[side]
+                        if cur["price"] is None or _better_decimal(cur["price"], price) == price:
+                            slot[side] = {"line": line, "price": price,
+                                         "price_american": decimal_to_american(price), "book": book}
+        except Exception:
+            continue
+    return out
+
+
 def build_game_lines(events: list) -> dict:
     """Parse /odds TOA-format events into {normalized_matchup: {home, away, ml:{home,away},
     total:{line, over, under}, books}}. Line-shopped best price across DK/Fanatics, FanDuel
@@ -187,7 +254,9 @@ def build_game_lines(events: list) -> dict:
                 "home": home, "away": away,
                 "ml": {"home": None, "away": None, "home_american": None, "away_american": None,
                       "home_book": None, "away_book": None},
-                "total": {"line": None, "over": None, "under": None, "over_book": None, "under_book": None},
+                "total": {"line": None, "over": None, "under": None,
+                         "over_american": None, "under_american": None,
+                         "over_book": None, "under_book": None},
                 "commence_time": ev.get("commence_time"),
                 "fallback_only": True,   # flipped False if any primary book prices it
             })
@@ -240,6 +309,7 @@ def build_game_lines(events: list) -> dict:
                             cur = slot["total"][side]
                             if cur is None or _better_decimal(cur, price) == price:
                                 slot["total"][side] = price
+                                slot["total"][side + "_american"] = decimal_to_american(price)
                                 slot["total"][side + "_book"] = book
         except Exception:
             continue
@@ -694,6 +764,17 @@ def main() -> int:
     except Exception as e:
         print(f"[odds] game-line fetch failed (non-fatal): {e}", file=sys.stderr)
 
+    # run line (spreads) — ADDED this session, its OWN separate 1-credit call, its OWN
+    # separate try/except. Deliberately not bundled into fetch_game_lines above: if this
+    # market key were ever wrong or dropped by the API, it must not be able to take the
+    # already-working moneyline/totals fetch down with it.
+    run_lines = {}
+    try:
+        rl_events = fetch_run_line(api_key)
+        run_lines = build_run_lines(rl_events)
+    except Exception as e:
+        print(f"[odds] run-line fetch failed (non-fatal): {e}", file=sys.stderr)
+
     payload = {
         "updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "slate_date": slate,
@@ -703,6 +784,7 @@ def main() -> int:
         "prices": prices,
         "props": prop_odds,
         "game_lines": game_lines,
+        "run_lines": run_lines,
     }
     try:
         _apply_movement(payload)
@@ -712,6 +794,7 @@ def main() -> int:
     for pk, pv in prop_odds.items():
         print(f"[odds] prop '{pk}': {len(pv)} players priced", file=sys.stderr)
     print(f"[odds] game lines: {len(game_lines)} games priced", file=sys.stderr)
+    print(f"[odds] run lines: {len(run_lines)} games priced", file=sys.stderr)
     both = sum(1 for v in prices.values() if len(v["books"]) == 2)
     print(f"[odds] wrote {len(prices)} hitters with HR prices ({both} priced by both books)")
     return 0
