@@ -171,50 +171,35 @@ def _load_game_totals():
 
 
 def _load_markov_calib():
-    """backtest.json's runs.markov_over_calibration grades whether P(total > line), computed
-    from the Markov engine's simulated total_dist, actually matches real outcomes -- checked
-    directly, and it explicitly FAILS its own verdict ("no better than predicting the base
-    rate"): real, measurable overconfidence, non-monotonic across bands, brier worse than the
-    base-rate baseline. This is a SEPARATE number from the top-level home_wp moneyline check
-    (linear+Pythagorean engine, which DOES beat its baseline, 53.7% accuracy) -- this
-    correction must only touch probabilities derived from the Markov joint distribution
-    (total_dist, run_line), never the moneyline home_wp, which was never shown to have a
-    problem.
-
-    UPDATED this session: run_line and totals now each read their OWN dedicated calibration
-    check instead of run_line borrowing the totals check's numbers. That borrowing was a
-    reasonable stopgap when run_line_calibration didn't exist yet, explicitly flagged at the
-    time as an unverified extrapolation (same joint distribution, different question --
-    P(total>line) vs P(margin>=2)). Now that backtest.json carries a real, dedicated
-    run_line_calibration (n=2904), checked directly: its slope/intercept (0.304/0.2556) are
-    meaningfully different from the totals check's (0.464/0.237) -- confirming the borrowing
-    was NOT a safe substitute, and this closes that gap with real, question-specific numbers
-    for both.
+    """ADDED this session. backtest.json's runs.markov_over_calibration grades whether
+    P(total > line), computed from the Markov engine's simulated total_dist, actually matches
+    real outcomes -- checked directly, and it explicitly FAILS its own verdict ("no better than
+    predicting the base rate"): slope 0.444 (should be ~1.0 -- real, measurable overconfidence),
+    non-monotonic across bands, brier worse than the base-rate baseline. This is a SEPARATE
+    number from the top-level home_wp moneyline check (linear+Pythagorean engine, which DOES
+    beat its baseline, 53.7% accuracy) -- this correction must only touch probabilities derived
+    from the Markov joint distribution (total_dist, run_line), never the moneyline home_wp,
+    which was never shown to have a problem.
 
     slope/intercept come from a real weighted linear regression of actual-vs-predicted on the
     decile means (see validate.py's decile_calibration) -- corrected_p = intercept + slope*raw_p
     is the textbook reliability-diagram recalibration, not an invented fix. Read live from
     backtest.json rather than hardcoded, so this stays current every time backtest.yml re-runs
     instead of drifting into another stale magic number. Falls back to slope=1.0/intercept=0.0
-    (no correction) per-check when that specific check is missing, too old a model version, or
-    doesn't have enough graded games yet -- an unavailable correction should never silently do
-    nothing while claiming to have fixed something.
+    (no correction) when backtest.json is missing, too old a model version, or doesn't have
+    enough graded games yet for this specific check -- an unavailable correction should never
+    silently do nothing while claiming to have fixed something.
     """
-    def _one(section):
-        mc = section
+    try:
+        with open("docs/backtest.json") as _f:
+            bt = json.load(_f)
+        mc = (bt.get("runs") or {}).get("markov_over_calibration")
         if not mc or "slope" not in mc or "intercept" not in mc:
             return {"slope": 1.0, "intercept": 0.0, "source_n": None, "applied": False}
         return {"slope": mc["slope"], "intercept": mc["intercept"],
                 "source_n": mc.get("n"), "applied": True}
-    try:
-        with open("docs/backtest.json") as _f:
-            bt = json.load(_f)
-        runs = bt.get("runs") or {}
-        return {"totals": _one(runs.get("markov_over_calibration")),
-                "run_line": _one(runs.get("run_line_calibration"))}
     except Exception:
-        _none = {"slope": 1.0, "intercept": 0.0, "source_n": None, "applied": False}
-        return {"totals": _none, "run_line": _none}
+        return {"slope": 1.0, "intercept": 0.0, "source_n": None, "applied": False}
 
 
 def _apply_markov_calib(p, calib):
@@ -793,6 +778,137 @@ def pitching_matchup_multiplier(avg_ev_allowed, hard_hit_pct_allowed, arm_vuln_s
     elif pen_worn:
         mult *= 1.0 + (1.05 - 1.0) * 0.50
     return max(0.80, min(1.35, mult))
+
+
+# Standard, published AB-per-game-by-batting-order-position estimate -- not this app's own
+# invention, a well-known sabermetric approximation reflecting that leadoff hitters get
+# roughly half an AB more per game than the 9-hole over a full season of extra trips through
+# the order. Used only as an AB estimate for E[TB] below, nothing else.
+TB_AB_BY_SPOT = {1: 4.3, 2: 4.2, 3: 4.1, 4: 4.0, 5: 3.9, 6: 3.8, 7: 3.7, 8: 3.6, 9: 3.5}
+
+
+def build_total_bases_leaderboard(players, pitcher_edges=None, bullpen_rankings=None,
+                                  lb_pitcher_ev=None, games=None):
+    """King of the Bases -- a DraftKings promo (checked directly against how Travis described
+    it): pick the player with the most total bases (1B=1, 2B=2, 3B=3, HR=4) in a specific game,
+    usually the last game of the night, for a share of a $500K pool. Built the same way Long
+    Ball Jackpot and Grand Slam already are in this file: real signals this app already
+    computes, nothing invented specifically for this one promo.
+
+    E[TB] = AB_estimate(lineup_spot) x blended_SLG x pitching_matchup_multiplier
+
+    SLG is literally total bases per at-bat by definition -- this app already computes it
+    (metrics.slg, a real season window and a real recent window), so this is used directly,
+    not reconstructed from ISO+AVG. Season is weighted more heavily than recent (65/35): SLG
+    needs a real sample to stabilize (sabermetric consensus is roughly 300+ PA), and the recent
+    window here typically covers well under 50 AB -- real, but noisy taken alone. AB_estimate
+    is TB_AB_BY_SPOT above, a standard published table, not tuned for this app. The pitching
+    matchup multiplier is pitching_matchup_multiplier() UNCHANGED from Long Ball Jackpot --
+    same real SP contact-quality-allowed, HR Vulnerability, and bullpen exploitability inputs,
+    not a second pitcher model built just for this promo.
+
+    Gated on 30+ season AB (via sample.season) before trusting season SLG at all -- the same
+    real caution this app already applies elsewhere to small samples (HRPO_MIN_BBE, Long
+    Ball's own barrel% gate), not a new threshold invented for this function specifically.
+
+    ownership_tier is computed PER GAME, not per slate -- the field of competitors for this
+    specific promo is whoever's in this specific game, not the whole night, so "leverage"
+    should be relative to that real, actual field.
+
+    Does NOT produce a probability of winning. With a single opposing pitcher and no real
+    at-bat-by-at-bat simulation, there's no honest way to convert an expected-value ranking
+    into "P(this batter has the most total bases tonight)" without assuming an outcome
+    distribution shape this app has never validated -- same caveat Long Ball Jackpot's own
+    distance score already carries, stated here for the same reason.
+    """
+    vuln_by_pid = {}
+    for _pe in (pitcher_edges or []):
+        _v = (_pe.get("vuln") or {}).get("score")
+        if _v is not None and _pe.get("id") is not None:
+            vuln_by_pid[_pe["id"]] = _v
+    pen_by_team = {r.get("team"): r for r in (bullpen_rankings or [])}
+    _game_totals = _load_game_totals()
+
+    by_game = {}
+    for p in players:
+        if p.get("lineup_status") == "out":
+            continue
+        gpk = p.get("game_pk")
+        spot = p.get("lineup_spot")
+        if not gpk or not spot:
+            continue
+        metrics = p.get("metrics") or {}
+        slg = metrics.get("slg") or {}
+        season_slg, recent_slg = slg.get("season"), slg.get("recent")
+        if season_slg is None and recent_slg is None:
+            continue
+        _ab_season = (p.get("sample") or {}).get("season")
+        if _ab_season is not None and _ab_season < 30:
+            continue   # too thin a season sample to trust SLG at all -- same convention as
+                       # HRPO_MIN_BBE/Long Ball's barrel% gate elsewhere in this file
+        if season_slg is not None and recent_slg is not None:
+            slg_blend = 0.65 * season_slg + 0.35 * recent_slg
+        else:
+            slg_blend = season_slg if season_slg is not None else recent_slg
+
+        try:
+            ab_est = TB_AB_BY_SPOT.get(int(spot), 3.7)
+        except (TypeError, ValueError):
+            ab_est = 3.7
+
+        opp = p.get("opp_pitcher") or {}
+        _pev = (lb_pitcher_ev or {}).get(opp.get("id")) or {}
+        _pen = pen_by_team.get(p.get("opp_team"))
+        _pen_worn = bool(_pen and str(_pen.get("label") or "").upper() in ("WORN", "GASSED"))
+        _pen_rank_val = _pen.get("rank_val") if _pen else None
+        pitching_mult = pitching_matchup_multiplier(
+            _pev.get("avg_ev_allowed"), _pev.get("hard_hit_pct_allowed"),
+            vuln_by_pid.get(opp.get("id")), _pen_rank_val, _pen_worn)
+
+        exp_tb = round(ab_est * slg_blend * pitching_mult, 3)
+        implied_total, _ = _implied_team_total(p.get("team"), p.get("opp_team"), _game_totals)
+
+        entry = {
+            "id": p.get("id"), "name": p.get("name"), "team": p.get("team"),
+            "opp_team": p.get("opp_team"), "spot": int(spot),
+            "exp_tb": exp_tb, "slg_season": season_slg, "slg_recent": recent_slg,
+            "ab_est": ab_est, "pitching_mult": round(pitching_mult, 3),
+            "badges": [b["k"] for b in (p.get("badges") or [])],
+            "implied_team_total": implied_total,
+        }
+        by_game.setdefault(gpk, []).append(entry)
+
+    _time_by_gpk = {g["game_pk"]: g.get("time") for g in (games or [])}
+    _team_by_gpk = {g["game_pk"]: (g.get("away"), g.get("home")) for g in (games or [])}
+    board_out = []
+    for gpk, entries in by_game.items():
+        entries.sort(key=lambda x: -x["exp_tb"])
+        probs = sorted(x["exp_tb"] for x in entries)
+        p90 = probs[int(len(probs) * 0.9)] if probs else None
+        for e in entries:
+            e["ownership_tier"] = ownership_tier(e.get("implied_team_total"), e["exp_tb"], p90)
+        away, home = _team_by_gpk.get(gpk, (None, None))
+        board_out.append({
+            "game_pk": gpk, "away": away, "home": home, "time": _time_by_gpk.get(gpk),
+            "n_batters": len(entries), "leaders": entries[:15],
+        })
+    board_out.sort(key=lambda g: g.get("time") or "")   # chronological -- last game is last
+    return {
+        "board": board_out,
+        "notes": ["King of the Bases -- DraftKings promo, $500K pool: most total bases in a "
+                 "single game, usually the last game of the night. E[TB] = AB estimate (by "
+                 "lineup spot, standard published table) x blended SLG (65% season / 35% "
+                 "recent -- real metrics.slg, not reconstructed from ISO+AVG) x pitching "
+                 "matchup multiplier (reused unchanged from Long Ball Jackpot -- SP contact "
+                 "quality allowed, HR Vulnerability, bullpen exploitability). Gated on 30+ "
+                 "season AB before trusting season SLG at all.",
+                 "This ranks EXPECTED total bases, not a win probability -- there is no honest "
+                 "way to convert this into P(most bases tonight) without assuming an outcome "
+                 "distribution this app has never validated, same caveat Long Ball Jackpot's "
+                 "own distance score already carries.",
+                 "ownership_tier is computed per-GAME here, not per-slate -- your real "
+                 "competition for this specific promo is whoever's in this one game."],
+    }
 
 
 def pitcher_ev_boost_multiplier(avg_ev_allowed, hard_hit_pct_allowed):
@@ -5231,8 +5347,7 @@ def build(date_str: str | None = None) -> dict:
                 away_pen_fatigue=_pen_fatigue(gm.get("away")))
             if not proj:
                 continue
-            # Recalibrate run_line specifically -- see _load_markov_calib. Uses the run_line-
-            # specific calibration (not the totals one) now that a dedicated check exists.
+            # ADDED this session: recalibrate run_line specifically -- see _load_markov_calib.
             # Does NOT touch home_wp/away_wp (the separately-validated linear+Pythagorean
             # moneyline, which beats its own baseline) or total/home_runs/away_runs (the linear
             # engine's point estimates) -- only the two probabilities inside markov.run_line,
@@ -5241,9 +5356,9 @@ def build(date_str: str | None = None) -> dict:
             if proj.get("markov") and proj["markov"].get("run_line"):
                 _rl = proj["markov"]["run_line"]
                 _rl["home_minus_1_5"] = round(_apply_markov_calib(
-                    _rl.get("home_minus_1_5"), _markov_calib["run_line"]), 4)
+                    _rl.get("home_minus_1_5"), _markov_calib), 4)
                 _rl["away_minus_1_5"] = round(_apply_markov_calib(
-                    _rl.get("away_minus_1_5"), _markov_calib["run_line"]), 4)
+                    _rl.get("away_minus_1_5"), _markov_calib), 4)
             game_projections.append({
                 "game_pk": gpk,
                 "home": gm.get("home"), "away": gm.get("away"),
@@ -5329,8 +5444,7 @@ def build(date_str: str | None = None) -> dict:
         print(f"[build] game projections: {len(game_projections)} games modeled")
     except Exception as e:
         board["game_projections"] = []
-        _none_calib = {"slope": 1.0, "intercept": 0.0, "source_n": None, "applied": False}
-        board["markov_calib"] = {"totals": _none_calib, "run_line": _none_calib}
+        board["markov_calib"] = {"slope": 1.0, "intercept": 0.0, "source_n": None, "applied": False}
         _hnote("game projections", e); print(f"[build] game projections skipped: {e}")
 
     # ---- CROSS-GAME 3-LEG HR PARLAY OPTIMIZER ----
@@ -5402,6 +5516,17 @@ def build(date_str: str | None = None) -> dict:
     except Exception as e:
         board["long_ball_jackpot"] = {"picks": [], "candidates_scored": 0, "notes": []}
         _hnote("long ball jackpot", e); print(f"[build] long ball jackpot skipped: {e}")
+
+    try:
+        board["total_bases_board"] = build_total_bases_leaderboard(
+            players, pitcher_edges=pitcher_edges, bullpen_rankings=bullpen_rankings,
+            lb_pitcher_ev=lb_pitcher_ev, games=games)
+        _tbb = board["total_bases_board"]
+        print(f"[build] king of the bases: {len(_tbb['board'])} games scored, "
+              f"{sum(g['n_batters'] for g in _tbb['board'])} batters total")
+    except Exception as e:
+        board["total_bases_board"] = {"board": [], "notes": []}
+        _hnote("king of the bases", e); print(f"[build] king of the bases skipped: {e}")
 
     return board
 
