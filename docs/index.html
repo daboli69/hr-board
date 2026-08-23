@@ -11080,12 +11080,16 @@ function _scanTargetForTeam(team){
 }
 
 function scanStep1_games(){
-  // ADDED this session: markovCalib() applies the real recalibration backtest.json's own
-  // runs.markov_over_calibration computed -- this raw pOver sum, uncorrected, is EXACTLY what
-  // that check graded and explicitly failed ("no better than predicting the base rate," slope
-  // 0.444, non-monotonic). Moneyline (mlEV) is untouched by this -- that's a separately
-  // validated, well-calibrated number and was never shown to have a problem.
-  const calib = (BOARD && BOARD.markov_calib) || {slope:1.0, intercept:0.0, applied:false};
+  // markovCalib applies the real recalibration backtest.json's own runs.markov_over_calibration
+  // computed for THIS exact question (P(total > line) from total_dist) -- this raw pOver sum,
+  // uncorrected, is EXACTLY what that check graded and explicitly failed ("no better than
+  // predicting the base rate"). Moneyline (mlEV) is untouched by this -- that's a separately
+  // validated, well-calibrated number and was never shown to have a problem. Reads
+  // markov_calib.totals specifically -- run_line has its own separate, different calibration
+  // (see runs.py/build_board.py's _load_markov_calib), since backtest.json confirmed the two
+  // questions (total vs margin) don't share the same correction.
+  const _mcAll = (BOARD && BOARD.markov_calib) || {};
+  const calib = _mcAll.totals || {slope:1.0, intercept:0.0, applied:false};
   const recal = p => Math.max(0.01, Math.min(0.99, calib.intercept + calib.slope*p));
   return (BOARD.game_projections||[])
     .map(g=>{
