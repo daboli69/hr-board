@@ -9090,7 +9090,12 @@ function renderKingOfBases(){
   // different game via the picker below.
   const g = boards.find(b=>b.game_pk===kobGamePk) || boards[boards.length-1];
 
-  const OT_COLOR = {Chalk:"var(--faint)", Standard:"var(--muted)", Leverage:"var(--seam)", "Deep Sleeper":"var(--good)"};
+  // ADDED this session -- crowd_zone replaces ownership_tier for THIS board's display, since
+  // Chalk/Standard/Leverage/Deep Sleeper doesn't have a "longshot the crowd over-picks" concept
+  // at all. Sweet Spot (the real leverage zone) gets the seam color -- it's the one worth your
+  // attention; both extremes share the same faint/muted treatment since both are over-owned
+  // for the same underlying reason, just from opposite directions.
+  const ZONE_COLOR = {"Chalk Favorite":"var(--faint)", "Sweet Spot":"var(--seam)", "Lottery Ticket":"var(--muted)"};
   const badgeTag = k => k==="pow" ? '<span class="lb10-badge pow">POW</span>'
                        : k==="lock" ? '<span class="lb10-badge lock">LOCK</span>' : "";
 
@@ -9100,23 +9105,25 @@ function renderKingOfBases(){
   </div>` : "";
 
   const row = (e, i) => {
-    const otCol = OT_COLOR[e.ownership_tier] || "var(--faint)";
+    const zCol = ZONE_COLOR[e.crowd_zone] || "var(--faint)";
     const badges = (e.badges||[]).map(badgeTag).join("");
     const slgNote = e.slg_season!=null
       ? `.${Math.round(e.slg_season*1000)} SLG szn${e.slg_recent!=null?` / .${Math.round(e.slg_recent*1000)} recent`:""}`
       : "";
     const matchupNote = e.matchup_mult!=null && Math.abs(e.matchup_mult-1.0)>=0.03
       ? ` · matchup ${e.matchup_mult>1?"+":""}${Math.round((e.matchup_mult-1)*100)}%` : "";
+    const mktNote = e.tb_market_price!=null
+      ? ` · book 2+ TB ${e.tb_market_price>0?"+":""}${e.tb_market_price}` : "";
     const chips = (e.drivers||[]).slice(0,3).map(d=>`<span class="gsb-chip">${d}</span>`).join("");
-    return `<div class="gsb-row" style="border-left-color:${otCol}" onclick="scanToPlayer?scanToPlayer(${e.id}):null">
-      <div class="gsb-rank" style="color:${otCol}">${String(i+1).padStart(2,"0")}</div>
+    return `<div class="gsb-row" style="border-left-color:${zCol}" onclick="scanToPlayer?scanToPlayer(${e.id}):null">
+      <div class="gsb-rank" style="color:${zCol}">${String(i+1).padStart(2,"0")}</div>
       <div class="gsb-mid">
         <div class="gsb-nm"><b>${e.name}</b>${badges}</div>
-        <div class="gsb-sub">${e.team} · SLOT ${e.spot} · ${e.exp_tb.toFixed(2)} exp TB · ${slgNote}${matchupNote}</div>
+        <div class="gsb-sub">${e.team} · SLOT ${e.spot} · ${e.exp_tb.toFixed(2)} exp TB · ${slgNote}${matchupNote}${mktNote}</div>
         ${chips?`<div class="gsb-drivers">${chips}</div>`:""}
       </div>
       <div class="gsb-odds">${(e.jackpot_ev ?? e.exp_tb).toFixed(2)}<i style="display:block;font-size:7px;color:var(--faint)">J-EV</i></div>
-      <div class="ot-pill" style="color:${otCol};border-color:${otCol}">${e.ownership_tier||"—"}</div>
+      <div class="ot-pill" style="color:${zCol};border-color:${zCol}">${e.crowd_zone||"—"}</div>
     </div>`;
   };
 
@@ -9129,7 +9136,7 @@ function renderKingOfBases(){
       <div class="gsp-note">DraftKings promo -- most total bases (1B=1, 2B=2, 3B=3, HR=4) in
         this game wins a share. Usually the last game of the night.</div></div>
     ${gamePicker}
-    <div class="gsb-listhead">RANKED // ${g.away||"?"} @ ${g.home||"?"} · ${g.n_batters} BATTERS · BY JACKPOT EV (SHARED-POT WEIGHTED)</div>
+    <div class="gsb-listhead">RANKED // ${g.away||"?"} @ ${g.home||"?"} · ${g.n_batters} BATTERS · BY JACKPOT EV (CROWD-WEIGHTED)</div>
     ${(g.leaders||[]).length ? g.leaders.map(row).join("") : `<div class="psc-empty">No qualifying batters for this game yet.</div>`}
     <div class="zd-note">Expected total bases (exp TB, shown per-row) = AB estimate by lineup
     spot (standard table) x blended SLG (65% season / 35% recent, real metrics.slg -- not
@@ -9140,11 +9147,16 @@ function renderKingOfBases(){
     Career BvP history shows as context when there's 3+ real PA against that pitcher -- never
     used to score, those samples are almost always too thin to trust.
     <br><br>
-    <b>J-EV (the number this board actually ranks by)</b> = exp TB x an ownership-tier weight
-    -- this is a SHARED pool ($500K), same structure as Long Ball Jackpot: picking the same
-    correct winner as a huge share of the field pays less per person than a real, credible pick
-    almost nobody else made. Chalk 0.85x, Standard 1.00x, Leverage 1.20x, Deep Sleeper 1.35x --
-    an ordinal ranking, not measured against real entry data this app doesn't have.
+    <b>J-EV (the number this board actually ranks by)</b> = exp TB x a crowd-leverage weight.
+    This promo's crowd isn't monotonic with odds -- people are drawn to BOTH the safe chalk
+    favorite AND the "smart contrarian" longshot (which draws MORE attention than assumed, not
+    less), leaving the real middle tier under-owned. <b>Chalk Favorite</b> and <b>Lottery
+    Ticket</b> are both discounted (0.80-1.00x) for the same underlying reason from opposite
+    directions; <b>Sweet Spot</b> (the genuine middle of tonight's real field) is boosted up to
+    1.30x. Ranked using the REAL Total Bases market (book 2+ TB price shown per row) when
+    available -- the same real odds the public actually references -- falling back to this
+    app's own exp_tb ranking only for the rare player without a posted market. An ordinal
+    weighting, not measured against real entry data this app doesn't have.
     <br><br>
     Neither number is a win probability -- there's no honest way to turn one game's expected
     bases into "P(most bases tonight)" without assuming an outcome shape this app hasn't
