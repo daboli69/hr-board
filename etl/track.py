@@ -53,6 +53,16 @@ def _load_day(date):
                 # unfiltered player dicts; this manually-constructed path did not), caught
                 # while wiring the new hr_log fields, not before.
                 "grand_slam": p.get("grand_slam"),
+                # ADDED this session, same reasoning -- park/weather and real opposing-pitcher
+                # identity/vulnerability, for the Long Ball Tracker's "why did this happen"
+                # analysis (park, today's weather boost, who allowed it, how vulnerable that
+                # arm was). park_hr_factor is the season-long number; park_hr carries today's
+                # real weather-applied boost when available (see park_model.py).
+                "park": p.get("park"), "park_hr_factor": p.get("park_hr_factor"),
+                "park_hr": p.get("park_hr"),
+                "opp_pitcher_name": (p.get("opp_pitcher") or {}).get("name"),
+                "opp_pitcher_throws": (p.get("opp_pitcher") or {}).get("throws"),
+                "opp_pitcher_hr_score": (p.get("opp_pitcher") or {}).get("hr_score"),
             } for p in b.get("players", [])], b.get("parlay_picks", []), b.get("pitcher_props", []), (b.get("long_ball_jackpot") or {})
     return None, [], [], {}
 
@@ -461,7 +471,23 @@ def grade_date(date):
                            "heat_rank": _heat_rank.get(p.get("id")),
                            "cv_rank": _cv_rank.get(p.get("id")),
                            "cv_fams": _cv_fams.get(p.get("id")),
-                           "badges": badges, "n_badges": len(badges)})
+                           "badges": badges, "n_badges": len(badges),
+                           # ADDED this session -- park/weather/opposing-pitcher context, for the
+                           # Long Ball Tracker's "what actually predicts the day's winner" read.
+                           # Same honesty as team/game_pk above: recorded going forward only,
+                           # days before this shipped will not have it.
+                           "park": p.get("park"), "park_hr_factor": p.get("park_hr_factor"),
+                           "park_boost": (p.get("park_hr") or {}).get("boost"),
+                           "park_weather_applied": (p.get("park_hr") or {}).get("weather"),
+                           "temp_f": (p.get("park_hr") or {}).get("temp_f"),
+                           "wind_mph": (p.get("park_hr") or {}).get("wind_mph"),
+                           "opp_pitcher_name": p.get("opp_pitcher_name")
+                               or (p.get("opp_pitcher") or {}).get("name"),
+                           "opp_pitcher_throws": p.get("opp_pitcher_throws")
+                               or (p.get("opp_pitcher") or {}).get("throws"),
+                           "opp_pitcher_hr_score": p.get("opp_pitcher_hr_score")
+                               if p.get("opp_pitcher_hr_score") is not None
+                               else (p.get("opp_pitcher") or {}).get("hr_score")})
 
     # ---- the validation that matters: does Heat beat simple baselines? ----
     # Rank the same hitter pool by each method and check top-N HR rates head to head.
