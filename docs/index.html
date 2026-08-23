@@ -2653,6 +2653,7 @@
       <button class="nav-item" data-nav="sgp" onclick="drawerGo('sgp')">Parlay Builder<i>SGP generator — pick the mix &amp; goal</i></button>
       <button class="nav-item" data-nav="ladder" onclick="drawerGo('ladder')">Ladder Challenge<i>roll a small stake up to a target, safest legs daily</i></button>
       <button class="nav-item" data-nav="altlines" onclick="drawerGo('altlines')">Alt Line Finder<i>real book alt lines, ranked by model confidence, plus money only</i></button>
+      <button class="nav-item" data-nav="lbboard" onclick="drawerGo('lbboard','tracker')">Long Ball Tracker<i>who actually won the day, and what the board knew about them first</i></button>
       <button class="nav-item" data-nav="qualified" onclick="drawerGo('qualified')">Qualified Bets<i>every market, only where price beats fair · Kelly sized</i></button>
       <button class="nav-item" data-nav="edges" onclick="drawerGo('edges','arms')">Vulnerable Arms<i>HR Vuln score · zone maps</i></button>
       <button class="nav-item" data-nav="pitchmix" onclick="drawerGo('pitchmix')">Team vs Pitch Mix<i>lineup vs the arsenal he actually throws</i></button>
@@ -8823,6 +8824,46 @@ function longBallTrackerData(){
   out.sort((a,b)=> a.date<b.date ? 1 : a.date>b.date ? -1 : 0);   // most recent first
   return out;
 }
+// ADDED this session -- real pattern analysis across the tracked winners, not just the
+// single-line summary. Every count comes directly from hr_log rows already being captured;
+// nothing here is invented or estimated. Park/weather/pitcher-vulnerability fields only exist
+// on days after this session's track.py extension shipped -- gated separately and labeled with
+// their own (smaller) sample size rather than silently diluting the badge/team counts, which
+// have the full history behind them.
+function longBallPatterns(rows){
+  const n = rows.length;
+  if(!n) return null;
+  const pct = (k) => Math.round(100*k/n);
+
+  const badgeCounts = {};
+  rows.forEach(r=>(r.badges||[]).forEach(k=>{ badgeCounts[k]=(badgeCounts[k]||0)+1; }));
+  const badgeList = Object.entries(badgeCounts).sort((a,b)=>b[1]-a[1]);
+  const noBadge = rows.filter(r=>!(r.badges||[]).length).length;
+
+  const teamCounts = {};
+  rows.forEach(r=>{ if(r.team) teamCounts[r.team]=(teamCounts[r.team]||0)+1; });
+  const teamList = Object.entries(teamCounts).sort((a,b)=>b[1]-a[1]);
+
+  const spCount = rows.filter(r=>r.off==="SP").length;
+  const bpCount = rows.filter(r=>r.off==="BP").length;
+
+  const armFormCounts = {};
+  rows.forEach(r=>{ if(r.arm_form) armFormCounts[r.arm_form]=(armFormCounts[r.arm_form]||0)+1; });
+  const armFormList = Object.entries(armFormCounts).sort((a,b)=>b[1]-a[1]);
+
+  const hrScores = rows.filter(r=>r.opp_pitcher_hr_score!=null).map(r=>r.opp_pitcher_hr_score);
+  const avgHrScore = hrScores.length ? hrScores.reduce((a,b)=>a+b,0)/hrScores.length : null;
+  const highVulnCount = hrScores.filter(s=>s>=60).length;
+
+  const withPark = rows.filter(r=>r.park_boost!=null);
+  const avgParkBoost = withPark.length ? withPark.reduce((a,b)=>a+b.park_boost,0)/withPark.length : null;
+  const withWeather = withPark.filter(r=>r.park_weather_applied);
+  const avgTemp = (()=>{ const t=withWeather.filter(r=>r.temp_f!=null).map(r=>r.temp_f);
+    return t.length?t.reduce((a,b)=>a+b,0)/t.length:null; })();
+
+  return {n, pct, badgeList, noBadge, teamList, spCount, bpCount, armFormList,
+          hrScores, avgHrScore, highVulnCount, withPark, avgParkBoost, withWeather, avgTemp};
+}
 function renderLongBallTrackerTab(){
   const rows = longBallTrackerData();
   const badgeTag = k => k==="pow" ? '<span class="lb10-badge pow">POW</span>'
@@ -8855,7 +8896,35 @@ function renderLongBallTrackerTab(){
   const avgHeat = (()=>{ const hs=rows.filter(r=>r.heat!=null).map(r=>r.heat);
     return hs.length ? (hs.reduce((a,b)=>a+b,0)/hs.length) : null; })();
 
-  const summary = n ? `<div class="q-sub" style="margin-bottom:10px">
+  const pat = longBallPatterns(rows);
+  const patternsHTML = pat ? `<details class="dcard-sec" open><summary>Patterns across ${pat.n} tracked days</summary>
+    <div class="q-sub">Badges the eventual winner carried (many carried none -- ${pat.noBadge} of ${pat.n},
+      ${pat.pct(pat.noBadge)}%, since these badges were built for HR probability broadly, not
+      specifically for who hits it farthest):</div>
+    <div class="gsb-drivers" style="margin-bottom:10px">${pat.badgeList.length
+      ? pat.badgeList.map(([k,c])=>`<span class="gsb-chip">${k.toUpperCase()}: ${c} (${pat.pct(c)}%)</span>`).join("")
+      : `<span class="gsb-chip">no badges recorded</span>`}</div>
+    <div class="q-sub">Off a starter <b>${pat.spCount}</b> time${pat.spCount===1?"":"s"} (${pat.pct(pat.spCount)}%)
+      vs a reliever <b>${pat.bpCount}</b> (${pat.pct(pat.bpCount)}%).</div>
+    ${pat.teamList.length ? `<div class="q-sub" style="margin-top:8px">Teams the winner has played for
+      (${pat.teamList.length} distinct): ${pat.teamList.slice(0,8).map(([t,c])=>`<b>${t}</b> ${c}`).join(" · ")}${pat.teamList.length>8?" …":""}</div>` : ""}
+    ${pat.armFormList.length ? `<div class="q-sub" style="margin-top:8px">Opposing arm's form label at
+      the time: ${pat.armFormList.map(([f,c])=>`<b>${f}</b> ${c}`).join(" · ")}</div>` : ""}
+    ${pat.hrScores.length ? `<div class="q-sub" style="margin-top:8px">Opposing pitcher's real HR
+      Vulnerability score -- available for <b>${pat.hrScores.length}</b> of ${pat.n} days (this field
+      is new; earlier days won't have it): averaged <b>${pat.avgHrScore.toFixed(0)}/100</b>, and was
+      60+ (a real vulnerable arm) <b>${pat.highVulnCount}</b> time${pat.highVulnCount===1?"":"s"}
+      (${Math.round(100*pat.highVulnCount/pat.hrScores.length)}% of days with the field).</div>` : ""}
+    ${pat.withPark.length ? `<div class="q-sub" style="margin-top:8px">Park/weather boost -- available
+      for <b>${pat.withPark.length}</b> of ${pat.n} days (also new): averaged
+      <b>${pat.avgParkBoost>=0?"+":""}${pat.avgParkBoost.toFixed(0)}%</b> HR boost for that hitter that
+      day${pat.withWeather.length?`, real forecast weather was applied on ${pat.withWeather.length} of
+      those${pat.avgTemp!=null?` (avg ${pat.avgTemp.toFixed(0)}°F)`:""}`:""}.</div>`
+      : `<div class="q-sub" style="margin-top:8px;opacity:.7">Park/weather and opposing-pitcher-vulnerability
+      tracking started this session -- no days with that data yet. Will fill in as new days get graded.</div>`}
+  </details>` : "";
+
+  const summary = n ? `<div class="q-sub" style="margin:10px 0">
     Across <b>${n}</b> tracked days: the real distance winner carried a POW or LOCK badge
     <b>${Math.round(100*withBadge/n)}%</b> of the time, was on the Long Ball board at all
     <b>${Math.round(100*wasLbPick/n)}%</b> of the time (a GOLD pick <b>${wasGold}</b> time${wasGold===1?"":"s"}),
@@ -8870,6 +8939,7 @@ function renderLongBallTrackerTab(){
       <div class="gsb-sub2">WHO ACTUALLY WON, DAY BY DAY</div>
     </div>
     ${summary}
+    ${patternsHTML}
     ${rows.length ? rows.map(row).join("") : `<div class="psc-empty">No graded days with a real HR distance recorded yet.</div>`}
     <div class="zd-note">Real box-score result each day (longest real HR, via Statcast
     hit_distance_sc), paired with what this app's own board actually said about that hitter
@@ -12038,6 +12108,7 @@ function renderFaq(){
 function drawerGo(v, sub){
   document.getElementById('moreSheet').classList.remove('show');
   if(v==='edges' && sub){ edgesView=sub; edgesPitcher=null; edgesBatter=null; }
+  if(v==='lbboard' && sub){ lbBoardTab=sub; }   // ADDED this session -- jump straight to a tab
   goView(v);
 }
 function openFaq(){ document.getElementById('faq').classList.add('show'); }
