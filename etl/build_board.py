@@ -787,6 +787,24 @@ def pitching_matchup_multiplier(avg_ev_allowed, hard_hit_pct_allowed, arm_vuln_s
 TB_AB_BY_SPOT = {1: 4.3, 2: 4.2, 3: 4.1, 4: 4.0, 5: 3.9, 6: 3.8, 7: 3.7, 8: 3.6, 9: 3.5}
 
 
+def _bomb_score_multiplier(bomb_score_val):
+    """Converts features.bomb_score's real 0-100 composite (ISO/SLG, real zone overlap at 25%
+    weight -- its own "headline signal", platoon edge, opposing pitcher ERA, park, times-
+    through-order) into a modest, capped multiplier on expected total bases.
+
+    Centered at 40, not 50 -- bomb_score's own tier() function draws its mid/low boundary at
+    40 (checked directly in features.py), and the component scaling (e.g. ISO's .120 floor)
+    means an average real hitter tends to land in the 30s-40s on this specific score, not 50.
+    A reasoned, capped heuristic -- stated as such, not independently backtested for THIS
+    specific purpose (total bases) as opposed to bomb_score's original design intent (general
+    HR-matchup-quality ranking). Returns 1.0 (neutral, no adjustment) when bomb_score wasn't
+    computed for this player at all, rather than guessing.
+    """
+    if bomb_score_val is None:
+        return 1.0
+    return max(0.75, min(1.30, 1.0 + ((bomb_score_val - 40) / 100.0) * 0.5))
+
+
 def build_total_bases_leaderboard(players, pitcher_edges=None, bullpen_rankings=None,
                                   lb_pitcher_ev=None, games=None):
     """King of the Bases -- a DraftKings promo (checked directly against how Travis described
@@ -795,17 +813,32 @@ def build_total_bases_leaderboard(players, pitcher_edges=None, bullpen_rankings=
     Ball Jackpot and Grand Slam already are in this file: real signals this app already
     computes, nothing invented specifically for this one promo.
 
-    E[TB] = AB_estimate(lineup_spot) x blended_SLG x pitching_matchup_multiplier
+    E[TB] = AB_estimate(lineup_spot) x blended_SLG x combined_matchup_mult
 
     SLG is literally total bases per at-bat by definition -- this app already computes it
     (metrics.slg, a real season window and a real recent window), so this is used directly,
     not reconstructed from ISO+AVG. Season is weighted more heavily than recent (65/35): SLG
     needs a real sample to stabilize (sabermetric consensus is roughly 300+ PA), and the recent
     window here typically covers well under 50 AB -- real, but noisy taken alone. AB_estimate
-    is TB_AB_BY_SPOT above, a standard published table, not tuned for this app. The pitching
-    matchup multiplier is pitching_matchup_multiplier() UNCHANGED from Long Ball Jackpot --
-    same real SP contact-quality-allowed, HR Vulnerability, and bullpen exploitability inputs,
-    not a second pitcher model built just for this promo.
+    is TB_AB_BY_SPOT above, a standard published table, not tuned for this app.
+
+    combined_matchup_mult = pitching_matchup_multiplier x damped(bomb_score_multiplier). Two
+    layers, checked directly for what each one actually knows:
+      1. pitching_matchup_multiplier() -- UNCHANGED from Long Ball Jackpot. Pitcher-side only:
+         is this ARM generally hittable (SP contact-quality-allowed, HR Vulnerability, bullpen
+         exploitability). Every batter facing the same pitcher gets the same value here.
+      2. bomb_score-derived (ADDED this session, per Travis's ask for real matchup/overlap
+         data): batter-SPECIFIC fit against THIS pitcher -- features.bomb_score, this app's own
+         real "composite matchup score for ONE batter vs ONE pitcher," built from real zone
+         overlap (its own headline signal), platoon edge (bats vs throws), opposing pitcher
+         ERA, park boost, and times-through-order. Damped to 60% strength when combined with
+         layer 1, since bomb_score's own ERA component overlaps conceptually with layer 1's
+         pitcher-quality signal -- full-strength stacking would credit "tough/weak pitcher"
+         partway twice.
+    Real BvP (batter-vs-pitcher) history is surfaced as CONTEXT on each entry (3+ career PA vs
+    that specific pitcher), never as a scoring input -- these samples are almost always a
+    handful of at-bats, and this app doesn't treat a few career at-bats as decision-grade
+    signal the way a real season sample is, same caution applied to every other thin sample.
 
     Gated on 30+ season AB (via sample.season) before trusting season SLG at all -- the same
     real caution this app already applies elsewhere to small samples (HRPO_MIN_BBE, Long
@@ -814,6 +847,14 @@ def build_total_bases_leaderboard(players, pitcher_edges=None, bullpen_rankings=
     ownership_tier is computed PER GAME, not per slate -- the field of competitors for this
     specific promo is whoever's in this specific game, not the whole night, so "leverage"
     should be relative to that real, actual field.
+
+    RANKED by jackpot_ev (exp_tb x TIER_WEIGHT), NOT raw exp_tb -- ADDED this session per
+    Travis: this is a shared pari-mutuel pot ($500K), same structure as Long Ball Jackpot, not
+    a fixed-price bet. Picking the same correct winner as a large share of the field pays less
+    per person than a real, credible pick almost nobody else made. Reuses TIER_WEIGHT and the
+    reasoning exactly as jackpot_ev_score() already applies it to Long Ball -- both real exp_tb
+    and the jackpot-weighted exp_tb ship on every entry, so the raw number is still visible,
+    it's just not what determines the order anymore.
 
     Does NOT produce a probability of winning. With a single opposing pitcher and no real
     at-bat-by-at-bat simulation, there's no honest way to convert an expected-value ranking
@@ -865,14 +906,63 @@ def build_total_bases_leaderboard(players, pitcher_edges=None, bullpen_rankings=
             _pev.get("avg_ev_allowed"), _pev.get("hard_hit_pct_allowed"),
             vuln_by_pid.get(opp.get("id")), _pen_rank_val, _pen_worn)
 
-        exp_tb = round(ab_est * slg_blend * pitching_mult, 3)
+        # ADDED this session: batter-specific matchup fit, on top of the pitcher-quality-only
+        # multiplier above. pitching_mult only knows "is this arm generally hittable" -- it
+        # gives every batter facing the same pitcher the same boost, with no sense of whether
+        # THIS batter's own profile fits THIS pitcher. bomb_score (features.bomb_score, already
+        # computed for every player earlier in build()) is this app's own real "composite
+        # matchup score for ONE batter vs ONE pitcher" -- real zone overlap (25% weight, its own
+        # "headline signal"), platoon edge (bats vs throws), opposing pitcher ERA, park boost,
+        # and times-through-order, not anything invented for this promo specifically.
+        _bs = (p.get("bomb_score") or {}).get("score")
+        bomb_mult = _bomb_score_multiplier(_bs)
+        # Damped to 60% strength: bomb_score's own ERA component (15% weight) overlaps
+        # conceptually with pitching_mult's contact-quality-allowed/HR-vuln signal -- both are
+        # real, but related, measures of "is this pitcher tough" -- stacking both at full
+        # strength would credit that same underlying fact partway twice.
+        combined_mult = pitching_mult * (1.0 + (bomb_mult - 1.0) * 0.6)
+        combined_mult = max(0.70, min(1.45, combined_mult))
+
+        exp_tb = round(ab_est * slg_blend * combined_mult, 3)
         implied_total, _ = _implied_team_total(p.get("team"), p.get("opp_team"), _game_totals)
+
+        # Real driver text -- the SAME real components bomb_score already computed, not
+        # recomputed here, so what's displayed always matches what actually moved the number.
+        drivers = []
+        _bs_parts = (p.get("bomb_score") or {}).get("parts") or {}
+        _zone_ct = ((p.get("features") or {}).get("zone_profile") or {}).get("overlap", {}).get("count")
+        if _zone_ct is not None and _zone_ct >= 3:
+            drivers.append(f"zone overlap {_zone_ct}/5{' (premium)' if _zone_ct >= 5 else ''}")
+        _bats, _thr = (p.get("bats") or "").upper(), (opp.get("throws") or "").upper()
+        if _bats and _thr and (_bats == "S" or _bats != _thr):
+            drivers.append(f"platoon edge ({_bats or '?'}HB vs {_thr or '?'}HP)")
+        if _pen_rank_val is not None and _pen_rank_val >= 60:
+            drivers.append(f"bullpen exploit {_pen_rank_val:.0f}")
+        elif _pen_worn:
+            drivers.append("worn/gassed pen")
+        _arm_vuln = vuln_by_pid.get(opp.get("id"))
+        if _arm_vuln is not None and _arm_vuln >= 60:
+            drivers.append(f"SP HR Vuln {_arm_vuln:.0f}")
+        # Real BvP history -- shown for context only, never scored. Sample sizes here are
+        # almost always tiny (a handful of PA at most), and this app doesn't pretend a few
+        # career at-bats against one pitcher are decision-grade signal the way a real season
+        # sample is -- same caution this app applies to every other thin sample.
+        _bvp = p.get("bvp") or {}
+        _bvp_sp = _bvp.get("sp") or {}
+        if (_bvp_sp.get("pa") or 0) >= 3:
+            _bvp_hr = _bvp_sp.get("hr") or 0
+            _bvp_txt = f"{_bvp_sp['pa']} career PA vs {_bvp_sp.get('name') or 'this SP'}"
+            if _bvp_hr:
+                _bvp_txt += f", {_bvp_hr} HR"
+            drivers.append(_bvp_txt + " (small sample)")
 
         entry = {
             "id": p.get("id"), "name": p.get("name"), "team": p.get("team"),
             "opp_team": p.get("opp_team"), "spot": int(spot),
             "exp_tb": exp_tb, "slg_season": season_slg, "slg_recent": recent_slg,
             "ab_est": ab_est, "pitching_mult": round(pitching_mult, 3),
+            "bomb_score": _bs, "matchup_mult": round(combined_mult, 3),
+            "drivers": drivers[:4],
             "badges": [b["k"] for b in (p.get("badges") or [])],
             "implied_team_total": implied_total,
         }
@@ -882,11 +972,19 @@ def build_total_bases_leaderboard(players, pitcher_edges=None, bullpen_rankings=
     _team_by_gpk = {g["game_pk"]: (g.get("away"), g.get("home")) for g in (games or [])}
     board_out = []
     for gpk, entries in by_game.items():
-        entries.sort(key=lambda x: -x["exp_tb"])
         probs = sorted(x["exp_tb"] for x in entries)
         p90 = probs[int(len(probs) * 0.9)] if probs else None
         for e in entries:
             e["ownership_tier"] = ownership_tier(e.get("implied_team_total"), e["exp_tb"], p90)
+            # ADDED this session, per Travis: this is a SHARED pari-mutuel pot ($500K), not a
+            # fixed-price bet -- picking the same correct winner as a huge share of the field
+            # pays less per person than picking a real, credible winner almost nobody else
+            # picked. Reuses the exact TIER_WEIGHT jackpot_ev_score() already applies to Long
+            # Ball Jackpot for the identical reason, rather than a second formula invented
+            # here. This is what the board actually ranks by now -- exp_tb alone was computed
+            # and shown, but never fed into the ordering.
+            e["jackpot_ev"] = round(e["exp_tb"] * TIER_WEIGHT.get(e["ownership_tier"], 1.0), 3)
+        entries.sort(key=lambda x: -x["jackpot_ev"])
         away, home = _team_by_gpk.get(gpk, (None, None))
         board_out.append({
             "game_pk": gpk, "away": away, "home": home, "time": _time_by_gpk.get(gpk),
@@ -898,16 +996,28 @@ def build_total_bases_leaderboard(players, pitcher_edges=None, bullpen_rankings=
         "notes": ["King of the Bases -- DraftKings promo, $500K pool: most total bases in a "
                  "single game, usually the last game of the night. E[TB] = AB estimate (by "
                  "lineup spot, standard published table) x blended SLG (65% season / 35% "
-                 "recent -- real metrics.slg, not reconstructed from ISO+AVG) x pitching "
-                 "matchup multiplier (reused unchanged from Long Ball Jackpot -- SP contact "
-                 "quality allowed, HR Vulnerability, bullpen exploitability). Gated on 30+ "
-                 "season AB before trusting season SLG at all.",
-                 "This ranks EXPECTED total bases, not a win probability -- there is no honest "
-                 "way to convert this into P(most bases tonight) without assuming an outcome "
-                 "distribution this app has never validated, same caveat Long Ball Jackpot's "
-                 "own distance score already carries.",
+                 "recent -- real metrics.slg, not reconstructed from ISO+AVG) x a two-layer "
+                 "matchup multiplier: pitcher-quality (reused unchanged from Long Ball "
+                 "Jackpot -- SP contact quality allowed, HR Vulnerability, bullpen "
+                 "exploitability) combined, damped, with batter-specific fit against this "
+                 "pitcher (bomb_score -- real zone overlap, platoon edge, opposing ERA, "
+                 "times-through-order). Gated on 30+ season AB before trusting season SLG "
+                 "at all.",
+                 "Ranked by jackpot_ev (exp_tb x ownership-tier weight), not raw exp_tb -- this "
+                 "is a shared pari-mutuel pot ($500K), same structure as Long Ball Jackpot: a "
+                 "real, credible pick almost nobody else makes pays more per person than the "
+                 "same correct pick split across a crowded chalk field. Both numbers ship on "
+                 "every entry -- exp_tb is still the raw prediction, jackpot_ev is what orders "
+                 "the board.",
+                 "exp_tb itself is an EXPECTED VALUE, not a win probability -- there is no "
+                 "honest way to convert this into P(most bases tonight) without assuming an "
+                 "outcome distribution this app has never validated, same caveat Long Ball "
+                 "Jackpot's own distance score already carries.",
                  "ownership_tier is computed per-GAME here, not per-slate -- your real "
-                 "competition for this specific promo is whoever's in this one game."],
+                 "competition for this specific promo is whoever's in this one game.",
+                 "Real career BvP (batter-vs-pitcher) history is shown as context on entries "
+                 "with 3+ career PA against that specific pitcher -- never used to score, "
+                 "since these samples are almost always too thin to be real signal."],
     }
 
 
@@ -931,6 +1041,15 @@ def pitcher_ev_boost_multiplier(avg_ev_allowed, hard_hit_pct_allowed):
     if hard_hit_pct_allowed is not None:
         mult *= cl(1.0 + (hard_hit_pct_allowed - 36.0) / 200.0, 0.95, 1.08)
     return cl(mult, 0.92, 1.15)
+
+
+# Promoted to module level this session (previously local to jackpot_ev_score only) so King of
+# the Bases can share the exact same pari-mutuel weighting instead of a second, drift-prone
+# copy. NOT proportional to actual ownership percentages (this app has none to calibrate
+# against) -- an ordinal ranking that a leverage/deep-sleeper play should outrank an
+# equal-value chalk play for a SHARED-POT contest specifically, stated as a chosen ranking,
+# not a measured one, same honest caveat ownership_tier's own docstring already carries.
+TIER_WEIGHT = {"Chalk": 0.85, "Standard": 1.00, "Leverage": 1.20, "Deep Sleeper": 1.35}
 
 
 def ownership_tier(implied_team_total, distance_score, slate_p90_score):
@@ -979,7 +1098,6 @@ def jackpot_ev_score(distance_score, log5_hr_prob, ev_boost_mult, tier, lg_hr_pa
     """
     if distance_score is None:
         return None
-    TIER_WEIGHT = {"Chalk": 0.85, "Standard": 1.00, "Leverage": 1.20, "Deep Sleeper": 1.35}
     hr_mult = 1.0
     if log5_hr_prob is not None and lg_hr_pa:
         hr_mult = max(0.5, min(2.0, log5_hr_prob / lg_hr_pa))
