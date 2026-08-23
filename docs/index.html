@@ -8729,6 +8729,16 @@ function lbSortSet(mode){ lbSortMode = mode; renderLongBallBoard(); }
 // field on the distance-focused per-game board. Badges pulled live via playersById() (same
 // cached lookup the parlay leg power chip already uses) since long_ball_jackpot's own batter
 // records don't carry badge data themselves.
+function _lbTabBar(){
+  // ADDED this session -- shared, state-aware tab bar for all three Long Ball board sub-views.
+  // renderLongBallTop10 previously had its own hardcoded copy that always showed itself as the
+  // active tab; extracted here so adding Tracker didn't leave that copy silently wrong.
+  return `<div class="lb-tabbar">
+    <button class="lb-tab${lbBoardTab==='top10'?' on':''}" onclick="lbBoardSetTab('top10')">Top 10</button>
+    <button class="lb-tab${lbBoardTab==='bygame'?' on':''}" onclick="lbBoardSetTab('bygame')">By Game</button>
+    <button class="lb-tab${lbBoardTab==='tracker'?' on':''}" onclick="lbBoardSetTab('tracker')">Tracker</button>
+  </div>`;
+}
 function renderLongBallTop10(boards){
   const pool = [];
   boards.forEach(g=>{
@@ -8770,10 +8780,7 @@ function renderLongBallTop10(boards){
   };
 
   return `<div class="cv-wrap gsb-wrap">
-    <div class="lb-tabbar">
-      <button class="lb-tab on" onclick="lbBoardSetTab('top10')">Top 10</button>
-      <button class="lb-tab" onclick="lbBoardSetTab('bygame')">By Game</button>
-    </div>
+    ${_lbTabBar()}
     <div class="gsb-head">
       <div class="gsb-title">Top 10 Most Likely</div>
       <div class="gsb-sub2">LONG BALL BOARD · QUICK SCAN</div>
@@ -8789,6 +8796,87 @@ function renderLongBallTop10(boards){
     backtest-verified badges (1.76x/1.35x HR lift), pulled from the player's live record, not
     computed fresh for this list. Fair odds shown alongside probability for a quick gut check
     against whatever your book is offering. Tap a name to open their full card.</div>
+  </div>`;
+}
+
+// ===================== LONG BALL TRACKER =====================
+// ADDED this session. history.json's hr_log ALREADY records, for every HR hitter on every
+// graded day (144 days back), their real pre-game heat/badges/tier plus Long Ball jackpot
+// context (lb_jackpot_ev/lb_ownership_tier/lb_is_gold_pick) and grand slam probability --
+// checked directly, this was already being captured, just sorted by heat rather than distance
+// and never surfaced as its own view. This function does no new computation on raw Statcast --
+// it re-sorts data that already exists to answer a different question ("who actually won the
+// day's distance contest") than the one it was originally sorted for ("who's the model's own
+// top-heat pick").
+function longBallTrackerData(){
+  const days = (HISTORY && HISTORY.days) || [];
+  const out = [];
+  days.forEach(d=>{
+    const log = d.hr_log || [];
+    let best = null;
+    log.forEach(h=>{
+      if(h.dist==null) return;
+      if(best==null || h.dist>best.dist) best = h;
+    });
+    if(best) out.push({date:d.date, ...best, n_hrs_that_day: log.length});
+  });
+  out.sort((a,b)=> a.date<b.date ? 1 : a.date>b.date ? -1 : 0);   // most recent first
+  return out;
+}
+function renderLongBallTrackerTab(){
+  const rows = longBallTrackerData();
+  const badgeTag = k => k==="pow" ? '<span class="lb10-badge pow">POW</span>'
+                       : k==="lock" ? '<span class="lb10-badge lock">LOCK</span>'
+                       : `<span class="lb10-badge" style="color:var(--muted);background:var(--panel-3)">${k.toUpperCase()}</span>`;
+  const row = r => {
+    const badges = (r.badges||[]).map(badgeTag).join("");
+    const lbNote = r.lb_ownership_tier
+      ? `Long Ball: ${r.lb_is_gold_pick?"GOLD pick":r.lb_ownership_tier} ${r.lb_jackpot_ev!=null?`(J-EV ${r.lb_jackpot_ev})`:""}`
+      : "not on the Long Ball board that day";
+    const gsNote = r.gs_p_slam!=null ? ` · Grand Slam ${(r.gs_p_slam*100).toFixed(1)}%` : "";
+    return `<div class="gsb-row">
+      <div class="gsb-rank" style="color:var(--seam);font-size:10px">${r.date.slice(5)}</div>
+      <div class="gsb-mid">
+        <div class="gsb-nm"><b>${r.name}</b>${badges}</div>
+        <div class="gsb-sub">${r.team||"?"} · heat ${r.heat??"—"}${r.heat_rank?` (#${r.heat_rank} that day)`:""} · ${r.off||"?"}</div>
+        <div class="gsb-drivers"><span class="gsb-chip">${lbNote}${gsNote}</span></div>
+      </div>
+      <div class="gsb-odds">${r.dist.toFixed(0)}ft<i style="display:block;font-size:7px;color:var(--faint)">${r.ev!=null?r.ev.toFixed(1)+" EV":""}</i></div>
+    </div>`;
+  };
+
+  // Real aggregate validation stats from the same rows -- not a separate invented metric.
+  const n = rows.length;
+  const withBadge = rows.filter(r=>(r.badges||[]).some(k=>k==="pow"||k==="lock")).length;
+  const wasLbPick = rows.filter(r=>r.lb_ownership_tier!=null).length;
+  const wasGold = rows.filter(r=>r.lb_is_gold_pick).length;
+  const heatRanks = rows.filter(r=>r.heat_rank!=null).map(r=>r.heat_rank);
+  const avgHeatRank = heatRanks.length ? (heatRanks.reduce((a,b)=>a+b,0)/heatRanks.length) : null;
+  const avgHeat = (()=>{ const hs=rows.filter(r=>r.heat!=null).map(r=>r.heat);
+    return hs.length ? (hs.reduce((a,b)=>a+b,0)/hs.length) : null; })();
+
+  const summary = n ? `<div class="q-sub" style="margin-bottom:10px">
+    Across <b>${n}</b> tracked days: the real distance winner carried a POW or LOCK badge
+    <b>${Math.round(100*withBadge/n)}%</b> of the time, was on the Long Ball board at all
+    <b>${Math.round(100*wasLbPick/n)}%</b> of the time (a GOLD pick <b>${wasGold}</b> time${wasGold===1?"":"s"}),
+    averaged heat <b>${avgHeat!=null?avgHeat.toFixed(0):"—"}</b>${avgHeatRank!=null?` and ranked <b>#${avgHeatRank.toFixed(0)}</b> on heat that morning on average`:""}.
+    That's the honest read on whether this app's own signals see the real winner coming, not a claim either way.
+  </div>` : "";
+
+  return `<div class="cv-wrap gsb-wrap">
+    ${_lbTabBar()}
+    <div class="gsb-head">
+      <div class="gsb-title">Long Ball Tracker</div>
+      <div class="gsb-sub2">WHO ACTUALLY WON, DAY BY DAY</div>
+    </div>
+    ${summary}
+    ${rows.length ? rows.map(row).join("") : `<div class="psc-empty">No graded days with a real HR distance recorded yet.</div>`}
+    <div class="zd-note">Real box-score result each day (longest real HR, via Statcast
+    hit_distance_sc), paired with what this app's own board actually said about that hitter
+    BEFORE the game -- heat, badges, Long Ball jackpot rank if he was on it. Pulled from
+    history.json's own daily grading, not recomputed. lb_jackpot_ev/ownership_tier only exist
+    for days after the Long Ball Jackpot's tracking fields were added -- earlier days show
+    "not on the Long Ball board that day" honestly rather than a blank or a guess.</div>
   </div>`;
 }
 
@@ -8816,13 +8904,14 @@ function renderLongBallBoard(){
     return 0;   // no time data for either -- leave relative order as-is rather than guess
   });
 
-  const tabBar = `<div class="lb-tabbar">
-    <button class="lb-tab${lbBoardTab==='top10'?' on':''}" onclick="lbBoardSetTab('top10')">Top 10</button>
-    <button class="lb-tab${lbBoardTab==='bygame'?' on':''}" onclick="lbBoardSetTab('bygame')">By Game</button>
-  </div>`;
+  const tabBar = _lbTabBar();
 
   if(lbBoardTab === "top10"){
     main.innerHTML = renderLongBallTop10(boards);
+    return;
+  }
+  if(lbBoardTab === "tracker"){
+    main.innerHTML = renderLongBallTrackerTab();
     return;
   }
 
@@ -10921,22 +11010,31 @@ function _scanTargetForTeam(team){
 }
 
 function scanStep1_games(){
+  // ADDED this session: markovCalib() applies the real recalibration backtest.json's own
+  // runs.markov_over_calibration computed -- this raw pOver sum, uncorrected, is EXACTLY what
+  // that check graded and explicitly failed ("no better than predicting the base rate," slope
+  // 0.444, non-monotonic). Moneyline (mlEV) is untouched by this -- that's a separately
+  // validated, well-calibrated number and was never shown to have a problem.
+  const calib = (BOARD && BOARD.markov_calib) || {slope:1.0, intercept:0.0, applied:false};
+  const recal = p => Math.max(0.01, Math.min(0.99, calib.intercept + calib.slope*p));
   return (BOARD.game_projections||[])
     .map(g=>{
       const dist=(g.markov||{}).total_dist; if(!dist) return null;
-      // FIXED this session: was a hardcoded 7.5 for every game regardless of what's actually
-      // being bet -- that drifts stale as the league-wide scoring environment shifts (the
-      // deadened ball has been pulling real totals down) and never matched any specific game's
-      // REAL book total anyway. Uses the real market line per game (same fetchedGameLine()
-      // data totalEV() already reads elsewhere in this file) when one's posted, so this stays
-      // anchored to whatever books are actually setting right now rather than a constant that
-      // needs manual upkeep. Falls back to 7.5 only for games with no real total posted yet.
+      // FIXED (an earlier session): was a hardcoded 7.5 for every game regardless of what's
+      // actually being bet -- that drifts stale as the league-wide scoring environment shifts
+      // (the deadened ball has been pulling real totals down) and never matched any specific
+      // game's REAL book total anyway. Uses the real market line per game (same
+      // fetchedGameLine() data totalEV() already reads elsewhere in this file) when one's
+      // posted, so this stays anchored to whatever books are actually setting right now rather
+      // than a constant that needs manual upkeep. Falls back to 7.5 only for games with no
+      // real total posted yet.
       const gl = fetchedGameLine(g.away, g.home);
       const hasRealLine = !!(gl && gl.total && gl.total.line!=null);
       const line = hasRealLine ? gl.total.line : 7.5;
-      const pOver=Object.entries(dist).reduce((s,[k,v])=>s+(parseFloat(k)>line?v:0),0);
+      const rawP=Object.entries(dist).reduce((s,[k,v])=>s+(parseFloat(k)>line?v:0),0);
+      const pOver = calib.applied ? recal(rawP) : rawP;
       return {game_pk:g.game_pk, away:g.away, home:g.home, park:g.park,
-              total:g.total, line, hasRealLine, pOver75:pOver};
+              total:g.total, line, hasRealLine, pOver75:pOver, calibApplied:calib.applied};
     })
     .filter(Boolean)
     .sort((a,b)=>b.pOver75-a.pOver75)
