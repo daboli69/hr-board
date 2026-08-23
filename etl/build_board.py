@@ -805,6 +805,60 @@ def _bomb_score_multiplier(bomb_score_val):
     return max(0.75, min(1.30, 1.0 + ((bomb_score_val - 40) / 100.0) * 0.5))
 
 
+def _load_tb_market():
+    """Real Total Bases market odds (docs/odds.json's props.tb, added this session), keyed by
+    fetch_odds._norm_name -- the SAME normalization the ETL used to build these keys, not
+    statcast_data._norm_name (checked directly: the two differ -- statcast_data's version keeps
+    suffixes like "jr", fetch_odds's strips them, "Ronald Acuna Jr." -> "ronald acuna" only
+    under fetch_odds's scheme. Using the wrong one here would silently break every name match).
+    Wrapped in try/except per this app's own fail-gracefully convention.
+    """
+    try:
+        with open("docs/odds.json") as _f:
+            return (json.load(_f).get("props") or {}).get("tb") or {}
+    except Exception:
+        return {}
+
+
+def _crowd_leverage_weight(pct):
+    """pct: this player's percentile position within tonight's real field for THIS game, 0 =
+    worst odds (biggest longshot), 1 = best odds (biggest favorite).
+
+    U-shaped -- per Travis's direct feedback on how this specific promo actually plays out, not
+    an assumption: the crowd does NOT pick players monotonically by how likely they are to win.
+    People are drawn to BOTH extremes -- the obvious chalk favorite for the safe, familiar
+    pick, AND the extreme longshot for the "I found the smart contrarian angle" appeal, which
+    (per that same feedback) backfires: MORE people take that exact "clever" longshot than
+    assumed, not fewer, since everyone reaching for the same instinct picks the same name. The
+    real under-owned zone for a shared pot is the boring middle -- a genuinely live player
+    nobody's talking about because he's neither the story of the night nor the safe chalk name.
+
+    Peaks at 1.30x in the dead middle, bottoms out at 0.80x at either extreme -- same bounded,
+    ordinal-not-measured spirit as TIER_WEIGHT elsewhere in this file (this app has no real
+    entry data from an actual contest to calibrate exact numbers against).
+    """
+    if pct is None:
+        return 1.0
+    dist_from_mid = abs(pct - 0.5) * 2.0
+    return round(1.30 - dist_from_mid * 0.50, 3)
+
+
+def _crowd_zone(pct):
+    """Display label for the same U-shaped read _crowd_leverage_weight scores -- distinct
+    vocabulary from ownership_tier's Chalk/Standard/Leverage/Deep Sleeper on purpose. "Deep
+    Sleeper" in that system means genuinely overlooked; an extreme longshot here is the
+    OPPOSITE of overlooked per Travis's own read of it, so reusing that label would say the
+    wrong thing about exactly the players it's most important to get right.
+    """
+    if pct is None:
+        return None
+    if pct >= 0.80:
+        return "Chalk Favorite"
+    if pct <= 0.20:
+        return "Lottery Ticket"
+    return "Sweet Spot"
+
+
 def build_total_bases_leaderboard(players, pitcher_edges=None, bullpen_rankings=None,
                                   lb_pitcher_ev=None, games=None):
     """King of the Bases -- a DraftKings promo (checked directly against how Travis described
@@ -848,13 +902,17 @@ def build_total_bases_leaderboard(players, pitcher_edges=None, bullpen_rankings=
     specific promo is whoever's in this specific game, not the whole night, so "leverage"
     should be relative to that real, actual field.
 
-    RANKED by jackpot_ev (exp_tb x TIER_WEIGHT), NOT raw exp_tb -- ADDED this session per
-    Travis: this is a shared pari-mutuel pot ($500K), same structure as Long Ball Jackpot, not
-    a fixed-price bet. Picking the same correct winner as a large share of the field pays less
-    per person than a real, credible pick almost nobody else made. Reuses TIER_WEIGHT and the
-    reasoning exactly as jackpot_ev_score() already applies it to Long Ball -- both real exp_tb
-    and the jackpot-weighted exp_tb ship on every entry, so the raw number is still visible,
-    it's just not what determines the order anymore.
+    RANKED by jackpot_ev (exp_tb x crowd-leverage weight), NOT raw exp_tb, and NOT the plain
+    TIER_WEIGHT (ownership_tier) approach either -- UPDATED this session per Travis's direct
+    feedback on how this specific promo's crowd actually behaves. His own read, not an
+    assumption: people are drawn to BOTH extremes -- the safe chalk favorite AND the "smart
+    contrarian" longshot pick (which draws MORE public attention than assumed, not less, since
+    everyone reaching for that same instinct lands on the same name) -- leaving the real
+    middle-of-the-pack players under-owned. See _crowd_leverage_weight/_crowd_zone: this ranks
+    by percentile position within the REAL market's own odds when available (the same real
+    Total Bases lines the public actually references -- checked directly against Travis's own
+    DraftKings screenshots), not just this app's internal exp_tb ranking, since it's what the
+    crowd sees that determines what the crowd picks.
 
     Does NOT produce a probability of winning. With a single opposing pitcher and no real
     at-bat-by-at-bat simulation, there's no honest way to convert an expected-value ranking
@@ -869,6 +927,7 @@ def build_total_bases_leaderboard(players, pitcher_edges=None, bullpen_rankings=
             vuln_by_pid[_pe["id"]] = _v
     pen_by_team = {r.get("team"): r for r in (bullpen_rankings or [])}
     _game_totals = _load_game_totals()
+    _tb_market = _load_tb_market()   # ADDED this session -- see _load_tb_market
 
     by_game = {}
     for p in players:
@@ -966,24 +1025,52 @@ def build_total_bases_leaderboard(players, pitcher_edges=None, bullpen_rankings=
             "badges": [b["k"] for b in (p.get("badges") or [])],
             "implied_team_total": implied_total,
         }
+        # ADDED this session -- real market 2+ Total Bases line, the same real number Travis's
+        # own DraftKings screenshots show. Used for the crowd-leverage read below (what the
+        # PUBLIC sees, not just this app's own internal exp_tb), and shown on the entry so the
+        # real market price is visible, not just a derived weight.
+        entry["tb_market_price"] = None
+        entry["tb_market_prob"] = None
+        _tbm = _tb_market.get(fetch_odds._norm_name(p.get("name") or ""))
+        _tbm_al = (_tbm.get("alt_lines") or {}).get("1.5") if _tbm else None
+        if _tbm_al and _tbm_al.get("over"):
+            entry["tb_market_price"] = _tbm_al.get("over_american")
+            entry["tb_market_prob"] = round(1.0 / _tbm_al["over"], 4) if _tbm_al["over"] > 1.0 else None
         by_game.setdefault(gpk, []).append(entry)
 
     _time_by_gpk = {g["game_pk"]: g.get("time") for g in (games or [])}
     _team_by_gpk = {g["game_pk"]: (g.get("away"), g.get("home")) for g in (games or [])}
     board_out = []
     for gpk, entries in by_game.items():
-        probs = sorted(x["exp_tb"] for x in entries)
-        p90 = probs[int(len(probs) * 0.9)] if probs else None
+        # ADDED this session -- U-shaped crowd-leverage ranking, replacing the linear
+        # TIER_WEIGHT/ownership_tier approach for this specific promo. Percentile is computed
+        # PRIMARILY from real market implied probability (tb_market_prob, the same real 2+ TB
+        # line the public actually references per Travis's own framing) among players who have
+        # it; players without real market coverage (rare -- TB is a standard, commonly-offered
+        # prop -- but bench bats or very late additions can miss it) fall back to their
+        # percentile position within this app's own exp_tb ranking instead, so nobody is left
+        # unranked just because a market hasn't posted for them yet.
+        with_market = sorted([e for e in entries if e.get("tb_market_prob") is not None],
+                             key=lambda x: x["tb_market_prob"])
+        m = len(with_market)
+        market_pct_by_id = {e["id"]: (i / (m - 1) if m > 1 else 0.5)
+                            for i, e in enumerate(with_market)}
+        by_exp = sorted(entries, key=lambda x: x["exp_tb"])
+        n = len(by_exp)
+        exp_pct_by_id = {e["id"]: (i / (n - 1) if n > 1 else 0.5) for i, e in enumerate(by_exp)}
+
         for e in entries:
-            e["ownership_tier"] = ownership_tier(e.get("implied_team_total"), e["exp_tb"], p90)
-            # ADDED this session, per Travis: this is a SHARED pari-mutuel pot ($500K), not a
-            # fixed-price bet -- picking the same correct winner as a huge share of the field
-            # pays less per person than picking a real, credible winner almost nobody else
-            # picked. Reuses the exact TIER_WEIGHT jackpot_ev_score() already applies to Long
-            # Ball Jackpot for the identical reason, rather than a second formula invented
-            # here. This is what the board actually ranks by now -- exp_tb alone was computed
-            # and shown, but never fed into the ordering.
-            e["jackpot_ev"] = round(e["exp_tb"] * TIER_WEIGHT.get(e["ownership_tier"], 1.0), 3)
+            pct = market_pct_by_id.get(e["id"])
+            e["crowd_pct_source"] = "market" if pct is not None else "model"
+            if pct is None:
+                pct = exp_pct_by_id.get(e["id"])
+            e["crowd_pct"] = round(pct, 3) if pct is not None else None
+            e["crowd_zone"] = _crowd_zone(pct)
+            e["crowd_weight"] = _crowd_leverage_weight(pct)
+            # kept for reference/comparison -- NOT what the board ranks by anymore
+            e["ownership_tier"] = ownership_tier(e.get("implied_team_total"), e["exp_tb"],
+                                                 by_exp[int(n * 0.9)]["exp_tb"] if n else None)
+            e["jackpot_ev"] = round(e["exp_tb"] * e["crowd_weight"], 3)
         entries.sort(key=lambda x: -x["jackpot_ev"])
         away, home = _team_by_gpk.get(gpk, (None, None))
         board_out.append({
@@ -1003,18 +1090,25 @@ def build_total_bases_leaderboard(players, pitcher_edges=None, bullpen_rankings=
                  "pitcher (bomb_score -- real zone overlap, platoon edge, opposing ERA, "
                  "times-through-order). Gated on 30+ season AB before trusting season SLG "
                  "at all.",
-                 "Ranked by jackpot_ev (exp_tb x ownership-tier weight), not raw exp_tb -- this "
-                 "is a shared pari-mutuel pot ($500K), same structure as Long Ball Jackpot: a "
-                 "real, credible pick almost nobody else makes pays more per person than the "
-                 "same correct pick split across a crowded chalk field. Both numbers ship on "
-                 "every entry -- exp_tb is still the raw prediction, jackpot_ev is what orders "
-                 "the board.",
+                 "Ranked by jackpot_ev (exp_tb x crowd-leverage weight), not raw exp_tb -- "
+                 "UPDATED this session per Travis: this promo's crowd isn't monotonic with "
+                 "odds. People are drawn to BOTH extremes -- the chalk favorite for safety, "
+                 "AND the extreme longshot for the 'smart contrarian pick' appeal (which "
+                 "draws MORE public attention than assumed, not less) -- leaving the real "
+                 "middle tier under-owned. Ranks by percentile within the REAL Total Bases "
+                 "market (the same real 2+ line the public actually references) when "
+                 "available, weighted to favor the middle and discount both extremes. Falls "
+                 "back to this app's own exp_tb ranking for the rare player without real "
+                 "market coverage. Both exp_tb and jackpot_ev ship on every entry.",
                  "exp_tb itself is an EXPECTED VALUE, not a win probability -- there is no "
                  "honest way to convert this into P(most bases tonight) without assuming an "
                  "outcome distribution this app has never validated, same caveat Long Ball "
                  "Jackpot's own distance score already carries.",
-                 "ownership_tier is computed per-GAME here, not per-slate -- your real "
-                 "competition for this specific promo is whoever's in this one game.",
+                 "crowd_zone (Chalk Favorite / Sweet Spot / Lottery Ticket) is computed "
+                 "per-GAME here, not per-slate -- your real competition for this specific "
+                 "promo is whoever's in this one game. ownership_tier still ships too, for "
+                 "comparison against Long Ball's own vocabulary, but no longer drives the "
+                 "ranking here.",
                  "Real career BvP (batter-vs-pitcher) history is shown as context on entries "
                  "with 3+ career PA against that specific pitcher -- never used to score, "
                  "since these samples are almost always too thin to be real signal."],
