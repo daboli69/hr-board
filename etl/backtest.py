@@ -268,9 +268,12 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str, asof: "V.AsOfFrame
         # PLATOON, PITCH EDGE, WEAK PEN) need lineup/pen data not reconstructed here, so
         # they're intentionally left out rather than approximated.
         try:
+            _windows = prof.get("windows") or {}
+            _trend = compute.trend(_windows.get("L5") or {}, _windows.get("L30") or {},
+                                   mid_w=_windows.get("L15") or {})
             badge_list = compute.player_badges(
                 luck_gap=recent.get("luck_gap"),
-                trend=prof.get("trend"),
+                trend=_trend,
                 max_ev=recent.get("max_ev"),
                 xwobacon=recent.get("xwobacon"),
             )
@@ -1432,6 +1435,7 @@ def replay_runs(df: pd.DataFrame, start: str | None = None, end: str | None = No
     _mk_abs = _mk_sq = 0.0
     _mk_n = 0
     _mk_pover, _mk_hit = [], []
+    _rl_pcover, _rl_hit = [], []   # ADDED this session -- run-line-specific calibration
     _mk_preds, _mk_worst = [], []
     _tot_rows = []
     tot_abs_err = 0.0
@@ -1580,6 +1584,19 @@ def replay_runs(df: pd.DataFrame, start: str | None = None, end: str | None = No
                         _p_over = sum(v for k, v in _dist.items() if float(k) > _L)
                         _mk_pover.append(_p_over)
                         _mk_hit.append(1.0 if _act > _L else 0.0)
+                # ADDED this session -- run-line-specific calibration, separate from the totals
+                # check above. P(home_minus_1_5) is a DIFFERENT question asked of the same joint
+                # distribution (margin, not total) -- the Markov recalibration fix applied the
+                # totals check's slope/intercept to this too, as a reasonable but unverified
+                # extrapolation. This grades it directly rather than continuing to assume the
+                # totals correction transfers cleanly to a margin question.
+                _rl = _mk.get("run_line") or {}
+                if _rl.get("home_minus_1_5") is not None:
+                    _rl_pcover.append(_rl["home_minus_1_5"])
+                    _rl_hit.append(1.0 if (hs - as_) >= 2 else 0.0)
+                if _rl.get("away_minus_1_5") is not None:
+                    _rl_pcover.append(_rl["away_minus_1_5"])
+                    _rl_hit.append(1.0 if (as_ - hs) >= 2 else 0.0)
             b = int(min(max(p, 0.0), 0.999) * 10) * 10
             c = calib.setdefault(str(b), {"n": 0, "home_wins": 0})
             c["n"] += 1; c["home_wins"] += 1 if home_won else 0
@@ -1610,6 +1627,11 @@ def replay_runs(df: pd.DataFrame, start: str | None = None, end: str | None = No
         "markov_vs_linear": (round(_mk_abs / _mk_n - tot_abs_err / n, 3) if _mk_n else None),
         "markov_over_calibration": (V.decile_calibration(_mk_pover, _mk_hit, n_bands=8)
                                     if len(_mk_pover) >= 400 else None),
+        # ADDED this session -- see the accumulation comment above for why this exists
+        # separately from markov_over_calibration rather than assuming that check's slope/
+        # intercept transfers to a margin (run-line) question.
+        "run_line_calibration": (V.decile_calibration(_rl_pcover, _rl_hit, n_bands=8)
+                                 if len(_rl_pcover) >= 400 else None),
         # FanGraphs with/without, on the same games — isolates exactly what the SIERA/xFIP/
         # Stuff+/Pitching+ nudge changes. A season-aggregate leak applies here (see the note at
         # the top of this function): treat this as "does the signal correlate", not a clean A/B.

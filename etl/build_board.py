@@ -170,6 +170,48 @@ def _load_game_totals():
     return game_totals
 
 
+def _load_markov_calib():
+    """ADDED this session. backtest.json's runs.markov_over_calibration grades whether
+    P(total > line), computed from the Markov engine's simulated total_dist, actually matches
+    real outcomes -- checked directly, and it explicitly FAILS its own verdict ("no better than
+    predicting the base rate"): slope 0.444 (should be ~1.0 -- real, measurable overconfidence),
+    non-monotonic across bands, brier worse than the base-rate baseline. This is a SEPARATE
+    number from the top-level home_wp moneyline check (linear+Pythagorean engine, which DOES
+    beat its baseline, 53.7% accuracy) -- this correction must only touch probabilities derived
+    from the Markov joint distribution (total_dist, run_line), never the moneyline home_wp,
+    which was never shown to have a problem.
+
+    slope/intercept come from a real weighted linear regression of actual-vs-predicted on the
+    decile means (see validate.py's decile_calibration) -- corrected_p = intercept + slope*raw_p
+    is the textbook reliability-diagram recalibration, not an invented fix. Read live from
+    backtest.json rather than hardcoded, so this stays current every time backtest.yml re-runs
+    instead of drifting into another stale magic number. Falls back to slope=1.0/intercept=0.0
+    (no correction) when backtest.json is missing, too old a model version, or doesn't have
+    enough graded games yet for this specific check -- an unavailable correction should never
+    silently do nothing while claiming to have fixed something.
+    """
+    try:
+        with open("docs/backtest.json") as _f:
+            bt = json.load(_f)
+        mc = (bt.get("runs") or {}).get("markov_over_calibration")
+        if not mc or "slope" not in mc or "intercept" not in mc:
+            return {"slope": 1.0, "intercept": 0.0, "source_n": None, "applied": False}
+        return {"slope": mc["slope"], "intercept": mc["intercept"],
+                "source_n": mc.get("n"), "applied": True}
+    except Exception:
+        return {"slope": 1.0, "intercept": 0.0, "source_n": None, "applied": False}
+
+
+def _apply_markov_calib(p, calib):
+    """Clip to [0.01, 0.99] after the linear transform -- a raw probability near the extremes
+    combined with slope>1 or a large intercept could otherwise push the corrected value outside
+    [0,1], which is meaningless as a probability."""
+    if p is None:
+        return None
+    c = calib["intercept"] + calib["slope"] * p
+    return max(0.01, min(0.99, c))
+
+
 def _implied_team_total(team_abbr, opp_abbr, game_totals):
     tn, on = _TEAM_FULLNAME.get(team_abbr), _TEAM_FULLNAME.get(opp_abbr)
     if not tn or not on:
@@ -5045,6 +5087,7 @@ def build(date_str: str | None = None) -> dict:
     game_projections = []
     try:
         from etl import runs as RUNS
+        _markov_calib = _load_markov_calib()   # ADDED this session -- see docstring above
         # group hitters by game + side
         by_game = {}
         for p in board["players"]:
@@ -5173,6 +5216,18 @@ def build(date_str: str | None = None) -> dict:
                 away_pen_fatigue=_pen_fatigue(gm.get("away")))
             if not proj:
                 continue
+            # ADDED this session: recalibrate run_line specifically -- see _load_markov_calib.
+            # Does NOT touch home_wp/away_wp (the separately-validated linear+Pythagorean
+            # moneyline, which beats its own baseline) or total/home_runs/away_runs (the linear
+            # engine's point estimates) -- only the two probabilities inside markov.run_line,
+            # which are the ones actually derived from the Markov joint distribution that
+            # backtest.json's own verdict failed.
+            if proj.get("markov") and proj["markov"].get("run_line"):
+                _rl = proj["markov"]["run_line"]
+                _rl["home_minus_1_5"] = round(_apply_markov_calib(
+                    _rl.get("home_minus_1_5"), _markov_calib), 4)
+                _rl["away_minus_1_5"] = round(_apply_markov_calib(
+                    _rl.get("away_minus_1_5"), _markov_calib), 4)
             game_projections.append({
                 "game_pk": gpk,
                 "home": gm.get("home"), "away": gm.get("away"),
@@ -5254,9 +5309,11 @@ def build(date_str: str | None = None) -> dict:
             print(f"[build] ML convergence skipped (non-fatal): {_e}")
 
         board["game_projections"] = game_projections
+        board["markov_calib"] = _markov_calib   # ADDED this session -- see _load_markov_calib
         print(f"[build] game projections: {len(game_projections)} games modeled")
     except Exception as e:
         board["game_projections"] = []
+        board["markov_calib"] = {"slope": 1.0, "intercept": 0.0, "source_n": None, "applied": False}
         _hnote("game projections", e); print(f"[build] game projections skipped: {e}")
 
     # ---- CROSS-GAME 3-LEG HR PARLAY OPTIMIZER ----
