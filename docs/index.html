@@ -5206,31 +5206,31 @@ function altLinePool(){
     const e = pkBucket[normName(a.name||"")];
     if(!e || !e.alt_lines) return;
     Object.values(e.alt_lines).forEach(al=>{
-      if(al.over==null || al.over<=0) return;   // plus money only -- Travis's own framing
+      if(al.over_american==null || al.over_american<=0) return;   // plus money only
       const prob = kProbAtLine(a, al.line);
       if(prob==null) return;
-      const dec = americanToDecimal(al.over);
-      const impliedP = impliedProb(al.over);
+      const dec = al.over;   // already the real decimal price
+      const impliedP = dec>1.0 ? 1/dec : null;
       out.push({name:a.name, team:a.team, opp:a.opp_team, game_pk:a.game_pk, tk:"Ks",
-                label:`Over ${al.line} K`, line:al.line, price:al.over, book:al.over_book,
-                prob, edge: prob-impliedP, dec});
+                label:`Over ${al.line} K`, line:al.line, price:al.over_american, book:al.over_book,
+                prob, edge: impliedP!=null ? prob-impliedP : null, dec});
     });
   });
   const hitsBucket = ODDS.props.hits || {};
   (BOARD.players||[]).filter(p=>p.lineup_status!=="out").forEach(p=>{
     const e = hitsBucket[normName(p.name||"")];
     const al = e && e.alt_lines && e.alt_lines["1.5"];
-    if(!al || al.over==null || al.over<=0) return;
+    if(!al || al.over_american==null || al.over_american<=0) return;
     const prob = badgeAwarePropProb("hit2", p);
     if(prob==null) return;
-    const dec = americanToDecimal(al.over);
-    const impliedP = impliedProb(al.over);
+    const dec = al.over;
+    const impliedP = dec>1.0 ? 1/dec : null;
     const badges = new Set((p.badges||[]).map(b=>b.k));
     const badgeNote = badges.has("pow") ? "POW badge (1.32x, backtest)"
                      : badges.has("lock") ? "LOCK badge (1.06x, backtest)" : null;
     out.push({id:p.id, name:p.name, team:p.team, opp:p.opp_team, game_pk:p.game_pk, tk:"Hit2",
-              label:"Over 1.5 Hits", line:1.5, price:al.over, book:al.over_book,
-              prob, edge: prob-impliedP, dec, badgeNote});
+              label:"Over 1.5 Hits", line:1.5, price:al.over_american, book:al.over_book,
+              prob, edge: impliedP!=null ? prob-impliedP : null, dec, badgeNote});
   });
   return out.sort((a,b)=>b.prob-a.prob);
 }
@@ -8191,13 +8191,13 @@ function fetchedPropFor(prop, name){
 // Returns the better side {side, ev, price, prob} or null.
 function propEV(pOver, over, under){
   if(pOver==null) return null;
-  const evSide=(p, price)=>{ if(price==null) return null;
-    const dec=americanToDecimal(price); return p*(dec-1)-(1-p); };
+  // over/under are real decimal prices -- use directly, no conversion for the math.
+  const evSide=(p, dec)=>{ if(dec==null||dec<=1.0) return null; return p*(dec-1)-(1-p); };
   const evO=evSide(pOver, over);
   const evU=evSide(1-pOver, under);
   const opts=[];
-  if(evO!=null) opts.push({side:"over", ev:evO, price:over, prob:pOver});
-  if(evU!=null) opts.push({side:"under", ev:evU, price:under, prob:1-pOver});
+  if(evO!=null) opts.push({side:"over", ev:evO, price:decimalToAmerican(over), prob:pOver});
+  if(evU!=null) opts.push({side:"under", ev:evU, price:decimalToAmerican(under), prob:1-pOver});
   if(!opts.length) return null;
   return opts.sort((a,b)=>b.ev-a.ev)[0];
 }
@@ -8207,8 +8207,10 @@ function propEVBadge(prop, name, pOver){
   if(!e) return "";
   const best=propEV(pOver, e.over, e.under);
   if(!best){
-    // no model prob — still show the book line + price so the odds are visible
-    const o=e.over!=null?`O ${fmtAm(e.over)}`:"", u=e.under!=null?`U ${fmtAm(e.under)}`:"";
+    // no model prob — still show the book line + price so the odds are visible. Uses the
+    // real over_american/under_american fields rather than fmtAm(e.over) directly -- e.over
+    // is now correctly decimal, not American.
+    const o=e.over_american!=null?`O ${fmtAm(e.over_american)}`:"", u=e.under_american!=null?`U ${fmtAm(e.under_american)}`:"";
     return `<span class="prop-odds-chip">line ${e.line} · ${[o,u].filter(Boolean).join(" / ")}${e.fallback?" · FD":""}</span>`;
   }
   const good=best.ev>0;
@@ -8282,6 +8284,11 @@ function americanToDecimal(a){
   const n=parseFloat(a);
   if(!isFinite(n)||n===0) return null;
   return n>0 ? 1 + n/100 : 1 + 100/Math.abs(n);
+}
+function decimalToAmerican(d){
+  const n=parseFloat(d);
+  if(!isFinite(n) || n<=1.0) return null;
+  return n>=2.0 ? Math.round((n-1)*100) : Math.round(-100/(n-1));
 }
 function impliedProb(a){
   const d=americanToDecimal(a);
@@ -10382,7 +10389,7 @@ function renderProps(){
             kEV=`<span class="prop-ev-chip ${good?'pos':'neg'}" title="model est ${estK.toFixed(1)} Ks vs line ${kOdds.line}">${best.side.toUpperCase()} ${kOdds.line} ${fmtAm(best.price)} · ${good?"+":""}${(best.ev*100).toFixed(0)}% EV${kOdds.fallback?" · FD":""}</span>`;
           }
         } else {
-          kEV=`<span class="prop-odds-chip">line ${kOdds.line} · O ${fmtAm(kOdds.over)} / U ${fmtAm(kOdds.under)}${kOdds.fallback?" · FD":""}</span>`;
+          kEV=`<span class="prop-odds-chip">line ${kOdds.line} · O ${fmtAm(kOdds.over_american)} / U ${fmtAm(kOdds.under_american)}${kOdds.fallback?" · FD":""}</span>`;
         }
       }
       return `<div class="prop-row" style="background:${bg}">
