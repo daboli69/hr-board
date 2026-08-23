@@ -41,6 +41,9 @@ PROP_MARKETS = {
     "hits":  "player_hits",              # 1+ hits, line 0.5
     "hrr":   "player_hits_runs_rbis",    # hits+runs+rbis, line 1.5 typically
     "pk":    "player_strikeouts",        # pitcher strikeouts O/U, real lines (4.5, 5.5...)
+    "tb":    "player_total_bases",       # real 2+/3+ (etc) lines, confirmed directly against
+                                          # Travis's own DraftKings screenshots. Zero extra
+                                          # cost, same call.
 }
 ALL_MARKETS = [MARKET] + list(PROP_MARKETS.values())
 # PRIMARY books — the ones the user actually bets. A hitter's headline "best" price comes
@@ -477,19 +480,28 @@ def build_prop_odds(rows: list) -> dict:
                 continue
             if prop == "pk" and (line is None or line < 2.5):
                 continue   # skip the 0.5 "1+ K" novelty; keep real O/U totals
+            if prop == "tb" and (line is None or line < 0.5 or line > 5.5):
+                continue   # keep every real total-bases line a book posts (1+ TB through a
+                          # real 6+ TB longshot line) -- confirmed against Travis's own
+                          # DraftKings screenshots showing real 2+/3+ lines side by side
             over = row.get("over_price")
             under = row.get("under_price")
             # need at least one priced side
             if over is None and under is None:
                 continue
-            try:
-                over = int(over) if over is not None else None
-                under = int(under) if under is not None else None
-            except (TypeError, ValueError):
+            # FIXED this session: was int(over)/int(under) -- the same decimal-truncation bug
+            # fetch_props() above already found and fixed for HR props ("_safe_int() on a
+            # decimal price was truncating 1.909 -> 1"). This function reads the SAME rows from
+            # the SAME /props endpoint but never got the same fix, silently corrupting every
+            # hits/HRR/Ks (and now TB) price parsed through here since this function was
+            # written. _safe_float() preserves the real decimal price.
+            over = _safe_float(over)
+            under = _safe_float(under)
+            if over is None and under is None:
                 continue
-            # absurd-price guard
+            # absurd-price guard -- decimal odds are always > 1.0; anything else is bad data
             for px in (over, under):
-                if px is not None and (px == 0 or px < -100000 or px > 100000):
+                if px is not None and (px <= 1.0 or px > 1000.0):
                     over = over if over != px else None
                     under = under if under != px else None
             name = row.get("player") or ""
@@ -511,7 +523,10 @@ def build_prop_odds(rows: list) -> dict:
 
             slot = target[prop].setdefault(key, {
                 "name": name, "line": line,
-                "over": None, "under": None, "over_book": None, "under_book": None,
+                "over": None, "under": None,
+                "over_american": None, "under_american": None,   # ADDED this session, same
+                                                                   # pattern as ml/total/run_lines
+                "over_book": None, "under_book": None,
                 "books": {},
                 # ADDED this session -- every real line this player/prop was actually priced
                 # at, not just the first one seen. {line_str: {line, over, under, over_book,
@@ -529,12 +544,14 @@ def build_prop_odds(rows: list) -> dict:
             # exactly like the primary fields below, independently per line.
             alt_key = str(line)
             aslot = slot["alt_lines"].setdefault(alt_key, {
-                "line": line, "over": None, "under": None, "over_book": None, "under_book": None,
+                "line": line, "over": None, "under": None,
+                "over_american": None, "under_american": None,
+                "over_book": None, "under_book": None,
             })
-            if over is not None and (aslot["over"] is None or _better_over(aslot["over"], over) == over):
-                aslot["over"], aslot["over_book"] = over, book
-            if under is not None and (aslot["under"] is None or _better_over(aslot["under"], under) == under):
-                aslot["under"], aslot["under_book"] = under, book
+            if over is not None and (aslot["over"] is None or _better_decimal(aslot["over"], over) == over):
+                aslot["over"], aslot["over_american"], aslot["over_book"] = over, decimal_to_american(over), book
+            if under is not None and (aslot["under"] is None or _better_decimal(aslot["under"], under) == under):
+                aslot["under"], aslot["under_american"], aslot["under_book"] = under, decimal_to_american(under), book
             # Primary line/over/under/books -- UNCHANGED behavior, anchored to first-seen line,
             # exactly what every existing consumer of odds.json already expects. A later,
             # different line no longer gets silently dropped (it landed in alt_lines above) --
@@ -543,11 +560,11 @@ def build_prop_odds(rows: list) -> dict:
                 continue
             slot["line"] = line
             slot["books"][book] = {"line": line, "over": over, "under": under}
-            # best over = longest (bettor-friendliest); best under = longest too
-            if over is not None and (slot["over"] is None or _better_over(slot["over"], over) == over):
-                slot["over"], slot["over_book"] = over, book
-            if under is not None and (slot["under"] is None or _better_over(slot["under"], under) == under):
-                slot["under"], slot["under_book"] = under, book
+            # best over = highest decimal price (bettor-friendliest); best under = highest too
+            if over is not None and (slot["over"] is None or _better_decimal(slot["over"], over) == over):
+                slot["over"], slot["over_american"], slot["over_book"] = over, decimal_to_american(over), book
+            if under is not None and (slot["under"] is None or _better_decimal(slot["under"], under) == under):
+                slot["under"], slot["under_american"], slot["under_book"] = under, decimal_to_american(under), book
         except Exception:
             continue
 
