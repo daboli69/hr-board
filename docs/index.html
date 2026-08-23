@@ -9098,15 +9098,17 @@ function renderKingOfBases(){
     const slgNote = e.slg_season!=null
       ? `.${Math.round(e.slg_season*1000)} SLG szn${e.slg_recent!=null?` / .${Math.round(e.slg_recent*1000)} recent`:""}`
       : "";
-    const pitchNote = e.pitching_mult!=null && Math.abs(e.pitching_mult-1.0)>=0.03
-      ? ` · matchup ${e.pitching_mult>1?"+":""}${Math.round((e.pitching_mult-1)*100)}%` : "";
+    const matchupNote = e.matchup_mult!=null && Math.abs(e.matchup_mult-1.0)>=0.03
+      ? ` · matchup ${e.matchup_mult>1?"+":""}${Math.round((e.matchup_mult-1)*100)}%` : "";
+    const chips = (e.drivers||[]).slice(0,3).map(d=>`<span class="gsb-chip">${d}</span>`).join("");
     return `<div class="gsb-row" style="border-left-color:${otCol}" onclick="scanToPlayer?scanToPlayer(${e.id}):null">
       <div class="gsb-rank" style="color:${otCol}">${String(i+1).padStart(2,"0")}</div>
       <div class="gsb-mid">
         <div class="gsb-nm"><b>${e.name}</b>${badges}</div>
-        <div class="gsb-sub">${e.team} · SLOT ${e.spot} · ${slgNote}${pitchNote}</div>
+        <div class="gsb-sub">${e.team} · SLOT ${e.spot} · ${e.exp_tb.toFixed(2)} exp TB · ${slgNote}${matchupNote}</div>
+        ${chips?`<div class="gsb-drivers">${chips}</div>`:""}
       </div>
-      <div class="gsb-odds">${e.exp_tb.toFixed(2)}<i style="display:block;font-size:7px;color:var(--faint)">EXP TB</i></div>
+      <div class="gsb-odds">${(e.jackpot_ev ?? e.exp_tb).toFixed(2)}<i style="display:block;font-size:7px;color:var(--faint)">J-EV</i></div>
       <div class="ot-pill" style="color:${otCol};border-color:${otCol}">${e.ownership_tier||"—"}</div>
     </div>`;
   };
@@ -9120,15 +9122,27 @@ function renderKingOfBases(){
       <div class="gsp-note">DraftKings promo -- most total bases (1B=1, 2B=2, 3B=3, HR=4) in
         this game wins a share. Usually the last game of the night.</div></div>
     ${gamePicker}
-    <div class="gsb-listhead">RANKED // ${g.away||"?"} @ ${g.home||"?"} · ${g.n_batters} BATTERS · BY EXPECTED TOTAL BASES</div>
+    <div class="gsb-listhead">RANKED // ${g.away||"?"} @ ${g.home||"?"} · ${g.n_batters} BATTERS · BY JACKPOT EV (SHARED-POT WEIGHTED)</div>
     ${(g.leaders||[]).length ? g.leaders.map(row).join("") : `<div class="psc-empty">No qualifying batters for this game yet.</div>`}
-    <div class="zd-note">Expected total bases = AB estimate by lineup spot (standard table) x
-    blended SLG (65% season / 35% recent, real metrics.slg -- not reconstructed) x pitching
-    matchup multiplier (same real signals Long Ball Jackpot already uses: SP contact quality
-    allowed, HR Vulnerability, bullpen exploitability). This is a RANKING by expected value, not
-    a probability of winning -- there's no honest way to turn one game's expected bases into
-    "P(most bases tonight)" without assuming an outcome shape this app hasn't validated. Gated
-    on 30+ season at-bats before trusting a hitter's SLG at all. Tap a name to open their card.</div>
+    <div class="zd-note">Expected total bases (exp TB, shown per-row) = AB estimate by lineup
+    spot (standard table) x blended SLG (65% season / 35% recent, real metrics.slg -- not
+    reconstructed) x a two-layer matchup multiplier: pitcher quality (same real signals Long
+    Ball Jackpot already uses -- SP contact quality allowed, HR Vulnerability, bullpen
+    exploitability) combined with batter-specific fit against this exact pitcher (real zone
+    overlap, platoon edge, opposing ERA, times-through-order -- this app's own bomb_score).
+    Career BvP history shows as context when there's 3+ real PA against that pitcher -- never
+    used to score, those samples are almost always too thin to trust.
+    <br><br>
+    <b>J-EV (the number this board actually ranks by)</b> = exp TB x an ownership-tier weight
+    -- this is a SHARED pool ($500K), same structure as Long Ball Jackpot: picking the same
+    correct winner as a huge share of the field pays less per person than a real, credible pick
+    almost nobody else made. Chalk 0.85x, Standard 1.00x, Leverage 1.20x, Deep Sleeper 1.35x --
+    an ordinal ranking, not measured against real entry data this app doesn't have.
+    <br><br>
+    Neither number is a win probability -- there's no honest way to turn one game's expected
+    bases into "P(most bases tonight)" without assuming an outcome shape this app hasn't
+    validated. Gated on 30+ season at-bats before trusting a hitter's SLG at all. Tap a name to
+    open their card.</div>
   </div>`;
 }
 
