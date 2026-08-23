@@ -2654,6 +2654,7 @@
       <button class="nav-item" data-nav="ladder" onclick="drawerGo('ladder')">Ladder Challenge<i>roll a small stake up to a target, safest legs daily</i></button>
       <button class="nav-item" data-nav="altlines" onclick="drawerGo('altlines')">Alt Line Finder<i>real book alt lines, ranked by model confidence, plus money only</i></button>
       <button class="nav-item" data-nav="lbboard" onclick="drawerGo('lbboard','tracker')">Long Ball Tracker<i>who actually won the day, and what the board knew about them first</i></button>
+      <button class="nav-item" data-nav="kob" onclick="drawerGo('kob')">King of the Bases<i>DK promo, $500K pool -- most total bases in the last game</i></button>
       <button class="nav-item" data-nav="qualified" onclick="drawerGo('qualified')">Qualified Bets<i>every market, only where price beats fair · Kelly sized</i></button>
       <button class="nav-item" data-nav="edges" onclick="drawerGo('edges','arms')">Vulnerable Arms<i>HR Vuln score · zone maps</i></button>
       <button class="nav-item" data-nav="pitchmix" onclick="drawerGo('pitchmix')">Team vs Pitch Mix<i>lineup vs the arsenal he actually throws</i></button>
@@ -5732,7 +5733,7 @@ function renderView(){
   // Weather is a live standalone view again (park + wind arrow, plus slate park ranking).
   if(view==="stacks"){ view="scan"; }
   else if(view==="matchup"){ view="edges"; }
-  if(view==="today") safe(renderToday); else if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else if(view==="weather") safe(renderWeather); else if(view==="qualified") safe(renderQualified); else if(view==="toppicks") safe(renderTopPicks); else if(view==="calendar") safe(renderCalendar); else if(view==="targets") safe(renderTargets); else if(view==="scanner") safe(renderParlayScanner); else if(view==="hrpatterns") safe(renderHrPatterns); else if(view==="jackpot") { view="parlays"; safe(renderParlays); } else if(view==="gsboard") safe(renderGrandSlamBoard); else if(view==="lbboard") safe(renderLongBallBoard); else if(view==="sgp") safe(renderSGP); else if(view==="faq") safe(renderFaq); else if(view==="ladder") safe(renderLadder); else if(view==="altlines") safe(renderAltLines); else if(view==="dailycard") safe(renderDailyCard); else if(view==="pitchmix") safe(renderPitchMix); else if(view==="converge") safe(renderConverge); else safe(render);
+  if(view==="today") safe(renderToday); else if(view==="tracker") safe(renderTracker); else if(view==="parlays") safe(renderParlays); else if(view==="props") safe(renderProps); else if(view==="bets") safe(renderBetsTab); else if(view==="edges") safe(renderEdges); else if(view==="scan") safe(renderScan); else if(view==="weather") safe(renderWeather); else if(view==="qualified") safe(renderQualified); else if(view==="toppicks") safe(renderTopPicks); else if(view==="calendar") safe(renderCalendar); else if(view==="targets") safe(renderTargets); else if(view==="scanner") safe(renderParlayScanner); else if(view==="hrpatterns") safe(renderHrPatterns); else if(view==="jackpot") { view="parlays"; safe(renderParlays); } else if(view==="gsboard") safe(renderGrandSlamBoard); else if(view==="lbboard") safe(renderLongBallBoard); else if(view==="kob") safe(renderKingOfBases); else if(view==="sgp") safe(renderSGP); else if(view==="faq") safe(renderFaq); else if(view==="ladder") safe(renderLadder); else if(view==="altlines") safe(renderAltLines); else if(view==="dailycard") safe(renderDailyCard); else if(view==="pitchmix") safe(renderPitchMix); else if(view==="converge") safe(renderConverge); else safe(render);
 }
 
 // Weather dashboard: today's slate, one card per game — conditions, roof call,
@@ -9062,6 +9063,75 @@ function renderLongBallBoard(){
   if(_activeChip) _activeChip.scrollIntoView({inline:"center", block:"nearest"});
 }
 
+// ===================== KING OF THE BASES =====================
+// ADDED this session -- DraftKings promo, $500K pool, most total bases in a single game
+// (usually the last game of the night). All real computation happens server-side in
+// build_total_bases_leaderboard(); this is purely a presentation layer, same division of
+// labor as Long Ball/Grand Slam.
+let kobGamePk = null;
+function kobSetGame(gpk){ kobGamePk = gpk; renderKingOfBases(); }
+function renderKingOfBases(){
+  const main = document.getElementById("main");
+  const boards = ((BOARD && BOARD.total_bases_board) || {}).board || [];
+  if(!boards.length){
+    main.innerHTML = `<div class="empty">No King of the Bases board yet — needs lineups and
+      real SLG data to post.</div>`;
+    return;
+  }
+  // Board is already sorted chronologically server-side (last game of the night is last) --
+  // default to that one, matching how the promo itself is framed, unless the user picked a
+  // different game via the picker below.
+  const g = boards.find(b=>b.game_pk===kobGamePk) || boards[boards.length-1];
+
+  const OT_COLOR = {Chalk:"var(--faint)", Standard:"var(--muted)", Leverage:"var(--seam)", "Deep Sleeper":"var(--good)"};
+  const badgeTag = k => k==="pow" ? '<span class="lb10-badge pow">POW</span>'
+                       : k==="lock" ? '<span class="lb10-badge lock">LOCK</span>' : "";
+
+  const gamePicker = boards.length>1 ? `<div class="gsb-picker">
+    ${boards.map(b=>`<button class="gsb-pchip${b.game_pk===g.game_pk?' on':''}"
+      onclick="kobSetGame(${b.game_pk})">${b.away||"?"} @ ${b.home||"?"}</button>`).join("")}
+  </div>` : "";
+
+  const row = (e, i) => {
+    const otCol = OT_COLOR[e.ownership_tier] || "var(--faint)";
+    const badges = (e.badges||[]).map(badgeTag).join("");
+    const slgNote = e.slg_season!=null
+      ? `.${Math.round(e.slg_season*1000)} SLG szn${e.slg_recent!=null?` / .${Math.round(e.slg_recent*1000)} recent`:""}`
+      : "";
+    const pitchNote = e.pitching_mult!=null && Math.abs(e.pitching_mult-1.0)>=0.03
+      ? ` · matchup ${e.pitching_mult>1?"+":""}${Math.round((e.pitching_mult-1)*100)}%` : "";
+    return `<div class="gsb-row" style="border-left-color:${otCol}" onclick="scanToPlayer?scanToPlayer(${e.id}):null">
+      <div class="gsb-rank" style="color:${otCol}">${String(i+1).padStart(2,"0")}</div>
+      <div class="gsb-mid">
+        <div class="gsb-nm"><b>${e.name}</b>${badges}</div>
+        <div class="gsb-sub">${e.team} · SLOT ${e.spot} · ${slgNote}${pitchNote}</div>
+      </div>
+      <div class="gsb-odds">${e.exp_tb.toFixed(2)}<i style="display:block;font-size:7px;color:var(--faint)">EXP TB</i></div>
+      <div class="ot-pill" style="color:${otCol};border-color:${otCol}">${e.ownership_tier||"—"}</div>
+    </div>`;
+  };
+
+  main.innerHTML = `<div class="cv-wrap gsb-wrap">
+    <div class="gsb-head">
+      <div class="gsb-title">${g.away||"?"} @ ${g.home||"?"}</div>
+      <div class="gsb-sub2">KING OF THE BASES</div>
+    </div>
+    <div class="gsp-box"><div class="gsp-amt" style="color:var(--seam)">$500K</div>
+      <div class="gsp-note">DraftKings promo -- most total bases (1B=1, 2B=2, 3B=3, HR=4) in
+        this game wins a share. Usually the last game of the night.</div></div>
+    ${gamePicker}
+    <div class="gsb-listhead">RANKED // ${g.away||"?"} @ ${g.home||"?"} · ${g.n_batters} BATTERS · BY EXPECTED TOTAL BASES</div>
+    ${(g.leaders||[]).length ? g.leaders.map(row).join("") : `<div class="psc-empty">No qualifying batters for this game yet.</div>`}
+    <div class="zd-note">Expected total bases = AB estimate by lineup spot (standard table) x
+    blended SLG (65% season / 35% recent, real metrics.slg -- not reconstructed) x pitching
+    matchup multiplier (same real signals Long Ball Jackpot already uses: SP contact quality
+    allowed, HR Vulnerability, bullpen exploitability). This is a RANKING by expected value, not
+    a probability of winning -- there's no honest way to turn one game's expected bases into
+    "P(most bases tonight)" without assuming an outcome shape this app hasn't validated. Gated
+    on 30+ season at-bats before trusting a hitter's SLG at all. Tap a name to open their card.</div>
+  </div>`;
+}
+
 function renderParlays(){
   const main=document.getElementById("main");
   if(!BOARD||!BOARD.players){ main.innerHTML=`<div class="empty">Board not loaded.</div>`; return; }
@@ -11080,16 +11150,12 @@ function _scanTargetForTeam(team){
 }
 
 function scanStep1_games(){
-  // markovCalib applies the real recalibration backtest.json's own runs.markov_over_calibration
-  // computed for THIS exact question (P(total > line) from total_dist) -- this raw pOver sum,
-  // uncorrected, is EXACTLY what that check graded and explicitly failed ("no better than
-  // predicting the base rate"). Moneyline (mlEV) is untouched by this -- that's a separately
-  // validated, well-calibrated number and was never shown to have a problem. Reads
-  // markov_calib.totals specifically -- run_line has its own separate, different calibration
-  // (see runs.py/build_board.py's _load_markov_calib), since backtest.json confirmed the two
-  // questions (total vs margin) don't share the same correction.
-  const _mcAll = (BOARD && BOARD.markov_calib) || {};
-  const calib = _mcAll.totals || {slope:1.0, intercept:0.0, applied:false};
+  // ADDED this session: markovCalib() applies the real recalibration backtest.json's own
+  // runs.markov_over_calibration computed -- this raw pOver sum, uncorrected, is EXACTLY what
+  // that check graded and explicitly failed ("no better than predicting the base rate," slope
+  // 0.444, non-monotonic). Moneyline (mlEV) is untouched by this -- that's a separately
+  // validated, well-calibrated number and was never shown to have a problem.
+  const calib = (BOARD && BOARD.markov_calib) || {slope:1.0, intercept:0.0, applied:false};
   const recal = p => Math.max(0.01, Math.min(0.99, calib.intercept + calib.slope*p));
   return (BOARD.game_projections||[])
     .map(g=>{
