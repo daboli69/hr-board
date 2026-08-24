@@ -988,7 +988,6 @@ def build_total_bases_leaderboard(players, pitcher_edges=None, bullpen_rankings=
         # Real driver text -- the SAME real components bomb_score already computed, not
         # recomputed here, so what's displayed always matches what actually moved the number.
         drivers = []
-        _bs_parts = (p.get("bomb_score") or {}).get("parts") or {}
         _zone_ct = ((p.get("features") or {}).get("zone_profile") or {}).get("overlap", {}).get("count")
         if _zone_ct is not None and _zone_ct >= 3:
             drivers.append(f"zone overlap {_zone_ct}/5{' (premium)' if _zone_ct >= 5 else ''}")
@@ -1383,7 +1382,10 @@ def _hrpo_raw_signals(p, pp_by_id, pen_by_team, backtest_calib, base_rate, requi
     _hp = (p.get("features") or {}).get("hr_power") or {}
     own_max_dist = _hp.get("max_dist")
     own_barrel_pct = _hp.get("barrel_pct")
-    own_avg_ev_l14 = ((p.get("windows") or {}).get("L14d") or {}).get("avg_ev")
+    _l14 = (p.get("windows") or {}).get("L14d") or {}
+    own_avg_ev_l14 = _l14.get("avg_ev")
+    own_avg_ev_l14_bbe = _l14.get("bb_count")   # ADDED this session -- see docstring in the
+                                                # combine function for why this gate exists
     arm_form_label = ((p.get("opp_pitcher") or {}).get("form") or {}).get("label")
     arm_vuln_score = (vuln_by_pid or {}).get(_arm_id) if _arm_id is not None else None
 
@@ -1395,7 +1397,8 @@ def _hrpo_raw_signals(p, pp_by_id, pen_by_team, backtest_calib, base_rate, requi
         "fb_pct_allowed": fb_pct_allowed, "pen_worn": pen_worn, "pen_rank_val": pen_rank_val,
         "acute_bp_pitches": acute_bp_pitches,
         "own_max_dist": own_max_dist, "own_barrel_pct": own_barrel_pct,
-        "own_avg_ev_l14": own_avg_ev_l14, "arm_form_label": arm_form_label,
+        "own_avg_ev_l14": own_avg_ev_l14, "own_avg_ev_l14_bbe": own_avg_ev_l14_bbe,
+        "arm_form_label": arm_form_label,
         "arm_vuln_score": arm_vuln_score,
     }
 
@@ -1564,10 +1567,17 @@ def _hrpo_combine_genius_pow(sig):
                           f"pow-badge-HR average this month)")
     if sig.get("own_barrel_pct") is not None:
         power_c += cl((sig["own_barrel_pct"] - 8) / 12); power_n += 1
-    if sig.get("own_avg_ev_l14") is not None:
+    if sig.get("own_avg_ev_l14") is not None and (sig.get("own_avg_ev_l14_bbe") or 0) >= 15:
+        # FIXED per Travis: this bonus previously had NO sample-size floor at all -- a hitter
+        # with a handful of batted balls in the trailing 14 days could post a 92+ average off
+        # two or three well-struck balls, the exact "hot off a short stretch" risk Travis
+        # flagged. 15 BBE is a real, if modest, two-week sample -- not backtested at this exact
+        # threshold, stated as a reasoned floor rather than a proven one, same honesty this
+        # file already applies to its other heuristic gates.
         power_c += cl((sig["own_avg_ev_l14"] - 88) / 12); power_n += 1
         if sig["own_avg_ev_l14"] >= 92:
-            drivers.append(f"L14d avg EV {sig['own_avg_ev_l14']:.1f} mph (real, trending hot)")
+            drivers.append(f"L14d avg EV {sig['own_avg_ev_l14']:.1f} mph on "
+                          f"{sig['own_avg_ev_l14_bbe']} BBE (real, trending hot)")
     if power_n:
         prob *= 1.0 + (power_c / power_n) * 0.35
 
@@ -1611,10 +1621,23 @@ def _hrpo_combine_genius_pow(sig):
     if af is not None and af >= 11:
         prob *= 1.0 + (1.39 - 1.0) * 0.65
         drivers.append(f"arsenal fit {af:.0f} (elite, 1.39x graded)")
+    elif af is not None and af <= 4:
+        # UNVALIDATED heuristic, not a backtested number -- see docstring above. A genuinely
+        # bad arsenal fit means this hitter's own real measured performance against the pitch
+        # types THIS arm actually throws (usage-weighted, see the vs_mix fix this session) is
+        # poor -- the exact "facing an ace with a mix he can't touch" case Travis described.
+        # Capped modestly (max -12%) until the real backtest number exists.
+        _disc = 1.0 - min(0.12, (4 - af) / 4 * 0.12)
+        prob *= _disc
+        drivers.append(f"arsenal fit {af:.0f} (poor -- real measured weakness vs this arm's "
+                      f"actual mix, unvalidated discount)")
     zn = sig["zone_overlap_n"]
     if zn is not None and zn >= 5:
         prob *= 1.0 + (1.38 - 1.0) * 0.65
         drivers.append(f"{zn} zone overlaps (1.38x graded)")
+    elif zn is not None and zn == 0:
+        prob *= 0.94   # UNVALIDATED, same status as the arsenal_fit discount above
+        drivers.append("0 zone overlaps (no real damage zone alignment, unvalidated discount)")
 
     if not sig["thin"] and sig["fams"] >= 2:
         # FIXED this session: previously used an inline table capped at "2+" families
@@ -4220,39 +4243,69 @@ def build(date_str: str | None = None) -> dict:
                         _ars = (arsenals.get(int(_arm)) or {}).get(_hand) if _arm else None
                         _vp = _p.get("vs_pitch") or {}
                         if _ars and _vp:
-                            # The full line against THIS ARM'S ACTUAL MIX — every pitch he throws
-                            # this hand >=10% of the time. Counts are summed first and divided
-                            # once, so a 200-pitch sample can't be outweighed by a 20-pitch one.
-                            # This is the number the write-up is really making: "against the
-                            # pitches he lives on, this hitter owns N homers and a .xxx SLG".
+                            # The full line against THIS ARM'S ACTUAL MIX -- every pitch he
+                            # throws this hand >=10% of the time.
+                            #
+                            # RATE stats (SLG/ISO/AVG/barrel%/hard%/pull-air%/K%) are now
+                            # weighted by THIS ARM's real usage% for each qualifying pitch type,
+                            # not pooled as raw counts first. A pitch he throws 41% of the time
+                            # to this hand should count for roughly 41% of the read -- the old
+                            # pooled-count approach instead let whichever pitch type the batter
+                            # happened to have the BIGGEST career sample against (built up
+                            # facing every OTHER pitcher who also throws it) quietly dominate,
+                            # regardless of how often THIS arm specifically goes to it.
+                            #
+                            # Real event COUNTS (HR, near-misses, 350ft+, bbe) stay honest raw
+                            # sums across whichever pitch types qualified -- those are actual
+                            # things that already happened, and usage-weighting a count of real
+                            # history would turn a factual "he's done this" into an estimate.
                             _mix = [(pt, pct) for pt, pct, _n in _ars if pct >= 10.0]
-                            _T = [0.0] * 18
                             _used = []
+                            _hr_sum = _near_sum = _d350_sum = _bbe_sum = _pa_sum = _k_sum = 0.0
+                            _rate_keys = ("slg", "iso", "avg", "avg_ev", "hard_pct", "barrel_pct", "pullair_pct")
+                            _wsum = {k: 0.0 for k in _rate_keys}
+                            _wtot = {k: 0.0 for k in _rate_keys}
                             for _pt, _pct in _mix:
                                 _v2 = _vp.get(_pt)
-                                if _v2 and len(_v2) >= 18:
-                                    _used.append((_pt, _pct))
-                                    for _i in range(18):
-                                        _T[_i] += (_v2[_i] or 0)
-                            if _used and _T[4] >= 25:          # need real batted-ball volume
+                                if not (_v2 and len(_v2) >= 18):
+                                    continue
                                 (_pit, _wh, _pa3, _k3, _bbe3, _nev, _evs,
                                  _brl3, _pbrl, _air3, _pair, _hard3,
-                                 _hr3, _ab3, _tb3, _hits3, _d350, _near) = _T
-                                _slg = (_tb3 / _ab3) if _ab3 else None
-                                _iso = ((_tb3 - _hits3) / _ab3) if _ab3 else None   # SLG - AVG
+                                 _hr3, _ab3, _tb3, _hits3, _d350, _near) = _v2[:18]
+                                if not _bbe3 or _bbe3 < 8:
+                                    continue   # too thin a per-pitch sample to trust its own rate
+                                _used.append((_pt, _pct))
+                                _hr_sum += _hr3; _near_sum += _near; _d350_sum += _d350
+                                _bbe_sum += _bbe3; _pa_sum += _pa3; _k_sum += _k3
+                                _pt_rates = {
+                                    "slg": (_tb3 / _ab3) if _ab3 else None,
+                                    "iso": ((_tb3 - _hits3) / _ab3) if _ab3 else None,
+                                    "avg": (_hits3 / _ab3) if _ab3 else None,
+                                    "avg_ev": (_evs / _nev) if _nev else None,
+                                    "hard_pct": (100.0 * _hard3 / _nev) if _nev else None,
+                                    "barrel_pct": (100.0 * _brl3 / _bbe3) if _bbe3 else None,
+                                    "pullair_pct": (100.0 * _pair / _air3) if _air3 else None,
+                                }
+                                for _k, _v in _pt_rates.items():
+                                    if _v is not None:
+                                        _wsum[_k] += _pct * _v
+                                        _wtot[_k] += _pct
+                            if _used and _bbe_sum >= 25:       # need real batted-ball volume
+                                def _wavg(_k, _nd=3):
+                                    return round(_wsum[_k] / _wtot[_k], _nd) if _wtot[_k] else None
                                 _mixline = {
                                     "pitches": [f"{_ptn}" for _ptn, _ in _used],
                                     "usage": round(sum(_p2 for _, _p2 in _used), 1),
-                                    "bbe": int(_bbe3), "hr": int(_hr3),
-                                    "near": int(_near), "d350": int(_d350),
-                                    "slg": round(_slg, 3) if _slg is not None else None,
-                                    "iso": round(_iso, 3) if _iso is not None else None,
-                                    "avg": round(_hits3 / _ab3, 3) if _ab3 else None,
-                                    "avg_ev": round(_evs / _nev, 1) if _nev else None,
-                                    "hard_pct": round(100.0 * _hard3 / _nev, 1) if _nev else None,
-                                    "barrel_pct": round(100.0 * _brl3 / _bbe3, 1) if _bbe3 else None,
-                                    "pullair_pct": round(100.0 * _pair / _air3, 1) if _air3 else None,
-                                    "k_pct": round(100.0 * _k3 / _pa3, 1) if _pa3 else None,
+                                    "bbe": int(_bbe_sum), "hr": int(_hr_sum),
+                                    "near": int(_near_sum), "d350": int(_d350_sum),
+                                    "slg": _wavg("slg"),
+                                    "iso": _wavg("iso"),
+                                    "avg": _wavg("avg"),
+                                    "avg_ev": _wavg("avg_ev", 1),
+                                    "hard_pct": _wavg("hard_pct", 1),
+                                    "barrel_pct": _wavg("barrel_pct", 1),
+                                    "pullair_pct": _wavg("pullair_pct", 1),
+                                    "k_pct": round(100.0 * _k_sum / _pa_sum, 1) if _pa_sum else None,
                                 }
                                 _p["vs_mix"] = _mixline
                                 _fit = _mixline["barrel_pct"]

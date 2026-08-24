@@ -447,7 +447,7 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str, asof: "V.AsOfFrame
         except Exception:
             pass
         out[bid] = {
-            "zone_edge": _zedge, "arsenal_fit": _afit,
+            "zone_edge": _zedge, "arsenal_fit": _afit, "zone_overlap_n": _zone,
             "cv_meas": _nm + _nmh, "cv_meas_noheat": _nm, "cv_prov": _np,
             # ---- Phase-2 features, all computed AS-OF from `past` only ----
             "near_miss_14d": _nm_ct,
@@ -612,8 +612,21 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
                       else "30-39 avg" if _pa2 >= 30 else "<30 weak", hit)
             _af = r.get("arsenal_fit")
             if _af is not None:
+                # ADDED this session: split out a genuinely poor tier (<4) from the old blanket
+                # "<7 weak" bucket -- needed to validate Genius Pairing's new arsenal_fit<=4
+                # discount (currently an unvalidated heuristic, see that combine function's
+                # docstring) against a real number instead of a lumped-together low bucket.
                 _edge("arsenal_fit", "11+ punishes" if _af >= 11 else "9-10.9 good" if _af >= 9
-                      else "7-8.9 avg" if _af >= 7 else "<7 weak", hit)
+                      else "7-8.9 avg" if _af >= 7 else "4-6.9 weak" if _af >= 4
+                      else "<4 poor", hit)
+            _zon = r.get("zone_overlap_n")
+            if _zon is not None:
+                # ADDED this session -- zone_overlap_n's raw count was already computed in this
+                # replay but never carried into the output dict, so there was no way to check
+                # the low end at all. Needed to validate Genius Pairing's new zone_overlap_n==0
+                # discount (also currently an unvalidated heuristic).
+                _edge("zone_overlap_n", "5+ premium" if _zon >= 5 else "3-4 good" if _zon >= 3
+                      else "1-2 some" if _zon >= 1 else "0 none", hit)
             _cm = r.get("cv_meas")
             if _cm is not None:
                 _edge("converge", f"{min(int(_cm),3)}{'+' if int(_cm)>=3 else ''} measured", hit)
