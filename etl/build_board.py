@@ -331,6 +331,30 @@ def _longball_score(p):
         power_parts += cl((bat_speed - 68) / 12); power_n += 1
         if bat_speed >= 76:
             drivers.append(f"{bat_speed:.1f} mph bat speed")
+        # ADDED per the Reddit thread Travis shared: a compact, fast swing is a real advantage
+        # specifically against a hard-throwing arm -- the exact case described (bat speed vs a
+        # 99-102mph fastball) -- and close to irrelevant against a soft-tosser. The flat
+        # bat_speed credit two lines up can't tell those two matchups apart; this can, reusing
+        # arsenal.py's own bat_speed_vs_velocity_credit() unchanged rather than inventing a
+        # second version of the same real signal. That function is already validated for
+        # general HR probability (it already feeds the Contact Quality convergence family) --
+        # honest caveat, its value specifically for DISTANCE/CEILING (a different question from
+        # "does he hit one at all") hasn't been independently backtested yet.
+        try:
+            _opp = p.get("opp_pitcher") or {}
+            _fbv = _opp.get("fb_velo") or (_opp.get("season") or {}).get("fb_velo")
+            _bt_prof = {"avg_bat_speed": bat_speed}
+            if fast_swing is not None:
+                _bt_prof["short_fast_rate"] = fast_swing   # best available proxy -- true
+                                                           # short_fast_rate needs swing-length
+                                                           # data this function doesn't have
+            _velo_credit = arsenal_mod.bat_speed_vs_velocity_credit(_bt_prof, _fbv)
+            if _velo_credit is not None and _velo_credit >= 0.60:
+                power_parts += _velo_credit * 0.5; power_n += 0.5
+                drivers.append(f"{bat_speed:.1f} mph bat speed vs {float(_fbv):.0f} mph "
+                              f"(real matchup edge)")
+        except Exception:
+            pass
     if fast_swing is not None:
         power_parts += cl((fast_swing - 15) / 45) * 0.6; power_n += 0.6
     power = (power_parts / power_n) if power_n else 0.0
