@@ -11389,6 +11389,51 @@ function cgpTicketHTML(sourceKey, ticketKey, t){
   </div>`;
 }
 
+function cgpRR5HTML(sourceKey, t){
+  const amerStr=n=>n==null?"—":(n>0?"+"+n:String(n));
+  const pctStr=p=>p==null?"—":(100*p).toFixed(p<0.01?3:2)+"%";
+  if(!t || t.incomplete){
+    return `<div class="cgp-ticket">
+      <div class="cgp-th">${t?t.label:"Genius 5"}</div>
+      <div class="psc-empty">${t?t.note:"Not enough of the slate has posted yet."}</div>
+    </div>`;
+  }
+  const legsHTML = t.legs.map((leg,i)=>{
+    const traits = (leg.drivers||[]).slice(0,3).map(d=>`<span class="cgp-trait">${d}</span>`).join("");
+    const _lb = (playersById().get(leg.id) || {}).long_ball;
+    const powerChip = (_lb && _lb.n_bb >= 15 && _lb.brl_percent >= 12)
+      ? `<span class="cgp-power" title="${_lb.n_bb} batted balls, trailing window">⚡ ${_lb.brl_percent.toFixed(1)}% barrel</span>` : "";
+    return `<div class="cgp-leg">
+      <div class="cgp-leg-top">
+        <div class="cgp-leg-l" onclick="event.stopPropagation();scanToPlayer(${leg.id})">
+          <b>${leg.name}</b><span>${leg.team} vs ${leg.opp_team}${leg.spot?` · #${leg.spot}`:""}</span>
+        </div>
+        <div class="cgp-leg-r">
+          <b>${pctStr(leg.prob)}</b>
+          ${leg.book_odds!=null?`<span class="cgp-book">book ${amerStr(leg.book_odds)}</span>`:""}
+          ${leg.edge_extreme?`<span class="cgp-warn" title="Model/book gap unusually large -- verify manually">⚠</span>`:""}
+        </div>
+      </div>
+      ${(traits||powerChip)?`<div class="cgp-traits">${powerChip}${traits}</div>`:""}
+    </div>`;
+  }).join("");
+  return `<div class="cgp-ticket">
+    <div class="cgp-th">${t.label}<span>${t.subtitle}</span></div>
+    ${legsHTML}
+    <div class="cgp-sum">
+      <div class="cgp-sum-row"><span>Possible 2-leg pairs</span><b>${t.n_possible_pairs}</b></div>
+      <div class="cgp-sum-row"><span>Expected pairs to hit</span><b>${t.expected_pairs_hit} of ${t.n_possible_pairs}</b></div>
+      <div class="cgp-sum-row"><span>P(at least one pair hits)</span><b>${pctStr(t.p_at_least_one_pair_hits)}</b></div>
+    </div>
+    <div class="cgp-note">Real, exact math -- enumerates all 32 outcomes across these 5
+    independent cross-game legs, not an approximation. "Expected pairs to hit" and "P(at least
+    one pair hits)" are two different real questions: the first is how many of the 10 possible
+    pairs convert on an average night, the second is your real shot at cashing at least one pair
+    specifically. Pick any 5 legs shown here to build your round robin -- these are ranked, not
+    a fixed combination.</div>
+  </div>`;
+}
+
 function renderParlayScanner(){
   const main=document.getElementById("main");
   const s1=scanStep1_games(), s2=scanStep2_arms(), s3=scanStep3_contact(), s4=scanStep4_power();
@@ -11456,6 +11501,30 @@ function renderParlayScanner(){
         return cgpTicketHTML("cross_game_parlays_pow","genius", cgppG.genius);
       })()}
     </div>
+    <div class="pl-card">
+      <div class="pl-card-h"><div class="pl-card-t">Genius Pairing <span class="beta-pill">OPEN POOL</span></div>
+        <div class="pl-card-d">Same real signal stack as above, same recalibrated probability --
+        no POW badge required to enter the pool. A hitter who does carry a real badge still gets
+        that badge's own anchor rate; everyone else anchors to the heat-calibrated curve. Wider
+        field, same rigor.</div></div>
+      ${(()=>{
+        const cgpO=BOARD.cross_game_parlays_genius_open;
+        if(!cgpO || !cgpO.genius) return `<div class="psc-empty">Not run yet on this board.</div>`;
+        return cgpTicketHTML("cross_game_parlays_genius_open","genius", cgpO.genius);
+      })()}
+    </div>
+    <div class="pl-card">
+      <div class="pl-card-h"><div class="pl-card-t">Genius 5 <span class="beta-pill">ROUND ROBIN</span></div>
+        <div class="pl-card-d">5-leg pool for a round robin, same real signal stack and
+        distinct-game enforcement as Genius Pairing above -- pick any 5 for a real round robin
+        instead of one all-or-nothing 3-leg ticket. 10 possible 2-leg pairs, real exact math
+        (not approximated) on how many are likely to hit.</div></div>
+      ${(()=>{
+        const cgp5=BOARD.cross_game_parlays_pow;
+        if(!cgp5 || !cgp5.genius5) return `<div class="psc-empty">Not run yet on this board.</div>`;
+        return cgpRR5HTML("cross_game_parlays_pow", cgp5.genius5);
+      })()}
+    </div>
     <div class="cgp-block">
       <div class="q-head" style="font-size:15px;margin-top:4px"><b>Cross-Game 3-Leg HR Optimizer</b></div>
       <div class="psc-sub">Every leg from a different game — no same-game correlation for a book
@@ -11471,7 +11540,7 @@ function renderParlayScanner(){
       <div class="pl-card-h"><div class="pl-card-t">Power Badge 3-Leg Parlay <span class="beta-pill">POW-ONLY</span></div>
         <div class="pl-card-d">Same optimizer, same real math — restricted to hitters carrying
         the POW badge specifically. Every leg on both tickets is guaranteed to hold it. (Genius
-        Pairing, the third POW-restricted strategy, has its own card above.)</div></div>
+        Pairing, Genius Pairing Open, and Genius 5 have their own cards above.)</div></div>
       ${(()=>{
         const cgpp=BOARD.cross_game_parlays_pow;
         if(!cgpp) return `<div class="psc-empty">Not run yet on this board.</div>`;
