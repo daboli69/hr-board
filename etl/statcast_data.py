@@ -950,7 +950,7 @@ def _pitch_splits(rows: pd.DataFrame) -> dict:
         return {}
     work = rows.copy()
     work["fam"] = work["pitch_type"].map(PITCH_BUCKET)
-    bb_all = work[work["launch_speed"].notna() & (work["description"].astype(str) == "hit_into_play")] if "description" in work.columns else work[work["launch_speed"].notna()]
+    bb_all = work[work["launch_speed"].notna()]
     SWINGS = {"swinging_strike", "swinging_strike_blocked", "foul", "foul_tip", "hit_into_play"}
     out = {}
     for fam in ("FB", "BR", "OFF"):
