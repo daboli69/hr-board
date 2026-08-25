@@ -290,7 +290,7 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str, asof: "V.AsOfFrame
         except Exception:
             badge_keys = []
         # ---- NEW SIGNALS, computed from `past` only (no leakage) ----
-        _zone = None; _squp = None; _hrpow = None
+        _zone = None; _squp = None; _hrpow = None; _sweet_spot = None
         try:
             _brows = _by_bat.get(int(bid), _EMPTY)
             if len(_brows) >= 50:
@@ -301,9 +301,23 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str, asof: "V.AsOfFrame
                 _sq = _F.square_up_rating(_brows)
                 if _sq:
                     _squp = _sq.get("rating")
+                    # ADDED this session: sweet_spot_pct (LA 8-32) is already computed inside
+                    # square_up_rating() -- it's one of four components blended into the
+                    # composite "rating" above -- but was discarded before reaching this row,
+                    # so it had never been independently checked on its own. Sample gate (n)
+                    # mirrors square_up_rating's own internal >=15 floor.
+                    _sweet_spot = _sq.get("sweet_spot_pct")
+                    if _sweet_spot is not None:
+                        _sweet_spot = round(100.0 * _sweet_spot, 1)   # stored as a 0-1 fraction
                 _hp = _F.hr_power_profile(_brows)
                 if _hp:
-                    _hrpow = _hp.get("barrel_pct")
+                    # FIXED this session: was a bare scalar (barrel_pct alone) -- the new
+                    # genius-stack calibration code below expects a dict with both barrel_pct
+                    # and max_dist (matching what own_hr_power carries live), and would silently
+                    # AttributeError on every row otherwise (caught by that code's own
+                    # try/except, so the whole check would come back empty with no visible
+                    # error rather than crashing loudly).
+                    _hrpow = {"barrel_pct": _hp.get("barrel_pct"), "max_dist": _hp.get("max_dist")}
         except Exception:
             pass
         # ---- zone edge + arsenal fit + convergence, all as-of `past` ----
@@ -474,7 +488,7 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str, asof: "V.AsOfFrame
             "ks": int(bat_out["ks"].get(bid, 0)),
             "hrr": int(hrr_val.get(bid, 0)),
             "badges": badge_keys,
-            "zone": _zone, "square_up": _squp, "hr_power": _hrpow,
+            "zone": _zone, "square_up": _squp, "hr_power": _hrpow, "sweet_spot": _sweet_spot,
         }
     return out, pitcher_scores
 
@@ -707,9 +721,22 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
             if _sq is not None:
                 _edge("square_up", "75+ elite" if _sq >= 75 else "60-74 strong" if _sq >= 60
                       else "45-59 avg" if _sq >= 45 else "<45 weak", hit)
-            _hp = r.get("hr_power")
+            _hp = (r.get("hr_power") or {}).get("barrel_pct")
             if _hp is not None:
                 _edge("hr_power", "12%+ barrel" if _hp >= 12 else "8-11%" if _hp >= 8 else "<8%", hit)
+            # ADDED this session -- sweet_spot_pct (LA 8-32) was already computed inside
+            # square_up_rating() but only ever survived as one of four ingredients blended into
+            # that composite rating above -- never checked on its own merits until now.
+            _sw = r.get("sweet_spot")
+            if _sw is not None:
+                _edge("sweet_spot_pct", "44+ elite" if _sw >= 44 else "36-43.9 good" if _sw >= 36
+                      else "28-35.9 avg" if _sw >= 28 else "<28 weak", hit)
+            # ADDED this session -- own_max_dist wasn't independently checked either (only
+            # barrel_pct, its sibling field in hr_power_profile, had a real tier check above).
+            _md = (r.get("hr_power") or {}).get("max_dist")
+            if _md is not None:
+                _edge("own_max_dist", "430+ elite" if _md >= 430 else "410-429 strong" if _md >= 410
+                      else "390-409 avg" if _md >= 390 else "<390 weak", hit)
             # badge tally: each badge this hitter carries gets a plate appearance + HR credit
             _badges_today = r.get("badges", [])
             for bk in _badges_today:
@@ -1073,6 +1100,29 @@ def main():
         rec["signal_redundancy"] = {"error": f"{type(e).__name__}: {e}"}
         print(f"[backtest:signal_redundancy] skipped: {e}")
     try:
+        rec["pitch_count_fatigue"] = replay_pitch_count_fatigue(df, start=start, end=end)
+        pcf = rec["pitch_count_fatigue"]
+        if pcf.get("buckets"):
+            print(f"[backtest:pitch_count_fatigue] {pcf['n_total']} real PAs across "
+                  f"{len(pcf['buckets'])} pitch-count buckets, base {pcf['base_pct']}%")
+        else:
+            print(f"[backtest:pitch_count_fatigue] skipped: {pcf.get('error')}")
+    except Exception as e:
+        rec["pitch_count_fatigue"] = {"error": f"{type(e).__name__}: {e}"}
+        print(f"[backtest:pitch_count_fatigue] skipped: {e}")
+    try:
+        rec["first_pitch_matchup"] = replay_first_pitch_matchup(df, start=start, end=end)
+        fpm = rec["first_pitch_matchup"]
+        if fpm.get("lift") is not None:
+            print(f"[backtest:first_pitch_matchup] {fpm['first_pitch_n']} real first-pitch PAs, "
+                  f"{fpm['first_pitch_hr_pct']}% vs {fpm['overall_hr_pct']}% overall "
+                  f"({fpm['lift']}x)")
+        else:
+            print(f"[backtest:first_pitch_matchup] skipped: {fpm.get('error')}")
+    except Exception as e:
+        rec["first_pitch_matchup"] = {"error": f"{type(e).__name__}: {e}"}
+        print(f"[backtest:first_pitch_matchup] skipped: {e}")
+    try:
         rec["acute_bullpen_fatigue"] = replay_acute_bullpen_fatigue(df, start=start, end=end)
         abf = rec["acute_bullpen_fatigue"]
         if abf.get("by_acute_fatigue_quartile"):
@@ -1101,6 +1151,99 @@ def main():
 #   * Total MAE: mean absolute error on the run total. Books are typically within
 #     ~2.6 runs. Beating that is the (hard) bar for betting totals.
 # ---------------------------------------------------------------------------
+def replay_pitch_count_fatigue(df, start=None, end=None):
+    """Does a pitcher's real HR rate allowed change with how deep he is into a start? Buckets
+    EVERY real plate appearance across the whole season by the pitcher's TRUE cumulative
+    in-game pitch count at the moment that PA concluded -- not pitch_number, which only counts
+    within one at-bat -- then compares real HR rate across buckets.
+
+    This is the direct test of the hypothesis, not a live signal yet: building a real per-batter
+    "will he see this pitcher in the fatigue zone tonight" projection needs real-time lineup
+    spot and expected pitch-count context this replay doesn't currently reconstruct (same gap
+    flagged for the L14d/arm-vulnerability signals elsewhere in this file). The honest first
+    step is checking whether pitch-count depth predicts anything real at all before building
+    that projection layer on top of it.
+    """
+    need = {"pitcher", "game_pk", "inning", "at_bat_number", "pitch_number", "events", "game_date"}
+    if df is None or df.empty or not need.issubset(df.columns):
+        return {"error": "missing required Statcast columns for pitch-count fatigue"}
+    d = df.copy()
+    if start:
+        d = d[d["game_date"].astype(str) >= start]
+    if end:
+        d = d[d["game_date"].astype(str) <= end]
+    if d.empty:
+        return {"error": "no rows in the requested date range"}
+    d = d.sort_values(["pitcher", "game_pk", "inning", "at_bat_number", "pitch_number"])
+    d["_cum_pitch"] = d.groupby(["pitcher", "game_pk"]).cumcount() + 1
+
+    # Only the pitch that actually ends a PA carries the real outcome (events is non-null
+    # there and nowhere else) -- that's the one row per PA that determines hit/HR/out.
+    pa_rows = d[d["events"].notna()].copy()
+    if pa_rows.empty:
+        return {"error": "no plate-appearance-ending rows found"}
+    pa_rows["_hr"] = (pa_rows["events"].astype(str) == "home_run")
+
+    buckets = [("1-25", 1, 25), ("26-50", 26, 50), ("51-75", 51, 75),
+              ("76-100", 76, 100), ("101+", 101, 10_000)]
+    out = {}
+    for label, lo, hi in buckets:
+        sub = pa_rows[(pa_rows["_cum_pitch"] >= lo) & (pa_rows["_cum_pitch"] <= hi)]
+        n = len(sub)
+        if n < 200:          # too thin a bucket to trust
+            continue
+        hr = int(sub["_hr"].sum())
+        out[label] = {"n": n, "hr": hr, "rate_pct": round(100.0 * hr / n, 2)}
+    if not out:
+        return {"error": "no bucket had enough real plate appearances"}
+    base_n = sum(v["n"] for v in out.values())
+    base_hr = sum(v["hr"] for v in out.values())
+    base_rate = (base_hr / base_n) if base_n else None
+    for v in out.values():
+        v["lift"] = round((v["rate_pct"] / 100.0) / base_rate, 3) if base_rate else None
+    return {"buckets": out, "base_pct": round(100 * base_rate, 2) if base_rate else None,
+            "n_total": base_n}
+
+
+def replay_first_pitch_matchup(df, start=None, end=None):
+    """Does contact on a 0-0 count carry a different real HR rate than contact overall? A
+    well-known sabermetric intuition -- pitchers often 'groove' first pitches to get ahead in
+    the count, and batters who ambush that pitch are swinging at something they know is coming
+    down the middle -- checked directly against this season's real outcomes rather than assumed.
+    """
+    need = {"balls", "strikes", "events", "game_date"}
+    if df is None or df.empty or not need.issubset(df.columns):
+        return {"error": "missing required Statcast columns for first-pitch matchup"}
+    d = df.copy()
+    if start:
+        d = d[d["game_date"].astype(str) >= start]
+    if end:
+        d = d[d["game_date"].astype(str) <= end]
+    if d.empty:
+        return {"error": "no rows in the requested date range"}
+
+    all_concluded = d[d["events"].notna()].copy()
+    if all_concluded.empty:
+        return {"error": "no plate-appearance-ending rows found"}
+    all_concluded["_hr"] = (all_concluded["events"].astype(str) == "home_run")
+    n_all, hr_all = len(all_concluded), int(all_concluded["_hr"].sum())
+
+    fp = all_concluded[(all_concluded["balls"] == 0) & (all_concluded["strikes"] == 0)]
+    n_fp, hr_fp = len(fp), int(fp["_hr"].sum())
+    if n_fp < 200:
+        return {"error": f"only {n_fp} real first-pitch-ending PAs -- too thin to trust"}
+
+    base_rate = hr_all / n_all if n_all else None
+    fp_rate = hr_fp / n_fp if n_fp else None
+    return {
+        "first_pitch_n": n_fp, "first_pitch_hr": hr_fp,
+        "first_pitch_hr_pct": round(100 * fp_rate, 2) if fp_rate is not None else None,
+        "overall_n": n_all, "overall_hr": hr_all,
+        "overall_hr_pct": round(100 * base_rate, 2) if base_rate is not None else None,
+        "lift": round(fp_rate / base_rate, 3) if (fp_rate is not None and base_rate) else None,
+    }
+
+
 def replay_signal_redundancy() -> dict:
     """Data-analyst pass: how much of Genius Pairing's 'convergence' is genuinely independent
     evidence versus the same underlying fact counted several times under different names?
@@ -1141,7 +1284,10 @@ def replay_signal_redundancy() -> dict:
         n_days_used += 1
         for p in pow_players:
             for k in keys:
-                pooled[k].append(p.get(k))
+                _v = p.get(k)
+                if k == "hr_power" and isinstance(_v, dict):
+                    _v = _v.get("barrel_pct")
+                pooled[k].append(_v)
 
     n_pool = len(pooled["heat"])
     if n_pool < 30:
