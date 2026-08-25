@@ -11442,6 +11442,20 @@ function renderParlayScanner(){
       those screens for the same player. <b>2+ HRR</b> and the HRR prop's 1.5 line are the same
       number: the model produces a whole count, so clearing 1.5 means landing on 2 or more.</div>
     ${step1}${step2}${step3}${step4}
+    <div class="pl-card">
+      <div class="pl-card-h"><div class="pl-card-t">Genius Pairing <span class="beta-pill">POW-ONLY</span></div>
+        <div class="pl-card-d">This app's real recommendation for a 3-leg cross-game HR parlay
+        -- the most heavily-validated ticket it builds, stacking every real, backtest-checked
+        signal (badge anchor, family convergence, arsenal fit, zone overlap, own power profile,
+        opposing arm/pen) into one combined probability. Everything else on this screen (Arsenal
+        &amp; Lock, Air-Power &amp; Volume, the Cross-Game Optimizer below) is a comparison
+        point or an alternate strategy, not a stronger pick.</div></div>
+      ${(()=>{
+        const cgppG=BOARD.cross_game_parlays_pow;
+        if(!cgppG || !cgppG.genius) return `<div class="psc-empty">Not run yet on this board.</div>`;
+        return cgpTicketHTML("cross_game_parlays_pow","genius", cgppG.genius);
+      })()}
+    </div>
     <div class="cgp-block">
       <div class="q-head" style="font-size:15px;margin-top:4px"><b>Cross-Game 3-Leg HR Optimizer</b></div>
       <div class="psc-sub">Every leg from a different game — no same-game correlation for a book
@@ -11456,7 +11470,8 @@ function renderParlayScanner(){
     <div class="pl-card">
       <div class="pl-card-h"><div class="pl-card-t">Power Badge 3-Leg Parlay <span class="beta-pill">POW-ONLY</span></div>
         <div class="pl-card-d">Same optimizer, same real math — restricted to hitters carrying
-        the POW badge specifically. Every leg on both tickets is guaranteed to hold it.</div></div>
+        the POW badge specifically. Every leg on both tickets is guaranteed to hold it. (Genius
+        Pairing, the third POW-restricted strategy, has its own card above.)</div></div>
       ${(()=>{
         const cgpp=BOARD.cross_game_parlays_pow;
         if(!cgpp) return `<div class="psc-empty">Not run yet on this board.</div>`;
