@@ -1162,6 +1162,17 @@ def main():
         rec["first_pitch_matchup"] = {"error": f"{type(e).__name__}: {e}"}
         print(f"[backtest:first_pitch_matchup] skipped: {e}")
     try:
+        rec["team_traffic_persistence"] = replay_team_traffic_persistence(df, start=start, end=end)
+        ttp = rec["team_traffic_persistence"]
+        if ttp.get("split_half_correlation") is not None:
+            print(f"[backtest:team_traffic_persistence] {ttp['n_teams']} teams, split-half "
+                  f"correlation {ttp['split_half_correlation']} -- {ttp['verdict']}")
+        else:
+            print(f"[backtest:team_traffic_persistence] skipped: {ttp.get('error')}")
+    except Exception as e:
+        rec["team_traffic_persistence"] = {"error": f"{type(e).__name__}: {e}"}
+        print(f"[backtest:team_traffic_persistence] skipped: {e}")
+    try:
         rec["acute_bullpen_fatigue"] = replay_acute_bullpen_fatigue(df, start=start, end=end)
         abf = rec["acute_bullpen_fatigue"]
         if abf.get("by_acute_fatigue_quartile"):
@@ -1190,6 +1201,83 @@ def main():
 #   * Total MAE: mean absolute error on the run total. Books are typically within
 #     ~2.6 runs. Beating that is the (hard) bar for betting totals.
 # ---------------------------------------------------------------------------
+def replay_team_traffic_persistence(df, start=None, end=None):
+    """Is a team's real bases-loaded rate a genuine, persistent team characteristic, or mostly
+    noise? Split-half check: computes each team's real bases-loaded PA rate in the first half
+    of the requested window and again in the second half, then checks whether the first half
+    predicts the second.
+
+    This is the necessary first step before team_traffic_profile() (statcast_data.py, added
+    this session per Travis's direct question) could ever meaningfully predict something as
+    rare as a real grand slam -- only ~105 real grand slams happen in a full season, spread
+    across 30 teams, far too thin to directly test "does team traffic predict team grand slam
+    rate" with any real statistical power. Real HR-per-team-per-half-season volume is a much
+    more plentiful, better-powered population to check general persistence against first.
+
+    A real, strong positive split-half correlation means teams that generate more traffic
+    early in the window keep doing it later -- a genuine, stable characteristic worth weighting
+    live. A weak or absent correlation means most of the season-to-season variation in team
+    traffic rate is closer to random noise, and the live signal (currently damped to 50%
+    strength in slam_probability(), see that function's docstring) should probably be damped
+    further or dropped rather than trusted more.
+    """
+    need = {"game_pk", "at_bat_number", "on_1b", "on_2b", "on_3b", "inning_topbot",
+           "home_team", "away_team", "game_date"}
+    if df is None or df.empty or not need.issubset(df.columns):
+        return {"error": "missing required Statcast columns for team traffic persistence"}
+    d = df.copy()
+    if start:
+        d = d[d["game_date"].astype(str) >= start]
+    if end:
+        d = d[d["game_date"].astype(str) <= end]
+    if d.empty:
+        return {"error": "no rows in the requested date range"}
+    dates = pd.to_datetime(d["game_date"], errors="coerce")
+    lo, hi = dates.min(), dates.max()
+    if pd.isna(lo) or pd.isna(hi) or lo == hi:
+        return {"error": "not enough of a real date range to split in half"}
+    midpoint = lo + (hi - lo) / 2
+
+    def _team_rates(sub):
+        if sub.empty:
+            return {}
+        topbot = sub["inning_topbot"].astype(str)
+        sub = sub.copy()
+        sub["_team"] = np.where(topbot.str.startswith("Top"), sub["away_team"], sub["home_team"])
+        pa = sub.drop_duplicates(subset=["_team", "game_pk", "at_bat_number"])
+        pa_counts = pa.groupby("_team").size()
+        loaded = pa[pa["on_1b"].notna() & pa["on_2b"].notna() & pa["on_3b"].notna()]
+        loaded_counts = loaded.groupby("_team").size()
+        out = {}
+        for team, n in pa_counts.items():
+            if n < 200 or not team:   # real, meaningful half-window sample per team
+                continue
+            out[str(team)] = int(loaded_counts.get(team, 0)) / n
+        return out
+
+    first_half = _team_rates(d[dates < midpoint])
+    second_half = _team_rates(d[dates >= midpoint])
+    common = sorted(set(first_half) & set(second_half))
+    if len(common) < 10:
+        return {"error": f"only {len(common)} teams had enough real PA in both halves -- "
+                         "too thin to trust a split-half correlation"}
+    x = [first_half[t] for t in common]
+    y = [second_half[t] for t in common]
+    mx, my = sum(x) / len(x), sum(y) / len(y)
+    cov = sum((xi - mx) * (yi - my) for xi, yi in zip(x, y))
+    sx = sum((xi - mx) ** 2 for xi in x) ** 0.5
+    sy = sum((yi - my) ** 2 for yi in y) ** 0.5
+    corr = round(cov / (sx * sy), 3) if sx and sy else None
+    return {
+        "n_teams": len(common), "split_half_correlation": corr,
+        "first_half_rates": {t: round(first_half[t], 4) for t in common},
+        "second_half_rates": {t: round(second_half[t], 4) for t in common},
+        "verdict": ("real, persistent team characteristic" if corr is not None and corr >= 0.4
+                   else "weak or no real persistence -- likely mostly noise" if corr is not None
+                   else "could not compute"),
+    }
+
+
 def replay_pitch_count_fatigue(df, start=None, end=None):
     """Does a pitcher's real HR rate allowed change with how deep he is into a start? Buckets
     EVERY real plate appearance across the whole season by the pitcher's TRUE cumulative

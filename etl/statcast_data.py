@@ -2154,6 +2154,76 @@ def pitcher_traffic_profile(df: pd.DataFrame, pitcher_ids: list[int]) -> dict:
     return out
 
 
+def team_traffic_profile(df: pd.DataFrame, recent_days: int = 14) -> dict:
+    """Real, RECENT-WINDOW team bases-loaded frequency for the Grand Slam engine -- per
+    Travis's direct question: does a team that's been getting into bases-loaded situations
+    more often lately deserve real weight, separate from what's already there?
+
+    Checked directly against what already exists before building this: Grand Slam already has
+    pitcher_traffic_profile() (how bases-loaded-prone THIS SPECIFIC OPPOSING PITCHER is,
+    season-long) and traffic_score() (how good the 3 hitters batting immediately ahead of THIS
+    hitter are, in TODAY's specific lineup). Neither of those is what Travis is asking about --
+    this is the team's own real, recent, WHOLE-LINEUP traffic-generating tendency, which could
+    move for reasons neither existing signal captures (the whole order running hot together, a
+    softer recent stretch of opposing pitching, real situational-hitting form) and could
+    disagree with what the "3 guys right ahead" proxy alone would suggest on a given night.
+
+    Bases loaded = on_1b, on_2b, AND on_3b all non-null on the same plate appearance -- the
+    same real, standard Statcast definition pitcher_traffic_profile() already uses, applied to
+    the batting team instead of the pitcher. Batting team derived the same way team_k_splits()
+    already does (top of inning = away team batting, bottom = home team batting) -- an
+    established pattern in this file, not a new convention invented for this function.
+
+    recent_days=14 by default -- "recently" per Travis's own framing, not season-long; a team's
+    game-to-game traffic-generating form is exactly the kind of thing that should be read on a
+    real recent window, not diluted across a whole season the way the pitcher-side multiplier
+    intentionally is (a starting pitcher's true bases-loaded tendency is a more stable,
+    season-scale property; a TEAM's is much more plausibly a real, moving, recent-form signal).
+
+    Returns {team: {bases_loaded_rate, team_traffic_multiplier, n_pa}}. Same real
+    league-average anchoring as pitcher_traffic_profile() -- computed from the same recent-
+    window population passed in, not an externally asserted constant.
+    """
+    need = {"game_pk", "at_bat_number", "on_1b", "on_2b", "on_3b", "inning_topbot",
+           "home_team", "away_team", "game_date"}
+    if df is None or df.empty or not need.issubset(df.columns):
+        return {}
+    d = df.copy()
+    dates = pd.to_datetime(d["game_date"], errors="coerce")
+    last = dates.max()
+    if pd.isna(last):
+        return {}
+    d = d[dates >= (last - pd.Timedelta(days=recent_days))]
+    if d.empty:
+        return {}
+    topbot = d["inning_topbot"].astype(str)
+    d["_team"] = np.where(topbot.str.startswith("Top"), d["away_team"], d["home_team"])
+    # one row per real PA, not per pitch -- same dedup reasoning as pitcher_traffic_profile()
+    pa = d.drop_duplicates(subset=["_team", "game_pk", "at_bat_number"])
+    pa_counts = pa.groupby("_team").size()
+    loaded = pa[pa["on_1b"].notna() & pa["on_2b"].notna() & pa["on_3b"].notna()]
+    loaded_counts = loaded.groupby("_team").size()
+
+    total_pa = int(pa_counts.sum())
+    total_loaded = int(loaded_counts.reindex(pa_counts.index, fill_value=0).sum())
+    if total_pa < 500:      # too little of the recent-window slate represented across all
+        return {}           # teams to trust a league-average anchor computed from it
+    league_rate = total_loaded / total_pa
+
+    out = {}
+    for team, n_pa in pa_counts.items():
+        if n_pa < 40 or not team:   # a handful of recent PAs isn't a real team-level rate
+            continue
+        n_loaded = int(loaded_counts.get(team, 0))
+        rate = n_loaded / n_pa
+        out[str(team)] = {
+            "bases_loaded_rate": round(rate, 4),
+            "team_traffic_multiplier": round(rate / league_rate, 3) if league_rate else 1.0,
+            "n_pa": int(n_pa),
+        }
+    return out
+
+
 def pitcher_batted_ev_profile(df: pd.DataFrame, pitcher_ids: list[int]) -> dict:
     """Per-pitcher average exit velocity allowed and hard-hit% allowed -- this genuinely does
     not exist anywhere else in this pipeline. pitcher_edges.season only has bb/era/h/hr/ip/so/

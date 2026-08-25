@@ -2360,13 +2360,16 @@ def build(date_str: str | None = None) -> dict:
             lb_park_dist = statcast_data.park_hr_distance_profile(df)  # real HR ft by park
             lb_pitcher_ev = statcast_data.pitcher_batted_ev_profile(df, pitcher_ids)  # Jackpot
             gs_pitcher_traffic = statcast_data.pitcher_traffic_profile(df, pitcher_ids)  # Grand Slam Part A
+            gs_team_traffic = statcast_data.team_traffic_profile(df, recent_days=14)  # Grand Slam Part A2
             print(f"[build] long ball ceiling: {len(lb_ceiling)} batters (trajectory/bat speed) "
                   f"| {len(lb_evbarrels)} batters (MLB-wide ev50/max EV leaderboard) "
                   f"| {len(lb_park_dist)} parks (real HR distance) "
                   f"| {len(lb_pitcher_ev)} pitchers (EV/hard-hit allowed, Jackpot EV) "
-                  f"| {len(gs_pitcher_traffic)} pitchers (bases-loaded traffic, Grand Slam)")
+                  f"| {len(gs_pitcher_traffic)} pitchers (bases-loaded traffic, Grand Slam) "
+                  f"| {len(gs_team_traffic)} teams (recent bases-loaded traffic, Grand Slam)")
         except Exception as e:
             lb_ceiling, lb_evbarrels, lb_park_dist, lb_pitcher_ev, gs_pitcher_traffic = {}, {}, {}, {}, {}
+            gs_team_traffic = {}
             _hnote("long ball ceiling metrics", e)
             print(f"[build] long ball ceiling metrics skipped: {e}")
         print(f"[build] bvp tables: {len(bat_tables)} hitters, {len(arm_tables)} arms, "
@@ -3460,6 +3463,23 @@ def build(date_str: str | None = None) -> dict:
                             _opp_id = (p.get("opp_pitcher") or {}).get("id")
                             _traffic_rec = gs_pitcher_traffic.get(_opp_id) or {}
                             _traffic_mult = _traffic_rec.get("pitcher_traffic_multiplier", 1.0)
+                            # Part A2: ADDED this session, per Travis -- this hitter's OWN team's
+                            # real, recent (14-day) bases-loaded rate. Alias-aware lookup, same
+                            # real abbreviation mismatch risk already found and handled
+                            # elsewhere in this file (Statcast's home_team/away_team don't
+                            # always match this app's own team code convention) -- falls back
+                            # to neutral (1.0) rather than guessing if neither the direct code
+                            # nor its alias resolves, the safe default for a new, still-
+                            # unvalidated signal.
+                            _team_dalias = {"AZ":"ARI","ARI":"AZ","CWS":"CHW","CHW":"CWS",
+                                           "WSH":"WSN","WSN":"WSH","SD":"SDP","SDP":"SD",
+                                           "SF":"SFG","SFG":"SF","TB":"TBR","TBR":"TB",
+                                           "KC":"KCR","KCR":"KC"}
+                            _own_team = p.get("team")
+                            _team_traffic_rec = (gs_team_traffic.get(_own_team)
+                                                 or gs_team_traffic.get(_team_dalias.get(_own_team, ""))
+                                                 or {})
+                            _team_traffic_mult = _team_traffic_rec.get("team_traffic_multiplier", 1.0)
                             # Part B: real, currently-graded matchup edges vs this pitcher
                             _gs_badges = {b.get("k") for b in (p.get("badges") or []) if b.get("k")}
                             _gs_brl = _w14.get("barrel_pct")
@@ -3472,7 +3492,7 @@ def build(date_str: str | None = None) -> dict:
                                 _pl_prob, _hrpa, park_mult=1.0 + _pk2 * 0.45,
                                 near_miss_boost=min(0.12, 0.04 * _nm2),
                                 traffic_mult=_traffic_mult, matchup_lift_mult=_lift_mult,
-                                convergence_mult=_conv_mult)
+                                convergence_mult=_conv_mult, team_traffic_mult=_team_traffic_mult)
                 except Exception:
                     _p_slam = None
                 gs = grandslam.grand_slam_score(traffic, punish, pen_boost=pen_boost,

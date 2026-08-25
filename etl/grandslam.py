@@ -306,11 +306,25 @@ def signal_tiebreaker_multiplier(signal_count: int) -> float:
 
 def slam_probability(p_loaded, hr_per_pa, park_mult=1.0, near_miss_boost=0.0,
                      traffic_mult=1.0, matchup_lift_mult=1.0, convergence_mult=1.0,
-                     vuln_mult=1.0, signal_mult=1.0):
+                     vuln_mult=1.0, signal_mult=1.0, team_traffic_mult=1.0):
     """P(grand slam this game) = P(bases loaded in a PA) x P(he homers in it), across ~4.3 PAs.
 
     traffic_mult: Part A -- this specific pitcher's own bases-loaded rate vs league average
     (pitcher_traffic_profile() in statcast_data.py), applied to p_loaded.
+    team_traffic_mult: Part A2 -- ADDED this session, per Travis's direct question: does this
+    batting TEAM'S real, recent (14-day) bases-loaded frequency deserve real weight, separate
+    from Part A (the pitcher's season-long tendency) and separate from traffic_score() (which
+    only looks at the 3 hitters batting immediately ahead of THIS one, in today's specific
+    lineup)? A genuinely different question -- whether the WHOLE order has been generating more
+    traffic lately, for reasons neither of those existing signals would catch (the lineup
+    running hot together, a soft recent stretch of opposing pitching, real situational-hitting
+    form). Combined with traffic_mult via a damped blend, not simple multiplication:
+    traffic_mult stays at full strength (pitcher_traffic_profile is an established, stable,
+    season-scale signal); team_traffic_mult is damped to 50% since it is NEW and has not yet
+    been backtest-validated against real grand slam outcomes specifically (see
+    replay_team_traffic in backtest.py) -- stacking a real, proven signal at full strength
+    against a real-but-unproven one at full strength would risk exactly the kind of
+    overconfidence this session already found and fixed once in the Genius Pairing stack.
     matchup_lift_mult: Part B -- this batter's real, currently-graded edges against THIS
     pitcher (badges/barrel%), applied to hr_per_pa alongside the existing park factor.
     convergence_mult: Part C -- the "hits 3+ of the Part B criteria" bonus. Reuses the real
@@ -324,7 +338,8 @@ def slam_probability(p_loaded, hr_per_pa, park_mult=1.0, near_miss_boost=0.0,
     """
     if p_loaded is None or not hr_per_pa:
         return None
-    p_loaded_adj = min(1.0, max(0.0, float(p_loaded) * float(traffic_mult or 1.0)))
+    _combined_traffic = float(traffic_mult or 1.0) * (1.0 + (float(team_traffic_mult or 1.0) - 1.0) * 0.5)
+    p_loaded_adj = min(1.0, max(0.0, float(p_loaded) * _combined_traffic))
     hr = (float(hr_per_pa) * float(park_mult or 1.0) * (1.0 + float(near_miss_boost or 0.0))
          * float(matchup_lift_mult or 1.0) * float(vuln_mult or 1.0))
     per_pa = p_loaded_adj * hr
