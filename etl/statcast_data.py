@@ -1037,7 +1037,7 @@ def _agg_metrics(rows: pd.DataFrame) -> dict:
     """Compute the metric dict for an arbitrary subset of pitch-level rows."""
     if rows.empty:
         return {}
-    bb = rows[rows["launch_speed"].notna() & rows["events"].notna()]   # real batted balls, excludes fouls
+    bb = rows[rows["launch_speed"].notna()]            # batted balls
     n_bb = len(bb)
     pa_rows = rows[rows["events"].isin(PA_EVENTS)]
     pa = len(pa_rows)
@@ -1337,7 +1337,7 @@ def _pitcher_metrics(rows: pd.DataFrame) -> dict:
     """HR-vulnerability metrics allowed by a pitcher over an arbitrary row subset."""
     if rows.empty:
         return {}
-    bb = rows[rows["launch_speed"].notna() & rows["events"].notna()]   # real batted balls, excludes fouls
+    bb = rows[rows["launch_speed"].notna()]
     n_bb = len(bb)
     pa = rows["events"].isin(PA_EVENTS).sum()
     pitches = len(rows)
