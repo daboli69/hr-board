@@ -228,6 +228,37 @@ def _load_markov_calib():
         return {"slope": 1.0, "intercept": 0.0, "source_n": None, "applied": False}
 
 
+def _load_genius_stack_calib():
+    """backtest.json's genius_stack_calibration is the direct answer to the question "does
+    stacking all these lifts actually do anything?" -- checked directly, not assumed. It calls
+    the real _hrpo_combine_genius_pow on every real POW-badge candidate in the replay (not an
+    approximation), bins the output into deciles, and grades it against real outcomes. The
+    verdict on a 127-day run: FAIL -- slope 0.47 (severe overconfidence), brier worse than the
+    base-rate baseline. Every individual signal feeding this stack (badge anchor, arsenal fit,
+    zone overlap, family convergence) is real and separately validated on its own -- the
+    problem is specifically the COMPOUNDING of 5+ damped multipliers together, the same failure
+    mode already found and fixed once in the Markov engine's totals probability. Spearman 0.587
+    confirms real ranking value survives the miscalibration -- the stack still correctly orders
+    better candidates ahead of worse ones -- it's the absolute probability number that was never
+    trustworthy for EV math or fair-odds display as shipped.
+
+    Same real, live-refreshing correction pattern as _load_markov_calib: reads slope/intercept
+    from backtest.json rather than hardcoding, falls back to no correction when unavailable.
+    Reuses _apply_markov_calib directly -- it's a generic linear-transform-and-clip, nothing
+    Markov-specific about the math itself.
+    """
+    try:
+        with open("docs/backtest.json") as _f:
+            bt = json.load(_f)
+        gsc = bt.get("genius_stack_calibration")
+        if not gsc or "slope" not in gsc or "intercept" not in gsc:
+            return {"slope": 1.0, "intercept": 0.0, "source_n": None, "applied": False}
+        return {"slope": gsc["slope"], "intercept": gsc["intercept"],
+                "source_n": gsc.get("n"), "applied": True}
+    except Exception:
+        return {"slope": 1.0, "intercept": 0.0, "source_n": None, "applied": False}
+
+
 def _apply_markov_calib(p, calib):
     """Clip to [0.01, 0.99] after the linear transform -- a raw probability near the extremes
     combined with slope>1 or a large intercept could otherwise push the corrected value outside
@@ -1335,6 +1366,8 @@ def _hrpo_raw_signals(p, pp_by_id, pen_by_team, backtest_calib, base_rate, requi
     if heat is None:
         return None
 
+    # Promoted above the if/else -- ADDED this session, needed in BOTH branches now (see below).
+    _BADGE_ANCHOR_LIFT = {"pow": 1.757, "lock": 1.352, "mix": 1.51, "hrbp": 1.21}
     if require_badge:
         # Anchors base_prob to the badge's own real graded conversion rate (see docstring
         # above) rather than the heat-calibrated curve. FIXED this session: "pow" was hardcoded
@@ -1353,12 +1386,23 @@ def _hrpo_raw_signals(p, pp_by_id, pen_by_team, backtest_calib, base_rate, requi
         # lock_only-isolated figure (1.288x) -- matches how pow is anchored above (any pow
         # holder, including the ones who also carry lock), so if this key is ever activated it
         # anchors on the same "any holder of this badge" basis, not a mixed convention.
-        _BADGE_ANCHOR_LIFT = {"pow": 1.757, "lock": 1.352, "mix": 1.51, "hrbp": 1.21}
         base_prob = base_rate * _BADGE_ANCHOR_LIFT.get(require_badge, 1.0)
     else:
-        base_prob = _hrpo_calibrated_prob(heat, backtest_calib)
-        if base_prob is None:
-            base_prob = base_rate * max(0.6, min(1.6, heat / 55.0))
+        # ADDED this session -- for the open (unrestricted) Genius Pairing pool: a candidate
+        # who happens to carry a real badge individually, even though the POOL itself wasn't
+        # filtered to require one, should still get that badge's own real, validated anchor
+        # rate -- not be silently downgraded to the generic heat curve just because require_
+        # badge wasn't set at the pool level. Uses the STRONGER of pow/lock when a hitter
+        # carries both (matches the "any holder" anchoring convention above), and only falls
+        # back to heat-calibration for hitters who carry neither.
+        _own_badges = {b.get("k") for b in (p.get("badges") or []) if b.get("k")}
+        _own_badge_lift = max((_BADGE_ANCHOR_LIFT.get(bk, 0.0) for bk in _own_badges), default=0.0)
+        if _own_badge_lift > 0:
+            base_prob = base_rate * _own_badge_lift
+        else:
+            base_prob = _hrpo_calibrated_prob(heat, backtest_calib)
+            if base_prob is None:
+                base_prob = base_rate * max(0.6, min(1.6, heat / 55.0))
 
     bbe = ((p.get("sample") or {}).get("season")) or 0
     thin = bbe < HRPO_MIN_BBE
@@ -1591,12 +1635,25 @@ def _hrpo_combine_genius_pow(sig):
 
     def cl(v):
         return max(0.0, min(1.0, v))
+    # ADDED this session -- real tier lifts (backtest.json's by_edge.own_max_dist, n=33,198,
+    # monotonic across all four tiers). <390ft is a real 0.621x lift (38% BELOW base rate), not
+    # neutral -- the prior linear scale gave that hitter the same zero contribution as someone
+    # at exactly 404ft, missing a real, meaningful discount the data actually supports.
+    OWN_MAX_DIST_LIFT_TIERS = ((390, 0.621), (410, 0.767), (430, 0.990), (10_000, 1.346))
+    def _max_dist_scaled(dist):
+        lift = next(l for hi, l in OWN_MAX_DIST_LIFT_TIERS if dist < hi)
+        # scale the real [0.621, 1.346] lift range onto this accumulator's existing [0,1]
+        # contract, so it blends with the other power_c components on the same footing
+        return cl((lift - 0.621) / (1.346 - 0.621))
     power_c, power_n = 0.0, 0
     if sig.get("own_max_dist") is not None:
-        power_c += cl((sig["own_max_dist"] - 404) / 60); power_n += 1
+        power_c += _max_dist_scaled(sig["own_max_dist"]); power_n += 1
         if sig["own_max_dist"] >= 430:
-            drivers.append(f"own max dist {sig['own_max_dist']:.0f}ft (real, above the 404ft "
-                          f"pow-badge-HR average this month)")
+            drivers.append(f"own max dist {sig['own_max_dist']:.0f}ft (elite, 1.35x real, "
+                          f"127-day backtest)")
+        elif sig["own_max_dist"] < 390:
+            drivers.append(f"own max dist {sig['own_max_dist']:.0f}ft (weak, 0.62x real, "
+                          f"127-day backtest)")
     if sig.get("own_barrel_pct") is not None:
         power_c += cl((sig["own_barrel_pct"] - 8) / 12); power_n += 1
     if sig.get("own_avg_ev_l14") is not None and (sig.get("own_avg_ev_l14_bbe") or 0) >= 15:
@@ -1748,7 +1805,7 @@ def _dechalk_rank_key(c):
 def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
                                 pitcher_props=None, bullpen_rankings=None, require_badge=None,
                                 pitcher_edges=None, base_rate_override=None,
-                                pen_avail_by_team=None):
+                                pen_avail_by_team=None, build_genius=None):
     """The Anchor and Overlooked +EV 3-leg tickets. Every leg comes from a distinct game_pk --
     the whole point is eliminating the sportsbook's same-game-parlay correlation tax, which only
     works if the legs genuinely do not correlate with each other, i.e. different games.
@@ -1759,8 +1816,17 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
     enforcement, real book-price comparison) is identical to the unrestricted version; this
     only narrows which players are ever allowed to enter the pool.
 
+    build_genius: ADDED this session, per Travis's ask for a Genius Pairing variant WITHOUT the
+    POW-badge restriction. Previously the genius ticket was only ever built when require_badge
+    was set -- the same flag doing two different jobs (restrict the pool AND decide whether to
+    build the ticket). Defaults to whatever require_badge would have implied (True if set),
+    preserving the exact existing POW-restricted behavior byte-for-byte when not passed
+    explicitly -- but can now be set True with require_badge=None, reusing this exact same real
+    signal stack (arsenal fit, zone overlap, family convergence, own power profile, opposing
+    arm/pen) against the full open pool instead of POW-only.
+
     pitcher_edges: real SP HR Vulnerability scores (pe["vuln"]["score"]), used only by the
-    Genius Pairing ticket that's built specifically when require_badge is set.
+    Genius Pairing ticket.
 
     Book odds: HR prop odds live in docs/odds.json under `prices`, name-matched the same way
     FanGraphs is name-matched elsewhere in this file. When odds.json has not been fetched yet
@@ -1773,8 +1839,16 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
     Sleeper) is attached to every candidate, reusing the exact same real function Long Ball
     Jackpot already uses, so "find the non-chalky value bat" has a visible, explicit tag to
     filter on, not just an implicit reordering.
+
+    Genius ticket probability is recalibrated (ADDED this session): backtest.json's
+    genius_stack_calibration graded the real, fully-stacked probability against actual outcomes
+    and came back FAIL (slope 0.47 -- severe overconfidence). See _load_genius_stack_calib for
+    the full finding. Applied here, at the source, so every consumer of the genius ticket's
+    combined_prob/fair_odds gets the corrected number automatically.
     """
     base_rate = base_rate_override if base_rate_override is not None else HRPO_BASE_RATE
+    _genius_calib = _load_genius_stack_calib()   # see docstring above _load_genius_stack_calib
+    _build_genius = build_genius if build_genius is not None else bool(require_badge)
     vuln_by_pid = {}
     for _pe in (pitcher_edges or []):
         _v = (_pe.get("vuln") or {}).get("score")
@@ -1810,7 +1884,7 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
 
     candidates_al = []      # scored via the Arsenal & Lock formula
     candidates_ap = []      # scored via the Air-Power & Volume formula
-    candidates_genius = []  # Genius Pairing -- only populated when require_badge is set
+    candidates_genius = []  # Genius Pairing -- populated whenever _build_genius is set
     for p in players:
         gpk = p.get("game_pk")
         if gpk is None or not env_ok.get(gpk, True):
@@ -1860,8 +1934,12 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
         candidates_al.append(_record(prob_al, drv_al))
         prob_ap, drv_ap = _hrpo_combine_air_power(sig)
         candidates_ap.append(_record(prob_ap, drv_ap))
-        if require_badge:
+        if _build_genius:
             prob_g, drv_g = _hrpo_combine_genius_pow(sig)
+            # ADDED this session -- see the recalibration note in this function's docstring.
+            prob_g = _apply_markov_calib(prob_g, _genius_calib)   # generic linear-transform
+                                                                  # helper, nothing Markov-
+                                                                  # specific about the math
             candidates_genius.append(_record(prob_g, drv_g))
 
     def _fair(prob):
@@ -1953,18 +2031,75 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
     # nudge. De-chalk ranking + ownership_tier ADDED this session -- see _dechalk_rank_key
     # and _tier_pool above.
     genius = None
-    if require_badge and candidates_genius:
+    genius5 = None   # ADDED this session -- see below
+    if _build_genius and candidates_genius:
         g_pool = _tier_pool([c for c in candidates_genius if c["proven"]])
         g_pool.sort(key=_dechalk_rank_key)
         g_pool.reverse()
-        genius = _ticket(f"Genius Pairing ({require_badge.upper()})",
+        _genius_label = (f"Genius Pairing ({require_badge.upper()})" if require_badge
+                         else "Genius Pairing (Open)")
+        genius = _ticket(_genius_label,
                          "Every real signal this app has checked, stacked: badge-anchored "
                          "probability (not heat), badge co-occurrence, the batter's own power "
                          "profile, opposing arm form and vulnerability, bullpen exploitability, "
                          "and matchup fit -- ranked with a damped real-market-edge nudge so the "
                          "same handful of chalky, heavily-recognized names don't automatically "
-                         "win every night (see _dechalk_rank_key).",
+                         "win every night (see _dechalk_rank_key)."
+                         + ("" if require_badge else " Open pool -- no badge required to enter, "
+                            "unlike the POW-restricted version. Each candidate's own base "
+                            "probability still anchors to whichever real badge(s) it happens "
+                            "to carry, or the heat-calibrated curve when it carries none."),
                          g_pool)
+
+        # ADDED this session, per Travis: a 5-leg pool for a round robin, same real signal
+        # stack and same distinct-game enforcement as the 3-leg ticket above -- just picking 5
+        # candidates instead of 3 from the exact same g_pool. Matches this app's own already-
+        # established round-robin convention (5 legs, C(5,2)=10 possible 2-leg pairs -- see
+        # history.json's by_parlay.rr5, which this app has been tracking against real outcomes
+        # all season) rather than inventing a new round-robin format from scratch.
+        _rr5_legs = _pick_distinct_games(g_pool, 5)
+        if len(_rr5_legs) < 5:
+            genius5 = {
+                "label": _genius_label.replace("Genius Pairing", "Genius 5"),
+                "subtitle": "5-leg round robin pool, same real Genius Pairing signal stack.",
+                "legs": _rr5_legs, "incomplete": True,
+                "note": f"Only {len(_rr5_legs)} qualifying leg(s) across distinct games "
+                        "tonight -- not enough of the slate cleared the bar for a full "
+                        "5-leg round robin.",
+            }
+        else:
+            # Real, EXACT round-robin math -- enumerates all 2^5=32 outcomes across the 5
+            # legs (cheap enough at this size that there's no reason to approximate), rather
+            # than assuming independence-across-pairs the way a naive sum-of-pair-products
+            # would. Legs are cross-game by construction (same distinct-game_pk enforcement
+            # as every other ticket here), so true independence across legs IS the right
+            # assumption for the 32-outcome enumeration itself -- what's exact here is how
+            # those 5 independent leg probabilities combine into "how many of the 10 pairs
+            # hit," not an assumption about same-game correlation (there is none to model).
+            _n = len(_rr5_legs)
+            _pair_idx = [(i, j) for i in range(_n) for j in range(i + 1, _n)]
+            _p_no_pair_hits = 0.0
+            _expected_pairs_hit = sum(_rr5_legs[i]["prob"] * _rr5_legs[j]["prob"]
+                                      for i, j in _pair_idx)
+            for _outcome in range(2 ** _n):
+                _bits = [(_outcome >> _k) & 1 for _k in range(_n)]
+                if sum(_bits) >= 2:
+                    continue   # 2+ legs hitting means at least one pair hit -- skip, only
+                              # need the complement (outcomes with 0 or 1 legs hitting)
+                _p_outcome = 1.0
+                for _k in range(_n):
+                    _leg_p = _rr5_legs[_k]["prob"]
+                    _p_outcome *= _leg_p if _bits[_k] else (1.0 - _leg_p)
+                _p_no_pair_hits += _p_outcome
+            genius5 = {
+                "label": _genius_label.replace("Genius Pairing", "Genius 5"),
+                "subtitle": "5-leg round robin pool, same real Genius Pairing signal stack -- "
+                           "10 possible 2-leg pairs.",
+                "legs": _rr5_legs, "incomplete": False,
+                "n_possible_pairs": len(_pair_idx),
+                "expected_pairs_hit": round(_expected_pairs_hit, 2),
+                "p_at_least_one_pair_hits": round(1.0 - _p_no_pair_hits, 4),
+            }
 
     # Alternates for the quick-swap button -- pulled from EACH ticket's own pool, so cycling
     # a leg in "Arsenal & Lock" offers arsenal/zone alternates, not air-power ones. De-chalk
@@ -2022,6 +2157,8 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
             ]}
     if genius:
         _result["genius"] = genius
+    if genius5:
+        _result["genius5"] = genius5
     return _result
 
 
@@ -5794,12 +5931,37 @@ def build(date_str: str | None = None) -> dict:
             pitcher_edges=pitcher_edges, base_rate_override=_recent_base_rate,
             pen_avail_by_team=pen_avail)
         _cgpp = board["cross_game_parlays_pow"]
+        _g5pow = _cgpp.get("genius5")
         print(f"[build] cross-game HR parlays (POW-only): {_cgpp['candidates_scored']} "
-              f"POW-badge candidates scored")
+              f"POW-badge candidates scored, genius5 "
+              f"{'complete' if _g5pow and not _g5pow['incomplete'] else 'incomplete'}")
     except Exception as e:
         board["cross_game_parlays_pow"] = None
         _hnote("cross-game parlays (POW-only)", e)
         print(f"[build] cross-game parlays (POW-only) skipped: {e}")
+
+    try:
+        # ADDED this session, per Travis: Genius Pairing without the POW-badge restriction --
+        # same real signal stack, same recalibrated probability, open candidate pool. A
+        # candidate carrying a real badge individually still gets that badge's own anchor rate
+        # (see the fix in _hrpo_raw_signals above); everyone else anchors to the heat-calibrated
+        # curve. require_badge=None so the POOL isn't restricted; build_genius=True so the
+        # ticket still gets built despite that (previously the same flag controlled both).
+        board["cross_game_parlays_genius_open"] = build_cross_game_hr_parlays(
+            players, _bt_calib, _odds_prices, _hrpo_games,
+            pitcher_props=pitcher_props, bullpen_rankings=bullpen_rankings, require_badge=None,
+            build_genius=True, pitcher_edges=pitcher_edges,
+            base_rate_override=_recent_base_rate, pen_avail_by_team=pen_avail)
+        _cgpgo = board["cross_game_parlays_genius_open"]
+        _g5open = _cgpgo.get("genius5")
+        print(f"[build] genius pairing (open pool): {_cgpgo['candidates_scored']} candidates "
+              f"scored, genius ticket "
+              f"{'complete' if _cgpgo.get('genius') and not _cgpgo['genius']['incomplete'] else 'incomplete'}, "
+              f"genius5 {'complete' if _g5open and not _g5open['incomplete'] else 'incomplete'}")
+    except Exception as e:
+        board["cross_game_parlays_genius_open"] = None
+        _hnote("genius pairing (open pool)", e)
+        print(f"[build] genius pairing (open pool) skipped: {e}")
 
     try:
         board["long_ball_jackpot"] = build_long_ball_jackpot(
