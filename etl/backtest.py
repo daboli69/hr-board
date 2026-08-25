@@ -579,6 +579,19 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
     # has been validated on its own, but the compounded result of stacking 5+ of them
     # multiplicatively, even damped, had never been checked against real outcomes until now.
     _stack_pred, _stack_hit = [], []
+    # ADDED this session -- direct calibration test of the frozen heat model itself, not a
+    # downstream layer. Every prior calibration check this session (markov totals, genius
+    # stacking) tested something built ON TOP of heat -- heat itself has never been directly,
+    # rigorously tested against real outcomes the same way. heat/100 isn't literally designed
+    # to be a probability, but decile_calibration()'s methodology (weighted regression of
+    # actual-vs-predicted on the decile means) still gives an honest read either way: the
+    # slope tells you what real scaling heat/100 would need to become a genuine probability,
+    # and monotonicity/spearman tell you whether heat correctly rank-orders real HR likelihood
+    # regardless of scale -- which is the more fundamental question for a signal whose whole
+    # job is ranking hitters, not necessarily producing a calibrated percentage on its own.
+    # Collected across the FULL population, not badge-filtered -- heat applies to every
+    # hitter, so this tests the real, complete real-world distribution it actually sees.
+    _heat_pred, _heat_hit = [], []
     # new-signal buckets, same {n,hr} shape the tracker uses so the UI renders them uniformly
     by_edge = {}
     def _edge(group, bucket, hit):
@@ -649,6 +662,12 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
                 _edge("arsenal_fit", "11+ punishes" if _af >= 11 else "9-10.9 good" if _af >= 9
                       else "7-8.9 avg" if _af >= 7 else "4-6.9 weak" if _af >= 4
                       else "<4 poor", hit)
+            # ADDED this session -- see the accumulator comment above for why this exists.
+            # Unconditional (not badge-gated) since heat applies to every candidate.
+            _h = r.get("heat")
+            if _h is not None:
+                _heat_pred.append(max(0.0, min(1.0, _h / 100.0)))
+                _heat_hit.append(1.0 if hit else 0.0)
             # ADDED this session -- feeds the genius-stack calibration check below. Only scores
             # POW-badge holders (Genius Pairing is POW-filtered, require_badge="pow") using
             # whatever real signals THIS replay can honestly reconstruct. Fields the replay
@@ -853,6 +872,26 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
         "genius_stack_calibration": (V.decile_calibration(_stack_pred, _stack_hit, n_bands=8)
                                      if len(_stack_pred) >= 400 else None),
         "genius_stack_n": len(_stack_pred),
+        # ADDED this session -- direct calibration test of the frozen heat model itself. Every
+        # prior calibration check (markov totals, genius stacking) tested a layer built ON TOP
+        # of heat; this is heat's own first direct test against real outcomes, full population,
+        # not badge-filtered.
+        #
+        # READ THIS BEFORE READING THE VERDICT FIELD: heat/100 was never designed to be a
+        # literal probability -- a heat of 70 does not mean "70% HR chance." Real HR rates run
+        # far below heat/100 at every level (checked directly with synthetic data built from a
+        # genuinely strong, correctly-monotonic signal: verdict came back FAIL even though
+        # spearman was 0.93). That means this check's "verdict"/slope/brier-vs-baseline fields
+        # will ALWAYS look bad for heat specifically, by construction, regardless of whether
+        # heat is actually good -- they're answering "is heat/100 a calibrated probability,"
+        # which was never the design goal. The fields that actually answer "is heat doing its
+        # job" are spearman (real rank-correlation with actual outcomes) and
+        # strict_monotonic (do higher heat bands really convert at higher real rates, in
+        # order, no reversals) -- read those first, and do not treat a FAIL verdict here as
+        # evidence heat is broken without checking them.
+        "heat_calibration": (V.decile_calibration(_heat_pred, _heat_hit, n_bands=8)
+                             if len(_heat_pred) >= 400 else None),
+        "heat_calibration_n": len(_heat_pred),
         "by_converge_prop": by_conv,   # convergence graded per prop, on that prop's outcome
         "calib": {k: calib[k] for k in sorted(calib, key=int)},
         # Graders that were written and never invoked. The hit comparison is real — both models
