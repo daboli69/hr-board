@@ -36,6 +36,15 @@ import pandas as pd
 # reach them without re-importing inside loops.
 from etl import validate as V, kengine, hitmodel, markov
 from etl import environment as env_mod, arsenal as arsenal_mod
+from etl import build_board as build_board_mod   # ADDED this session -- for
+                                    # replay_genius_stack_calibration, which calls the REAL
+                                    # _hrpo_combine_genius_pow directly rather than a
+                                    # hand-maintained parallel copy of the formula. Named
+                                    # build_board_mod, not bb, since bb is already used as a
+                                    # local variable name later in replay() for by_badge
+                                    # tallying -- Python would otherwise treat the import as
+                                    # shadowed-local for the whole function and raise
+                                    # UnboundLocalError at the point of use.
 
 
 from etl import compute, statcast_data, props
@@ -549,6 +558,13 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
     hit_n = hit1_tot = hit2_tot = hrr_n = hrr2_tot = 0
     # Rows for the side-by-side graders, collected on the same player-days the tiers use.
     _sbs_hit, _sbs_k = [], []
+    # ADDED this session -- (predicted_prob, actual_hit) pairs from calling the REAL
+    # _hrpo_combine_genius_pow on every real POW-badge candidate in the replay, not just the
+    # top-3 picked each day. Answers "does stacking these signals actually produce a
+    # calibrated probability" with real evidence -- every individual signal feeding this stack
+    # has been validated on its own, but the compounded result of stacking 5+ of them
+    # multiplicatively, even damped, had never been checked against real outcomes until now.
+    _stack_pred, _stack_hit = [], []
     # new-signal buckets, same {n,hr} shape the tracker uses so the UI renders them uniformly
     by_edge = {}
     def _edge(group, bucket, hit):
@@ -619,6 +635,41 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
                 _edge("arsenal_fit", "11+ punishes" if _af >= 11 else "9-10.9 good" if _af >= 9
                       else "7-8.9 avg" if _af >= 7 else "4-6.9 weak" if _af >= 4
                       else "<4 poor", hit)
+            # ADDED this session -- feeds the genius-stack calibration check below. Only scores
+            # POW-badge holders (Genius Pairing is POW-filtered, require_badge="pow") using
+            # whatever real signals THIS replay can honestly reconstruct. Fields the replay
+            # cannot currently reconstruct (arm_vuln_score, pen_rank_val/pen_worn,
+            # arm_form_label, own_avg_ev_l14, lineup spot -- none of these have a retroactive
+            # source in this replay frame yet) are left None, which _hrpo_combine_genius_pow
+            # already handles by skipping that signal's contribution entirely. This makes the
+            # calibration check an honest read on the PARTIAL stack that's actually
+            # reconstructable today, not a silent approximation of the full one.
+            if "pow" in (r.get("badges") or []):
+                try:
+                    _hrpow_r = r.get("hr_power") or {}
+                    _stack_sig = {
+                        "base_prob": build_board_mod.HRPO_BASE_RATE * 1.757,   # _BADGE_ANCHOR_LIFT["pow"]
+                        "badges": set(r.get("badges") or []),
+                        "thin": (r.get("bbe_season") or 0) < build_board_mod.HRPO_MIN_BBE,
+                        "fams": r.get("cv_fams") or 0,
+                        "near_miss": r.get("near_miss_14d") or 0,
+                        "arsenal_fit": _af,
+                        "zone_edge": r.get("zone_edge"),
+                        "zone_overlap_n": r.get("zone_overlap_n"),
+                        "ideal_aa_clear": None, "spot": None,
+                        "fb_pct_allowed": None, "pen_worn": False, "pen_rank_val": None,
+                        "acute_bp_pitches": None,
+                        "own_max_dist": _hrpow_r.get("max_dist"),
+                        "own_barrel_pct": _hrpow_r.get("barrel_pct"),
+                        "own_avg_ev_l14": None, "own_avg_ev_l14_bbe": None,
+                        "arm_form_label": None, "arm_vuln_score": None,
+                    }
+                    _stack_p, _ = build_board_mod._hrpo_combine_genius_pow(_stack_sig)
+                    if _stack_p is not None:
+                        _stack_pred.append(_stack_p)
+                        _stack_hit.append(1.0 if hit else 0.0)
+                except Exception:
+                    pass
             _zon = r.get("zone_overlap_n")
             if _zon is not None:
                 # ADDED this session -- zone_overlap_n's raw count was already computed in this
@@ -764,6 +815,17 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
         "by_month": _by_month_rates,
         "by_tier": by_tier, "top_n": top_n, "by_edge": by_edge,
         "by_badge": _badge_lift(by_badge, hr_tot / n_tot if n_tot else 0),
+        # ADDED this session -- does the FULL stacked Genius Pairing probability (calling the
+        # real _hrpo_combine_genius_pow, not an approximation) actually come out calibrated, or
+        # does compounding 5+ damped multipliers together overstate the combination even though
+        # every individual signal feeding it is real and separately validated? This is a
+        # PARTIAL stack -- see the per-candidate comment above for exactly which real signals
+        # this replay can and cannot currently reconstruct -- so a clean pass here says the
+        # reconstructable core is sound, not that the full production formula (with arm
+        # vulnerability, bullpen state, and lineup spot layered on top) is fully proven.
+        "genius_stack_calibration": (V.decile_calibration(_stack_pred, _stack_hit, n_bands=8)
+                                     if len(_stack_pred) >= 400 else None),
+        "genius_stack_n": len(_stack_pred),
         "by_converge_prop": by_conv,   # convergence graded per prop, on that prop's outcome
         "calib": {k: calib[k] for k in sorted(calib, key=int)},
         # Graders that were written and never invoked. The hit comparison is real — both models

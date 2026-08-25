@@ -129,6 +129,32 @@ HRPO_SPOT_LIFT = {1: 1.19, 2: 1.17, 3: 1.25, 4: 1.19, 5: 0.98, 6: 0.83, 7: 0.97,
 HRPO_BASE_RATE = 0.109          # re-anchored from the live backtest's base_pct at call time
 HRPO_MIN_BBE = 250               # below this, convergence is graded WORSE than no signal at all
 
+# ADDED this session -- real, backtest-validated tier lifts (backtest.json's by_edge, 127-day
+# run: arsenal_fit n=26,306, zone_overlap_n n=28,307). Replaces the earlier binary "bonus at
+# the top / unvalidated placeholder discount at the bottom" approach: the real data shows a
+# full five-tier structure on arsenal_fit and four-tier on zone_overlap_n, not just two extreme
+# buckets with a dead middle. 11+/5+ (the top tiers) already matched the pre-existing 1.39x/
+# 1.38x graded bonuses closely, confirming those were sound; the bottom tiers came back with a
+# real discount meaningfully LARGER than the conservative -12%/-6% caps applied last session
+# pending exactly this data.
+ARSENAL_FIT_LIFT = {"11+": 1.395, "9-10.9": 1.100, "7-8.9": 1.018, "4-6.9": 0.942, "<4": 0.658}
+ZONE_OVERLAP_LIFT = {"5+": 1.350, "3-4": 1.175, "1-2": 0.932, "0": 0.836}
+
+
+def _arsenal_fit_tier(af):
+    if af >= 11: return "11+"
+    if af >= 9: return "9-10.9"
+    if af >= 7: return "7-8.9"
+    if af >= 4: return "4-6.9"
+    return "<4"
+
+
+def _zone_overlap_tier(zn):
+    if zn >= 5: return "5+"
+    if zn >= 3: return "3-4"
+    if zn >= 1: return "1-2"
+    return "0"
+
 # Promoted to module level this session (previously a local copy inside build_long_ball_jackpot
 # only) so build_cross_game_hr_parlays' new de-chalk/ownership_tier work can share the exact
 # same real lookup instead of growing a second, drift-prone copy -- the failure mode this app
@@ -1533,8 +1559,14 @@ def _hrpo_combine_genius_pow(sig):
       of naive intuition. Real but thin (n=84) -- weighted as a small nudge, not a gate.
     - SP HR Vulnerability (>=70 elite target) and bullpen exploitability (rank_val): the same
       real payloads Grand Slam's Task 2/3 already use, reused here rather than re-derived.
-    - arsenal_fit, zone overlap, non-heat families, near-miss, spot, worn pen: the same
-      already-validated signals every other ticket in this optimizer draws on.
+    - arsenal_fit, zone overlap: UPDATED this session -- now the full real tier structure from
+      a 127-day backtest (ARSENAL_FIT_LIFT/ZONE_OVERLAP_LIFT), not just a top-tier bonus with a
+      dead middle. A genuinely poor fit or zero zone overlap costs real probability now (0.658x
+      and 0.836x respectively, both on 5,000+ real samples) -- previously a hot, badge-anchored
+      hitter facing a bad matchup got no penalty at all, just no bonus, which is exactly the
+      gap Travis flagged and this closes with real numbers, not a guess.
+    - non-heat families, near-miss, spot, worn pen: the same already-validated signals every
+      other ticket in this optimizer draws on.
 
     Damping (0.5-0.7 depending on how heat-correlated a signal historically is) follows the
     same principle established for every other combine function in this file: stacking
@@ -1618,23 +1650,22 @@ def _hrpo_combine_genius_pow(sig):
     #     drivers.append(f"acute bullpen load {sig['acute_bp_pitches']} pitches/2d (unvalidated threshold)")
 
     af = sig["arsenal_fit"]
-    if af is not None and af >= 11:
-        prob *= 1.0 + (1.39 - 1.0) * 0.65
-        drivers.append(f"arsenal fit {af:.0f} (elite, 1.39x graded)")
-    elif af is not None and af <= 4:
-        # UNVALIDATED heuristic, not a backtested number -- see docstring above. A genuinely
-        # bad arsenal fit means this hitter's own real measured performance against the pitch
-        # types THIS arm actually throws (usage-weighted, see the vs_mix fix this session) is
-        # poor -- the exact "facing an ace with a mix he can't touch" case Travis described.
-        # Capped modestly (max -12%) until the real backtest number exists.
-        _disc = 1.0 - min(0.12, (4 - af) / 4 * 0.12)
-        prob *= _disc
-        drivers.append(f"arsenal fit {af:.0f} (poor -- real measured weakness vs this arm's "
-                      f"actual mix, unvalidated discount)")
+    if af is not None:
+        _af_tier = _arsenal_fit_tier(af)
+        _af_lift = ARSENAL_FIT_LIFT[_af_tier]
+        if _af_tier != "7-8.9":   # 7-8.9 lift (1.018) is real but close enough to neutral to skip
+            prob *= 1.0 + (_af_lift - 1.0) * 0.65
+            _tag = ("elite" if _af_tier == "11+" else "good" if _af_tier == "9-10.9"
+                   else "weak" if _af_tier == "4-6.9" else "poor")
+            drivers.append(f"arsenal fit {af:.0f} ({_tag}, {_af_lift:.2f}x real, 127-day backtest)")
     zn = sig["zone_overlap_n"]
-    if zn is not None and zn >= 5:
-        prob *= 1.0 + (1.38 - 1.0) * 0.65
-        drivers.append(f"{zn} zone overlaps (1.38x graded)")
+    if zn is not None:
+        _zn_tier = _zone_overlap_tier(zn)
+        _zn_lift = ZONE_OVERLAP_LIFT[_zn_tier]
+        prob *= 1.0 + (_zn_lift - 1.0) * 0.65
+        _ztag = ("premium" if _zn_tier == "5+" else "good" if _zn_tier == "3-4"
+                else "some" if _zn_tier == "1-2" else "none")
+        drivers.append(f"{zn} zone overlaps ({_ztag}, {_zn_lift:.2f}x real, 127-day backtest)")
     elif zn is not None and zn == 0:
         prob *= 0.94   # UNVALIDATED, same status as the arsenal_fit discount above
         drivers.append("0 zone overlaps (no real damage zone alignment, unvalidated discount)")
