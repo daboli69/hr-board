@@ -950,7 +950,7 @@ def _pitch_splits(rows: pd.DataFrame) -> dict:
         return {}
     work = rows.copy()
     work["fam"] = work["pitch_type"].map(PITCH_BUCKET)
-    bb_all = work[work["launch_speed"].notna()]
+    bb_all = work[work["launch_speed"].notna() & (work["description"].astype(str) == "hit_into_play")] if "description" in work.columns else work[work["launch_speed"].notna()]
     SWINGS = {"swinging_strike", "swinging_strike_blocked", "foul", "foul_tip", "hit_into_play"}
     out = {}
     for fam in ("FB", "BR", "OFF"):
@@ -1037,7 +1037,7 @@ def _agg_metrics(rows: pd.DataFrame) -> dict:
     """Compute the metric dict for an arbitrary subset of pitch-level rows."""
     if rows.empty:
         return {}
-    bb = rows[rows["launch_speed"].notna()]            # batted balls
+    bb = rows[rows["launch_speed"].notna() & rows["events"].notna()]   # real batted balls, excludes fouls
     n_bb = len(bb)
     pa_rows = rows[rows["events"].isin(PA_EVENTS)]
     pa = len(pa_rows)
@@ -1337,7 +1337,7 @@ def _pitcher_metrics(rows: pd.DataFrame) -> dict:
     """HR-vulnerability metrics allowed by a pitcher over an arbitrary row subset."""
     if rows.empty:
         return {}
-    bb = rows[rows["launch_speed"].notna()]
+    bb = rows[rows["launch_speed"].notna() & rows["events"].notna()]   # real batted balls, excludes fouls
     n_bb = len(bb)
     pa = rows["events"].isin(PA_EVENTS).sum()
     pitches = len(rows)

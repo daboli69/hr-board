@@ -60,7 +60,7 @@ def compute_wind_sensitivity(df: pd.DataFrame) -> dict:
     need = {"home_team", "game_date", "events", "launch_speed"}
     if df is None or df.empty or not need.issubset(df.columns):
         return {}
-    d = df[df["launch_speed"].notna()].copy()
+    d = df[df["launch_speed"].notna() & df["events"].notna()].copy()   # real batted balls, excludes fouls
     d["hr"] = d["events"].eq("home_run")
     d["game_date"] = d["game_date"].astype(str).str[:10]
 

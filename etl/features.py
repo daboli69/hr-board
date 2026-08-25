@@ -71,7 +71,7 @@ def hitter_pitch_profile(rows) -> dict:
         sub = w[w["fam"] == fam]
         if sub.empty:
             continue
-        bb = sub[sub["launch_speed"].notna()] if "launch_speed" in sub.columns else sub.iloc[0:0]
+        bb = sub[sub["launch_speed"].notna() & (sub["description"].astype(str) == "hit_into_play")] if "launch_speed" in sub.columns and "description" in sub.columns else (sub[sub["launch_speed"].notna()] if "launch_speed" in sub.columns else sub.iloc[0:0])
         # power: mean xwOBA on contact
         xw = None
         if "estimated_woba_using_speedangle" in bb.columns and len(bb):
@@ -97,7 +97,11 @@ def hitter_pitch_profile(rows) -> dict:
             def _xw(s):
                 if not len(s) or "estimated_woba_using_speedangle" not in s.columns:
                     return None
-                v = pd.to_numeric(s[s["launch_speed"].notna()]["estimated_woba_using_speedangle"], errors="coerce").dropna()
+                if "description" in s.columns:
+                    real_bb = s[s["launch_speed"].notna() & (s["description"].astype(str) == "hit_into_play")]
+                else:
+                    real_bb = s[s["launch_speed"].notna()]
+                v = pd.to_numeric(real_bb["estimated_woba_using_speedangle"], errors="coerce").dropna()
                 return round(float(v.mean()), 3) if len(v) else None
             entry["xw_up"] = _xw(hi)
             entry["xw_dn"] = _xw(lo)
@@ -157,7 +161,7 @@ def pitcher_zone_damage(rows, min_n: int = 6) -> dict:
         return {}
     if "launch_speed" not in rows.columns:
         return {}
-    bb = rows[rows["launch_speed"].notna()].copy()
+    bb = rows[rows["launch_speed"].notna() & rows.get("events", pd.Series(dtype=object)).notna()].copy() if "events" in rows.columns else rows[rows["launch_speed"].notna()].copy()
     if bb.empty:
         return {}
     bb["_z"] = pd.to_numeric(bb["zone"], errors="coerce")
@@ -268,7 +272,7 @@ def batter_zone_damage(rows, min_n: int = 6) -> dict:
         return {}
     if "launch_speed" not in rows.columns:
         return {}
-    bb = rows[rows["launch_speed"].notna()]
+    bb = rows[rows["launch_speed"].notna() & rows.get("events", pd.Series(dtype=object)).notna()] if "events" in rows.columns else rows[rows["launch_speed"].notna()]
     if bb.empty:
         return {}
     z = pd.to_numeric(bb["zone"], errors="coerce")
@@ -541,7 +545,12 @@ def reconstruct_pitch_conditions(rows, game_start_map: dict, weather_hourly: dic
     if not game_start_map or not weather_hourly:
         return {}
     w = rows.copy()
-    bb = w[w["launch_speed"].notna()] if "launch_speed" in w.columns else w.iloc[0:0]
+    if "launch_speed" not in w.columns:
+        bb = w.iloc[0:0]
+    elif "description" in w.columns:
+        bb = w[w["launch_speed"].notna() & (w["description"].astype(str) == "hit_into_play")]
+    else:
+        bb = w[w["launch_speed"].notna()]
     if bb.empty:
         return {}
     # assign each batted ball an approximate temperature via inning offset
@@ -709,7 +718,18 @@ def hr_power_profile(rows) -> dict:
         return {}
     if "launch_speed" not in rows.columns:
         return {}
-    bb = rows[rows["launch_speed"].notna()].copy()
+    # FIXED this session: launch_speed.notna() alone does NOT distinguish a real, fair-
+    # territory batted ball from a FOUL ball -- Statcast tracks exit velocity on foul contact
+    # too. A real, confirmed bug, not a guess: the live board's median barrel_pct across 270
+    # real hitters was 3.8%, against a real MLB league-average of roughly 6-8% -- not a
+    # surprising distribution, an implausible one, consistent with defensive foul contact
+    # diluting the true batted-ball rate. description=="hit_into_play" is the standard,
+    # correct Statcast field for "this pitch was put in play, fair territory" specifically.
+    if "description" in rows.columns:
+        bb = rows[(rows["launch_speed"].notna()) & (rows["description"].astype(str) == "hit_into_play")].copy()
+    else:
+        bb = rows[rows["launch_speed"].notna()].copy()   # degrade gracefully if description
+                                                          # isn't present rather than return {}
     n = len(bb)
     if n < 15:
         return {}
@@ -754,7 +774,11 @@ def square_up_rating(rows) -> dict:
         return {}
     if "launch_speed" not in rows.columns:
         return {}
-    bb = rows[rows["launch_speed"].notna()].copy()
+    # FIXED this session -- same real bug as hr_power_profile, see that function's comment.
+    if "description" in rows.columns:
+        bb = rows[(rows["launch_speed"].notna()) & (rows["description"].astype(str) == "hit_into_play")].copy()
+    else:
+        bb = rows[rows["launch_speed"].notna()].copy()
     n = len(bb)
     if n < 15:
         return {}

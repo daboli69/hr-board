@@ -1605,7 +1605,7 @@ def replay_longest_hr(df: pd.DataFrame, start: str | None = None, end: str | Non
         winner_id = longest["batter"]
 
         # this specific batter's OWN rolling max EV, strictly BEFORE today -- no leakage
-        past_bip = d[(d["_gd"] < D) & d["launch_speed"].notna()]
+        past_bip = d[(d["_gd"] < D) & d["launch_speed"].notna() & d["events"].notna()]
         winner_past = past_bip[past_bip["batter"] == winner_id]
         if len(winner_past) < 15:      # too little of his own history to trust a "his own
             continue                   # power" reading yet

@@ -60,7 +60,7 @@ def compute_park_factors(df):
     if not need.issubset(df.columns):
         print(f"[park_factors] missing columns {need - set(df.columns)}; skipping.")
         return {}
-    d = df[df["launch_speed"].notna() & df["launch_angle"].notna()].copy()  # batted balls only
+    d = df[df["launch_speed"].notna() & df["launch_angle"].notna() & df["events"].notna()].copy()  # batted balls only, excludes fouls
     if len(d) < 5000:
         print(f"[park_factors] only {len(d)} batted balls; too thin, skipping.")
         return {}
