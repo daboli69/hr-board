@@ -748,8 +748,14 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
             # that composite rating above -- never checked on its own merits until now.
             _sw = r.get("sweet_spot")
             if _sw is not None:
-                _edge("sweet_spot_pct", "44+ elite" if _sw >= 44 else "36-43.9 good" if _sw >= 36
-                      else "28-35.9 avg" if _sw >= 28 else "<28 weak", hit)
+                # FIXED this session: widened from 44/36/28 -- those boundaries assumed a
+                # general MLB-wide sweet-spot% range (per square_up_rating's own "28% floor,
+                # 44% elite" comment), but this candidate population is pre-filtered to
+                # top-heat-ranked hitters specifically -- the real data showed 100% of a
+                # 33,392-sample population landing in the old "44+" bucket alone, telling us
+                # nothing. Re-centered on what this specific population actually shows.
+                _edge("sweet_spot_pct", "55+ elite" if _sw >= 55 else "48-54.9 good" if _sw >= 48
+                      else "40-47.9 avg" if _sw >= 40 else "<40 weak", hit)
             # ADDED this session -- own_max_dist wasn't independently checked either (only
             # barrel_pct, its sibling field in hr_power_profile, had a real tier check above).
             _md = (r.get("hr_power") or {}).get("max_dist")
