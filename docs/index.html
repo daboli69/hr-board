@@ -1952,6 +1952,7 @@
     text-decoration:underline;text-underline-offset:2px}
   /* Genius/Long Ball overlap -- per Travis's request. */
   .lb-overlap-intro{padding:12px 4px 14px}
+  .lb-overlap-3way{margin-top:6px;padding-top:14px;border-top:1px dashed var(--line)}
   .lb-overlap-h{font-size:14px;font-weight:800;color:var(--ink);margin-bottom:5px}
   .lb-overlap-d{font-size:11.5px;line-height:1.6;color:var(--faint)}
   .glo-ceiling{display:block;font-family:"IBM Plex Mono";font-size:9.5px;color:var(--faint);
@@ -11556,6 +11557,79 @@ function renderGeniusLongBallOverlap(){
       position on both boards -- lower is better on each side. Tap a player for the real
       reasons from both signals.</div>
     </div>
+    ${rows}
+    ${renderThreeWayOverlapSection()}`;
+}
+
+function toggleTWDetail(idx){
+  const el = document.getElementById(`tw-detail-${idx}`);
+  const row = document.getElementById(`tw-row-${idx}`);
+  if(!el) return;
+  const open = el.style.display !== "none";
+  el.style.display = open ? "none" : "block";
+  if(row) row.setAttribute("aria-expanded", String(!open));
+}
+
+function renderThreeWayOverlapSection(){
+  const pctStr = p => p==null ? "—" : (100*p).toFixed(p<0.01?3:2)+"%";
+  const lb = (BOARD && BOARD.long_ball_jackpot) || {};
+  const tw = lb.three_way_overlap_top10;
+  const intro = `<div class="lb-overlap-intro lb-overlap-3way">
+      <div class="lb-overlap-h">+ Grand Slam (3-way)</div>
+      <div class="lb-overlap-d">A separate, honest add-on -- grand slam probability is mostly
+      driven by who's batting ahead of him and the opposing pitcher's control, not by how good
+      a hitter he is. Requiring alignment across all three would filter out good straight-bet
+      picks for reasons that have nothing to do with their own quality. Expect this to come up
+      thin or empty most nights -- that's a real reflection of what grand slam probability
+      measures, not a bug. Use the 2-way list above for your daily pick; this is here if you
+      want to see who genuinely clears all three bars on a given night.</div>
+    </div>`;
+
+  if(!tw || !tw.rows || !tw.rows.length){
+    const note = tw ? tw.note : "Not run yet on this board.";
+    return `${intro}<div class="psc-empty">${note}</div>`;
+  }
+
+  const rows = tw.rows.map((r,i)=>{
+    const gDrivers = (r.genius_drivers||[]).length
+      ? `<ul class="gt10-driver-list">${(r.genius_drivers||[]).map(d=>`<li>${d}</li>`).join("")}</ul>`
+      : `<div class="gt10-no-drivers">No individual driver cleared a real threshold.</div>`;
+    const lbDrivers = (r.lb_drivers||[]).length
+      ? `<ul class="gt10-driver-list">${(r.lb_drivers||[]).map(d=>`<li>${d}</li>`).join("")}</ul>`
+      : `<div class="gt10-no-drivers">No individual power driver cleared a real threshold.</div>`;
+    const gsDrivers = (r.gs_drivers||[]).length
+      ? `<ul class="gt10-driver-list">${(r.gs_drivers||[]).map(d=>`<li>${d}</li>`).join("")}</ul>`
+      : `<div class="gt10-no-drivers">No individual traffic/punish driver cleared a real threshold.</div>`;
+    return `<div class="gt10-row" id="tw-row-${i}" aria-expanded="false"
+        onclick="toggleTWDetail(${i})">
+      <div class="gt10-rank">${i+1}</div>
+      <div class="gt10-mid">
+        <div class="gt10-nm"><b>${r.name}</b></div>
+        <div class="gt10-sub">${r.team} vs ${r.opp_team}${r.spot?` · #${r.spot}`:""} ·
+          genius #${r.genius_rank} · long ball #${r.lb_rank} · grand slam #${r.gs_rank}</div>
+      </div>
+      <div class="gt10-prob"><b>${pctStr(r.genius_prob)}</b>
+        <span class="glo-ceiling">GS ${pctStr(r.gs_prob)}</span></div>
+      <div class="gt10-chev">▾</div>
+      <div class="gt10-detail" id="tw-detail-${i}" style="display:none" onclick="event.stopPropagation()">
+        <div class="gt10-detail-h">Why ${r.name} is #${i+1} on all three boards</div>
+        <div class="glo-detail-sec"><b>Genius Pairing (#${r.genius_rank}, ${pctStr(r.genius_prob)})</b></div>
+        ${gDrivers}
+        <div class="glo-detail-sec"><b>Long Ball (#${r.lb_rank}, score ${Math.round(r.lb_score)}, ceiling ~${r.ceiling_ft?Math.round(r.ceiling_ft):"—"}ft)</b></div>
+        ${lbDrivers}
+        <div class="glo-detail-sec"><b>Grand Slam (#${r.gs_rank}, ${pctStr(r.gs_prob)})</b></div>
+        ${gsDrivers}
+        <div class="gt10-detail-link" onclick="event.stopPropagation();scanToPlayer(${r.id})">
+          Open full player card →
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+
+  return `${intro}
+    <div class="lb-overlap-d" style="padding:0 4px 10px">${tw.n_shared} real candidate${tw.n_shared===1?"":"s"}
+    cleared all three boards tonight (of top ${tw.n_genius_pool} genius / ${tw.n_lb_pool} long
+    ball / ${tw.n_gs_pool} grand slam).</div>
     ${rows}`;
 }
 
