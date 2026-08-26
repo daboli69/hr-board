@@ -124,7 +124,7 @@ def _pct_scale(v):
 # app has never graded them against its own outcomes the way the signals above are graded, and
 # the scoring function says so in its own output rather than presenting them at equal confidence.
 
-HRPO_FAMILY_LIFT = {0: 0.75, 1: 1.07, 2: 1.32, 3: 1.56, 4: 1.98, 5: 1.31}
+HRPO_FAMILY_LIFT = {0: 0.754, 1: 1.064, 2: 1.286, 3: 1.496, 4: 1.856, 5: 2.345}
 HRPO_SPOT_LIFT = {1: 1.19, 2: 1.17, 3: 1.25, 4: 1.19, 5: 0.98, 6: 0.83, 7: 0.97, 8: 0.83, 9: 0.60}
 HRPO_BASE_RATE = 0.109          # re-anchored from the live backtest's base_pct at call time
 HRPO_MIN_BBE = 250               # below this, convergence is graded WORSE than no signal at all
@@ -154,6 +154,19 @@ def _zone_overlap_tier(zn):
     if zn >= 3: return "3-4"
     if zn >= 1: return "1-2"
     return "0"
+
+# ADDED per Travis's request: square_up.rating is a real, live-tracked signal (track.py's own
+# _edge("square_up",...) calls, visible on the app's own Trends screen) that was never wired
+# into any ticket's probability -- only used as a board filter. Real, clean, monotonic tiers,
+# checked directly against current backtest.json.
+SQUARE_UP_LIFT = {"75+": 1.541, "60-74": 1.286, "45-59": 1.098, "<45": 0.771}
+
+
+def _square_up_tier(sq):
+    if sq >= 75: return "75+"
+    if sq >= 60: return "60-74"
+    if sq >= 45: return "45-59"
+    return "<45"
 
 # Promoted to module level this session (previously a local copy inside build_long_ball_jackpot
 # only) so build_cross_game_hr_parlays' new de-chalk/ownership_tier work can share the exact
@@ -1482,6 +1495,7 @@ def _hrpo_raw_signals(p, pp_by_id, pen_by_team, backtest_calib, base_rate, requi
                                                 # combine function for why this gate exists
     arm_form_label = ((p.get("opp_pitcher") or {}).get("form") or {}).get("label")
     arm_vuln_score = (vuln_by_pid or {}).get(_arm_id) if _arm_id is not None else None
+    square_up_rating = ((p.get("features") or {}).get("square_up") or {}).get("rating")
 
     return {
         "heat": heat, "base_prob": base_prob, "thin": thin, "proven": not thin,
@@ -1494,6 +1508,7 @@ def _hrpo_raw_signals(p, pp_by_id, pen_by_team, backtest_calib, base_rate, requi
         "own_avg_ev_l14": own_avg_ev_l14, "own_avg_ev_l14_bbe": own_avg_ev_l14_bbe,
         "arm_form_label": arm_form_label,
         "arm_vuln_score": arm_vuln_score,
+        "square_up_rating": square_up_rating,
     }
 
 
@@ -1767,6 +1782,17 @@ def _hrpo_combine_genius_pow(sig):
         prob *= 1.0 + (1.11 - 1.0) * 0.45
         drivers.append(f"{sig['near_miss']} near misses")
 
+    _sq = sig.get("square_up_rating")
+    if _sq is not None:
+        _sq_tier = _square_up_tier(_sq)
+        _sq_lift = SQUARE_UP_LIFT[_sq_tier]
+        if _sq_tier != "45-59":   # 45-59 (1.098x) is real but close enough to neutral to skip,
+                                  # same convention as arsenal_fit's 7-8.9 no-op tier
+            prob *= 1.0 + (_sq_lift - 1.0) * 0.5
+            _sqtag = ("elite" if _sq_tier == "75+" else "strong" if _sq_tier == "60-74"
+                     else "weak")
+            drivers.append(f"square up {_sq:.0f} ({_sqtag}, {_sq_lift:.2f}x real, live-tracked)")
+
     spot = sig["spot"]
     if spot is not None:
         mult = HRPO_SPOT_LIFT.get(int(spot), 0.85)
@@ -1786,7 +1812,7 @@ def _hrpo_combine_genius_pow(sig):
 
 
 def HRPO_FAMILY_LIFT_LOOKUP(fams):
-    return {0: 0.75, 1: 1.07, 2: 1.32, 3: 1.56, 4: 1.98, 5: 1.31}.get(min(fams, 5), 1.0)
+    return HRPO_FAMILY_LIFT.get(min(fams, 5), 1.0)
 
 
 def _dechalk_rank_key(c):
