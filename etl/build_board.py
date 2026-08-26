@@ -511,6 +511,56 @@ def build_genius_longball_overlap(genius_pool, lb_scored, top_n=10):
             "n_shared": len(shared_ids)}
 
 
+def build_three_way_overlap(genius_pool, lb_scored, gs_pool, top_n=10):
+    """Per Travis's direct question: should Grand Slam be folded in alongside Genius Pairing
+    and Long Ball into one combined overlap? Built as a SEPARATE, additional view, not a
+    replacement for the 2-way Genius/Long Ball overlap -- Grand Slam's own probability is
+    P(bases loaded when he bats) x P(he homers in it), and that first factor is driven mostly
+    by who bats ahead of him and the opposing pitcher's control, not by his own quality as an
+    HR threat. Requiring alignment across all three would filter OUT some of the best straight
+    HR/distance picks for reasons that have nothing to do with how good a hitter they are --
+    they just aren't batting in a bases-loaded-prone spot tonight. Expect this to come back
+    thin or empty most nights; that is a real, honest reflection of what grand slam probability
+    actually measures, not a bug.
+    """
+    if not genius_pool or not lb_scored or not gs_pool:
+        return {"rows": [], "note": "Not enough real candidates across all three boards "
+                                    "tonight to build a real three-way overlap."}
+    g_rank = {c["id"]: i + 1 for i, c in enumerate(genius_pool) if c.get("id") is not None}
+    g_by_id = {c["id"]: c for c in genius_pool if c.get("id") is not None}
+    lb_rank = {x["id"]: i + 1 for i, x in enumerate(lb_scored) if x.get("id") is not None}
+    lb_by_id = {x["id"]: x for x in lb_scored if x.get("id") is not None}
+    gs_rank = {x["id"]: i + 1 for i, x in enumerate(gs_pool) if x.get("id") is not None}
+    gs_by_id = {x["id"]: x for x in gs_pool if x.get("id") is not None}
+
+    shared_ids = set(g_rank) & set(lb_rank) & set(gs_rank)
+    if not shared_ids:
+        return {"rows": [], "note": "No hitter showed up in all three real pools tonight -- "
+                                    "genuinely expected most nights, since grand slam "
+                                    "probability is driven mostly by lineup/situational "
+                                    "factors, not by how good a hitter someone is. Check the "
+                                    "2-way Genius/Long Ball overlap instead for your daily "
+                                    "straight bet."}
+
+    rows = []
+    for pid in shared_ids:
+        g, lb, gs = g_by_id[pid], lb_by_id[pid], gs_by_id[pid]
+        rows.append({
+            "id": pid, "name": g["name"], "team": g["team"], "opp_team": g.get("opp_team"),
+            "spot": g.get("spot"),
+            "genius_prob": g["prob"], "genius_rank": g_rank[pid], "genius_drivers": g["drivers"],
+            "lb_score": lb["score"], "lb_rank": lb_rank[pid], "lb_drivers": lb.get("drivers", []),
+            "ceiling_ft": lb.get("ceiling_ft"),
+            "gs_prob": gs.get("p_slam"), "gs_rank": gs_rank[pid],
+            "gs_drivers": gs.get("drivers", []),
+            "combined_rank": g_rank[pid] + lb_rank[pid] + gs_rank[pid],
+        })
+    rows.sort(key=lambda r: r["combined_rank"])
+    return {"rows": rows[:top_n],
+            "n_genius_pool": len(genius_pool), "n_lb_pool": len(lb_scored),
+            "n_gs_pool": len(gs_pool), "n_shared": len(shared_ids)}
+
+
 def build_long_ball_jackpot(players, lb_evbarrels=None, lb_pitcher_ev=None,
                             pitcher_edges=None, bullpen_rankings=None):
     """Long Ball Jackpot -- Distance King / Weather-Altitude Play / Mega-Leverage Nuke.
@@ -3655,6 +3705,14 @@ def build(date_str: str | None = None) -> dict:
                 "heat": p.get("heat"), "elite": (p.get("elite") or {}).get("tier"),
             })
         _np = sum(1 for _x in board_gs if _x.get("p_slam") is not None)
+        # ADDED per Travis's request: a broader top-30 slice, same shape as board_gs above but
+        # deeper, for the new 3-way Genius/Long Ball/Grand Slam overlap. board_gs itself stays
+        # at top 12, unchanged, for the existing Grand Slam Jackpot UI.
+        gs_pool_top30 = [{
+            "id": p["id"], "name": p["name"], "team": p.get("team"),
+            "opp_team": p.get("opp_team"), "spot": p.get("lineup_spot"),
+            "p_slam": p["grand_slam"].get("p_slam"), "drivers": p["grand_slam"]["drivers"],
+        } for sc, p in gs_all[:30] if p["grand_slam"].get("p_slam") is not None]
 
         # Pick 1/2/3, searched over the FULL scored pool (gs_all), not just the top-12 slice
         # board_gs keeps -- a genuine deep-leverage play can rank #15 overall by raw p_slam and
@@ -3747,6 +3805,7 @@ def build(date_str: str | None = None) -> dict:
         board_gs = []
         board_gs_jackpot = {"picks": [], "candidates_scored": 0, "notes": []}
         board_gs_board = []
+        gs_pool_top30 = []
         _hnote("grand slam", e); print(f"[build] grand slam skipped: {e}")
 
     try:                                           # persist career-BvP cache for the next build
@@ -5470,6 +5529,9 @@ def build(date_str: str | None = None) -> dict:
         "park_source": ("ballparkpal" if BPP.get("ok") else "local"),
         "park_ranks": park_ranks,           # best/worst HR park tonight (BPP live, local fallback)
         "grand_slam": board_gs,             # top GS-jackpot candidates (traffic x punish)
+        "grand_slam_pool_top30": gs_pool_top30,  # ADDED per Travis's request -- deeper pool
+                                                 # for the 3-way Genius/Long Ball/Grand Slam
+                                                 # overlap, separate from the top-12 jackpot list
         "grand_slam_jackpot": board_gs_jackpot,  # Primary / Top-of-Order Mash / Mega-Leverage Deep
         "grand_slam_board": board_gs_board,      # full per-game ranked board, both teams
         "top_plays": top_plays,
@@ -6150,6 +6212,23 @@ def build(date_str: str | None = None) -> dict:
             board["long_ball_jackpot"]["genius_overlap_top10"] = {"rows": [], "note": None}
         _hnote("genius/long ball overlap", e)
         print(f"[build] genius/long ball overlap skipped: {e}")
+
+    try:
+        # ADDED per Travis's direct question: should Grand Slam be folded in too? See
+        # build_three_way_overlap()'s docstring for the honest reasoning on why this ships as
+        # a SEPARATE view, not a replacement for the 2-way one above. Reuses the exact same
+        # genius/long-ball pools already resolved above.
+        _gs_pool_for_overlap = board.get("grand_slam_pool_top30")
+        _overlap3 = build_three_way_overlap(_genius_pool_for_overlap, _lb_pool_for_overlap,
+                                            _gs_pool_for_overlap)
+        board["long_ball_jackpot"]["three_way_overlap_top10"] = _overlap3
+        print(f"[build] genius/long ball/grand slam overlap: {len(_overlap3.get('rows', []))} "
+              f"shared candidates found (of {_overlap3.get('n_gs_pool', 0)} grand slam)")
+    except Exception as e:
+        if board.get("long_ball_jackpot") is not None:
+            board["long_ball_jackpot"]["three_way_overlap_top10"] = {"rows": [], "note": None}
+        _hnote("3-way overlap", e)
+        print(f"[build] genius/long ball/grand slam overlap skipped: {e}")
 
     try:
         board["total_bases_board"] = build_total_bases_leaderboard(
