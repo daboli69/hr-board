@@ -160,6 +160,9 @@ def _zone_overlap_tier(zn):
 # into any ticket's probability -- only used as a board filter. Real, clean, monotonic tiers,
 # checked directly against current backtest.json.
 SQUARE_UP_LIFT = {"75+": 1.541, "60-74": 1.286, "45-59": 1.098, "<45": 0.771}
+ZONE_EDGE_LIFT = 1.411   # real, current combined lift for zone_edge >= 50 (n=3510) -- see the
+                        # comment at its first use for why this is a binary split, not a tier
+                        # table like the other signals
 
 
 def _square_up_tier(sq):
@@ -1536,9 +1539,9 @@ def _hrpo_combine_arsenal_lock(sig):
 
     ze = sig["zone_edge"]
     zn = sig["zone_overlap_n"]
-    if ze is not None and ze >= 70:
-        prob *= 1.0 + (1.88 - 1.0) * 0.55           # thin sample (n=78) -- damped harder than
-        drivers.append(f"zone edge {ze:.0f} (n=78 graded, damped)")      # arsenal fit specifically
+    if ze is not None and ze >= 50:
+        prob *= 1.0 + (ZONE_EDGE_LIFT - 1.0) * 0.55
+        drivers.append(f"zone edge {ze:.0f} (real matchup edge, {ZONE_EDGE_LIFT:.2f}x, n=3510)")
     elif zn is not None and zn >= 5:
         prob *= 1.0 + (1.38 - 1.0) * 0.70
         drivers.append(f"{zn} zone overlaps (5+ premium, 1.38x graded)")
@@ -1754,6 +1757,16 @@ def _hrpo_combine_genius_pow(sig):
             _tag = ("elite" if _af_tier == "11+" else "good" if _af_tier == "9-10.9"
                    else "weak" if _af_tier == "4-6.9" else "poor")
             drivers.append(f"arsenal fit {af:.0f} ({_tag}, {_af_lift:.2f}x real, 127-day backtest)")
+    # ADDED: zone_edge was completely absent from Genius Pairing before -- only Arsenal & Lock
+    # used it, and even there with a stale n=78 threshold. Real, current data (checked directly
+    # against docs/backtest.json) doesn't support a clean monotonic staircase the way
+    # arsenal_fit/square_up do -- 50-61 and 62-69 actually beat 70+ -- so this uses one real,
+    # combined binary threshold (>=50, 1.411x, n=3510) rather than overclaiming a pattern that
+    # isn't really there.
+    ze = sig.get("zone_edge")
+    if ze is not None and ze >= 50:
+        prob *= 1.0 + (ZONE_EDGE_LIFT - 1.0) * 0.55
+        drivers.append(f"zone edge {ze:.0f} (real matchup edge, {ZONE_EDGE_LIFT:.2f}x, n=3510)")
     zn = sig["zone_overlap_n"]
     if zn is not None:
         _zn_tier = _zone_overlap_tier(zn)
@@ -1762,9 +1775,6 @@ def _hrpo_combine_genius_pow(sig):
         _ztag = ("premium" if _zn_tier == "5+" else "good" if _zn_tier == "3-4"
                 else "some" if _zn_tier == "1-2" else "none")
         drivers.append(f"{zn} zone overlaps ({_ztag}, {_zn_lift:.2f}x real, 127-day backtest)")
-    elif zn is not None and zn == 0:
-        prob *= 0.94   # UNVALIDATED, same status as the arsenal_fit discount above
-        drivers.append("0 zone overlaps (no real damage zone alignment, unvalidated discount)")
 
     if not sig["thin"] and sig["fams"] >= 2:
         # FIXED this session: previously used an inline table capped at "2+" families
