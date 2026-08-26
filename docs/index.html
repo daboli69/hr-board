@@ -1950,6 +1950,14 @@
     color:var(--faint);line-height:1.8}
   .gt10-detail-link{margin-top:9px;font-size:11px;color:var(--seam);cursor:pointer;
     text-decoration:underline;text-underline-offset:2px}
+  /* Genius/Long Ball overlap -- per Travis's request. */
+  .lb-overlap-intro{padding:12px 4px 14px}
+  .lb-overlap-h{font-size:14px;font-weight:800;color:var(--ink);margin-bottom:5px}
+  .lb-overlap-d{font-size:11.5px;line-height:1.6;color:var(--faint)}
+  .glo-ceiling{display:block;font-family:"IBM Plex Mono";font-size:9.5px;color:var(--faint);
+    margin-top:2px;text-align:right}
+  .glo-detail-sec{font-size:10.5px;font-weight:800;color:var(--faint);margin:8px 0 4px}
+  .glo-detail-sec:first-of-type{margin-top:0}
   .btg-route{background:var(--panel-3);border-radius:9px;padding:10px 12px;margin:10px 0}
   .btg-route-h{font-family:"IBM Plex Mono";font-size:10px;font-weight:800;color:var(--seam);
     letter-spacing:.06em;margin-bottom:5px}
@@ -8827,6 +8835,7 @@ function _lbTabBar(){
   // active tab; extracted here so adding Tracker didn't leave that copy silently wrong.
   return `<div class="lb-tabbar">
     <button class="lb-tab${lbBoardTab==='top10'?' on':''}" onclick="lbBoardSetTab('top10')">Top 10</button>
+    <button class="lb-tab${lbBoardTab==='overlap'?' on':''}" onclick="lbBoardSetTab('overlap')">Overlap</button>
     <button class="lb-tab${lbBoardTab==='bygame'?' on':''}" onclick="lbBoardSetTab('bygame')">By Game</button>
     <button class="lb-tab${lbBoardTab==='tracker'?' on':''}" onclick="lbBoardSetTab('tracker')">Tracker</button>
   </div>`;
@@ -9069,6 +9078,10 @@ function renderLongBallBoard(){
 
   if(lbBoardTab === "top10"){
     main.innerHTML = renderLongBallTop10(boards);
+    return;
+  }
+  if(lbBoardTab === "overlap"){
+    main.innerHTML = renderGeniusLongBallOverlap();
     return;
   }
   if(lbBoardTab === "tracker"){
@@ -11470,6 +11483,80 @@ function cgpTicketHTML(sourceKey, ticketKey, t){
       its book price -- more likely leftover model overconfidence than a real mispricing this size.
       Treat as a lead to check by eye, not a confirmed edge.</div>`:""}
   </div>`;
+}
+
+function toggleGLODetail(idx){
+  const el = document.getElementById(`glo-detail-${idx}`);
+  const row = document.getElementById(`glo-row-${idx}`);
+  if(!el) return;
+  const open = el.style.display !== "none";
+  el.style.display = open ? "none" : "block";
+  if(row) row.setAttribute("aria-expanded", String(!open));
+}
+
+function renderGeniusLongBallOverlap(){
+  const pctStr = p => p==null ? "—" : (100*p).toFixed(p<0.01?3:2)+"%";
+  const lb = (BOARD && BOARD.long_ball_jackpot) || {};
+  const ov = lb.genius_overlap_top10;
+  const tabBar = _lbTabBar();
+
+  if(!ov || !ov.rows || !ov.rows.length){
+    const note = ov ? ov.note : "Not run yet on this board.";
+    return `${tabBar}
+      <div class="lb-overlap-intro">
+        <div class="lb-overlap-h">Genius / Long Ball Overlap</div>
+        <div class="lb-overlap-d">Real HR probability (Genius Pairing) and real distance
+        ceiling (Long Ball) are genuinely different questions -- one asks "will he hit one at
+        all," the other asks "if he connects, how far does it go." This finds who scores well
+        on BOTH, instead of a guy who makes great, consistent contact without being a real
+        power outlier -- exactly the profile behind a lot of well-struck 390-400ft outs instead
+        of real bombs.</div>
+      </div>
+      <div class="psc-empty">${note}</div>`;
+  }
+
+  const rows = ov.rows.map((r,i)=>{
+    const gDrivers = (r.genius_drivers||[]).length
+      ? `<ul class="gt10-driver-list">${(r.genius_drivers||[]).map(d=>`<li>${d}</li>`).join("")}</ul>`
+      : `<div class="gt10-no-drivers">No individual driver cleared a real threshold -- his base
+         probability alone carried him into this pool.</div>`;
+    const lbDrivers = (r.lb_drivers||[]).length
+      ? `<ul class="gt10-driver-list">${(r.lb_drivers||[]).map(d=>`<li>${d}</li>`).join("")}</ul>`
+      : `<div class="gt10-no-drivers">No individual power driver cleared a real threshold.</div>`;
+    return `<div class="gt10-row" id="glo-row-${i}" aria-expanded="false"
+        onclick="toggleGLODetail(${i})">
+      <div class="gt10-rank">${i+1}</div>
+      <div class="gt10-mid">
+        <div class="gt10-nm"><b>${r.name}</b></div>
+        <div class="gt10-sub">${r.team} vs ${r.opp_team}${r.spot?` · #${r.spot}`:""} ·
+          genius #${r.genius_rank} · long ball #${r.lb_rank}</div>
+      </div>
+      <div class="gt10-prob"><b>${pctStr(r.genius_prob)}</b>
+        <span class="glo-ceiling">${r.ceiling_ft?Math.round(r.ceiling_ft)+"ft":"—"}</span></div>
+      <div class="gt10-chev">▾</div>
+      <div class="gt10-detail" id="glo-detail-${i}" style="display:none" onclick="event.stopPropagation()">
+        <div class="gt10-detail-h">Why ${r.name} is #${i+1} on both boards</div>
+        <div class="glo-detail-sec"><b>Genius Pairing (#${r.genius_rank}, ${pctStr(r.genius_prob)})</b></div>
+        ${gDrivers}
+        <div class="glo-detail-sec"><b>Long Ball (#${r.lb_rank}, score ${Math.round(r.lb_score)}, ceiling ~${r.ceiling_ft?Math.round(r.ceiling_ft):"—"}ft)</b></div>
+        ${lbDrivers}
+        <div class="gt10-detail-link" onclick="event.stopPropagation();scanToPlayer(${r.id})">
+          Open full player card →
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+
+  return `${tabBar}
+    <div class="lb-overlap-intro">
+      <div class="lb-overlap-h">Genius / Long Ball Overlap</div>
+      <div class="lb-overlap-d">${ov.n_shared} real candidate${ov.n_shared===1?"":"s"} showed up
+      in both the top ${ov.n_genius_pool} of Genius Pairing's real HR probability AND the top
+      ${ov.n_lb_pool} of Long Ball's real distance ceiling tonight. Ranked by combined
+      position on both boards -- lower is better on each side. Tap a player for the real
+      reasons from both signals.</div>
+    </div>
+    ${rows}`;
 }
 
 function toggleGeniusDetail(idx){
