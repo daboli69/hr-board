@@ -592,6 +592,8 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
     # Collected across the FULL population, not badge-filtered -- heat applies to every
     # hitter, so this tests the real, complete real-world distribution it actually sees.
     _heat_pred, _heat_hit = [], []
+    _sweet_spot_raw = []   # ADDED this session -- real distribution diagnostic, see comment
+                          # at the sweet_spot_pct edge check for why this exists
     # new-signal buckets, same {n,hr} shape the tracker uses so the UI renders them uniformly
     by_edge = {}
     def _edge(group, bucket, hit):
@@ -748,14 +750,20 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
             # that composite rating above -- never checked on its own merits until now.
             _sw = r.get("sweet_spot")
             if _sw is not None:
-                # FIXED this session: widened from 44/36/28 -- those boundaries assumed a
-                # general MLB-wide sweet-spot% range (per square_up_rating's own "28% floor,
-                # 44% elite" comment), but this candidate population is pre-filtered to
-                # top-heat-ranked hitters specifically -- the real data showed 100% of a
-                # 33,392-sample population landing in the old "44+" bucket alone, telling us
-                # nothing. Re-centered on what this specific population actually shows.
+                # UPDATED this session -- my prior comment here ("pre-filtered to top-heat-
+                # ranked hitters") does NOT hold up: directly checked this turn, this loop
+                # processes every graded hitter each day, not a heat-restricted subset. Also
+                # directly verified square_up_rating() returns a realistic ~34% on synthetic
+                # batted-ball data spanning the real launch-angle range (grounders through
+                # steep flies) -- the computation itself is not the problem. Widening the
+                # bucket boundaries a second time (44->55) STILL put 100% of 33,392 real
+                # samples in the top bucket, which rules out "boundaries too low" as the
+                # explanation. Root cause genuinely not yet confirmed. Collecting raw values
+                # below so the next run shows the real distribution shape directly (percentiles,
+                # min/max) instead of guessing at a third set of boundaries blind.
                 _edge("sweet_spot_pct", "55+ elite" if _sw >= 55 else "48-54.9 good" if _sw >= 48
                       else "40-47.9 avg" if _sw >= 40 else "<40 weak", hit)
+                _sweet_spot_raw.append(_sw)
             # ADDED this session -- own_max_dist wasn't independently checked either (only
             # barrel_pct, its sibling field in hr_power_profile, had a real tier check above).
             _md = (r.get("hr_power") or {}).get("max_dist")
@@ -898,6 +906,22 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
         "heat_calibration": (V.decile_calibration(_heat_pred, _heat_hit, n_bands=8)
                              if len(_heat_pred) >= 400 else None),
         "heat_calibration_n": len(_heat_pred),
+        # ADDED this session -- real distribution diagnostic for sweet_spot_pct, since two
+        # rounds of widened bucket boundaries (44->55) both put 100% of a real, large sample
+        # in the top bucket, and neither the extraction nor the underlying computation checked
+        # out as buggy when directly tested. Percentiles here will show the real shape of the
+        # distribution directly -- if p10 is already in the 60s, that's a very different,
+        # differently-actionable finding than if there's a long left tail this check's buckets
+        # are somehow still missing.
+        "sweet_spot_pct_distribution": ({
+            "n": len(_sweet_spot_raw),
+            "min": round(min(_sweet_spot_raw), 1), "max": round(max(_sweet_spot_raw), 1),
+            "p10": round(sorted(_sweet_spot_raw)[int(0.10 * len(_sweet_spot_raw))], 1),
+            "p25": round(sorted(_sweet_spot_raw)[int(0.25 * len(_sweet_spot_raw))], 1),
+            "p50": round(sorted(_sweet_spot_raw)[int(0.50 * len(_sweet_spot_raw))], 1),
+            "p75": round(sorted(_sweet_spot_raw)[int(0.75 * len(_sweet_spot_raw))], 1),
+            "p90": round(sorted(_sweet_spot_raw)[int(0.90 * len(_sweet_spot_raw))], 1),
+        } if len(_sweet_spot_raw) >= 100 else None),
         "by_converge_prop": by_conv,   # convergence graded per prop, on that prop's outcome
         "calib": {k: calib[k] for k in sorted(calib, key=int)},
         # Graders that were written and never invoked. The hit comparison is real — both models
