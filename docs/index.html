@@ -1925,6 +1925,31 @@
   .cgp-sum-row.pos b{color:var(--good)}
   .cgp-note{font-family:"IBM Plex Mono";font-size:9px;color:var(--faint);line-height:1.6;margin-top:8px}
   .cgp-note.warn{color:var(--hot);background:rgba(200,70,60,.08);border-radius:6px;padding:7px 9px}
+  /* Genius Top 10 -- per Travis: a ranked list where tapping a player expands the real reasons
+     in place, rather than navigating away to the board. */
+  .gt10-row{position:relative;background:var(--panel-3);border-radius:9px;padding:9px 11px;
+    margin-bottom:6px;display:flex;flex-wrap:wrap;align-items:center;gap:9px;cursor:pointer}
+  .gt10-row:active{background:var(--panel-2)}
+  .gt10-rank{flex:0 0 22px;font-family:"IBM Plex Mono";font-size:13px;font-weight:800;
+    color:var(--faint);text-align:center}
+  .gt10-mid{flex:1;min-width:0}
+  .gt10-nm b{font-size:13px;color:var(--ink)}
+  .gt10-sub{font-size:10.5px;color:var(--faint);margin-top:1px}
+  .gt10-prob{flex:0 0 auto;font-family:"IBM Plex Mono";font-size:14px;font-weight:800;
+    color:var(--seam)}
+  .gt10-chev{flex:0 0 auto;font-size:10px;color:var(--faint);transition:transform .15s}
+  .gt10-row[aria-expanded="true"] .gt10-chev{transform:rotate(180deg)}
+  .gt10-detail{flex-basis:100%;width:100%;margin-top:10px;padding-top:10px;
+    border-top:1px solid var(--line);cursor:default}
+  .gt10-detail-h{font-family:"IBM Plex Mono";font-size:10px;font-weight:800;color:var(--seam);
+    letter-spacing:.04em;margin-bottom:6px}
+  .gt10-driver-list{margin:0;padding-left:16px}
+  .gt10-driver-list li{font-size:11.5px;color:var(--ink);line-height:1.7}
+  .gt10-no-drivers{font-size:11px;color:var(--faint);line-height:1.6;font-style:italic}
+  .gt10-detail-extra{margin-top:8px;font-family:"IBM Plex Mono";font-size:9.5px;
+    color:var(--faint);line-height:1.8}
+  .gt10-detail-link{margin-top:9px;font-size:11px;color:var(--seam);cursor:pointer;
+    text-decoration:underline;text-underline-offset:2px}
   .btg-route{background:var(--panel-3);border-radius:9px;padding:10px 12px;margin:10px 0}
   .btg-route-h{font-family:"IBM Plex Mono";font-size:10px;font-weight:800;color:var(--seam);
     letter-spacing:.06em;margin-bottom:5px}
@@ -11447,6 +11472,57 @@ function cgpTicketHTML(sourceKey, ticketKey, t){
   </div>`;
 }
 
+function toggleGeniusDetail(idx){
+  const el = document.getElementById(`gt10-detail-${idx}`);
+  const row = document.getElementById(`gt10-row-${idx}`);
+  if(!el) return;
+  const open = el.style.display !== "none";
+  el.style.display = open ? "none" : "block";
+  if(row) row.setAttribute("aria-expanded", String(!open));
+}
+
+function cgpTop10HTML(sourceKey, top10){
+  const amerStr=n=>n==null?"—":(n>0?"+"+n:String(n));
+  const pctStr=p=>p==null?"—":(100*p).toFixed(p<0.01?3:2)+"%";
+  if(!top10 || !top10.length){
+    return `<div class="psc-empty">Not run yet on this board.</div>`;
+  }
+  return top10.map((c,i)=>{
+    const driversHTML = (c.drivers||[]).length
+      ? `<ul class="gt10-driver-list">${(c.drivers||[]).map(d=>`<li>${d}</li>`).join("")}</ul>`
+      : `<div class="gt10-no-drivers">No individual driver notes cleared a real threshold for
+         this candidate -- the base probability alone (badge-anchored or heat-calibrated)
+         carried him into the top 10.</div>`;
+    const famNote = c.fams ? `${c.fams} non-heat evidence famil${c.fams===1?"y":"ies"}` : null;
+    const nmNote = c.near_miss ? `${c.near_miss} near miss${c.near_miss===1?"":"es"}` : null;
+    const bookNote = c.book_odds!=null
+      ? `Book price ${amerStr(c.book_odds)}${c.edge_extreme?' <span class="cgp-warn" title="Model/book gap unusually large -- verify manually">⚠</span>':''}`
+      : `No live book price matched for this player yet.`;
+    return `<div class="gt10-row" id="gt10-row-${i}" aria-expanded="false"
+        onclick="toggleGeniusDetail(${i})">
+      <div class="gt10-rank">${i+1}</div>
+      <div class="gt10-mid">
+        <div class="gt10-nm"><b>${c.name}</b></div>
+        <div class="gt10-sub">${c.team} vs ${c.opp_team}${c.spot?` · #${c.spot}`:""}</div>
+      </div>
+      <div class="gt10-prob"><b>${pctStr(c.prob)}</b></div>
+      <div class="gt10-chev">▾</div>
+      <div class="gt10-detail" id="gt10-detail-${i}" style="display:none" onclick="event.stopPropagation()">
+        <div class="gt10-detail-h">Why ${c.name} is #${i+1}</div>
+        ${driversHTML}
+        <div class="gt10-detail-extra">
+          ${famNote?`<div>${famNote}</div>`:""}
+          ${nmNote?`<div>${nmNote}</div>`:""}
+          <div>${bookNote}</div>
+        </div>
+        <div class="gt10-detail-link" onclick="event.stopPropagation();scanToPlayer(${c.id})">
+          Open full player card →
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
 function cgpRR5HTML(sourceKey, t){
   const amerStr=n=>n==null?"—":(n>0?"+"+n:String(n));
   const pctStr=p=>p==null?"—":(100*p).toFixed(p<0.01?3:2)+"%";
@@ -11581,6 +11657,18 @@ function renderParlayScanner(){
         const cgp5=BOARD.cross_game_parlays_pow;
         if(!cgp5 || !cgp5.genius5) return `<div class="psc-empty">Not run yet on this board.</div>`;
         return cgpRR5HTML("cross_game_parlays_pow", cgp5.genius5);
+      })()}
+    </div>
+    <div class="pl-card">
+      <div class="pl-card-h"><div class="pl-card-t">Genius Top 10 <span class="beta-pill">TAP TO EXPAND</span></div>
+        <div class="pl-card-d">The same real, de-chalk-ranked pool the tickets above draw from --
+        no distinct-game restriction here, since a single straight bet doesn't need to worry
+        about same-game correlation the way a parlay does. Tap a player to see the real reasons
+        in place -- this won't take you to the board.</div></div>
+      ${(()=>{
+        const cgpT=BOARD.cross_game_parlays_pow;
+        if(!cgpT || !cgpT.genius_top10) return `<div class="psc-empty">Not run yet on this board.</div>`;
+        return cgpTop10HTML("cross_game_parlays_pow", cgpT.genius_top10);
       })()}
     </div>
     <div class="cgp-block">
