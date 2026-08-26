@@ -462,6 +462,55 @@ def _longball_park_rate_mult(pf, park_hr_rec):
     return max(0.75, min(1.60, mult))
 
 
+def build_genius_longball_overlap(genius_pool, lb_scored, top_n=10):
+    """Per Travis's direct request: a top-N list of hitters who show up well on BOTH real HR
+    probability (Genius Pairing's own signal stack) AND real distance ceiling (Long Ball's raw
+    Power/Trajectory/Physics score) -- two genuinely different questions. Genius Pairing asks
+    "will he hit one at all"; Long Ball asks "if he connects, how far does it go." A hitter can
+    rank highly on one without the other -- solid, consistent contact without being a real power
+    outlier is exactly the profile that produces a lot of well-struck 390-400ft outs instead of
+    majestic ones, which is the real problem this feature is trying to address.
+
+    Uses raw Long Ball `score` (the pure ceiling baseline), not `jackpot_ev` (which is
+    leverage-adjusted for the shared pari-mutuel pot) -- a straight bet doesn't care whether
+    the pick is chalky, only whether the real distance ceiling is real.
+
+    Combines via a real, simple, verifiable rank-sum: each hitter's position in each list
+    (1 = best) is added together, lower combined rank wins. Deliberately not a percentile/
+    geometric-mean blend -- rank-sum is easy to check by hand ("he's #3 in one, #7 in the
+    other, combined 10") and doesn't require guessing at a weighting between two differently-
+    shaped distributions.
+    """
+    if not genius_pool or not lb_scored:
+        return {"rows": [], "note": "Not enough real candidates on both boards tonight to "
+                                    "build a real overlap."}
+    g_rank = {c["id"]: i + 1 for i, c in enumerate(genius_pool) if c.get("id") is not None}
+    g_by_id = {c["id"]: c for c in genius_pool if c.get("id") is not None}
+    lb_rank = {x["id"]: i + 1 for i, x in enumerate(lb_scored) if x.get("id") is not None}
+    lb_by_id = {x["id"]: x for x in lb_scored if x.get("id") is not None}
+
+    shared_ids = set(g_rank) & set(lb_rank)
+    if not shared_ids:
+        return {"rows": [], "note": "No hitter appeared in both real pools tonight -- the two "
+                                    "signals genuinely disagreed on everyone, which happens; "
+                                    "check each board separately tonight instead."}
+
+    rows = []
+    for pid in shared_ids:
+        g, lb = g_by_id[pid], lb_by_id[pid]
+        rows.append({
+            "id": pid, "name": g["name"], "team": g["team"], "opp_team": g.get("opp_team"),
+            "spot": g.get("spot"),
+            "genius_prob": g["prob"], "genius_rank": g_rank[pid], "genius_drivers": g["drivers"],
+            "lb_score": lb["score"], "lb_rank": lb_rank[pid], "lb_drivers": lb.get("drivers", []),
+            "ceiling_ft": lb.get("ceiling_ft"), "combined_rank": g_rank[pid] + lb_rank[pid],
+        })
+    rows.sort(key=lambda r: r["combined_rank"])
+    return {"rows": rows[:top_n],
+            "n_genius_pool": len(genius_pool), "n_lb_pool": len(lb_scored),
+            "n_shared": len(shared_ids)}
+
+
 def build_long_ball_jackpot(players, lb_evbarrels=None, lb_pitcher_ev=None,
                             pitcher_edges=None, bullpen_rankings=None):
     """Long Ball Jackpot -- Distance King / Weather-Altitude Play / Mega-Leverage Nuke.
@@ -775,8 +824,15 @@ def build_long_ball_jackpot(players, lb_evbarrels=None, lb_pitcher_ev=None,
         _pick(nuke_pool, "The Mega-Leverage Nuke",
              note=f"Top 5% MLB max EV ({p95_threshold:.1f}+ mph), off the radar")
 
+    # ADDED per Travis's request: a flat list sorted by raw score (the pure ceiling baseline,
+    # not jackpot_ev's leverage adjustment), for build_genius_longball_overlap(). lb_board above
+    # is grouped by game and ranked by jackpot_ev -- neither shape fits what a straight-bet
+    # overlap needs.
+    scored_by_ceiling = sorted(scored, key=lambda x: -x["score"])
+
     return {"picks": picks, "candidates_scored": len(scored),
             "mlb_p95_max_ev": p95_threshold, "board": lb_board,
+            "scored_by_ceiling": scored_by_ceiling,
             "slate_context": slate_context,
             "notes": ["Absolute Power Ceiling uses real max_hit_speed/ev50/bat speed from a "
                      "Savant leaderboard fetch and the shared Statcast frame -- not an "
@@ -2093,6 +2149,7 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
     genius = None
     genius5 = None   # ADDED this session -- see below
     genius_top10 = None   # ADDED this session -- see below
+    genius_pool_top30 = None   # ADDED this session -- see below
     if _build_genius and candidates_genius:
         g_pool = _tier_pool([c for c in candidates_genius if c["proven"]])
         g_pool.sort(key=_dechalk_rank_key)
@@ -2103,6 +2160,12 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
         # straight-bet browsing list. Reuses the exact same candidates and drivers already
         # computed above, nothing new here, just exposing more of what already exists.
         genius_top10 = g_pool[:10]
+        # ADDED per Travis's request: a broader slice (top 30) of this same real pool, used
+        # only to build the Genius/Long Ball overlap below -- restricting the join to just the
+        # top 10 would make the overlap nearly empty most nights, since these are genuinely
+        # different signals (real HR probability vs raw distance ceiling) that don't always
+        # crown the same top players.
+        genius_pool_top30 = g_pool[:30]
         _genius_label = (f"Genius Pairing ({require_badge.upper()})" if require_badge
                          else "Genius Pairing (Open)")
         genius = _ticket(_genius_label,
@@ -2228,6 +2291,8 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
         _result["genius5"] = genius5
     if genius_top10:
         _result["genius_top10"] = genius_top10
+    if genius_pool_top30:
+        _result["genius_pool_top30"] = genius_pool_top30
     return _result
 
 
@@ -6063,6 +6128,28 @@ def build(date_str: str | None = None) -> dict:
     except Exception as e:
         board["long_ball_jackpot"] = {"picks": [], "candidates_scored": 0, "notes": []}
         _hnote("long ball jackpot", e); print(f"[build] long ball jackpot skipped: {e}")
+
+    try:
+        # ADDED per Travis's direct request: real HR probability (Genius Pairing) and real
+        # distance ceiling (Long Ball) overlap -- see build_genius_longball_overlap()'s
+        # docstring for the full reasoning. Prefers the POW-restricted Genius pool (the
+        # flagship, most-validated ticket) as the "real HR probability" side; falls back to
+        # the open pool only if the POW-restricted one didn't build for some reason.
+        _cgpp_for_overlap = board.get("cross_game_parlays_pow") or {}
+        _genius_pool_for_overlap = (_cgpp_for_overlap.get("genius_pool_top30")
+                                    or (board.get("cross_game_parlays_genius_open") or {})
+                                       .get("genius_pool_top30"))
+        _lb_pool_for_overlap = (board.get("long_ball_jackpot") or {}).get("scored_by_ceiling")
+        _overlap = build_genius_longball_overlap(_genius_pool_for_overlap, _lb_pool_for_overlap)
+        board["long_ball_jackpot"]["genius_overlap_top10"] = _overlap
+        print(f"[build] genius/long ball overlap: {len(_overlap.get('rows', []))} shared "
+              f"candidates found (of {_overlap.get('n_genius_pool', 0)} genius / "
+              f"{_overlap.get('n_lb_pool', 0)} long ball)")
+    except Exception as e:
+        if board.get("long_ball_jackpot") is not None:
+            board["long_ball_jackpot"]["genius_overlap_top10"] = {"rows": [], "note": None}
+        _hnote("genius/long ball overlap", e)
+        print(f"[build] genius/long ball overlap skipped: {e}")
 
     try:
         board["total_bases_board"] = build_total_bases_leaderboard(
