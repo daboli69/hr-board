@@ -2056,10 +2056,17 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
     # and _tier_pool above.
     genius = None
     genius5 = None   # ADDED this session -- see below
+    genius_top10 = None   # ADDED this session -- see below
     if _build_genius and candidates_genius:
         g_pool = _tier_pool([c for c in candidates_genius if c["proven"]])
         g_pool.sort(key=_dechalk_rank_key)
         g_pool.reverse()
+        # ADDED this session, per Travis: the top 10 of this same real, de-chalk-ranked pool,
+        # unrestricted by the distinct-game rule the 3-leg/5-leg tickets enforce -- that rule
+        # exists to avoid same-game correlation in a parlay, which doesn't apply to a single
+        # straight-bet browsing list. Reuses the exact same candidates and drivers already
+        # computed above, nothing new here, just exposing more of what already exists.
+        genius_top10 = g_pool[:10]
         _genius_label = (f"Genius Pairing ({require_badge.upper()})" if require_badge
                          else "Genius Pairing (Open)")
         genius = _ticket(_genius_label,
@@ -2183,6 +2190,8 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
         _result["genius"] = genius
     if genius5:
         _result["genius5"] = genius5
+    if genius_top10:
+        _result["genius_top10"] = genius_top10
     return _result
 
 
