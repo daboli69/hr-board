@@ -561,6 +561,68 @@ def build_three_way_overlap(genius_pool, lb_scored, gs_pool, top_n=10):
             "n_gs_pool": len(gs_pool), "n_shared": len(shared_ids)}
 
 
+def build_vulnerable_arm_genius_matchups(arms, pitcher_edges, genius_pool_pow, genius_pool_open,
+                                         top_n_arms=15, batters_per_arm=5):
+    """Formalizes the real, manual cross-reference this session worked through by hand: which
+    pitchers are showing up as genuinely bad on THREE real fronts at once -- their trailing
+    recent form, their season-long rate, and their composite HR Vulnerability score -- and,
+    for each of those arms, which real Genius Pairing candidates are actually in the opposing
+    lineup tonight.
+
+    Combined score is a simple sum (recent_score + season_score + vuln.score), same as the
+    manual version -- no reason to invent a more complex weighting scheme when a plain sum
+    already surfaced real, useful names every time this was checked by hand this session.
+
+    Pulls from BOTH Genius Pairing pools (POW-restricted and open) so a real candidate isn't
+    missed just because they don't happen to carry a POW badge -- de-duplicated by id, keeping
+    whichever pool's number is higher if a player appears in both.
+
+    Arms with no real Genius Pairing candidate on the opposing side are dropped entirely rather
+    than shown with an empty batter list -- a vulnerable arm nobody's real signal profile
+    lines up against isn't useful information for building a bet around.
+    """
+    vuln_by_id = {p["id"]: (p.get("vuln") or {}).get("score") for p in (pitcher_edges or [])}
+
+    arm_rows = []
+    for a in (arms or []):
+        v = vuln_by_id.get(a.get("id"))
+        recent, season = a.get("recent_score"), a.get("season_score")
+        if v is None or recent is None or season is None:
+            continue
+        arm_rows.append({
+            "pitcher_id": a["id"], "pitcher_name": a["name"], "team": a.get("team"),
+            "opp": a.get("opp"), "time": a.get("time"),
+            "recent_score": recent, "season_score": season, "vuln": v,
+            "combined_score": recent + season + v,
+            "recent_hr": a.get("recent_hr"), "recent_pa": a.get("recent_pa"),
+            "season_hr": a.get("season_hr"),
+            "form": (a.get("form") or {}).get("label"), "flags": a.get("flags") or [],
+        })
+    arm_rows.sort(key=lambda r: -r["combined_score"])
+
+    all_candidates = list(genius_pool_pow or []) + list(genius_pool_open or [])
+    by_team = {}
+    for c in all_candidates:
+        if c.get("team") is None or c.get("id") is None:
+            continue
+        by_team.setdefault(c["team"], {})
+        existing = by_team[c["team"]].get(c["id"])
+        if existing is None or c["prob"] > existing["prob"]:
+            by_team[c["team"]][c["id"]] = c
+    for team in by_team:
+        by_team[team] = sorted(by_team[team].values(), key=lambda x: -x["prob"])
+
+    results = []
+    for arm in arm_rows:
+        batters = by_team.get(arm["opp"])
+        if not batters:
+            continue
+        results.append({**arm, "batters": batters[:batters_per_arm]})
+        if len(results) >= top_n_arms:
+            break
+    return {"rows": results, "n_arms_checked": len(arm_rows)}
+
+
 def build_long_ball_jackpot(players, lb_evbarrels=None, lb_pitcher_ev=None,
                             pitcher_edges=None, bullpen_rankings=None):
     """Long Ball Jackpot -- Distance King / Weather-Altitude Play / Mega-Leverage Nuke.
@@ -2873,8 +2935,13 @@ def build(date_str: str | None = None) -> dict:
 
     # score every probable pitcher's HR vulnerability once
     pitcher_hr = {}
+    pitcher_recent_raw = {}   # ADDED per Travis's question -- keep the raw recent-window dict
+                             # (has a real "hr" count, "pa") so the literal number can be shown
+                             # alongside the derived recent_score, not just the blended score.
     for pid, prof_p in pitch_profiles.items():
-        pitcher_hr[pid] = compute.pitcher_hr_score(prof_p.get("recent", {}), prof_p.get("season", {}))
+        _recent_p = prof_p.get("recent", {})
+        pitcher_hr[pid] = compute.pitcher_hr_score(_recent_p, prof_p.get("season", {}))
+        pitcher_recent_raw[pid] = _recent_p
 
     # 2-year HR-by-hand per starter (cached in a repo file so we don't re-pull hourly)
     # _HAND2YR_V invalidates old cache entries when the computation changes.
@@ -5561,6 +5628,9 @@ def build(date_str: str | None = None) -> dict:
                 "hr_score": phr.get("score"),
                 "recent_score": phr.get("recent_score"),
                 "season_score": phr.get("season_score"),
+                "recent_hr": pitcher_recent_raw.get(pid, {}).get("hr"),
+                "recent_pa": pitcher_recent_raw.get(pid, {}).get("pa"),
+                "season_hr": (pitch_profiles.get(pid, {}).get("season") or {}).get("hr"),
                 "delta": phr.get("delta"),
                 "form": phr.get("form"),
                 "flags": phr.get("flags", []),
@@ -6229,6 +6299,22 @@ def build(date_str: str | None = None) -> dict:
             board["long_ball_jackpot"]["three_way_overlap_top10"] = {"rows": [], "note": None}
         _hnote("3-way overlap", e)
         print(f"[build] genius/long ball/grand slam overlap skipped: {e}")
+
+    try:
+        # ADDED per Travis's direct request: formalizes the real, manual cross-reference
+        # methodology used to build several real parlay picks this session -- see
+        # build_vulnerable_arm_genius_matchups()'s docstring for the full reasoning.
+        _pool_pow_vam = (board.get("cross_game_parlays_pow") or {}).get("genius_pool_top30")
+        _pool_open_vam = (board.get("cross_game_parlays_genius_open") or {}).get("genius_pool_top30")
+        board["vulnerable_arm_matchups"] = build_vulnerable_arm_genius_matchups(
+            board.get("arms"), board.get("pitcher_edges"), _pool_pow_vam, _pool_open_vam)
+        _vam = board["vulnerable_arm_matchups"]
+        print(f"[build] vulnerable arm matchups: {len(_vam['rows'])} arms with a real "
+              f"opposing candidate (of {_vam['n_arms_checked']} arms checked)")
+    except Exception as e:
+        board["vulnerable_arm_matchups"] = {"rows": [], "n_arms_checked": 0}
+        _hnote("vulnerable arm matchups", e)
+        print(f"[build] vulnerable arm matchups skipped: {e}")
 
     try:
         board["total_bases_board"] = build_total_bases_leaderboard(
