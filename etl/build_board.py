@@ -2435,7 +2435,7 @@ def _hnote(sub, err):
 RECENT_DAYS = int(os.environ.get("RECENT_DAYS", "45"))  # window for L5/L15/L30
 OUT_PATH = os.environ.get("BOARD_OUT", "docs/board.json")
 MIN_STATCAST_ROWS = int(os.environ.get("MIN_STATCAST_ROWS", "5000"))
-PULL_RETRIES = int(os.environ.get("PULL_RETRIES", "3"))
+PULL_RETRIES = int(os.environ.get("PULL_RETRIES", "5"))
 
 
 def _norm(s: str) -> str:
