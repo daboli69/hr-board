@@ -69,7 +69,7 @@ def _dates_needing_heat(history_path):
     return out
 
 
-def reconstruct_day(df, D, target_names, statcast_data, compute, props):
+def reconstruct_day(df, D, target_names, statcast_data, compute, props, statsapi):
     """For one date D, reconstruct heat/badges for every real batter with a plate appearance
     that day (needed for the rank, not just the target names), then return just the subset
     the caller actually asked for. Mirrors backtest.py's replay() loop directly -- same
@@ -86,7 +86,8 @@ def reconstruct_day(df, D, target_names, statcast_data, compute, props):
         return {}
 
     try:
-        name_map = statcast_data.player_names(batters)
+        hand_info = statsapi.get_handedness(batters)   # same /people endpoint + fullName
+        name_map = {bid: info["name"] for bid, info in hand_info.items() if info.get("name")}
     except Exception as e:
         print(f"[backfill-heat] {D}: name lookup failed ({e}), skipping", file=sys.stderr)
         return {}
@@ -161,6 +162,18 @@ def reconstruct_day(df, D, target_names, statcast_data, compute, props):
             by_name[r["name"]] = {"heat": r["heat"], "badges": r["badges"],
                                   "heat_rank": i + 1, "n_that_day": len(scored),
                                   "team": r.get("team"), "off": r.get("off")}
+
+    unmatched = target_names - set(by_name)
+    if unmatched:
+        # Loud on purpose -- a silent mismatch here means the day "completes successfully"
+        # while quietly reconstructing nothing, which is exactly what happened before this
+        # diagnostic existed. Print the reconstructed pool's names too so a real name-format
+        # mismatch (accents, suffixes, nickname vs formal name) is visible immediately instead
+        # of requiring a manual investigation to even notice something went wrong.
+        print(f"[backfill-heat] {D}: WARNING -- {len(unmatched)} target name(s) had NO match "
+              f"in the reconstructed pool: {sorted(unmatched)}", file=sys.stderr)
+        print(f"[backfill-heat] {D}: reconstructed pool had {len(scored)} names -- "
+              f"first 10: {[r['name'] for r in scored[:10]]}", file=sys.stderr)
     return by_name
 
 
@@ -193,6 +206,10 @@ def merge_heat(results_by_date, history_path=HISTORY_PATH):
     hist["updated"] = datetime.utcnow().strftime("%Y-%m-%d")
     with open(history_path, "w") as f:
         json.dump(hist, f, indent=2, default=str)
+    if n_filled == 0:
+        print("[backfill-heat] *** WARNING: 0 entries filled. The reconstruction ran without "
+              "erroring, but matched nothing -- check the per-day WARNING lines above for "
+              "unmatched names before assuming this run did anything real. ***", file=sys.stderr)
     print(f"[backfill-heat] filled heat/badges/rank for {n_filled} hr_log entries "
           f"→ {history_path}")
 
@@ -213,7 +230,7 @@ def main():
           f"{len(needed)} date(s) need heat reconstruction")
 
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from etl import statcast_data, compute, props
+    from etl import statcast_data, compute, props, statsapi
 
     print(f"[backfill-heat] pulling full Statcast {args.start} → {args.end} "
           f"(this is a large, slow pull -- budget real time)")
@@ -228,7 +245,7 @@ def main():
     results = {}
     for D, names in sorted(needed.items()):
         print(f"[backfill-heat] reconstructing {D} ({len(names)} target hitter(s))...")
-        results[D] = reconstruct_day(df, D, set(names), statcast_data, compute, props)
+        results[D] = reconstruct_day(df, D, set(names), statcast_data, compute, props, statsapi)
 
     # ADDED after a real race: this whole run is slow (30+ min for a wide date range), and
     # docs/history.json is also written by the daily board-update workflow -- if that runs
