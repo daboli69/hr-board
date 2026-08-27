@@ -1959,6 +1959,16 @@
     margin-top:2px;text-align:right}
   .glo-detail-sec{font-size:10.5px;font-weight:800;color:var(--faint);margin:8px 0 4px}
   .glo-detail-sec:first-of-type{margin-top:0}
+  /* Hot Arms -- per Travis's request. */
+  .ha-arm-block{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+  .ha-arm-block:first-of-type{margin-top:0;padding-top:0;border-top:none}
+  .ha-arm-h{font-size:13px;color:var(--ink)}
+  .ha-vuln{float:right;font-family:"IBM Plex Mono";font-size:10px;font-weight:800;
+    color:var(--hot);background:rgba(200,70,60,.12);border-radius:5px;padding:2px 7px}
+  .ha-arm-sub{font-family:"IBM Plex Mono";font-size:9.5px;color:var(--faint);margin:3px 0 6px}
+  .ha-flags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+  .ha-flag{font-size:9.5px;color:var(--faint);background:var(--panel-3);border-radius:5px;
+    padding:3px 7px}
   .btg-route{background:var(--panel-3);border-radius:9px;padding:10px 12px;margin:10px 0}
   .btg-route-h{font-family:"IBM Plex Mono";font-size:10px;font-weight:800;color:var(--seam);
     letter-spacing:.06em;margin-bottom:5px}
@@ -6266,6 +6276,7 @@ function renderEdges(){
   }
   const subTabs=`<div class="prop-subtabs" style="margin-bottom:12px">
     <button class="${edgesView==='arms'?'on':''}" onclick="setEdgesView('arms')">Arms</button>
+    <button class="${edgesView==='hotarms'?'on':''}" onclick="setEdgesView('hotarms')">Hot Arms</button>
     <button class="${edgesView==='qt'?'on':''}" onclick="setEdgesView('qt')">Quick Target</button>
     <button class="${edgesView==='pens'?'on':''}" onclick="setEdgesView('pens')">Bullpens</button>
     <button class="${edgesView==='micro'?'on':''}" onclick="setEdgesView('micro')">Microclimate</button>
@@ -6273,6 +6284,66 @@ function renderEdges(){
   </div>`;
   const hd=`<div class="edges-hd"><h2>Edges <span class="beta-pill">BETA</span></h2></div>`;
   const note=`<div class="edges-note">⚠︎ Experimental signals, not yet CLV-validated. These reconstruct matchups the market undersamples. Treat as leads — log a bet if you act, so the tracker can prove or kill the edge over time.</div>`;
+
+  if(edgesView==="hotarms"){
+    const pctStr = p => p==null ? "—" : (100*p).toFixed(p<0.01?3:2)+"%";
+    const vam = (BOARD && BOARD.vulnerable_arm_matchups) || {};
+    const intro = `<div class="lb-overlap-intro">
+      <div class="lb-overlap-h">Hot Arms — Real Vulnerability × Genius Pairing</div>
+      <div class="lb-overlap-d">Pitchers ranked by combining three real, current numbers: their
+      trailing recent-form score, their season-long score, and their composite HR
+      Vulnerability score. For each of the most vulnerable arms, the real Genius Pairing
+      candidates actually in the opposing lineup tonight -- arms nobody real is matched up
+      against are left out entirely, since a vulnerable arm with no real batter signal on the
+      other side isn't something to build a bet around. Tap a name to see the real reasons.</div>
+    </div>`;
+    if(!vam.rows || !vam.rows.length){
+      main.innerHTML=`<div class="edges-wrap">${hd}${subTabs}${intro}
+        <div class="psc-empty">Not run yet on this board.</div></div>`;
+      return;
+    }
+    let rowIdx = 0;
+    const armBlocks = vam.rows.map(arm=>{
+      const flagsHTML = (arm.flags||[]).length
+        ? `<div class="ha-flags">${(arm.flags||[]).map(f=>`<span class="ha-flag">${f}</span>`).join("")}</div>`
+        : "";
+      const batterRows = (arm.batters||[]).map(bt=>{
+        const idx = rowIdx++;
+        const driversHTML = (bt.drivers||[]).length
+          ? `<ul class="gt10-driver-list">${(bt.drivers||[]).map(d=>`<li>${d}</li>`).join("")}</ul>`
+          : `<div class="gt10-no-drivers">No individual driver cleared a real threshold.</div>`;
+        return `<div class="gt10-row" id="ha-row-${idx}" aria-expanded="false"
+            onclick="toggleHADetail(${idx})">
+          <div class="gt10-mid">
+            <div class="gt10-nm"><b>${bt.name}</b></div>
+            <div class="gt10-sub">${bt.team} vs ${bt.opp_team||arm.pitcher_name}</div>
+          </div>
+          <div class="gt10-prob"><b>${pctStr(bt.prob)}</b></div>
+          <div class="gt10-chev">▾</div>
+          <div class="gt10-detail" id="ha-detail-${idx}" style="display:none" onclick="event.stopPropagation()">
+            <div class="gt10-detail-h">Why ${bt.name}</div>
+            ${driversHTML}
+            <div class="gt10-detail-link" onclick="event.stopPropagation();scanToPlayer(${bt.id})">
+              Open full player card →
+            </div>
+          </div>
+        </div>`;
+      }).join("");
+      return `<div class="ha-arm-block">
+        <div class="ha-arm-h">
+          <b>${arm.pitcher_name}</b> (${arm.team} vs ${arm.opp})
+          <span class="ha-vuln">vuln ${arm.vuln}</span>
+        </div>
+        <div class="ha-arm-sub">recent ${arm.recent_score}${arm.recent_hr!=null?` (${arm.recent_hr} HR/${arm.recent_pa||"?"} PA)`:""}
+          · season ${arm.season_score}${arm.season_hr!=null?` (${arm.season_hr} HR)`:""} ·
+          ${arm.form||"—"}</div>
+        ${flagsHTML}
+        ${batterRows}
+      </div>`;
+    }).join("");
+    main.innerHTML=`<div class="edges-wrap">${hd}${subTabs}${intro}${armBlocks}</div>`;
+    return;
+  }
 
   if(edgesView==="qt"){
     // QUICK TARGET: the top-4 most dangerous batting-order spots vs each arm on the slate,
@@ -11564,6 +11635,15 @@ function renderGeniusLongBallOverlap(){
 function toggleTWDetail(idx){
   const el = document.getElementById(`tw-detail-${idx}`);
   const row = document.getElementById(`tw-row-${idx}`);
+  if(!el) return;
+  const open = el.style.display !== "none";
+  el.style.display = open ? "none" : "block";
+  if(row) row.setAttribute("aria-expanded", String(!open));
+}
+
+function toggleHADetail(idx){
+  const el = document.getElementById(`ha-detail-${idx}`);
+  const row = document.getElementById(`ha-row-${idx}`);
   if(!el) return;
   const open = el.style.display !== "none";
   el.style.display = open ? "none" : "block";
