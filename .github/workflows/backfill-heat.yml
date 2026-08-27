@@ -1,0 +1,58 @@
+name: Backfill Heat/Badges into HR Log
+
+# Manual, on-demand reconstruction of heat/badges/heat_rank for hr_log entries that are
+# missing them (e.g. dates from before track.py started capturing full board context).
+# Run it from the Actions tab -> "Backfill Heat/Badges into HR Log" -> Run workflow.
+#
+# Only fills entries that are ALREADY present in history.json and currently missing "heat" --
+# never invents a day, never touches Long Ball board fields (ownership_tier / is_gold_pick /
+# jackpot_ev), which depend on that day's live betting odds and were never archived anywhere,
+# so they genuinely can't be reconstructed. This only reconstructs the real, no-leakage model
+# signals (heat, hitter-side badges, rank among that day's real batter pool), which ARE
+# permanently reconstructable from Statcast.
+#
+# --start should be season start (or earlier) even if your target dates are later -- the
+# model needs real history before each date to compute anything. This is a much larger pull
+# than the calendar backfill (full pitch-level data, not just HR events), so it's slow --
+# budget real time and don't be surprised if a wide range needs the full timeout.
+
+on:
+  workflow_dispatch:
+    inputs:
+      start:
+        description: "Pull start date (YYYY-MM-DD) -- use season start unless you know better"
+        required: true
+        default: "2026-03-26"
+      end:
+        description: "Latest date needing backfill (YYYY-MM-DD)"
+        required: true
+        default: "2026-08-01"
+
+jobs:
+  backfill-heat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: pip install pybaseball pandas numpy
+
+      - name: Run heat backfill
+        run: python etl/backfill_hr_heat.py --start "${{ inputs.start }}" --end "${{ inputs.end }}"
+
+      - name: Commit updated history.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/history.json
+          if git diff --cached --quiet; then
+            echo "No heat backfill changes to commit."
+          else
+            git commit -m "Backfill heat/badges into hr_log ${{ inputs.start }} -> ${{ inputs.end }}"
+            git push
+          fi
