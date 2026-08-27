@@ -54,5 +54,9 @@ jobs:
             echo "No heat backfill changes to commit."
           else
             git commit -m "Backfill heat/badges into hr_log ${{ inputs.start }} -> ${{ inputs.end }}"
-            git push
+            for i in 1 2 3; do
+              git pull --rebase origin main && git push && break
+              echo "Push attempt $i failed, retrying after rebase..."
+              sleep 5
+            done
           fi
