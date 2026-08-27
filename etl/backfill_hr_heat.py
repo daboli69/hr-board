@@ -192,7 +192,7 @@ def merge_heat(results_by_date, history_path=HISTORY_PATH):
                 n_filled += 1                        # reconstruction, not a live-graded value
     hist["updated"] = datetime.utcnow().strftime("%Y-%m-%d")
     with open(history_path, "w") as f:
-        json.dump(hist, f, separators=(",", ":"), default=str)
+        json.dump(hist, f, indent=2, default=str)
     print(f"[backfill-heat] filled heat/badges/rank for {n_filled} hr_log entries "
           f"→ {history_path}")
 
@@ -229,6 +229,20 @@ def main():
     for D, names in sorted(needed.items()):
         print(f"[backfill-heat] reconstructing {D} ({len(names)} target hitter(s))...")
         results[D] = reconstruct_day(df, D, set(names), statcast_data, compute, props)
+
+    # ADDED after a real race: this whole run is slow (30+ min for a wide date range), and
+    # docs/history.json is also written by the daily board-update workflow -- if that runs
+    # during this window, the on-disk copy loaded implicitly by merge_heat() could be stale.
+    # The reconstruction results themselves are already safely in memory at this point, so
+    # re-pulling just before the write/merge step costs nothing and closes the race.
+    import subprocess
+    try:
+        subprocess.run(["git", "pull", "--rebase", "origin", "main"],
+                       check=True, capture_output=True, text=True, timeout=60)
+        print("[backfill-heat] pulled latest history.json before merging")
+    except Exception as e:
+        print(f"[backfill-heat] git pull before merge failed (non-fatal, proceeding with "
+              f"on-disk copy): {e}", file=sys.stderr)
 
     merge_heat(results, args.history)
 

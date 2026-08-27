@@ -194,7 +194,7 @@ def merge_into_history(new_days, path=HISTORY_PATH):
     hist["days"] = days
     hist["updated"] = datetime.utcnow().strftime("%Y-%m-%d")
     with open(path, "w") as f:
-        json.dump(hist, f, separators=(",", ":"), default=str)
+        json.dump(hist, f, indent=2, default=str)
     print(f"[backfill] merged: +{added} new, {replaced} refreshed, {skipped} tracked-days preserved "
           f"→ {path} ({len(days)} total days)")
 
