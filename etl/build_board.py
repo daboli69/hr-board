@@ -1575,26 +1575,37 @@ def _hrpo_raw_signals(p, pp_by_id, pen_by_team, backtest_calib, base_rate, requi
         return None
 
     # Promoted above the if/else -- ADDED this session, needed in BOTH branches now (see below).
-    _BADGE_ANCHOR_LIFT = {"pow": 1.757, "lock": 1.352, "mix": 1.51, "hrbp": 1.21}
+    _BADGE_ANCHOR_LIFT = {"pow": 1.757, "lock": 1.352, "mix": 1.51, "hrbp": 1.21,
+                          "due": 1.028}
     if require_badge:
-        # Anchors base_prob to the badge's own real graded conversion rate (see docstring
-        # above) rather than the heat-calibrated curve. FIXED this session: "pow" was hardcoded
+        _require_set = {require_badge} if isinstance(require_badge, str) else set(require_badge)
+        _p_own_badges = {b.get("k") for b in (p.get("badges") or []) if b.get("k")}
+        _qualifying = _p_own_badges & _require_set
+        # Anchors base_prob to the STRONGEST real graded conversion rate among whichever
+        # qualifying badge(s) this specific candidate actually carries (see docstring above)
+        # rather than the heat-calibrated probability. FIXED this session: "pow" was hardcoded
         # at 1.426, a stale number -- backtest.json (123 days, re-run 8/21, by_badge.pow) shows
         # 1.757x (n=1234, all real POW-badge player-days, essentially unchanged from the prior
-        # 122-day run's 1.758x -- the number is stable, not a fluke of sample size). The
-        # surrounding docstring above had already been updated to cite the correct current
-        # figures in a prior session; this constant just hadn't been brought into line with its
-        # own documentation. Since require_badge is only ever called with "pow" in production
-        # (build() only ever passes require_badge="pow" -- checked directly against every call
-        # site), this was quietly understating every POW-filtered leg's base probability by
-        # ~24% (1.757/1.426) across all three cross-game parlay tickets.
+        # 122-day run's 1.758x -- the number is stable, not a fluke of sample size). Since
+        # require_badge is only ever called with "pow" in production, this was quietly
+        # understating every POW-filtered leg's base probability by ~24% (1.757/1.426) across
+        # all three cross-game parlay tickets.
         # lock/mix/hrbp entries are kept for when/if a badge-specific ticket besides POW ships,
         # but are currently dead code -- flagged here rather than silently left to look "live."
         # lock anchored to by_badge.lock (any lock holder, 1.352x, n=2243) rather than the
         # lock_only-isolated figure (1.288x) -- matches how pow is anchored above (any pow
         # holder, including the ones who also carry lock), so if this key is ever activated it
         # anchors on the same "any holder of this badge" basis, not a mixed convention.
-        base_prob = base_rate * _BADGE_ANCHOR_LIFT.get(require_badge, 1.0)
+        # due anchored the same way -- real, current, full-season by_badge.due (1.028x, n=3007),
+        # checked directly rather than assumed. This is intentionally NOT inflated to match
+        # pow -- due's real signal is genuinely weak/flat right now (checked recent-14 and
+        # recent-30 too: 0.851x and 0.957x, both BELOW base rate). Letting due-only candidates
+        # into this pool at all was a deliberate choice to widen who's eligible for evaluation,
+        # not a claim that due itself predicts anything -- a due-only candidate's honest anchor
+        # reflects that, and their final ranking has to be earned through their other real,
+        # validated signals (arsenal fit, zone overlap, family convergence, own power, etc.).
+        _best_lift = max((_BADGE_ANCHOR_LIFT.get(k, 1.0) for k in _qualifying), default=1.0)
+        base_prob = base_rate * _best_lift
     else:
         # ADDED this session -- for the open (unrestricted) Genius Pairing pool: a candidate
         # who happens to carry a real badge individually, even though the POOL itself wasn't
@@ -2118,8 +2129,9 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
         if gpk is None or not env_ok.get(gpk, True):
             continue
         if require_badge:
+            _require_set = {require_badge} if isinstance(require_badge, str) else set(require_badge)
             _p_badges = {b.get("k") for b in (p.get("badges") or []) if b.get("k")}
-            if require_badge not in _p_badges:
+            if not (_p_badges & _require_set):
                 continue
             # B2B exclusion applies to the WHOLE badge-filtered card (Arsenal & Lock,
             # Air-Power, AND Genius Pairing), not just one ticket -- a previous version scoped
@@ -2278,8 +2290,12 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
         # different signals (real HR probability vs raw distance ceiling) that don't always
         # crown the same top players.
         genius_pool_top30 = g_pool[:30]
-        _genius_label = (f"Genius Pairing ({require_badge.upper()})" if require_badge
-                         else "Genius Pairing (Open)")
+        if require_badge:
+            _rb_label = (require_badge.upper() if isinstance(require_badge, str)
+                        else "/".join(sorted(k.upper() for k in require_badge)))
+            _genius_label = f"Genius Pairing ({_rb_label})"
+        else:
+            _genius_label = "Genius Pairing (Open)"
         genius = _ticket(_genius_label,
                          "Every real signal this app has checked, stacked: badge-anchored "
                          "probability (not heat), badge co-occurrence, the batter's own power "
@@ -6209,11 +6225,14 @@ def build(date_str: str | None = None) -> dict:
         _hnote("cross-game parlays", e); print(f"[build] cross-game parlays skipped: {e}")
 
     try:
-        # Same optimizer, same real math -- restricted to POW-badge holders only. A real,
-        # requested filter: every leg on both tickets is guaranteed to carry the badge.
+        # Same optimizer, same real math -- restricted to POW-or-DUE badge holders. Each
+        # candidate is anchored on whichever of those badges they actually carry, not a shared
+        # anchor -- see _hrpo_raw_signals for why that matters (due's real anchor is much
+        # weaker than pow's, by design).
         board["cross_game_parlays_pow"] = build_cross_game_hr_parlays(
             players, _bt_calib, _odds_prices, _hrpo_games,
-            pitcher_props=pitcher_props, bullpen_rankings=bullpen_rankings, require_badge="pow",
+            pitcher_props=pitcher_props, bullpen_rankings=bullpen_rankings,
+            require_badge={"pow", "due"},
             pitcher_edges=pitcher_edges, base_rate_override=_recent_base_rate,
             pen_avail_by_team=pen_avail)
         _cgpp = board["cross_game_parlays_pow"]
