@@ -1,0 +1,51 @@
+name: Live HRs Tonight
+
+# Lightweight, frequent update of "who's homered tonight so far" -- per Travis's request for a
+# new board filter. Deliberately NOT part of the main build (update-board.yml). That build
+# calls the full-season Statcast pull, which is slow and has already timed out once as the
+# season grows (see the retry-margin fix earlier this session) -- running it every 15 minutes
+# through an entire evening would be wasteful and risky. This workflow instead patches just
+# the one "live_hrs_tonight" field into the existing board.json using MLB's live game feed,
+# which is fast and cheap -- no Statcast involved at all.
+#
+# Runs every 15 minutes, 7:00pm-11:45pm ET (23:00-03:45 UTC), covering when most MLB games are
+# actually being played. Times are UTC; the MLB season runs on EDT (UTC-4).
+
+on:
+  workflow_dispatch:          # manual "Run workflow" button, for testing or a late game
+  schedule:
+    - cron: "*/15 23,0,1,2,3 * * *"
+
+jobs:
+  live-hrs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10        # this should be fast -- a real hang here means something's wrong,
+                                # not that it needs more time the way the full build sometimes does
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: pip install requests
+
+      - name: Update live HRs
+        run: python etl/update_live_hrs.py
+
+      - name: Commit updated board.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/board.json
+          if git diff --cached --quiet; then
+            echo "No live HR changes to commit."
+          else
+            git commit -m "Live HR update"
+            for i in 1 2 3; do
+              git pull --rebase origin main && git push && break
+              echo "Push attempt $i failed, retrying after rebase..."
+              sleep 5
+            done
+          fi
