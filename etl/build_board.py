@@ -6368,6 +6368,21 @@ def build(date_str: str | None = None) -> dict:
         print(f"[build] vulnerable arm matchups skipped: {e}")
 
     try:
+        # ADDED per Travis's request: real, in-progress HR tracking for tonight's games, for a
+        # new board filter ("homered tonight so far"). Uses the live game feed, not Statcast --
+        # Statcast pitch-level data lags too far behind live play to be useful for this. See
+        # statsapi.get_live_hrs_today()'s docstring for the honest limitation: this hasn't been
+        # verified against a real in-progress game from this environment.
+        _game_pks_tonight = [g["game_pk"] for g in (board.get("games") or []) if g.get("game_pk")]
+        board["live_hrs_tonight"] = statsapi.get_live_hrs_today(_game_pks_tonight)
+        print(f"[build] live HRs tonight: {len(board['live_hrs_tonight'])} real home runs "
+              f"found across {len(_game_pks_tonight)} games checked")
+    except Exception as e:
+        board["live_hrs_tonight"] = []
+        _hnote("live hrs tonight", e)
+        print(f"[build] live hrs tonight skipped: {e}")
+
+    try:
         board["total_bases_board"] = build_total_bases_leaderboard(
             players, pitcher_edges=pitcher_edges, bullpen_rankings=bullpen_rankings,
             lb_pitcher_ev=lb_pitcher_ev, games=games)

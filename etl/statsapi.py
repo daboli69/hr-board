@@ -397,6 +397,58 @@ def get_handedness(player_ids: list[int]) -> dict:
     return out
 
 
+def get_live_hrs_today(game_pks: list) -> list:
+    """Who has homered so far tonight, across the given games -- real, in-progress data, not a
+    replay. Uses the live game feed endpoint (v1.1, not the v1 base this file otherwise uses --
+    the live feed is the one MLB actually updates during a game; the v1 schedule/boxscore
+    endpoints are more oriented around pre/post-game state). Returns a flat list, one entry per
+    home run: {id, name, team, game_pk, inning, half}.
+
+    HONEST LIMITATION: this can't be tested against a real in-progress game from this
+    environment (no live game to query while building this). Built defensively -- one game's
+    fetch failing never breaks the others -- matching this file's established style, but the
+    exact JSON shape hasn't been verified against a real live feed. If MLB's response shape
+    differs from what's assumed here, this should fail closed (return fewer/no results) rather
+    than crash the board build, but that specific behavior hasn't been confirmed end to end.
+    Worth a real spot-check against an actual live game before trusting this fully.
+    """
+    out = []
+    for gpk in (game_pks or []):
+        try:
+            data = requests.get(f"https://statsapi.mlb.com/api/v1.1/game/{int(gpk)}/feed/live",
+                                timeout=TIMEOUT).json()
+        except Exception:
+            continue
+        try:
+            teams = ((data.get("gameData") or {}).get("teams") or {})
+            away_abbr = (teams.get("away") or {}).get("abbreviation")
+            home_abbr = (teams.get("home") or {}).get("abbreviation")
+            plays = ((data.get("liveData") or {}).get("plays") or {}).get("allPlays") or []
+        except Exception:
+            continue
+        for play in plays:
+            try:
+                result = play.get("result") or {}
+                if result.get("eventType") != "home_run":
+                    continue
+                matchup = play.get("matchup") or {}
+                batter = matchup.get("batter") or {}
+                about = play.get("about") or {}
+                if batter.get("id") is None:
+                    continue
+                team = away_abbr if about.get("isTopInning") else home_abbr
+                out.append({
+                    "id": batter["id"], "name": batter.get("fullName", ""),
+                    "team": team,
+                    "game_pk": int(gpk),
+                    "inning": about.get("inning"),
+                    "half": about.get("halfInning"),
+                })
+            except Exception:
+                continue   # one malformed play entry never drops the rest of this game's HRs
+    return out
+
+
 def bvp_career(batter_id: int, pitcher_id: int) -> dict | None:
     """Career batter-vs-pitcher totals (the Stathead/BR-style number) via the official API.
     Returns {pa, hr, ab, h} — zeros if they've never faced — or None on a request error."""
