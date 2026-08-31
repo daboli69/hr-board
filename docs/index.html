@@ -1969,6 +1969,9 @@
   .ha-flags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
   .ha-flag{font-size:9.5px;color:var(--faint);background:var(--panel-3);border-radius:5px;
     padding:3px 7px}
+  .gs10-badges{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+  .gs10-badge{font-family:"IBM Plex Mono";font-size:9px;font-weight:800;color:var(--seam);
+    background:rgba(224,100,47,.12);border-radius:5px;padding:2px 7px;letter-spacing:.03em}
   .btg-route{background:var(--panel-3);border-radius:9px;padding:10px 12px;margin:10px 0}
   .btg-route-h{font-family:"IBM Plex Mono";font-size:10px;font-weight:800;color:var(--seam);
     letter-spacing:.06em;margin-bottom:5px}
@@ -8802,14 +8805,26 @@ function gsPoolControlsHTML(){
 // Grand Slam Board -- full per-game ranked list, both teams together: rank badge + colored left
 // border by tier, name/team/slot, fair odds, p_slam %, tier badge.
 let gsBoardGamePk = null;
+let gsMainView = "bygame";   // ADDED per Travis's request: "bygame" or "top10s"
 function gsBoardGo(gpk){ gsBoardGamePk = gpk; view = "gsboard"; renderGrandSlamBoard(); scrollTo(0,0); }
+function gsSetMainView(v){ gsMainView = v; renderGrandSlamBoard(); }
 
 function renderGrandSlamBoard(){
   const main = document.getElementById("main");
+  const tabBar = `<div class="lb-tabbar">
+    <button class="lb-tab${gsMainView==='bygame'?' on':''}" onclick="gsSetMainView('bygame')">By Game</button>
+    <button class="lb-tab${gsMainView==='top10s'?' on':''}" onclick="gsSetMainView('top10s')">Top 10s</button>
+  </div>`;
+
+  if(gsMainView === "top10s"){
+    main.innerHTML = `<div class="cv-wrap gsb-wrap">${tabBar}${renderGrandSlamTop10s()}</div>`;
+    return;
+  }
+
   const boards = (BOARD && BOARD.grand_slam_board) || [];
   if(!boards.length){
-    main.innerHTML = `<div class="empty">No grand slam board yet — needs lineups and starters
-      to post.</div>`;
+    main.innerHTML = `<div class="cv-wrap gsb-wrap">${tabBar}
+      <div class="empty">No grand slam board yet — needs lineups and starters to post.</div></div>`;
     return;
   }
   const g = boards.find(b=>b.game_pk===gsBoardGamePk) || boards[0];
@@ -8837,6 +8852,7 @@ function renderGrandSlamBoard(){
   };
 
   main.innerHTML = `<div class="cv-wrap gsb-wrap">
+    ${tabBar}
     <div class="gsb-head">
       <div class="gsb-title">${g.away} @ ${g.home}</div>
       <div class="gsb-sub2">GRAND SLAM BOARD</div>
@@ -11639,6 +11655,60 @@ function toggleTWDetail(idx){
   const open = el.style.display !== "none";
   el.style.display = open ? "none" : "block";
   if(row) row.setAttribute("aria-expanded", String(!open));
+}
+
+function toggleGSDetail(idx){
+  const el = document.getElementById(`gs10-detail-${idx}`);
+  const row = document.getElementById(`gs10-row-${idx}`);
+  if(!el) return;
+  const open = el.style.display !== "none";
+  el.style.display = open ? "none" : "block";
+  if(row) row.setAttribute("aria-expanded", String(!open));
+}
+
+function renderGrandSlamTop10s(){
+  const pctStr = p => p==null ? "—" : (100*p).toFixed(2)+"%";
+  const amerStr = n => n==null ? "—" : (n>0 ? "+"+n : String(n));
+  const t10 = (BOARD && BOARD.grand_slam_top10s) || {};
+  const sections = [
+    {key:"overall", label:"Overall Top 10", note:"Every real candidate, ranked by real slam probability -- no badge restriction."},
+    {key:"pow", label:"POW Badge Top 10", note:"Restricted to real POW-badge holders."},
+    {key:"due", label:"DUE Badge Top 10", note:"Restricted to real DUE-badge holders."},
+  ];
+  let rowIdx = 0;
+  return sections.map(sec=>{
+    const rows = t10[sec.key] || [];
+    const body = rows.length ? rows.map(r=>{
+      const idx = rowIdx++;
+      const driversHTML = (r.drivers||[]).length
+        ? `<ul class="gt10-driver-list">${(r.drivers||[]).map(d=>`<li>${d}</li>`).join("")}</ul>`
+        : `<div class="gt10-no-drivers">No individual driver cleared a real threshold.</div>`;
+      const badgesHTML = (r.badges||[]).length
+        ? `<div class="gs10-badges">${(r.badges||[]).map(b=>`<span class="gs10-badge">${b.toUpperCase()}</span>`).join("")}</div>` : "";
+      return `<div class="gt10-row" id="gs10-row-${idx}" aria-expanded="false"
+          onclick="toggleGSDetail(${idx})">
+        <div class="gt10-mid">
+          <div class="gt10-nm"><b>${r.name}</b></div>
+          <div class="gt10-sub">${r.team} vs ${r.opp_team}${r.spot?` · #${r.spot}`:""}</div>
+        </div>
+        <div class="gt10-prob"><b>${pctStr(r.p_slam)}</b>
+          ${r.fair_odds!=null?`<span class="glo-ceiling">${amerStr(r.fair_odds)}</span>`:""}</div>
+        <div class="gt10-chev">▾</div>
+        <div class="gt10-detail" id="gs10-detail-${idx}" style="display:none" onclick="event.stopPropagation()">
+          <div class="gt10-detail-h">Why ${r.name}</div>
+          ${badgesHTML}
+          ${driversHTML}
+          <div class="gt10-detail-link" onclick="event.stopPropagation();scanToPlayer(${r.id})">
+            Open full player card →
+          </div>
+        </div>
+      </div>`;
+    }).join("") : `<div class="psc-empty">Not run yet on this board.</div>`;
+    return `<div class="lb-overlap-intro">
+      <div class="lb-overlap-h">${sec.label}</div>
+      <div class="lb-overlap-d">${sec.note}</div>
+    </div>${body}`;
+  }).join("");
 }
 
 function toggleHADetail(idx){
