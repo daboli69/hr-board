@@ -3795,7 +3795,36 @@ def build(date_str: str | None = None) -> dict:
             "id": p["id"], "name": p["name"], "team": p.get("team"),
             "opp_team": p.get("opp_team"), "spot": p.get("lineup_spot"),
             "p_slam": p["grand_slam"].get("p_slam"), "drivers": p["grand_slam"]["drivers"],
+            "badges": [b.get("k") for b in (p.get("badges") or []) if b.get("k")],
         } for sc, p in gs_all[:30] if p["grand_slam"].get("p_slam") is not None]
+
+        # ADDED per Travis's direct request: three separate top-10 views over the exact same
+        # real p_slam ranking the main Grand Slam Jackpot board already uses -- overall,
+        # POW-restricted, and DUE-restricted. Not a new scoring formula, just three different
+        # eligibility filters over the same real numbers, same as how Genius Pairing's
+        # POW-or-DUE gate works -- a badge widens who's eligible for the list, it doesn't
+        # change how anyone's own p_slam gets computed.
+        def _gs_top10(badge_filter=None):
+            out = []
+            for sc, p in gs_all:
+                gsd = p.get("grand_slam") or {}
+                if gsd.get("p_slam") is None:
+                    continue
+                b_keys = {b.get("k") for b in (p.get("badges") or []) if b.get("k")}
+                if badge_filter and badge_filter not in b_keys:
+                    continue
+                out.append({
+                    "id": p["id"], "name": p["name"], "team": p.get("team"),
+                    "opp_team": p.get("opp_team"), "spot": p.get("lineup_spot"),
+                    "p_slam": gsd.get("p_slam"), "fair_odds": gsd.get("fair_odds"),
+                    "drivers": gsd.get("drivers"),
+                    "badges": sorted(b_keys),
+                })
+                if len(out) >= 10:
+                    break
+            return out
+
+        gs_top10s = {"overall": _gs_top10(), "pow": _gs_top10("pow"), "due": _gs_top10("due")}
 
         # Pick 1/2/3, searched over the FULL scored pool (gs_all), not just the top-12 slice
         # board_gs keeps -- a genuine deep-leverage play can rank #15 overall by raw p_slam and
@@ -3889,6 +3918,7 @@ def build(date_str: str | None = None) -> dict:
         board_gs_jackpot = {"picks": [], "candidates_scored": 0, "notes": []}
         board_gs_board = []
         gs_pool_top30 = []
+        gs_top10s = {"overall": [], "pow": [], "due": []}
         _hnote("grand slam", e); print(f"[build] grand slam skipped: {e}")
 
     try:                                           # persist career-BvP cache for the next build
@@ -5615,6 +5645,8 @@ def build(date_str: str | None = None) -> dict:
         "grand_slam_pool_top30": gs_pool_top30,  # ADDED per Travis's request -- deeper pool
                                                  # for the 3-way Genius/Long Ball/Grand Slam
                                                  # overlap, separate from the top-12 jackpot list
+        "grand_slam_top10s": gs_top10s,  # ADDED per Travis's request -- overall/pow/due top 10s,
+                                         # same real p_slam ranking, three eligibility filters
         "grand_slam_jackpot": board_gs_jackpot,  # Primary / Top-of-Order Mash / Mega-Leverage Deep
         "grand_slam_board": board_gs_board,      # full per-game ranked board, both teams
         "top_plays": top_plays,
