@@ -2319,6 +2319,7 @@
     <button class="chip cov-fam-chip" id="covFam3" onclick="setCovFam(3)" aria-pressed="false" title="Only hitters with 3+ independent evidence families — backtested at 1.56x the base HR rate">◎ 3+ families</button>
     <button class="chip cov-fam-chip" id="covFam4" onclick="setCovFam(4)" aria-pressed="false" title="Only hitters with 4+ independent evidence families — backtested at 2.01x the base HR rate, the strongest signal in the app">◎ 4+ families</button>
     <button class="chip cov-fam-chip" id="squareUp4559" onclick="setSquareUpBand()" aria-pressed="false" title="Square Up rating 45-59, the real 'Average' tier (Elite 75+/Strong 60-74/Average 45-59/Weak &lt;45) -- Sweet Spot%, Barrel%, Hard Hit%, and avg exit velo blended into one quality-of-contact score.">◈ Square Up 45-59</button>
+    <button class="chip cov-fam-chip" id="homeredTonight" onclick="setHomeredTonight()" aria-pressed="false" title="Real, live in-game data from MLB's live feed -- who's already homered tonight so far. Refreshes every 15 minutes during game windows, separate from the main board build.">🔥 Homered Tonight</button>
     <button class="chip cov-fam-chip" id="arsenalFit" onclick="setArsenalFit()" aria-pressed="false" title="Real arsenal fit 11+ -- this hitter's own measured performance against the pitch types tonight's arm actually throws, usage-weighted by how often he throws them. Backtested at 1.40x the base HR rate on 127 days.">◆ Arsenal 11+</button>
     <button class="chip cov-fam-chip" id="hrPower12" onclick="setHrPower12()" aria-pressed="false" title="Real HR power (own season barrel%) 12%+ -- backtested at 1.81x the base HR rate.">💣 HR Power 12%+</button>
     <button class="chip cov-fam-chip" id="hrPower811" onclick="setHrPower811()" aria-pressed="false" title="Real HR power (own season barrel%) 8-11% -- the next real band down from 12%+.">💣 HR Power 8-11%</button>
@@ -3942,6 +3943,8 @@ function bbeCount(p){ return ((p&&p.sample&&p.sample.season)||0); }
 // app's own backtest-established tiers, not guessed numbers.
 let squareUpBandFilter=false;   // real "Average" tier per square_up_rating(): 45-59
 function setSquareUpBand(){ squareUpBandFilter=!squareUpBandFilter; updateFiltCount(); render(); }
+let homeredTonightFilter=false;   // ADDED per Travis's request -- real, live in-game HR data
+function setHomeredTonight(){ homeredTonightFilter=!homeredTonightFilter; updateFiltCount(); render(); }
 let arsenalFitFilter=false;     // real "11+ punishes" tier, 1.40x lift, 127-day backtest
 function setArsenalFit(){ arsenalFitFilter=!arsenalFitFilter; updateFiltCount(); render(); }
 let hrPower12Filter=false;      // real "12%+ barrel" tier, 1.81x lift
@@ -4689,6 +4692,12 @@ function render(){
       const r=(p.features&&p.features.square_up&&p.features.square_up.rating);
       return r!=null && r>=45 && r<=59;
     });
+  }
+  // ADDED per Travis's request -- real, live in-game data (MLB's live game feed, not
+  // Statcast), showing who's genuinely already homered tonight, matched by player id.
+  if(homeredTonightFilter){
+    const _hrIds = new Set((BOARD.live_hrs_tonight||[]).map(h=>h.id));
+    players=players.filter(p=>_hrIds.has(p.id));
   }
   // ADDED this session -- real arsenal fit tier, matching the exact backtest-validated
   // boundary (11+ punishes, 1.40x real lift, 127-day backtest) rather than a guessed threshold.
@@ -12603,6 +12612,8 @@ function updateFiltCount(){
     if(nh2) nh2.setAttribute("aria-pressed", covFamNoHeatMin===2);
     const sqb=document.getElementById("squareUp4559");
     if(sqb) sqb.setAttribute("aria-pressed", squareUpBandFilter);
+    const hrt=document.getElementById("homeredTonight");
+    if(hrt) hrt.setAttribute("aria-pressed", homeredTonightFilter);
     const arf=document.getElementById("arsenalFit");
     if(arf) arf.setAttribute("aria-pressed", arsenalFitFilter);
     const hp12=document.getElementById("hrPower12");
@@ -12627,11 +12638,12 @@ function activeFilterCount(){
   return (covFamMin>0?1:0)+(covFamNoHeatMin>0?1:0)+(nearMissMin>0?1:0)+(bbeMin>0?1:0)+(spotFilter!=="all"?1:0)+gameSel.size+teamSel.size+traitSel.size+labSel.size+drySel.size+tierSel.size+edgeSel.size
     +(batFilter?1:0)+(minHeat>0?1:0)+(spFloor>0?1:0)+(hideThin?1:0)+(mixView?1:0)
     +(zoneMin>0?1:0)+(gradeMin?1:0)+(bombMin>0?1:0)+(vulnMin?1:0)
-    +(squareUpBandFilter?1:0)+(arsenalFitFilter?1:0)+(hrPower12Filter?1:0)+(hrPower811Filter?1:0);
+    +(squareUpBandFilter?1:0)+(arsenalFitFilter?1:0)+(hrPower12Filter?1:0)+(hrPower811Filter?1:0)
+    +(homeredTonightFilter?1:0);
 }
 function clearFilters(){
   covFamMin=0; covFamNoHeatMin=0; nearMissMin=0; bbeMin=0; spotFilter="all"; gameSel.clear(); teamSel.clear(); batFilter=""; traitSel.clear(); labSel.clear(); drySel.clear(); tierSel.clear(); minHeat=0; spFloor=0; hideThin=false; mixView=false; edgeSel.clear();
-  squareUpBandFilter=false; arsenalFitFilter=false; hrPower12Filter=false; hrPower811Filter=false;
+  squareUpBandFilter=false; arsenalFitFilter=false; hrPower12Filter=false; hrPower811Filter=false; homeredTonightFilter=false;
   document.querySelectorAll(".edge-chip").forEach(b=>b.setAttribute("aria-pressed","false"));
   zoneMin=0; gradeMin=""; bombMin=0; vulnMin="";
   ["zoneMinRow","gradeRow","bombRow","vulnRow"].forEach(id=>{
