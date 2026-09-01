@@ -483,6 +483,18 @@
   @keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 
   .controls{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center}
+  /* ADDED per Travis's request -- this row was always fully expanded (24 chips, wrapping
+     into many rows via .controls' own flex-wrap:wrap), permanently eating most of the
+     screen on mobile before any player was even visible. Now collapsed by default. */
+  .chiprow-toggle{display:flex;align-items:center;justify-content:space-between;
+    margin-top:10px;padding:9px 12px;background:var(--panel-2);border:1px solid var(--line);
+    border-radius:9px;cursor:pointer;font-family:"IBM Plex Mono";font-size:11.5px;
+    font-weight:800;color:var(--faint);letter-spacing:.03em}
+  .chiprow-toggle .crt-count{color:var(--seam)}
+  .chiprow-toggle .crt-chev{transition:transform .2s;font-size:10px}
+  .chiprow-toggle.open .crt-chev{transform:rotate(180deg)}
+  .chiprow-collapse{max-height:0;overflow:hidden;transition:max-height .25s ease}
+  .chiprow-collapse.open{max-height:900px}
   .seg{display:inline-flex;background:var(--panel);border:1px solid var(--line);
     border-radius:9px;overflow:hidden}
   .seg button{background:none;border:none;color:var(--muted);font:inherit;font-size:12px;
@@ -2305,6 +2317,11 @@
     <input class="search" id="search" placeholder="Search hitter or team…" />
     <button id="filtersBtn" class="fbtn" onclick="document.getElementById('filterSheet').classList.add('show')">⚙ Filters<span id="filtCount" class="fcount" hidden></span></button>
   </div>
+  <div class="chiprow-toggle" id="chipRowToggle" onclick="toggleChipRow()">
+    <span>Quick Filters <span class="crt-count" id="crtCount"></span></span>
+    <span class="crt-chev">▾</span>
+  </div>
+  <div class="chiprow-collapse" id="chipRowCollapse">
   <div class="controls chiprow">
     <button id="mixBtn" class="chip" aria-pressed="false" title="Re-rank by EV/barrel vs this pitcher's mix">vs Pitch Mix</button>
     <button id="thinBtn" class="chip" aria-pressed="false" title="Hide hitters with thin recent samples">Hide small</button>
@@ -2331,6 +2348,7 @@
     <button class="chip edge-chip" data-edge="grade" aria-pressed="false" title="Only ELITE or STRONG matchup grades (4+ factors aligned)">Graded</button>
     <button id="listClearBtn" class="chip listclear" onclick="listClear()" title="Empty your list — asked automatically each new slate">Clear</button>
     <span id="shown" class="shown-count"></span>
+  </div>
   </div>
 
   </div>
@@ -12630,8 +12648,19 @@ function updateFiltCount(){
   }catch(e){}
   const n=activeFilterCount();
   const el=document.getElementById("filtCount");
-  if(!el)return;
-  if(n>0){el.textContent=n;el.hidden=false;}else{el.hidden=true;}
+  if(el){ if(n>0){el.textContent=n;el.hidden=false;}else{el.hidden=true;} }
+  const crt=document.getElementById("crtCount");
+  if(crt) crt.textContent = n>0 ? `(${n} active)` : "";
+}
+// ADDED per Travis's request -- this row (24 chips) was always fully expanded, permanently
+// eating most of the screen on mobile. Collapsed by default; this toggles it open/closed.
+let chipRowOpen = false;
+function toggleChipRow(){
+  chipRowOpen = !chipRowOpen;
+  const bar = document.getElementById("chipRowToggle");
+  const box = document.getElementById("chipRowCollapse");
+  if(bar) bar.classList.toggle("open", chipRowOpen);
+  if(box) box.classList.toggle("open", chipRowOpen);
 }
 // count every active filter (the old count missed zone/grade/bomb/vuln/edge)
 function activeFilterCount(){
