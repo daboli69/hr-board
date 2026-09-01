@@ -363,6 +363,27 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str, asof: "V.AsOfFrame
                                 _num += _pct * _br; _den += _pct
                         if _den > 0:
                             _afit = round(_num / _den, 1)
+                # ADDED this session -- pitch_mix reconstruction. Genuinely cheap: both real
+                # inputs (the batter's own rows, the pitcher's real arsenal usage) were already
+                # computed above for arsenal_fit -- this just reshapes the pitch-type-level
+                # usage into the family-level structure pitch_matchup() expects, using the same
+                # PITCH_BUCKET mapping statcast_data.py already uses for _pitch_splits().
+                _pmix = None
+                try:
+                    if _ars:
+                        _fam_usage = {}
+                        for _pt, _pct in _ars:
+                            _fam = statcast_data.PITCH_BUCKET.get(_pt)
+                            if _fam:
+                                _fam_usage[_fam] = _fam_usage.get(_fam, 0.0) + _pct
+                        if _fam_usage:
+                            _hp_prof = _F.hitter_pitch_profile(_brows2)
+                            if _hp_prof:
+                                _pm = _F.pitch_matchup(_hp_prof, {"usage": _fam_usage})
+                                if _pm:
+                                    _pmix = _pm.get("score")
+                except Exception:
+                    _pmix = None
             # convergence, using only the badges the backtest itself has validated
             # Geometry-aware near misses over the trailing 14 days. Uses `_brows2`, which is
             # already bounded by the as-of cut, so no new leak surface is introduced.
@@ -509,6 +530,7 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str, asof: "V.AsOfFrame
             # built above, no new per-row scan) but should be read as "probably an opener usage
             # pattern," not a certain one.
             "opener": bool(_opener_sp.get(face.get(bid))),
+            "pitch_mix": _pmix,
         }
     return out, pitcher_scores
 
@@ -747,6 +769,12 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
             # ADDED this session -- opener heuristic check (see out[bid]'s comment in
             # _day_heats for the real limitation).
             _edge("opener", "opener" if r.get("opener") else "sp", hit)
+            # ADDED this session -- pitch_mix, matching the exact real tier boundaries already
+            # confirmed from the live tracker (60+/40-59/<40).
+            _pmix2 = r.get("pitch_mix")
+            if _pmix2 is not None:
+                _edge("pitch_mix", "60+ favorable" if _pmix2 >= 60
+                      else "40-59 neutral" if _pmix2 >= 40 else "<40 poor", hit)
             _cm = r.get("cv_meas")
             if _cm is not None:
                 _edge("converge", f"{min(int(_cm),3)}{'+' if int(_cm)>=3 else ''} measured", hit)
