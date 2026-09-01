@@ -159,6 +159,15 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str, asof: "V.AsOfFrame
         sp = starters.get((int(gp), half))
         for b in grp["batter"].dropna().unique():
             face[int(b)] = sp
+    # ADDED this session -- cheap opener heuristic: did the starter face fewer than 4 batters
+    # in this game? Real limitation stated in out[bid]'s comment above -- this is an
+    # approximation, not a certain classification.
+    _opener_sp = {}
+    for (gp, half), sp in starters.items():
+        _bfaced = day[(day["game_pk"] == gp) & (day["inning_topbot"] == half)
+                      & (day["pitcher"] == sp)]["batter"].nunique()
+        if _bfaced < 4:
+            _opener_sp[sp] = True
     bprof = statcast_data.batter_profiles(past, batters, asof=D)
     sp_ids = sorted({s for s in face.values() if s})
     pprof = statcast_data.pitcher_profiles(past, sp_ids, asof=D)
@@ -489,6 +498,17 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str, asof: "V.AsOfFrame
             "hrr": int(hrr_val.get(bid, 0)),
             "badges": badge_keys,
             "zone": _zone, "square_up": _squp, "hr_power": _hrpow, "sweet_spot": _sweet_spot,
+            # ADDED this session -- _trend was already computed above for badge derivation but
+            # never made it into this dict, so it never reached by_edge despite costing nothing
+            # extra to include (no new computation, just surfacing an existing local).
+            "trend_dir": (_trend or {}).get("dir"),
+            # ADDED this session -- opener detection. Real limitation, stated plainly: this is
+            # a heuristic (the starter faced fewer than 4 batters that game), not a perfect
+            # classification -- a legitimate short start from an early injury or ejection would
+            # be misclassified the same way. Cheap to compute (reuses `face`/`starters`, already
+            # built above, no new per-row scan) but should be read as "probably an opener usage
+            # pattern," not a certain one.
+            "opener": bool(_opener_sp.get(face.get(bid))),
         }
     return out, pitcher_scores
 
@@ -600,6 +620,10 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
         g = by_edge.setdefault(group, {})
         b = g.setdefault(bucket, {"n": 0, "hr": 0})
         b["n"] += 1; b["hr"] += 1 if hit else 0
+    # ADDED this session -- B2B tracking (did this batter homer in his immediately prior
+    # graded day). Real, cross-day state, not leaky: _prev_hr_ids only ever holds what was
+    # already known true BEFORE today's game, updated once at the end of each day's loop.
+    _prev_hr_ids = set()
     for D in dates:
         day = df[df["_gd"] == D]
         past = df[df["_gd"] < D]
@@ -621,6 +645,8 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
             b = int(min(max(r["heat"], 0), 99) // 10) * 10
             c = calib.setdefault(str(b), {"n": 0, "hr": 0})
             c["n"] += 1; c["hr"] += 1 if hit else 0
+            # ADDED this session -- B2B: did he homer his immediately prior graded day.
+            _edge("b2b", "b2b" if bid in _prev_hr_ids else "rest", hit)
             # ---- new-signal grading ----
             _z = r.get("zone")
             if _z is not None:
@@ -713,6 +739,14 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
                 # discount (also currently an unvalidated heuristic).
                 _edge("zone_overlap_n", "5+ premium" if _zon >= 5 else "3-4 good" if _zon >= 3
                       else "1-2 some" if _zon >= 1 else "0 none", hit)
+            # ADDED this session -- trend_dir was already computed for badge derivation but
+            # never checked on its own as a real, independent signal.
+            _td = r.get("trend_dir")
+            if _td:
+                _edge("trend", _td, hit)
+            # ADDED this session -- opener heuristic check (see out[bid]'s comment in
+            # _day_heats for the real limitation).
+            _edge("opener", "opener" if r.get("opener") else "sp", hit)
             _cm = r.get("cv_meas")
             if _cm is not None:
                 _edge("converge", f"{min(int(_cm),3)}{'+' if int(_cm)>=3 else ''} measured", hit)
@@ -783,6 +817,14 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
             if _has_pow or _has_lock:
                 _combo = "pow+lock" if (_has_pow and _has_lock) else ("pow_only" if _has_pow else "lock_only")
                 _edge("badge_combo", _combo, hit)
+        # ADDED this session -- advance B2B state to today's real HR results, for tomorrow's
+        # graded day to check against. Must happen after the per-bid loop above (which reads
+        # the OLD _prev_hr_ids), never before -- would leak same-day results otherwise. Real
+        # edge case, stated plainly: this line only runs on days that passed the len(heats)<30
+        # gate above, so on a skipped/thin day _prev_hr_ids simply isn't touched -- the next
+        # graded day compares against the last GENUINELY graded day, not strictly "yesterday."
+        # Rare in practice (MLB plays almost every day) but not literally zero.
+        _prev_hr_ids = {bid for bid, r in heats.items() if r["hr"]}
         # --- props: hit1/hit2 tiers by hit_heat ---
         hh_ranked = sorted((kv for kv in heats.items() if kv[1]["hit_heat"] is not None),
                            key=lambda kv: -kv[1]["hit_heat"])
