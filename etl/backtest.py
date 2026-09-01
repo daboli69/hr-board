@@ -155,10 +155,12 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str, asof: "V.AsOfFrame
         if p0 == p0:
             starters[(int(gp), half)] = int(p0)
     face = {}
+    batter_game = {}   # ADDED this session -- needed for vuln_tier's per-game park lookup
     for (gp, half), grp in day.groupby(["game_pk", "inning_topbot"]):
         sp = starters.get((int(gp), half))
         for b in grp["batter"].dropna().unique():
             face[int(b)] = sp
+            batter_game[int(b)] = int(gp)
     # ADDED this session -- cheap opener heuristic: did the starter face fewer than 4 batters
     # in this game? Real limitation stated in out[bid]'s comment above -- this is an
     # approximation, not a certain classification.
@@ -267,6 +269,52 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str, asof: "V.AsOfFrame
                     pass
     except Exception:
         _meat_by_sp = {}
+    # ADDED this session -- vuln_tier inputs. See the docstring on the _F.vuln_score() call
+    # below for what's real vs. proxy vs. omitted, component by component.
+    _xfip_by_sp = {}
+    _hand_hr_by_sp = {}
+    _danger_by_sp = {}
+    _venue_by_game = {}
+    try:
+        from etl import parks as _parks
+        for pid in sp_ids:
+            if sp_names and fg_pitch:
+                _nm = sp_names.get(pid, "")
+                if _nm:
+                    _fge = fg_pitch.get(statcast_data._norm_name(_nm))
+                    if _fge and _fge.get("xfip") is not None:
+                        _xfip_by_sp[pid] = _fge["xfip"]
+            _splits = (pprof.get(pid) or {}).get("splits") or {}
+            _hh = {}
+            for _hand in ("R", "L"):
+                _s = (_splits.get(_hand) or {}).get("season") or {}
+                if _s.get("pa"):
+                    _hh[_hand] = {"hr": _s.get("hr_allowed", 0), "pa": _s.get("pa", 0)}
+            if _hh:
+                _hand_hr_by_sp[pid] = _hh
+        # danger_count: real, cheap proxy -- count of opposing batters whose OWN recent
+        # avg_ev/barrel_pct already clear a real "dangerous" bar, using bprof (already fully
+        # computed above for every batter) rather than needing this function's own heat
+        # computation, which hasn't happened yet for anyone at this point in the loop.
+        for pid in sp_ids:
+            _dc = 0
+            for _b, _s in face.items():
+                if _s != pid:
+                    continue
+                _br = (bprof.get(_b) or {}).get("recent") or {}
+                if (_br.get("avg_ev") or 0) >= 90 or (_br.get("barrel_pct") or 0) >= 8:
+                    _dc += 1
+            _danger_by_sp[pid] = _dc
+        # park_factor: real, static, non-weather-dependent lookup -- one per game, keyed by
+        # home team (whoever's pitching, the game is played at the home team's park).
+        for gp in day["game_pk"].dropna().unique():
+            _home = day[day["game_pk"] == gp]["home_team"]
+            if len(_home):
+                _venue = env_mod.TEAM_PARK.get(str(_home.iloc[0]).upper())
+                if _venue:
+                    _venue_by_game[int(gp)] = _venue
+    except Exception:
+        pass
     for bid in batters:
         prof = bprof.get(bid)
         if not prof:
@@ -393,6 +441,38 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str, asof: "V.AsOfFrame
                                     _pmix = _pm.get("score")
                 except Exception:
                     _pmix = None
+                # ADDED this session -- vuln_tier, implemented per Travis's explicit request
+                # despite my earlier concern that too little of the real formula was
+                # available. Reconsidered more carefully: 5 of 6 real components turned out to
+                # be real data or an honest, documented proxy, not a guess.
+                #   era: REAL PROXY -- xFIP (already-fetched FanGraphs data) substituted for
+                #     ERA. Same numerical scale by design (both "runs per 9"-style), not a
+                #     guess, but not literal ERA either.
+                #   whip: OMITTED. No clean real source or proxy found without a shaky
+                #     approximation I didn't want to introduce. vuln_score() redistributes its
+                #     15 points proportionally across whatever else is present, same graceful
+                #     handling the live function already does for genuinely missing data.
+                #   park_factor: REAL. Static, non-weather lookup (parks.park_factor), not an
+                #     approximation.
+                #   hand_hr: REAL PROXY -- same-season hand splits (already computed by
+                #     pitcher_profiles) instead of the live version's literal 2-year lookback.
+                #   zone_damage: REAL. Already computed above for zone_edge/arsenal_fit.
+                #   danger_count: REAL PROXY -- opposing batters whose own recent avg_ev/
+                #     barrel_pct already clear a real bar, using bprof (already fully computed
+                #     for every batter), not the live version's own lineup-aware definition.
+                _vtier = None
+                try:
+                    if _sp:
+                        _pf = _parks.park_factor(_venue_by_game.get(batter_game.get(bid), ""), _bh) if _bh else None
+                        _vs = _F.vuln_score(
+                            era=_xfip_by_sp.get(_sp), whip=None, park_factor=_pf,
+                            hand_hr=_hand_hr_by_sp.get(_sp),
+                            zone_damage=_meat_by_sp.get(_sp),
+                            danger_count=_danger_by_sp.get(_sp))
+                        if _vs:
+                            _vtier = _vs.get("tier")
+                except Exception:
+                    _vtier = None
             # convergence, using only the badges the backtest itself has validated
             # Geometry-aware near misses over the trailing 14 days. Uses `_brows2`, which is
             # already bounded by the as-of cut, so no new leak surface is introduced.
@@ -541,6 +621,7 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str, asof: "V.AsOfFrame
             "opener": bool(_opener_sp.get(face.get(bid))),
             "pitch_mix": _pmix,
             "hit_label": _hit_labels.get(bid) if _hit_labels else None,
+            "vuln_tier": _vtier,
         }
     return out, pitcher_scores
 
@@ -787,6 +868,10 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
                       else "40-59 neutral" if _pmix2 >= 40 else "<40 poor", hit)
             # ADDED this session -- hit_label
             _edge("hlabel", r.get("hit_label") or "none", hit)
+            # ADDED this session -- vuln_tier (partial reconstruction, see the real/proxy/
+            # omitted breakdown in the comment where _vtier gets computed above)
+            if r.get("vuln_tier"):
+                _edge("vuln_tier_bt", r["vuln_tier"], hit)
             _cm = r.get("cv_meas")
             if _cm is not None:
                 _edge("converge", f"{min(int(_cm),3)}{'+' if int(_cm)>=3 else ''} measured", hit)
