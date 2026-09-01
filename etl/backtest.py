@@ -388,6 +388,7 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str, asof: "V.AsOfFrame
             pass
         # ---- zone edge + arsenal fit + convergence, all as-of `past` ----
         _zedge = None; _afit = None; _nm = _nmh = _np = 0
+        _pmix = None; _vtier = None
         try:
             _sp = face.get(bid)
             _bh = None
