@@ -169,6 +169,15 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str, asof: "V.AsOfFrame
         if _bfaced < 4:
             _opener_sp[sp] = True
     bprof = statcast_data.batter_profiles(past, batters, asof=D)
+    # ADDED this session -- hit_label reconstruction. Genuinely cheap: hitter_labels() only
+    # needs raw Statcast columns already present in `past`, no external fetch, and computes
+    # every batter's label in one call rather than per-batter. Same trailing-window convention
+    # (14 real game-days, not calendar days) the live app uses, via game_day_cutoff().
+    try:
+        _lab_start = str(statcast_data.game_day_cutoff(past, D, 14).date())
+        _hit_labels = statcast_data.hitter_labels(past, _lab_start)
+    except Exception:
+        _hit_labels = {}
     sp_ids = sorted({s for s in face.values() if s})
     pprof = statcast_data.pitcher_profiles(past, sp_ids, asof=D)
     phr = {}
@@ -531,6 +540,7 @@ def _day_heats(past: pd.DataFrame, day: pd.DataFrame, D: str, asof: "V.AsOfFrame
             # pattern," not a certain one.
             "opener": bool(_opener_sp.get(face.get(bid))),
             "pitch_mix": _pmix,
+            "hit_label": _hit_labels.get(bid) if _hit_labels else None,
         }
     return out, pitcher_scores
 
@@ -775,6 +785,8 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
             if _pmix2 is not None:
                 _edge("pitch_mix", "60+ favorable" if _pmix2 >= 60
                       else "40-59 neutral" if _pmix2 >= 40 else "<40 poor", hit)
+            # ADDED this session -- hit_label
+            _edge("hlabel", r.get("hit_label") or "none", hit)
             _cm = r.get("cv_meas")
             if _cm is not None:
                 _edge("converge", f"{min(int(_cm),3)}{'+' if int(_cm)>=3 else ''} measured", hit)
