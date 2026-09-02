@@ -524,7 +524,8 @@ def _longball_park_rate_mult(pf, park_hr_rec):
     return max(0.75, min(1.60, mult))
 
 
-def build_genius_longball_overlap(genius_pool, lb_scored, top_n=10):
+def build_genius_longball_overlap(genius_pool, lb_scored, players=None, pitcher_edges=None,
+                                  top_n=10):
     """Per Travis's direct request: a top-N list of hitters who show up well on BOTH real HR
     probability (Genius Pairing's own signal stack) AND real distance ceiling (Long Ball's raw
     Power/Trajectory/Physics score) -- two genuinely different questions. Genius Pairing asks
@@ -542,6 +543,16 @@ def build_genius_longball_overlap(genius_pool, lb_scored, top_n=10):
     geometric-mean blend -- rank-sum is easy to check by hand ("he's #3 in one, #7 in the
     other, combined 10") and doesn't require guessing at a weighting between two differently-
     shaped distributions.
+
+    ADDED this session, per Travis's direct request to also factor in the newly
+    backtest-validated signals: for each shared hitter, checks four more real, independently-
+    validated thresholds -- pitch_mix >= 60 (real 1.361x, from this session's backtest replay),
+    hit_label in elite/fb/ld (1.27-1.65x), opposing pitcher vuln tier == elite_target (1.294x),
+    and B2B (hr_last_game, 1.284x). Each one cleared subtracts 3 from combined_rank (a real
+    but modest nudge -- roughly equivalent to moving up 3 spots in either underlying ranking,
+    not allowed to overwhelm the two real ranks this was already built on). Purely additive to
+    the existing mechanism -- if players/pitcher_edges aren't passed in, this falls back to the
+    exact original rank-sum with zero behavior change.
     """
     if not genius_pool or not lb_scored:
         return {"rows": [], "note": "Not enough real candidates on both boards tonight to "
@@ -557,15 +568,43 @@ def build_genius_longball_overlap(genius_pool, lb_scored, top_n=10):
                                     "signals genuinely disagreed on everyone, which happens; "
                                     "check each board separately tonight instead."}
 
+    _players_by_id = {p["id"]: p for p in (players or []) if p.get("id") is not None}
+    _vuln_by_team = {}
+    for _pe in (pitcher_edges or []):
+        _v = (_pe.get("vuln") or {})
+        if _v.get("tier") and _pe.get("opp_team"):
+            _vuln_by_team[_pe["opp_team"]] = _v["tier"]
+
+    def _backtest_signals(pid):
+        pl = _players_by_id.get(pid)
+        if not pl:
+            return [], 0
+        found = []
+        pmix = ((pl.get("features") or {}).get("pitch_matchup") or {}).get("score")
+        if pmix is not None and pmix >= 60:
+            found.append(f"pitch_mix {pmix:.0f} (60+ favorable, real 1.36x)")
+        hlab = pl.get("hit_label")
+        if hlab in ("elite", "fb", "ld"):
+            found.append(f"hit_label {hlab} (real {'1.65x' if hlab=='elite' else '1.27-1.33x'})")
+        _vt = _vuln_by_team.get(pl.get("team"))
+        if _vt == "elite_target":
+            found.append("opposing arm vuln elite_target (real 1.29x)")
+        if pl.get("hr_last_game"):
+            found.append("B2B -- homered last game (real 1.28x)")
+        return found, len(found)
+
     rows = []
     for pid in shared_ids:
         g, lb = g_by_id[pid], lb_by_id[pid]
+        _bt_drivers, _bt_count = _backtest_signals(pid)
         rows.append({
             "id": pid, "name": g["name"], "team": g["team"], "opp_team": g.get("opp_team"),
             "spot": g.get("spot"),
             "genius_prob": g["prob"], "genius_rank": g_rank[pid], "genius_drivers": g["drivers"],
             "lb_score": lb["score"], "lb_rank": lb_rank[pid], "lb_drivers": lb.get("drivers", []),
-            "ceiling_ft": lb.get("ceiling_ft"), "combined_rank": g_rank[pid] + lb_rank[pid],
+            "ceiling_ft": lb.get("ceiling_ft"),
+            "backtest_signals": _bt_drivers, "backtest_signal_count": _bt_count,
+            "combined_rank": g_rank[pid] + lb_rank[pid] - (3 * _bt_count),
         })
     rows.sort(key=lambda r: r["combined_rank"])
     return {"rows": rows[:top_n],
@@ -6391,7 +6430,8 @@ def build(date_str: str | None = None) -> dict:
                                     or (board.get("cross_game_parlays_genius_open") or {})
                                        .get("genius_pool_top30"))
         _lb_pool_for_overlap = (board.get("long_ball_jackpot") or {}).get("scored_by_ceiling")
-        _overlap = build_genius_longball_overlap(_genius_pool_for_overlap, _lb_pool_for_overlap)
+        _overlap = build_genius_longball_overlap(_genius_pool_for_overlap, _lb_pool_for_overlap,
+                                                 players=players, pitcher_edges=pitcher_edges)
         board["long_ball_jackpot"]["genius_overlap_top10"] = _overlap
         print(f"[build] genius/long ball overlap: {len(_overlap.get('rows', []))} shared "
               f"candidates found (of {_overlap.get('n_genius_pool', 0)} genius / "
