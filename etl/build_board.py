@@ -1043,9 +1043,30 @@ def build_long_ball_jackpot(players, lb_evbarrels=None, lb_pitcher_ev=None,
     # overlap needs.
     scored_by_ceiling = sorted(scored, key=lambda x: -x["score"])
 
+    # ADDED per Travis's direct request, based on a real external finding: cross-checked
+    # Fanatics Sportsbook's real "Long Ball of the Day" leaderboard against our own history --
+    # 4 of 5 real, confirmed winners had heat ranks between #45 and #206 out of ~270 graded
+    # hitters that day (Bryson Stott #150, Jonathan Aranda #194, Brady House #206, Junior
+    # Caminero #45). Heat answers "will he hit one at all" using recent form; real distance
+    # ceiling is a much less form-dependent, more physical trait -- a cold hitter can still
+    # have elite raw power. This is a separate, complementary view, not a replacement for
+    # scored_by_ceiling above -- Coby Mayo (the one real exception, heat rank #15) shows the
+    # normal top-10 still matters too.
+    _heat_by_id = {p["id"]: p.get("heat") for p in players if p.get("id") is not None}
+    _all_heats = sorted(h for h in _heat_by_id.values() if h is not None)
+    _median_heat = _all_heats[len(_all_heats) // 2] if _all_heats else None
+    longball_sleepers = []
+    if _median_heat is not None:
+        _sleeper_pool = [x for x in scored
+                         if (_heat_by_id.get(x["id"]) or 0) < _median_heat]
+        _sleeper_pool.sort(key=lambda x: -x["score"])
+        longball_sleepers = [{**x, "heat": _heat_by_id.get(x["id"])}
+                             for x in _sleeper_pool[:10]]
+
     return {"picks": picks, "candidates_scored": len(scored),
             "mlb_p95_max_ev": p95_threshold, "board": lb_board,
             "scored_by_ceiling": scored_by_ceiling,
+            "longball_sleepers": longball_sleepers,
             "slate_context": slate_context,
             "notes": ["Absolute Power Ceiling uses real max_hit_speed/ev50/bat speed from a "
                      "Savant leaderboard fetch and the shared Statcast frame -- not an "
@@ -6441,6 +6462,40 @@ def build(date_str: str | None = None) -> dict:
             board["long_ball_jackpot"]["genius_overlap_top10"] = {"rows": [], "note": None}
         _hnote("genius/long ball overlap", e)
         print(f"[build] genius/long ball overlap skipped: {e}")
+
+    try:
+        # ADDED per Travis's direct request: real badge and Genius Pairing context on each
+        # Long Ball Sleeper, now used as a real, modest ranking bonus.
+        #
+        # CORRECTED from an earlier version of this comment: the original "80% of real
+        # winners carried zero badges" claim was wrong -- it included 91 days from before
+        # badge tracking existed in hr_log at all (confirmed directly: the badges field is
+        # completely absent, not just empty, before 2026-06-27; Travis independently
+        # confirmed the same gap via a real screenshot of the tracker showing blank "?"/"—"
+        # placeholders for those pre-tracking dates). Re-checked using only the 33 days
+        # badge tracking actually covers: 24% no-badge, meaning 76% of real longest-HR-of-
+        # the-day winners DID carry at least one real badge, and POW specifically on 33% of
+        # them (11/33). That's a real, if modest, positive signal -- not the "would work
+        # against the pattern" finding the original miscalculation suggested.
+        #
+        # Bonus kept deliberately small and secondary to the heat-based filter above, which
+        # is unaffected by this correction and remains the stronger-evidenced mechanism (the
+        # original 5-name Fanatics cross-check -- Stott #150, Aranda #194, House #206 -- was
+        # already confined to real, badge-tracked dates in August).
+        _players_by_id_for_slp = {p["id"]: p for p in players if p.get("id") is not None}
+        _genius_ids_for_slp = {c["id"] for c in (_genius_pool_for_overlap or [])
+                               if c.get("id") is not None}
+        for _row in (board.get("long_ball_jackpot") or {}).get("longball_sleepers", []):
+            _pl = _players_by_id_for_slp.get(_row["id"])
+            _row["badges"] = [b.get("k") for b in ((_pl or {}).get("badges") or []) if b.get("k")]
+            _row["in_genius_pool"] = _row["id"] in _genius_ids_for_slp
+            _row["ranking_bonus"] = 2 * len(_row["badges"]) + (3 if _row["in_genius_pool"] else 0)
+        (board.get("long_ball_jackpot") or {})["longball_sleepers"] = sorted(
+            (board.get("long_ball_jackpot") or {}).get("longball_sleepers", []),
+            key=lambda r: -(r["score"] + r.get("ranking_bonus", 0)))
+    except Exception as e:
+        _hnote("long ball sleepers context", e)
+        print(f"[build] long ball sleepers context skipped: {e}")
 
     try:
         # ADDED per Travis's direct question: should Grand Slam be folded in too? See
