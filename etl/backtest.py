@@ -678,6 +678,18 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
         d = by_conv.setdefault(prop, {}).setdefault(bucket, {"n": 0, "hit": 0})
         d["n"] += 1; d["hit"] += 1 if ok else 0
     top_n = {"5": {"n": 0, "hr": 0}, "10": {"n": 0, "hr": 0}, "25": {"n": 0, "hr": 0}}
+    # ADDED this session, per Travis's direct request: a dedicated check of the actual
+    # COMBINED, ranked output Genius Pairing produces, not just its individual ingredients
+    # (which were all already checked separately). Every component signal has real backtest
+    # numbers on its own; this asks the more direct question -- does the #1-ranked hitter by
+    # this combined stack actually hit more than the #5-ranked, more than the #15-ranked, and
+    # so on. Deliberately NOT a full reconstruction of Genius Pairing's exact live formula --
+    # that uses several inputs replay can't cleanly rebuild (live book odds for de-chalk
+    # ranking, real-time bullpen/lineup context). Uses the exact real, already-validated lift
+    # constants from build_board.py (ARSENAL_FIT_LIFT, ZONE_OVERLAP_LIFT, HRPO_FAMILY_LIFT) --
+    # not new, arbitrary weights -- summed into one combined score per hitter, per day.
+    genius_rank_n = {"1": {"n": 0, "hr": 0}, "3": {"n": 0, "hr": 0}, "5": {"n": 0, "hr": 0},
+                     "10": {"n": 0, "hr": 0}, "20": {"n": 0, "hr": 0}}
     calib = {}
     n_tot = hr_tot = 0
     # Real month-by-month base rate, tracked alongside the season aggregate. Checked directly
@@ -746,6 +758,28 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
             continue
         graded_days += 1
         ranked = sorted(heats.items(), key=lambda kv: -kv[1]["heat"])
+        # ADDED this session -- genius-style combined rank, computed once per day, cheap
+        # (a sort over data already fully computed above, no new per-row scan).
+        def _genius_proxy(rec):
+            score = 1.0
+            af = rec.get("arsenal_fit")
+            if af is not None:
+                score *= build_board_mod.ARSENAL_FIT_LIFT[build_board_mod._arsenal_fit_tier(af)]
+            zn = rec.get("zone_overlap_n")
+            if zn is not None:
+                score *= build_board_mod.ZONE_OVERLAP_LIFT[build_board_mod._zone_overlap_tier(zn)]
+            fams = rec.get("cv_fams")
+            if fams is not None:
+                score *= build_board_mod.HRPO_FAMILY_LIFT.get(min(int(fams), 5), 1.0)
+            if (rec.get("near_miss_14d") or 0) >= 2:
+                score *= 1.106   # real near_miss>=2 lift, same number used elsewhere in this file
+            return score
+        genius_ranked = sorted(heats.items(), key=lambda kv: -_genius_proxy(kv[1]))
+        for i, (bid, r) in enumerate(genius_ranked):
+            hit = r["hr"]
+            for k in ("1", "3", "5", "10", "20"):
+                if i < int(k):
+                    genius_rank_n[k]["n"] += 1; genius_rank_n[k]["hr"] += 1 if hit else 0
         for i, (bid, r) in enumerate(ranked):
             hit = r["hr"]
             n_tot += 1; hr_tot += 1 if hit else 0
@@ -1041,7 +1075,7 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
         "model_version": compute.MODEL_VERSION,
         "base_pct": round(100 * hr_tot / n_tot, 2) if n_tot else None,
         "by_month": _by_month_rates,
-        "by_tier": by_tier, "top_n": top_n, "by_edge": by_edge,
+        "by_tier": by_tier, "top_n": top_n, "genius_rank_n": genius_rank_n, "by_edge": by_edge,
         "by_badge": _badge_lift(by_badge, hr_tot / n_tot if n_tot else 0),
         # ADDED this session -- does the FULL stacked Genius Pairing probability (calling the
         # real _hrpo_combine_genius_pow, not an approximation) actually come out calibrated, or

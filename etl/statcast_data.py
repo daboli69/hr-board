@@ -2224,6 +2224,85 @@ def team_traffic_profile(df: pd.DataFrame, recent_days: int = 14) -> dict:
     return out
 
 
+def pitcher_traffic_profile_recent(df: pd.DataFrame, starter_ids: list[int],
+                                   team_of_starter: dict, recent_days: int = 14) -> dict:
+    """Real, RECENT-WINDOW bases-loaded-allowed rate, both for the confirmed starter
+    specifically AND the rest of that team's pitching staff -- per Travis's direct question:
+    does Grand Slam identify recent bullpen and starter bases-loaded tendency and prioritize
+    those pitchers? Checked directly before building this: pitcher_traffic_profile() already
+    exists, but it's season-long (no recency window at all, unlike this file's own
+    team_traffic_profile(), which already has one) and only ever gets called with confirmed
+    starters -- bullpen arms are completely absent from it. This is the fix for both gaps at
+    once, using the exact same real pattern team_traffic_profile() already established.
+
+    "The bullpen" specifically isn't reliably knowable in advance -- which reliever a manager
+    actually uses tonight depends on the game situation, not something predictable ahead of
+    time. Real, honest proxy instead: every OTHER pitcher who has actually thrown for that
+    team in the recent window (i.e., not today's confirmed starter), aggregated at the team
+    level. This answers "has this team's bullpen, as a whole, actually been allowing
+    bases-loaded situations lately" without pretending to know which specific arm will appear.
+
+    team_of_starter: {starter_pitcher_id: team_abbr} -- needed to know which team's OTHER
+    pitchers count as "that starter's bullpen" for the aggregate side.
+
+    Returns {starter_pitcher_id: {sp_recent_rate, sp_recent_multiplier, sp_n_pa,
+    bp_recent_rate, bp_recent_multiplier, bp_n_pa}} -- both real numbers together, so a
+    caller can see plainly whether it's the starter, the pen, or both that's been leaky.
+    """
+    need = {"pitcher", "game_pk", "at_bat_number", "on_1b", "on_2b", "on_3b",
+           "inning_topbot", "home_team", "away_team", "game_date"}
+    if df is None or df.empty or not starter_ids or not need.issubset(df.columns):
+        return {}
+    dates = pd.to_datetime(df["game_date"], errors="coerce")
+    last = dates.max()
+    if pd.isna(last):
+        return {}
+    d = df[dates >= (last - pd.Timedelta(days=recent_days))].copy()
+    if d.empty:
+        return {}
+    topbot = d["inning_topbot"].astype(str)
+    # the PITCHING team is the one NOT batting -- top of inning, home team is pitching
+    d["_pitch_team"] = np.where(topbot.str.startswith("Top"), d["home_team"], d["away_team"])
+    pa = d.drop_duplicates(subset=["pitcher", "game_pk", "at_bat_number"])
+    loaded_mask = pa["on_1b"].notna() & pa["on_2b"].notna() & pa["on_3b"].notna()
+
+    # league-average anchor from this same recent-window population, same honesty rule as
+    # every other rate in this file -- not an externally asserted constant.
+    total_pa = len(pa)
+    if total_pa < 500:
+        return {}
+    league_rate = int(loaded_mask.sum()) / total_pa
+
+    out = {}
+    for sp_id in starter_ids:
+        sp_pa = pa[pa["pitcher"] == sp_id]
+        sp_n = len(sp_pa)
+        sp_rate = sp_mult = None
+        if sp_n >= 30:
+            sp_loaded = int((sp_pa["on_1b"].notna() & sp_pa["on_2b"].notna()
+                            & sp_pa["on_3b"].notna()).sum())
+            sp_rate = round(sp_loaded / sp_n, 4)
+            sp_mult = round(sp_rate / league_rate, 3) if league_rate else 1.0
+
+        team = team_of_starter.get(sp_id)
+        bp_rate = bp_mult = bp_n = None
+        if team:
+            bp_pa = pa[(pa["_pitch_team"] == team) & (pa["pitcher"] != sp_id)]
+            bp_n = len(bp_pa)
+            if bp_n >= 40:
+                bp_loaded = int((bp_pa["on_1b"].notna() & bp_pa["on_2b"].notna()
+                                & bp_pa["on_3b"].notna()).sum())
+                bp_rate = round(bp_loaded / bp_n, 4)
+                bp_mult = round(bp_rate / league_rate, 3) if league_rate else 1.0
+
+        if sp_rate is not None or bp_rate is not None:
+            out[int(sp_id)] = {
+                "sp_recent_rate": sp_rate, "sp_recent_multiplier": sp_mult, "sp_n_pa": sp_n,
+                "bp_recent_rate": bp_rate, "bp_recent_multiplier": bp_mult, "bp_n_pa": bp_n,
+            }
+    return out
+
+
 def pitcher_batted_ev_profile(df: pd.DataFrame, pitcher_ids: list[int]) -> dict:
     """Per-pitcher average exit velocity allowed and hard-hit% allowed -- this genuinely does
     not exist anywhere else in this pipeline. pitcher_edges.season only has bb/era/h/hr/ip/so/

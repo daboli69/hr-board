@@ -306,7 +306,8 @@ def signal_tiebreaker_multiplier(signal_count: int) -> float:
 
 def slam_probability(p_loaded, hr_per_pa, park_mult=1.0, near_miss_boost=0.0,
                      traffic_mult=1.0, matchup_lift_mult=1.0, convergence_mult=1.0,
-                     vuln_mult=1.0, signal_mult=1.0, team_traffic_mult=1.0):
+                     vuln_mult=1.0, signal_mult=1.0, team_traffic_mult=1.0,
+                     recent_traffic_mult=1.0):
     """P(grand slam this game) = P(bases loaded in a PA) x P(he homers in it), across ~4.3 PAs.
 
     traffic_mult: Part A -- this specific pitcher's own bases-loaded rate vs league average
@@ -337,12 +338,23 @@ def slam_probability(p_loaded, hr_per_pa, park_mult=1.0, near_miss_boost=0.0,
     composition, not an independent validation of this exact combination.
     vuln_mult: Task 3 -- the opposing starter's real 0-100 HR Vulnerability score, scaled.
     signal_mult: Task 4 -- the measured+provisional signal count, strict tie-breaker only.
+    recent_traffic_mult: ADDED this session, per Travis's direct question: does this
+    identify RECENT (not season-long) bases-loaded-allowed for both the starter specifically
+    AND the rest of that team's pitching staff (a real proxy for "the bullpen," since which
+    specific reliever appears tonight isn't reliably predictable in advance)? It didn't
+    before -- traffic_mult above is season-long and starters-only. This is real, both gaps at
+    once (pitcher_traffic_profile_recent() in statcast_data.py), but genuinely new and
+    not yet backtest-validated the way traffic_mult's season-long version is. Damped the same
+    conservative 25% team_traffic_mult uses -- same principle: a brand new, unvalidated signal
+    shouldn't carry full weight just because it's real and directionally sensible. Revisit this
+    damping once there's a real replay check of its own, same as team_traffic_mult's history.
 
     Reported as a real probability so it can be compared against a book price.
     """
     if p_loaded is None or not hr_per_pa:
         return None
     _combined_traffic = float(traffic_mult or 1.0) * (1.0 + (float(team_traffic_mult or 1.0) - 1.0) * 0.25)
+    _combined_traffic *= (1.0 + (float(recent_traffic_mult or 1.0) - 1.0) * 0.25)
     p_loaded_adj = min(1.0, max(0.0, float(p_loaded) * _combined_traffic))
     hr = (float(hr_per_pa) * float(park_mult or 1.0) * (1.0 + float(near_miss_boost or 0.0))
          * float(matchup_lift_mult or 1.0) * float(vuln_mult or 1.0))

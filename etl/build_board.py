@@ -4691,8 +4691,6 @@ def build(date_str: str | None = None) -> dict:
                     # originally, but edge_score is a usage-weighted average of zone power and
                     # actually ranges ~1-33 — so the gate never once fired and this family was
                     # dead. A percentile gate is also self-correcting if the scale ever changes.
-                    if ((_F.get("discipline") or {}).get("crosshair")) is True:
-                        _add("location", "Crosshair: his zones = the arm's meatballs")
                     if _ze.get("edge_score") is not None and _ze["edge_score"] >= _ZE_CUT:
                         _add("location", f"Zone edge {round(_ze['edge_score'],1)}"
                              + (f" ({_ze.get('hot_in_top')}/{_ze.get('top_k')} hot)" if _ze.get("top_k") else ""))
