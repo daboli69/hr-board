@@ -1052,16 +1052,19 @@ def build_long_ball_jackpot(players, lb_evbarrels=None, lb_pitcher_ev=None,
     # have elite raw power. This is a separate, complementary view, not a replacement for
     # scored_by_ceiling above -- Coby Mayo (the one real exception, heat rank #15) shows the
     # normal top-10 still matters too.
-    _heat_by_id = {p["id"]: p.get("heat") for p in players if p.get("id") is not None}
-    _all_heats = sorted(h for h in _heat_by_id.values() if h is not None)
-    _median_heat = _all_heats[len(_all_heats) // 2] if _all_heats else None
     longball_sleepers = []
-    if _median_heat is not None:
-        _sleeper_pool = [x for x in scored
-                         if (_heat_by_id.get(x["id"]) or 0) < _median_heat]
-        _sleeper_pool.sort(key=lambda x: -x["score"])
-        longball_sleepers = [{**x, "heat": _heat_by_id.get(x["id"])}
-                             for x in _sleeper_pool[:10]]
+    try:
+        _heat_by_id = {p["id"]: p.get("heat") for p in players if p.get("id") is not None}
+        _all_heats = sorted(h for h in _heat_by_id.values() if h is not None)
+        _median_heat = _all_heats[len(_all_heats) // 2] if _all_heats else None
+        if _median_heat is not None:
+            _sleeper_pool = [x for x in scored
+                             if (_heat_by_id.get(x["id"]) or 0) < _median_heat]
+            _sleeper_pool.sort(key=lambda x: -x["score"])
+            longball_sleepers = [{**x, "heat": _heat_by_id.get(x["id"])}
+                                 for x in _sleeper_pool[:10]]
+    except Exception as _e:
+        print(f"[build] long ball sleepers skipped (non-fatal): {_e}")
 
     return {"picks": picks, "candidates_scored": len(scored),
             "mlb_p95_max_ev": p95_threshold, "board": lb_board,
