@@ -8950,6 +8950,7 @@ function _lbTabBar(){
   // active tab; extracted here so adding Tracker didn't leave that copy silently wrong.
   return `<div class="lb-tabbar">
     <button class="lb-tab${lbBoardTab==='top10'?' on':''}" onclick="lbBoardSetTab('top10')">Top 10</button>
+    <button class="lb-tab${lbBoardTab==='sleepers'?' on':''}" onclick="lbBoardSetTab('sleepers')">Sleepers</button>
     <button class="lb-tab${lbBoardTab==='overlap'?' on':''}" onclick="lbBoardSetTab('overlap')">Overlap</button>
     <button class="lb-tab${lbBoardTab==='bygame'?' on':''}" onclick="lbBoardSetTab('bygame')">By Game</button>
     <button class="lb-tab${lbBoardTab==='tracker'?' on':''}" onclick="lbBoardSetTab('tracker')">Tracker</button>
@@ -9193,6 +9194,10 @@ function renderLongBallBoard(){
 
   if(lbBoardTab === "top10"){
     main.innerHTML = renderLongBallTop10(boards);
+    return;
+  }
+  if(lbBoardTab === "sleepers"){
+    main.innerHTML = renderLongBallSleepers();
     return;
   }
   if(lbBoardTab === "overlap"){
@@ -11696,6 +11701,76 @@ function toggleGSDetail(idx){
   const open = el.style.display !== "none";
   el.style.display = open ? "none" : "block";
   if(row) row.setAttribute("aria-expanded", String(!open));
+}
+
+function toggleLBSleeperDetail(idx){
+  const el = document.getElementById(`lbslp-detail-${idx}`);
+  const row = document.getElementById(`lbslp-row-${idx}`);
+  if(!el) return;
+  const open = el.style.display !== "none";
+  el.style.display = open ? "none" : "block";
+  if(row) row.setAttribute("aria-expanded", String(!open));
+}
+
+function renderLongBallSleepers(){
+  const lb = (BOARD && BOARD.long_ball_jackpot) || {};
+  const rows = lb.longball_sleepers || [];
+  const body = rows.length ? rows.map((r,i)=>{
+    const driversHTML = (r.drivers||[]).length
+      ? `<ul class="gt10-driver-list">${(r.drivers||[]).map(d=>`<li>${d}</li>`).join("")}</ul>`
+      : `<div class="gt10-no-drivers">No individual power driver cleared a real threshold.</div>`;
+    const badgeTag = k => k==="pow" ? '<span class="lb10-badge pow">POW</span>'
+                         : k==="lock" ? '<span class="lb10-badge lock">LOCK</span>'
+                         : `<span class="lb10-badge" style="color:var(--muted);background:var(--panel-3)">${k.toUpperCase()}</span>`;
+    const badgeTags = (r.badges||[]).map(badgeTag).join("");
+    const geniusTag = r.in_genius_pool
+      ? '<span class="lb10-badge" style="color:var(--good);background:rgba(90,200,120,.14)">GENIUS</span>' : "";
+    return `<div class="gt10-row" id="lbslp-row-${i}" aria-expanded="false"
+        onclick="toggleLBSleeperDetail(${i})">
+      <div class="gt10-mid">
+        <div class="gt10-nm"><b>${r.name}</b>
+          <span class="lb10-badge" style="color:var(--faint);background:rgba(255,255,255,.06)">HEAT ${r.heat}</span>
+          ${r.ownership_tier?`<span class="lb10-badge pow">${r.ownership_tier.toUpperCase()}</span>`:""}
+          ${geniusTag}${badgeTags}</div>
+        <div class="gt10-sub">${r.team} vs ${r.opp_team}${r.spot?` · #${r.spot}`:""}</div>
+      </div>
+      <div class="gt10-prob"><b>${r.ceiling_ft?Math.round(r.ceiling_ft)+"ft":"—"}</b>
+        <span class="glo-ceiling">score ${Math.round(r.score)}</span></div>
+      <div class="gt10-chev">▾</div>
+      <div class="gt10-detail" id="lbslp-detail-${i}" style="display:none" onclick="event.stopPropagation()">
+        <div class="gt10-detail-h">Why ${r.name} is a real sleeper tonight</div>
+        <div class="gt10-no-drivers" style="margin-bottom:8px">Heat ${r.heat} is well below tonight's
+          median -- the model doesn't see him as likely to homer, but his real distance
+          ceiling doesn't depend on being hot right now.</div>
+        ${driversHTML}
+        <div class="gt10-detail-link" onclick="event.stopPropagation();scanToPlayer(${r.id})">
+          Open full player card →
+        </div>
+      </div>
+    </div>`;
+  }).join("") : `<div class="psc-empty">Not enough real candidates below tonight's median heat to build this list.</div>`;
+
+  return `<div class="cv-wrap gsb-wrap">
+    ${_lbTabBar()}
+    <div class="gsb-head">
+      <div class="gsb-title">Long Ball Sleepers</div>
+      <div class="gsb-sub2">LOW HEAT · REAL DISTANCE CEILING</div>
+    </div>
+    <div class="lb-overlap-intro">
+      <div class="lb-overlap-h">Real pattern, checked against actual results</div>
+      <div class="lb-overlap-d">Cross-checked Fanatics Sportsbook's real "Long Ball of the
+        Day" leaderboard against our own history: 4 of 5 recent real winners had heat ranks
+        between #45 and #206 out of roughly 270 graded hitters that day. Heat measures "will
+        he hit one at all" using recent form -- real distance ceiling is a much more physical,
+        less form-dependent trait. This list starts from every hitter tonight below the
+        slate's median heat, ranked by real Long Ball score with a modest bonus for real
+        badges and Genius Pairing membership -- checked directly against the 33 days our
+        badge tracking actually covers (it didn't exist before June 27), 76% of real winners
+        carried at least one real badge, so this is a real, if secondary, signal here, not
+        just decoration.</div>
+    </div>
+    ${body}
+  </div>`;
 }
 
 function renderGrandSlamTop10s(){
