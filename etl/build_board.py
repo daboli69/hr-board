@@ -160,6 +160,7 @@ def _zone_overlap_tier(zn):
 # into any ticket's probability -- only used as a board filter. Real, clean, monotonic tiers,
 # checked directly against current backtest.json.
 SQUARE_UP_LIFT = {"75+": 1.541, "60-74": 1.286, "45-59": 1.098, "<45": 0.771}
+_BADGE_ANCHOR_LIFT = {"pow": 1.757, "lock": 1.352, "mix": 1.51, "hrbp": 1.21, "due": 1.028}
 ZONE_EDGE_LIFT = 1.411   # real, current combined lift for zone_edge >= 50 (n=3510) -- see the
                         # comment at its first use for why this is a binary split, not a tier
                         # table like the other signals
@@ -242,6 +243,67 @@ def _load_markov_calib():
                 "source_n": mc.get("n"), "applied": True}
     except Exception:
         return {"slope": 1.0, "intercept": 0.0, "source_n": None, "applied": False}
+
+
+def _load_blended_badge_lift():
+    """Real badge anchor lifts, blended from BOTH backtest.json's replay AND history.json's
+    live tracker -- per Travis's direct request that Genius Pairing should draw from both
+    sources, not backtest alone. Two genuinely independent real validations of the same
+    underlying question ("does this badge predict a real HR"), so combining them is a real
+    increase in effective sample size, not just averaging noise together.
+
+    Pools the raw {n, hr} counts rather than averaging the two lift numbers -- a thin-sample
+    source (say, tracker's early-season days) shouldn't carry the same weight as a large one
+    just because both produce "a lift number." Pooling naturally weights each source by its
+    own real sample size, which is the honest way to combine two real observations of the same
+    thing.
+
+    Checked directly before building this: backtest.json's top-level by_badge and
+    history.json's aggregated by_badge use the exact same badge keys (pow/lock/due/hot/cool),
+    so these are honestly poolable without any label-mapping guesswork. Other Genius Pairing
+    signals (arsenal_fit, zone_overlap, family convergence, zone_edge) were checked the same
+    way and found NOT currently blendable -- track.py doesn't log those by_edge groups at all
+    (confirmed directly against all 154 tracked days: 0 populated), so there's no real second
+    source to pool against yet for those. This function is deliberately scoped to what's
+    honestly blendable right now, not forced onto signals with only one real source.
+
+    Falls back to the existing static _BADGE_ANCHOR_LIFT values, per badge, if either file is
+    unavailable or a given badge has no real data in one or both sources -- never invents a
+    number, same principle as every other graceful-degradation path in this file.
+    """
+    blended = dict(_BADGE_ANCHOR_LIFT)   # start from the existing static values as the floor
+    try:
+        with open("docs/backtest.json") as _f:
+            bt = json.load(_f)
+        base = bt.get("base_pct")
+        bt_badge = bt.get("by_badge") or {}
+    except Exception:
+        return blended
+    if not base:
+        return blended
+    try:
+        with open("docs/history.json") as _f:
+            hist = json.load(_f)
+        tracker_days = hist.get("days") or []
+    except Exception:
+        tracker_days = []
+    tracker_badge = {}
+    for _d in tracker_days:
+        for k, v in (_d.get("by_badge") or {}).items():
+            e = tracker_badge.setdefault(k, {"n": 0, "hr": 0})
+            e["n"] += v.get("n", 0); e["hr"] += v.get("hr", 0)
+
+    for badge in set(bt_badge) | set(tracker_badge):
+        bt_n = bt_badge.get(badge, {}).get("n", 0)
+        bt_hr = bt_badge.get(badge, {}).get("hr", 0)
+        tr_n = tracker_badge.get(badge, {}).get("n", 0)
+        tr_hr = tracker_badge.get(badge, {}).get("hr", 0)
+        pooled_n = bt_n + tr_n
+        if pooled_n < 200:   # too little combined real evidence to trust over the static floor
+            continue
+        pooled_rate = 100.0 * (bt_hr + tr_hr) / pooled_n   # percentage scale, matching base_pct
+        blended[badge] = round(pooled_rate / base, 3)
+    return blended
 
 
 def _load_genius_stack_calib():
@@ -1556,7 +1618,7 @@ HRPO_IDEAL_AA_LIFT = 1.12
 
 
 def _hrpo_raw_signals(p, pp_by_id, pen_by_team, backtest_calib, base_rate, require_badge=None,
-                      vuln_by_pid=None, pen_avail_by_team=None):
+                      vuln_by_pid=None, pen_avail_by_team=None, badge_lift_table=None):
     """Every dimensional input this scorer draws on, computed ONCE per hitter and handed to
     the ticket formulas below.
 
@@ -1574,9 +1636,12 @@ def _hrpo_raw_signals(p, pp_by_id, pen_by_team, backtest_calib, base_rate, requi
     if heat is None:
         return None
 
-    # Promoted above the if/else -- ADDED this session, needed in BOTH branches now (see below).
-    _BADGE_ANCHOR_LIFT = {"pow": 1.757, "lock": 1.352, "mix": 1.51, "hrbp": 1.21,
-                          "due": 1.028}
+    # ADDED this session, per Travis's direct request: Genius Pairing's badge anchors should
+    # blend backtest with tracker data, not backtest alone. badge_lift_table is the real,
+    # blended dict from _load_blended_badge_lift() when the caller provides one; falls back to
+    # the module-level static values (_BADGE_ANCHOR_LIFT) per-badge if it wasn't passed, or
+    # doesn't have real data for a given badge yet.
+    _bl = {**_BADGE_ANCHOR_LIFT, **(badge_lift_table or {})}
     if require_badge:
         _require_set = {require_badge} if isinstance(require_badge, str) else set(require_badge)
         _p_own_badges = {b.get("k") for b in (p.get("badges") or []) if b.get("k")}
@@ -1604,7 +1669,7 @@ def _hrpo_raw_signals(p, pp_by_id, pen_by_team, backtest_calib, base_rate, requi
         # not a claim that due itself predicts anything -- a due-only candidate's honest anchor
         # reflects that, and their final ranking has to be earned through their other real,
         # validated signals (arsenal fit, zone overlap, family convergence, own power, etc.).
-        _best_lift = max((_BADGE_ANCHOR_LIFT.get(k, 1.0) for k in _qualifying), default=1.0)
+        _best_lift = max((_bl.get(k, 1.0) for k in _qualifying), default=1.0)
         base_prob = base_rate * _best_lift
     else:
         # ADDED this session -- for the open (unrestricted) Genius Pairing pool: a candidate
@@ -1615,7 +1680,7 @@ def _hrpo_raw_signals(p, pp_by_id, pen_by_team, backtest_calib, base_rate, requi
         # carries both (matches the "any holder" anchoring convention above), and only falls
         # back to heat-calibration for hitters who carry neither.
         _own_badges = {b.get("k") for b in (p.get("badges") or []) if b.get("k")}
-        _own_badge_lift = max((_BADGE_ANCHOR_LIFT.get(bk, 0.0) for bk in _own_badges), default=0.0)
+        _own_badge_lift = max((_bl.get(bk, 0.0) for bk in _own_badges), default=0.0)
         if _own_badge_lift > 0:
             base_prob = base_rate * _own_badge_lift
         else:
@@ -2087,6 +2152,8 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
     """
     base_rate = base_rate_override if base_rate_override is not None else HRPO_BASE_RATE
     _genius_calib = _load_genius_stack_calib()   # see docstring above _load_genius_stack_calib
+    _badge_lift_blended = _load_blended_badge_lift()   # ADDED this session, per Travis -- see
+                                                       # docstring above _load_blended_badge_lift
     _build_genius = build_genius if build_genius is not None else bool(require_badge)
     vuln_by_pid = {}
     for _pe in (pitcher_edges or []):
@@ -2144,7 +2211,8 @@ def build_cross_game_hr_parlays(players, backtest_calib, odds_prices, games,
             if p.get("hr_last_game"):
                 continue
         sig = _hrpo_raw_signals(p, pp_by_id, pen_by_team, backtest_calib, base_rate,
-                                require_badge, vuln_by_pid, pen_avail_by_team)
+                                require_badge, vuln_by_pid, pen_avail_by_team,
+                                badge_lift_table=_badge_lift_blended)
         if sig is None:
             continue
         odds = _odds_for(p.get("name"))
@@ -4691,6 +4759,8 @@ def build(date_str: str | None = None) -> dict:
                     # originally, but edge_score is a usage-weighted average of zone power and
                     # actually ranges ~1-33 — so the gate never once fired and this family was
                     # dead. A percentile gate is also self-correcting if the scale ever changes.
+                    if ((_F.get("discipline") or {}).get("crosshair")) is True:
+                        _add("location", "Crosshair: his zones = the arm's meatballs")
                     if _ze.get("edge_score") is not None and _ze["edge_score"] >= _ZE_CUT:
                         _add("location", f"Zone edge {round(_ze['edge_score'],1)}"
                              + (f" ({_ze.get('hot_in_top')}/{_ze.get('top_k')} hot)" if _ze.get("top_k") else ""))
