@@ -11638,11 +11638,14 @@ function renderGeniusLongBallOverlap(){
     const lbDrivers = (r.lb_drivers||[]).length
       ? `<ul class="gt10-driver-list">${(r.lb_drivers||[]).map(d=>`<li>${d}</li>`).join("")}</ul>`
       : `<div class="gt10-no-drivers">No individual power driver cleared a real threshold.</div>`;
+    const btDrivers = (r.backtest_signals||[]).length
+      ? `<ul class="gt10-driver-list">${(r.backtest_signals||[]).map(d=>`<li>${d}</li>`).join("")}</ul>`
+      : `<div class="gt10-no-drivers">Cleared none of the additional backtest-validated signals -- ranked here on Genius + Long Ball alone.</div>`;
     return `<div class="gt10-row" id="glo-row-${i}" aria-expanded="false"
         onclick="toggleGLODetail(${i})">
       <div class="gt10-rank">${i+1}</div>
       <div class="gt10-mid">
-        <div class="gt10-nm"><b>${r.name}</b></div>
+        <div class="gt10-nm"><b>${r.name}</b>${r.backtest_signal_count?` <span class="lb10-badge pow">+${r.backtest_signal_count} BT</span>`:""}</div>
         <div class="gt10-sub">${r.team} vs ${r.opp_team}${r.spot?` · #${r.spot}`:""} ·
           genius #${r.genius_rank} · long ball #${r.lb_rank}</div>
       </div>
@@ -11655,6 +11658,8 @@ function renderGeniusLongBallOverlap(){
         ${gDrivers}
         <div class="glo-detail-sec"><b>Long Ball (#${r.lb_rank}, score ${Math.round(r.lb_score)}, ceiling ~${r.ceiling_ft?Math.round(r.ceiling_ft):"—"}ft)</b></div>
         ${lbDrivers}
+        <div class="glo-detail-sec"><b>Additional backtest-validated signals${r.backtest_signal_count?` (${r.backtest_signal_count})`:""}</b></div>
+        ${btDrivers}
         <div class="gt10-detail-link" onclick="event.stopPropagation();scanToPlayer(${r.id})">
           Open full player card →
         </div>
