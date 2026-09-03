@@ -383,10 +383,13 @@ def get_recent_lineup(team_id: int, before_date: str) -> list[int]:
         games.sort()
         recent_games = games[-5:]   # most recent up to 5, oldest-to-newest order
 
-        # spot -> {player_id: (real_start_count, most_recent_game_idx)}. Count of real starts
-        # is the primary sort key, most_recent_game_idx only breaks ties between players with
-        # an EQUAL count -- see the docstring above for why a pure recency weight was wrong.
-        spot_counts: dict[int, dict[int, tuple]] = {}
+        # player_id -> (real_start_count across ALL spots, most_recent_game_idx, most_recent_spot).
+        # FIXED this session: tracking counts separately PER SPOT meant a player who bats in
+        # different lineup positions across different games (common for someone without a
+        # fixed role yet) had his starts split up and could lose every individual spot to
+        # players who bat more consistently in one place, even with more total real starts
+        # overall. Now counts total starts per player across all spots combined.
+        player_counts: dict[int, list] = {}
         for game_idx, (_, game_pk) in enumerate(recent_games):
             try:
                 box = _get(f"{BASE}/game/{game_pk}/boxscore")
@@ -407,21 +410,17 @@ def get_recent_lineup(team_id: int, before_date: str) -> list[int]:
                     pid = int(pdata.get("person", {}).get("id", 0))
                     if not pid:
                         continue
-                    spot_counts.setdefault(spot, {})
-                    prev_n, _ = spot_counts[spot].get(pid, (0, -1))
-                    spot_counts[spot][pid] = (prev_n + 1, game_idx)   # (real start count, most recent game seen)
+                    prev = player_counts.get(pid, [0, -1, spot])
+                    player_counts[pid] = [prev[0] + 1, game_idx, spot]   # spot always from the latest game seen
 
-        if not spot_counts:
+        if not player_counts:
             return []
-        lineup = []
-        for spot in sorted(spot_counts.keys()):
-            counts = spot_counts[spot]
-            # count of real starts wins first; recency only breaks a tie between players with
-            # the SAME number of real starts -- a one-game fluke can never outrank an
-            # established 2+-game starter just for being more recent.
-            best_pid = max(counts.keys(), key=lambda pid: counts[pid])
-            lineup.append(best_pid)
-        return lineup
+        # top 9 by (real start count, most recent game seen) -- count wins first, recency
+        # only breaks a tie between players with an EQUAL count, same principle as before.
+        ranked = sorted(player_counts.items(), key=lambda kv: (-kv[1][0], -kv[1][1]))
+        top9 = ranked[:9]
+        top9.sort(key=lambda kv: kv[1][2])   # order by each player's own most recent spot
+        return [pid for pid, _ in top9]
     except Exception:
         return []
 
