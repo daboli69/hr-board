@@ -383,17 +383,20 @@ def get_recent_lineup(team_id: int, before_date: str) -> list[int]:
         games.sort()
         recent_games = games[-5:]   # most recent up to 5, oldest-to-newest order
 
-        # player_id -> (real_start_count across ALL spots, most_recent_game_idx, most_recent_spot).
-        # FIXED this session: tracking counts separately PER SPOT meant a player who bats in
-        # different lineup positions across different games (common for someone without a
-        # fixed role yet) had his starts split up and could lose every individual spot to
-        # players who bat more consistently in one place, even with more total real starts
-        # overall. Now counts total starts per player across all spots combined.
-        player_counts: dict[int, list] = {}
+        # First pass: total real starts per player across the whole window (any spot), used
+        # only to distinguish "genuine one-off fill-in" (0 other starts) from "real, current
+        # part of the lineup" (2+ starts, even if they move around or platoon) -- NOT used as
+        # a team-wide ranking cutoff, which was the bug in the previous version (see docstring).
+        total_starts: dict[int, int] = {}
+        # game_idx -> {spot: player_id}, oldest-to-newest, needed to find each spot's most
+        # recent occupant and fall back to an earlier game if that occupant looks like a fluke.
+        games_by_spot: list[dict] = []
         for game_idx, (_, game_pk) in enumerate(recent_games):
+            spot_map = {}
             try:
                 box = _get(f"{BASE}/game/{game_pk}/boxscore")
             except Exception:
+                games_by_spot.append(spot_map)
                 continue
             for side in ("away", "home"):
                 t = box.get("teams", {}).get(side, {})
@@ -410,17 +413,29 @@ def get_recent_lineup(team_id: int, before_date: str) -> list[int]:
                     pid = int(pdata.get("person", {}).get("id", 0))
                     if not pid:
                         continue
-                    prev = player_counts.get(pid, [0, -1, spot])
-                    player_counts[pid] = [prev[0] + 1, game_idx, spot]   # spot always from the latest game seen
+                    spot_map[spot] = pid
+                    total_starts[pid] = total_starts.get(pid, 0) + 1
+            games_by_spot.append(spot_map)
 
-        if not player_counts:
+        if not games_by_spot or not any(games_by_spot):
             return []
-        # top 9 by (real start count, most recent game seen) -- count wins first, recency
-        # only breaks a tie between players with an EQUAL count, same principle as before.
-        ranked = sorted(player_counts.items(), key=lambda kv: (-kv[1][0], -kv[1][1]))
-        top9 = ranked[:9]
-        top9.sort(key=lambda kv: kv[1][2])   # order by each player's own most recent spot
-        return [pid for pid, _ in top9]
+        latest = games_by_spot[-1]
+        lineup_map = {}
+        for spot, pid in latest.items():
+            if total_starts.get(pid, 0) != 1:
+                lineup_map[spot] = pid   # 2+ real starts (or somehow 0) -- trust the most
+                continue                # recent game outright, including real platoon players
+            # exactly 1 total start anywhere in the window -- genuinely looks like a one-off
+            # fill-in, not a real platoon player (who'd have 2-3 starts of his own). Only
+            # override with a CLEARLY dominant alternative (3+ real starts) at this same spot.
+            replacement = None
+            for earlier in reversed(games_by_spot[:-1]):
+                cand = earlier.get(spot)
+                if cand and total_starts.get(cand, 0) >= 3:
+                    replacement = cand
+                    break
+            lineup_map[spot] = replacement if replacement else pid
+        return [lineup_map[spot] for spot in sorted(lineup_map.keys())]
     except Exception:
         return []
 
