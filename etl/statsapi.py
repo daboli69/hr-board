@@ -344,9 +344,21 @@ def recent_hr_hitters_from_boxscore(date_str: str) -> set:
 
 def get_recent_lineup(team_id: int, before_date: str) -> list[int]:
     """
-    A team's most recent posted batting order (player ids, in order), used as a
-    PROJECTED lineup before today's is confirmed. Looks back up to 10 days for the
-    team's last completed game and reads its boxscore battingOrder.
+    A team's projected batting order (player ids, in order) before today's is confirmed.
+
+    FIXED this session, per a real report: three star players across three different teams
+    were all missing from a real day's projected lineups despite genuinely playing the day
+    before. Root cause -- the old version used only the single most recent completed game's
+    boxscore battingOrder. If a player rested, pinch-hit, or entered as a late substitute in
+    that ONE specific game, they were completely excluded from the projection even though
+    they're clearly a regular starter -- a single anomalous game fully determined the result.
+
+    Now looks at the last several completed games (up to 5, within the 10-day window) and
+    picks the most frequent STARTER (battingOrder code ending in "00", meaning they began
+    the game in that spot, not a later substitution) per batting-order position across them,
+    with the most recent game breaking ties. Resilient to one rest day or one pinch-hit
+    appearance, rather than fully dependent on whichever single game happened to be most
+    recent when this runs.
     """
     try:
         start = (datetime.strptime(before_date, "%Y-%m-%d") - timedelta(days=10)).strftime("%Y-%m-%d")
@@ -360,14 +372,47 @@ def get_recent_lineup(team_id: int, before_date: str) -> list[int]:
         if not games:
             return []
         games.sort()
-        game_pk = games[-1][1]
-        box = _get(f"{BASE}/game/{game_pk}/boxscore")
-        for side in ("away", "home"):
-            t = box.get("teams", {}).get(side, {})
-            if t.get("team", {}).get("id") == team_id:
+        recent_games = games[-5:]   # most recent up to 5, oldest-to-newest order
+
+        # spot -> {player_id: n_times_started_there}, most recent game weighted last so it
+        # naturally wins ties via insertion-order-preserving dict updates below
+        spot_counts: dict[int, dict[int, int]] = {}
+        spot_most_recent: dict[int, int] = {}   # spot -> player_id from the newest game seen
+        for _, game_pk in recent_games:
+            try:
+                box = _get(f"{BASE}/game/{game_pk}/boxscore")
+            except Exception:
+                continue
+            for side in ("away", "home"):
+                t = box.get("teams", {}).get(side, {})
+                if t.get("team", {}).get("id") != team_id:
+                    continue
                 order = t.get("battingOrder", []) or []
-                return [int(x) for x in order]
-        return []
+                if not order:
+                    continue
+                for pid_key, pdata in (t.get("players") or {}).items():
+                    bo = pdata.get("battingOrder")
+                    if bo is None or int(bo) % 100 != 0:
+                        continue
+                    spot = int(bo) // 100
+                    pid = int(pdata.get("person", {}).get("id", 0))
+                    if not pid:
+                        continue
+                    spot_counts.setdefault(spot, {})
+                    spot_counts[spot][pid] = spot_counts[spot].get(pid, 0) + 1
+                    spot_most_recent[spot] = pid   # overwritten each game -> ends up newest
+
+        if not spot_counts:
+            return []
+        lineup = []
+        for spot in sorted(spot_counts.keys()):
+            counts = spot_counts[spot]
+            best_n = max(counts.values())
+            tied = [pid for pid, n in counts.items() if n == best_n]
+            # tie-break: whichever of the tied players started there most recently
+            pick = spot_most_recent.get(spot) if spot_most_recent.get(spot) in tied else tied[0]
+            lineup.append(pick)
+        return lineup
     except Exception:
         return []
 
