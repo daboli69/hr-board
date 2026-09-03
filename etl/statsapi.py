@@ -346,19 +346,28 @@ def get_recent_lineup(team_id: int, before_date: str) -> list[int]:
     """
     A team's projected batting order (player ids, in order) before today's is confirmed.
 
-    FIXED this session, per a real report: three star players across three different teams
-    were all missing from a real day's projected lineups despite genuinely playing the day
-    before. Root cause -- the old version used only the single most recent completed game's
-    boxscore battingOrder. If a player rested, pinch-hit, or entered as a late substitute in
-    that ONE specific game, they were completely excluded from the projection even though
-    they're clearly a regular starter -- a single anomalous game fully determined the result.
+    FIXED this session, per two real reports. First: three star players across three
+    different teams were all missing from a real day's projected lineups despite genuinely
+    playing the day before. Root cause -- the old version used only the single most recent
+    completed game's boxscore battingOrder. If a player rested, pinch-hit, or entered as a
+    late substitute in that ONE specific game, they were completely excluded even though
+    they're clearly a regular starter.
+
+    Second, real report after that first fix shipped: some players (confirmed against a real
+    case with real recent MLB games, not a call-up with no history) were STILL missing. An
+    intermediate version of this fix weighted more recent games more heavily by a linear
+    factor -- but that let a single very recent start numerically tie or beat two starts from
+    slightly earlier, occasionally letting a one-game fluke substitute outrank someone who'd
+    actually started twice, reproducing the original bug in a different form.
 
     Now looks at the last several completed games (up to 5, within the 10-day window) and
-    picks the most frequent STARTER (battingOrder code ending in "00", meaning they began
-    the game in that spot, not a later substitution) per batting-order position across them,
-    with the most recent game breaking ties. Resilient to one rest day or one pinch-hit
-    appearance, rather than fully dependent on whichever single game happened to be most
-    recent when this runs.
+    picks, per batting-order spot, whoever has the most real STARTS there (battingOrder code
+    ending in "00", meaning they began the game in that spot, not a later substitution) --
+    count of real starts is the primary factor, with the most recent start only breaking ties
+    between players with an EQUAL count. A one-game substitute can never outrank an
+    established 2+-game starter just for being more recent, while someone who's genuinely
+    become the new regular in the last game or two still correctly wins over an older,
+    now-displaced starter once their start count catches up or ties (recency then decides).
     """
     try:
         start = (datetime.strptime(before_date, "%Y-%m-%d") - timedelta(days=10)).strftime("%Y-%m-%d")
@@ -374,11 +383,11 @@ def get_recent_lineup(team_id: int, before_date: str) -> list[int]:
         games.sort()
         recent_games = games[-5:]   # most recent up to 5, oldest-to-newest order
 
-        # spot -> {player_id: n_times_started_there}, most recent game weighted last so it
-        # naturally wins ties via insertion-order-preserving dict updates below
-        spot_counts: dict[int, dict[int, int]] = {}
-        spot_most_recent: dict[int, int] = {}   # spot -> player_id from the newest game seen
-        for _, game_pk in recent_games:
+        # spot -> {player_id: (real_start_count, most_recent_game_idx)}. Count of real starts
+        # is the primary sort key, most_recent_game_idx only breaks ties between players with
+        # an EQUAL count -- see the docstring above for why a pure recency weight was wrong.
+        spot_counts: dict[int, dict[int, tuple]] = {}
+        for game_idx, (_, game_pk) in enumerate(recent_games):
             try:
                 box = _get(f"{BASE}/game/{game_pk}/boxscore")
             except Exception:
@@ -399,19 +408,19 @@ def get_recent_lineup(team_id: int, before_date: str) -> list[int]:
                     if not pid:
                         continue
                     spot_counts.setdefault(spot, {})
-                    spot_counts[spot][pid] = spot_counts[spot].get(pid, 0) + 1
-                    spot_most_recent[spot] = pid   # overwritten each game -> ends up newest
+                    prev_n, _ = spot_counts[spot].get(pid, (0, -1))
+                    spot_counts[spot][pid] = (prev_n + 1, game_idx)   # (real start count, most recent game seen)
 
         if not spot_counts:
             return []
         lineup = []
         for spot in sorted(spot_counts.keys()):
             counts = spot_counts[spot]
-            best_n = max(counts.values())
-            tied = [pid for pid, n in counts.items() if n == best_n]
-            # tie-break: whichever of the tied players started there most recently
-            pick = spot_most_recent.get(spot) if spot_most_recent.get(spot) in tied else tied[0]
-            lineup.append(pick)
+            # count of real starts wins first; recency only breaks a tie between players with
+            # the SAME number of real starts -- a one-game fluke can never outrank an
+            # established 2+-game starter just for being more recent.
+            best_pid = max(counts.keys(), key=lambda pid: counts[pid])
+            lineup.append(best_pid)
         return lineup
     except Exception:
         return []
