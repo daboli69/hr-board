@@ -370,7 +370,7 @@ def get_recent_lineup(team_id: int, before_date: str) -> list[int]:
     now-displaced starter once their start count catches up or ties (recency then decides).
     """
     try:
-        start = (datetime.strptime(before_date, "%Y-%m-%d") - timedelta(days=10)).strftime("%Y-%m-%d")
+        start = (datetime.strptime(before_date, "%Y-%m-%d") - timedelta(days=18)).strftime("%Y-%m-%d")
         data = _get(f"{BASE}/schedule",
                     {"sportId": 1, "teamId": team_id, "startDate": start, "endDate": before_date})
         games = []
@@ -381,7 +381,7 @@ def get_recent_lineup(team_id: int, before_date: str) -> list[int]:
         if not games:
             return []
         games.sort()
-        recent_games = games[-5:]   # most recent up to 5, oldest-to-newest order
+        recent_games = games[-8:]   # most recent up to 8, oldest-to-newest order
 
         # First pass: total real starts per player across the whole window (any spot), used
         # only to distinguish "genuine one-off fill-in" (0 other starts) from "real, current
