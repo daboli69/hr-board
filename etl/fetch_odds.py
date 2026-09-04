@@ -408,6 +408,32 @@ def _safe_float(v):
         return None
 
 
+def _prop_price_to_decimal(v):
+    """Normalize a /props price to decimal odds.
+
+    The provider's game-lines endpoint returns decimal prices, while its props endpoint has
+    returned American prices (for example ``+200`` or ``-125``) for the same books.  Treating
+    ``200`` as decimal creates a fake ``+19900`` display price and wildly inflated EV.  This
+    accepts either representation so a provider-side format change fails safely:
+
+    - ``-125`` / ``+200`` -> ``1.80`` / ``3.00``
+    - ``1.80`` / ``3.00`` remain unchanged
+    - zero, even-money sentinel values, and implausible decimal prices are rejected
+    """
+    n = _safe_float(v)
+    if n is None or n == 0:
+        return None
+    if n >= 100.0:
+        dec = 1.0 + n / 100.0
+    elif n <= -100.0:
+        dec = 1.0 + 100.0 / abs(n)
+    elif 1.0 < n <= 50.0:
+        dec = n
+    else:
+        return None
+    return round(dec, 6) if 1.0 < dec <= 50.0 else None
+
+
 def _safe_int(v):
     try:
         return int(v)
@@ -489,21 +515,13 @@ def build_prop_odds(rows: list) -> dict:
             # need at least one priced side
             if over is None and under is None:
                 continue
-            # FIXED this session: was int(over)/int(under) -- the same decimal-truncation bug
-            # fetch_props() above already found and fixed for HR props ("_safe_int() on a
-            # decimal price was truncating 1.909 -> 1"). This function reads the SAME rows from
-            # the SAME /props endpoint but never got the same fix, silently corrupting every
-            # hits/HRR/Ks (and now TB) price parsed through here since this function was
-            # written. _safe_float() preserves the real decimal price.
-            over = _safe_float(over)
-            under = _safe_float(under)
+            # /props has returned American prices even though /odds returns decimals. Normalize
+            # either representation here before EV math; this also keeps the parser resilient if
+            # the provider standardizes the endpoint later.
+            over = _prop_price_to_decimal(over)
+            under = _prop_price_to_decimal(under)
             if over is None and under is None:
                 continue
-            # absurd-price guard -- decimal odds are always > 1.0; anything else is bad data
-            for px in (over, under):
-                if px is not None and (px <= 1.0 or px > 1000.0):
-                    over = over if over != px else None
-                    under = under if under != px else None
             name = row.get("player") or ""
             if "(" in name:
                 name = name.split("(")[0].strip()
