@@ -10494,6 +10494,7 @@ function computeBetGuideHTML(){
 // Hits + HRR are hitter-level (rank BOARD.players). Ks is pitcher-level (rank
 // BOARD.pitcher_props). Zero interaction with the HR heat model.
 let propsView="hit";                            // "hit" | "hrr" | "k"
+let dayLateMinGames=2;   // ADDED this session -- Day Late Hits toggle, 1+ or 2+ games
 
 function propsCardColor(v){
   if(v==null) return "var(--panel-2)";
@@ -10716,9 +10717,18 @@ function renderProps(){
       ${gp.length?`<div class="prop-note" style="margin-top:12px"><b>Using it honestly:</b> compare fair odds to the book's posted line. If the book is <i>longer</i> than fair, that's a disagreement — but a disagreement usually means <b>your model is missing what the market knows</b> (an injury, a pen that threw three innings last night). Treat big gaps as a prompt to investigate, not a green light.</div>`:""}`;
   } else if(propsView==="daylate"){
     // Day Late Hits: real hitless-streak tracking among elite contact hitters -- a "due"
-    // list for hits, not HRs. Built server-side (day_late_hits), already filtered to
-    // real p_hit >= 0.68 and 2+ real hitless games -- this tab just renders it.
-    const rows=(BOARD.day_late_hits||[]).map((r,i)=>{
+    // list for hits, not HRs. Built server-side (day_late_hits), already filtered to real
+    // p_hit >= 0.68 and 1+ real hitless games. ADDED this session, per Travis's follow-up:
+    // a client-side toggle for the minimum streak length, so a really good hitter who just
+    // went hitless ONE game (like a Bobby Witt Jr) can be surfaced too, not just genuine
+    // 2+ game streaks -- defaults to 2+ as the more significant bar.
+    const minGames = dayLateMinGames || 2;
+    const filtered = (BOARD.day_late_hits||[]).filter(r=>r.games_hitless>=minGames);
+    const toggleBar = `<div class="lb-tabbar" style="margin-bottom:10px">
+      <button class="lb-tab${minGames===1?' on':''}" onclick="dayLateMinGames=1;renderProps();">1+ game</button>
+      <button class="lb-tab${minGames===2?' on':''}" onclick="dayLateMinGames=2;renderProps();">2+ games</button>
+    </div>`;
+    const rows=filtered.map((r,i)=>{
       const pct = r.p_hit_today!=null ? `${(r.p_hit_today*100).toFixed(0)}%` : "—";
       return `<div class="prop-row" onclick="scanToPlayer(${r.id})">
         <div class="prop-rk">${i+1}</div>
@@ -10733,8 +10743,9 @@ function renderProps(){
       <h2 class="prop-h">Day Late — Hits</h2>
       <div class="prop-lead">Real, elite contact hitters (matchup-adjusted hit chance 68%+ today — roughly a -300-or-better hitter) currently on a genuine hitless streak. It's statistically rare for a true high-average hitter to go multiple games without a hit, so a real streak here is a real signal, not a guess.</div>
       ${subTabs}
-      <div class="prop-note">${(BOARD.day_late_hits||[]).length} elite contact hitters currently on a real 2+ game hitless streak. Ranked by streak length, then today's real hit chance. Real Statcast game logs throughout — not book odds, which turned out too sparse for this specific market to build on reliably.</div>
-      ${rows||'<div class="empty">No elite contact hitters currently on a real hitless streak — or needs the next build to populate.</div>'}`;
+      ${toggleBar}
+      <div class="prop-note">${filtered.length} elite contact hitters at ${minGames}+ real games without a hit. Ranked by streak length, then today's real hit chance. Real Statcast game logs throughout — not book odds, which turned out too sparse for this specific market to build on reliably.</div>
+      ${rows||`<div class="empty">No elite contact hitters currently at ${minGames}+ real hitless games — or needs the next build to populate.</div>`}`;
   } else {
     // Hits + HRR: hitter-level view, ranked by LIKELIHOOD (calibrated P the bet cashes)
     const kind = propsView==="hit" ? "hit1" : "hrr";
