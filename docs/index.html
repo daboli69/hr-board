@@ -10582,6 +10582,7 @@ function renderProps(){
   const subTabs=`
     <div class="prop-subtabs">
       <button data-p="hit" class="${propsView==='hit'?'on':''}">Hits</button>
+      <button data-p="daylate" class="${propsView==='daylate'?'on':''}">Day Late</button>
       <button data-p="hrr" class="${propsView==='hrr'?'on':''}">HRR</button>
       <button data-p="k" class="${propsView==='k'?'on':''}">Pitcher Ks</button>
       <button data-p="ml" class="${propsView==='ml'?'on':''}">Game Lines</button>
@@ -10713,6 +10714,27 @@ function renderProps(){
           : "No games modeled yet — needs probable starters and lineups."
       }</div>`}
       ${gp.length?`<div class="prop-note" style="margin-top:12px"><b>Using it honestly:</b> compare fair odds to the book's posted line. If the book is <i>longer</i> than fair, that's a disagreement — but a disagreement usually means <b>your model is missing what the market knows</b> (an injury, a pen that threw three innings last night). Treat big gaps as a prompt to investigate, not a green light.</div>`:""}`;
+  } else if(propsView==="daylate"){
+    // Day Late Hits: real hitless-streak tracking among elite contact hitters -- a "due"
+    // list for hits, not HRs. Built server-side (day_late_hits), already filtered to
+    // real p_hit >= 0.68 and 2+ real hitless games -- this tab just renders it.
+    const rows=(BOARD.day_late_hits||[]).map((r,i)=>{
+      const pct = r.p_hit_today!=null ? `${(r.p_hit_today*100).toFixed(0)}%` : "—";
+      return `<div class="prop-row" onclick="scanToPlayer(${r.id})">
+        <div class="prop-rk">${i+1}</div>
+        <div class="prop-sc prop-prob">${r.games_hitless}<span class="pp-pct">gm</span></div>
+        <div class="prop-body">
+          <div class="prop-nm"><b>${r.name}</b> <span class="prop-meta">${r.team||"?"} vs ${r.opp_team||"?"}${r.spot?` · #${r.spot}`:""}</span></div>
+          <div class="prop-sub"><b style="color:var(--ink)">${r.games_hitless} real games without a hit</b> · today's real hit chance ${pct}${r.last_hit_date?` · last hit ${r.last_hit_date}`:""}</div>
+        </div>
+      </div>`;
+    }).join("");
+    inner=`
+      <h2 class="prop-h">Day Late — Hits</h2>
+      <div class="prop-lead">Real, elite contact hitters (matchup-adjusted hit chance 68%+ today — roughly a -300-or-better hitter) currently on a genuine hitless streak. It's statistically rare for a true high-average hitter to go multiple games without a hit, so a real streak here is a real signal, not a guess.</div>
+      ${subTabs}
+      <div class="prop-note">${(BOARD.day_late_hits||[]).length} elite contact hitters currently on a real 2+ game hitless streak. Ranked by streak length, then today's real hit chance. Real Statcast game logs throughout — not book odds, which turned out too sparse for this specific market to build on reliably.</div>
+      ${rows||'<div class="empty">No elite contact hitters currently on a real hitless streak — or needs the next build to populate.</div>'}`;
   } else {
     // Hits + HRR: hitter-level view, ranked by LIKELIHOOD (calibrated P the bet cashes)
     const kind = propsView==="hit" ? "hit1" : "hrr";
