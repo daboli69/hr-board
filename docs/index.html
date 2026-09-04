@@ -9010,6 +9010,7 @@ function _lbTabBar(){
     <button class="lb-tab${lbBoardTab==='overlap'?' on':''}" onclick="lbBoardSetTab('overlap')">Overlap</button>
     <button class="lb-tab${lbBoardTab==='bygame'?' on':''}" onclick="lbBoardSetTab('bygame')">By Game</button>
     <button class="lb-tab${lbBoardTab==='tracker'?' on':''}" onclick="lbBoardSetTab('tracker')">Tracker</button>
+    <button class="lb-tab${lbBoardTab==='parks'?' on':''}" onclick="lbBoardSetTab('parks')">Park Guide</button>
   </div>`;
 }
 function renderLongBallTop10(boards){
@@ -9136,6 +9137,46 @@ function longBallPatterns(rows){
   return {n, pct, badgeList, noBadge, teamList, spCount, bpCount, armFormList,
           hrScores, avgHrScore, highVulnCount, withPark, avgParkBoost, withWeather, avgTemp};
 }
+let parkGuidePeriod = "season";   // ADDED this session -- "season" or a real "YYYY-MM" key
+function parkGuideSetPeriod(p){ parkGuidePeriod = p; renderLongBallBoard(); }
+
+function renderParkGuide(){
+  const ranking = ((BOARD.long_ball_jackpot||{}).park_longball_ranking) || {season: [], by_month: {}};
+  const monthNames = {"01":"January","02":"February","03":"March","04":"April","05":"May","06":"June",
+    "07":"July","08":"August","09":"September","10":"October","11":"November","12":"December"};
+  const months = Object.keys(ranking.by_month||{}).sort().reverse();   // real months present, newest first
+  const periodBtns = [`<button class="lb-tab${parkGuidePeriod==='season'?' on':''}" onclick="parkGuideSetPeriod('season')">Season</button>`]
+    .concat(months.map(m=>{
+      const label = monthNames[m.slice(5,7)] || m;
+      return `<button class="lb-tab${parkGuidePeriod===m?' on':''}" onclick="parkGuideSetPeriod('${m}')">${label}</button>`;
+    })).join("");
+
+  const rows = parkGuidePeriod==='season' ? (ranking.season||[]) : (ranking.by_month[parkGuidePeriod]||[]);
+  const body = rows.length ? rows.map((r,i)=>`
+    <div class="prop-row">
+      <div class="prop-rk">${i+1}</div>
+      <div class="prop-body">
+        <div class="prop-nm"><b>${r.park}</b></div>
+      </div>
+      <div class="prop-sc prop-prob">${r.n_days_longest}<span class="pp-pct">days</span></div>
+    </div>`).join("") : `<div class="empty">No real longest-HR-of-the-day data for this period yet.</div>`;
+
+  return `<div class="cv-wrap gsb-wrap">
+    <div class="gsb-head">
+      <div class="gsb-title">Long Ball Park Guide</div>
+      <div class="gsb-sub2">WHICH PARKS HOST THE LONGEST HR MOST OFTEN</div>
+    </div>
+    <div class="lb-overlap-intro">
+      <div class="lb-overlap-d">Real count of how many real calendar days each park has been
+        the site of that day's single longest home run in MLB, computed directly from every
+        real home run's actual distance, date, and home team (the park owner, regardless of
+        which team the batter plays for) -- not an estimate.</div>
+    </div>
+    <div class="lb-tabbar" style="flex-wrap:wrap">${periodBtns}</div>
+    ${body}
+  </div>`;
+}
+
 function renderLongBallTrackerTab(){
   const rows = longBallTrackerData();
   const badgeTag = k => k==="pow" ? '<span class="lb10-badge pow">POW</span>'
@@ -9262,6 +9303,10 @@ function renderLongBallBoard(){
   }
   if(lbBoardTab === "tracker"){
     main.innerHTML = renderLongBallTrackerTab();
+    return;
+  }
+  if(lbBoardTab === "parks"){
+    main.innerHTML = renderParkGuide();
     return;
   }
 
