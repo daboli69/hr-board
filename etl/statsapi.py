@@ -370,7 +370,7 @@ def get_recent_lineup(team_id: int, before_date: str) -> list[int]:
     now-displaced starter once their start count catches up or ties (recency then decides).
     """
     try:
-        start = (datetime.strptime(before_date, "%Y-%m-%d") - timedelta(days=18)).strftime("%Y-%m-%d")
+        start = (datetime.strptime(before_date, "%Y-%m-%d") - timedelta(days=25)).strftime("%Y-%m-%d")
         data = _get(f"{BASE}/schedule",
                     {"sportId": 1, "teamId": team_id, "startDate": start, "endDate": before_date})
         games = []
@@ -381,15 +381,17 @@ def get_recent_lineup(team_id: int, before_date: str) -> list[int]:
         if not games:
             return []
         games.sort()
-        recent_games = games[-8:]   # most recent up to 8, oldest-to-newest order
+        recent_games = games[-12:]   # most recent up to 12, oldest-to-newest order
 
-        # First pass: total real starts per player across the whole window (any spot), used
-        # only to distinguish "genuine one-off fill-in" (0 other starts) from "real, current
-        # part of the lineup" (2+ starts, even if they move around or platoon) -- NOT used as
-        # a team-wide ranking cutoff, which was the bug in the previous version (see docstring).
-        total_starts: dict[int, int] = {}
-        # game_idx -> {spot: player_id}, oldest-to-newest, needed to find each spot's most
-        # recent occupant and fall back to an earlier game if that occupant looks like a fluke.
+        # spot -> {player_id: n_real_starts_AT_THAT_SPOT}. FIXED this session: a real report
+        # showed established regulars who'd missed just 1-2 recent games (a short rest/off-day
+        # stretch) were STILL being excluded -- the old "2+ starts = trust outright, no
+        # comparison" rule let a temporary fill-in win just by starting those 1-2 games, with
+        # no check against how dominant the real regular has actually been. Now tracks starts
+        # PER SPOT (not team-wide, so a real platoon player is still only ever compared
+        # against his own platoon partner at the same spot, not the whole roster) and always
+        # compares the latest occupant against that spot's real leader.
+        spot_totals: dict[int, dict[int, int]] = {}
         games_by_spot: list[dict] = []
         for game_idx, (_, game_pk) in enumerate(recent_games):
             spot_map = {}
@@ -414,16 +416,12 @@ def get_recent_lineup(team_id: int, before_date: str) -> list[int]:
                     if not pid:
                         continue
                     spot_map[spot] = pid
-                    total_starts[pid] = total_starts.get(pid, 0) + 1
+                    spot_totals.setdefault(spot, {})
+                    spot_totals[spot][pid] = spot_totals[spot].get(pid, 0) + 1
             games_by_spot.append(spot_map)
 
         if not games_by_spot or not any(games_by_spot):
             return []
-        # FIXED this session: only iterating latest.items() meant a spot missing from the
-        # single most recent game's data (for any reason) silently vanished from the whole
-        # lineup, even when an earlier game in the window clearly had a real, established
-        # starter there. Confirmed directly: several teams showed only 8 of 9 real players.
-        # Now builds from the union of every spot seen across ANY game in the window.
         latest = games_by_spot[-1]
         all_spots = set()
         for gm in games_by_spot:
@@ -432,37 +430,43 @@ def get_recent_lineup(team_id: int, before_date: str) -> list[int]:
         spot_source_idx = {}   # spot -> which game_idx that spot's pick actually came from,
                                # needed below to dedupe a player who moved between spots
         for spot in all_spots:
+            counts = spot_totals.get(spot, {})
+            leader_pid = max(counts, key=lambda p: counts[p]) if counts else None
+            leader_n = counts.get(leader_pid, 0)
             pid = latest.get(spot)
             if pid is None:
-                # this spot wasn't in the most recent game's data at all -- use the most
-                # recent EARLIER game that did have a real occupant for it
-                found_idx = None
+                # this spot wasn't in the most recent game's data at all -- use the spot's
+                # real leader if there is one, else the most recent earlier game that had it
+                if leader_pid is not None:
+                    lineup_map[spot] = leader_pid
+                    # find which game that leader's most recent start at this spot came from
+                    found_idx = len(games_by_spot) - 1
+                    for gi in range(len(games_by_spot) - 1, -1, -1):
+                        if games_by_spot[gi].get(spot) == leader_pid:
+                            found_idx = gi
+                            break
+                    spot_source_idx[spot] = found_idx
+                    continue
                 for gi in range(len(games_by_spot) - 2, -1, -1):
                     cand = games_by_spot[gi].get(spot)
                     if cand:
-                        pid, found_idx = cand, gi
+                        lineup_map[spot] = cand
+                        spot_source_idx[spot] = gi
                         break
-                if pid is None:
-                    continue   # genuinely no data for this spot anywhere in the window
-                lineup_map[spot] = pid
-                spot_source_idx[spot] = found_idx
                 continue
-            if total_starts.get(pid, 0) != 1:
-                lineup_map[spot] = pid   # 2+ real starts (or somehow 0) -- trust the most
-                spot_source_idx[spot] = len(games_by_spot) - 1   # recent game outright,
-                continue                                        # including real platoon players
-            # exactly 1 total start anywhere in the window -- genuinely looks like a one-off
-            # fill-in, not a real platoon player (who'd have 2-3 starts of his own). Only
-            # override with a CLEARLY dominant alternative (3+ real starts) at this same spot.
-            replacement, repl_idx = None, None
-            for gi in range(len(games_by_spot) - 2, -1, -1):
-                cand = games_by_spot[gi].get(spot)
-                if cand and total_starts.get(cand, 0) >= 3:
-                    replacement, repl_idx = cand, gi
-                    break
-            if replacement:
-                lineup_map[spot] = replacement
-                spot_source_idx[spot] = repl_idx
+            pid_n = counts.get(pid, 0)
+            # trust the latest occupant if he's reasonably competitive with the spot's real
+            # leader (within 1 start) -- a real platoon player or the actual current regular.
+            # Otherwise, a gap of 2+ real starts means the latest occupant is much more likely
+            # a short-term fill-in than a genuine new regular -- prefer the real leader.
+            if leader_pid is not None and leader_n - pid_n >= 2:
+                lineup_map[spot] = leader_pid
+                found_idx = len(games_by_spot) - 1
+                for gi in range(len(games_by_spot) - 1, -1, -1):
+                    if games_by_spot[gi].get(spot) == leader_pid:
+                        found_idx = gi
+                        break
+                spot_source_idx[spot] = found_idx
             else:
                 lineup_map[spot] = pid
                 spot_source_idx[spot] = len(games_by_spot) - 1

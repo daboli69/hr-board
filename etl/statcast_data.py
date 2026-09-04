@@ -2391,19 +2391,22 @@ def batter_bases_loaded_opportunities(df: pd.DataFrame, batter_ids: list, asof: 
     "seeing loaded bases the most" right now, not who's likely to see it based on the
     opposing pitcher's own tendency.
 
-    For each real bases-loaded PA, records the opposing pitcher and whether he was that
-    game's starter or a reliever, using the same starter-derivation convention used elsewhere
-    in this file (first pitcher of inning 1 in the half the batter's team bats in).
+    For each real bases-loaded PA, records the opposing pitcher's real name (from Statcast's
+    own player_name column, which is the pitcher's name by Statcast convention -- no extra
+    API call needed) and whether he was that game's starter or a reliever. Per Travis's
+    direct request: if a real name genuinely isn't available for some row, falls back to the
+    real pitching team for relievers specifically (starters always get a real name attempt
+    first, since that one's more important to get right).
 
-    Returns {batter_id: {"n_opportunities": int, "log": [{"game_date", "game_pk", "pitcher",
-    "pitcher_role": "SP"|"BP"}, ...]}} -- log entries newest-first, capped at the real count
-    (no arbitrary truncation), so a caller can see the full recent pattern, not just a total.
+    Returns {batter_id: {"n_opportunities": int, "log": [{"game_date", "game_pk",
+    "pitcher_id", "pitcher_name", "pitcher_team", "pitcher_role": "SP"|"BP"}, ...]}} -- log
+    entries newest-first, capped at the real count (no arbitrary truncation).
     """
     out = {}
     if df is None or df.empty or not batter_ids:
         return out
     need = {"batter", "pitcher", "game_pk", "game_date", "at_bat_number", "inning",
-           "inning_topbot", "on_1b", "on_2b", "on_3b"}
+           "inning_topbot", "on_1b", "on_2b", "on_3b", "home_team", "away_team"}
     if not need.issubset(df.columns):
         return out
     dates = pd.to_datetime(df["game_date"], errors="coerce")
@@ -2411,6 +2414,18 @@ def batter_bases_loaded_opportunities(df: pd.DataFrame, batter_ids: list, asof: 
     d = df[(dates < asof_ts) & (dates >= asof_ts - pd.Timedelta(days=recent_days))].copy()
     if d.empty:
         return out
+
+    # real pitcher names, straight from Statcast's own player_name column (the pitcher's
+    # name, by Statcast convention) -- graceful if that column isn't present for some reason
+    pitcher_names = {}
+    if "player_name" in d.columns:
+        _pn = d[["pitcher", "player_name"]].dropna().drop_duplicates(subset=["pitcher"])
+        pitcher_names = dict(zip(_pn["pitcher"].astype(int), _pn["player_name"]))
+
+    # real pitching team per row -- top of inning means the HOME team is pitching, needed as
+    # a real fallback for relievers when a name genuinely isn't available
+    topbot = d["inning_topbot"].astype(str)
+    d["_pitch_team"] = np.where(topbot.str.startswith("Top"), d["home_team"], d["away_team"])
 
     # real starter per (game_pk, half), same convention used elsewhere in this file
     starters = {}
@@ -2436,9 +2451,12 @@ def batter_bases_loaded_opportunities(df: pd.DataFrame, batter_ids: list, asof: 
         for _, r in brows.sort_values("game_date", ascending=False).iterrows():
             gp, half, pid = int(r["game_pk"]), r["inning_topbot"], int(r["pitcher"])
             sp = starters.get((gp, half))
+            role = "SP" if pid == sp else "BP"
+            name = pitcher_names.get(pid)
             log.append({
                 "game_date": str(r["game_date"]), "game_pk": gp,
-                "pitcher": pid, "pitcher_role": "SP" if pid == sp else "BP",
+                "pitcher_id": pid, "pitcher_name": name,
+                "pitcher_team": r.get("_pitch_team"), "pitcher_role": role,
             })
         out[int(bid)] = {"n_opportunities": len(log), "log": log}
     return out
