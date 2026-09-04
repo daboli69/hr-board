@@ -3679,7 +3679,8 @@ def build(date_str: str | None = None) -> dict:
         day_late_hits = []
         for p in players:
             s = _streaks.get(p.get("id"))
-            if not s or s["games_hitless"] < 2:   # real streak, not just "didn't hit yesterday"
+            if not s or s["games_hitless"] < 1:   # include 1+ hitless games now, per Travis's
+                                                  # follow-up -- frontend toggle picks the bar
                 continue
             day_late_hits.append({
                 "id": p["id"], "name": p["name"], "team": p.get("team"),
