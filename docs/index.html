@@ -11918,10 +11918,18 @@ function toggleBLOppDetail(idx){
 
 function renderGrandSlamBLOpps(){
   const rows = (BOARD && BOARD.grand_slam_bl_opportunities) || [];
+  const teamRows = (BOARD && BOARD.grand_slam_bl_by_team) || [];
+  const teamBody = teamRows.length ? teamRows.map((t,i)=>`
+    <div class="prop-row">
+      <div class="prop-rk">${i+1}</div>
+      <div class="prop-body"><div class="prop-nm"><b>${t.team}</b></div></div>
+      <div class="prop-sc prop-prob">${t.n_allowed}<span class="pp-pct">allowed</span></div>
+    </div>`).join("") : `<div class="psc-empty">No real team data in the last 7 days yet.</div>`;
+
   const body = rows.length ? rows.map((r,i)=>{
     const logHTML = (r.log||[]).length
       ? `<ul class="gt10-driver-list">${(r.log||[]).map(e=>
-          `<li>${e.game_date} — vs ${e.pitcher_role==='SP'?'starter':'reliever'} ${e.pitcher_name || (e.pitcher_role==='BP' && e.pitcher_team ? `(${e.pitcher_team} pen)` : `(id ${e.pitcher_id})`)}</li>`).join("")}</ul>`
+          `<li>${e.game_date} — vs ${e.pitcher_role==='SP'?'starter':'reliever'} ${e.pitcher_name ? `${e.pitcher_name}${e.pitcher_team?` (${e.pitcher_team})`:''}` : (e.pitcher_team ? `(${e.pitcher_team})` : `(id ${e.pitcher_id})`)}</li>`).join("")}</ul>`
       : `<div class="gt10-no-drivers">No real game-by-game log available.</div>`;
     return `<div class="gt10-row" id="blopp-row-${i}" aria-expanded="false"
         onclick="toggleBLOppDetail(${i})">
@@ -11949,7 +11957,14 @@ function renderGrandSlamBLOpps(){
         different angle from the team/pitcher traffic multipliers already baked into each
         hitter's real slam probability -- this is the hitter-side opportunity count, not the
         pitcher-side allow rate.</div>
-    </div>${body}`;
+    </div>
+    <div class="lb-overlap-intro">
+      <div class="lb-overlap-h">Real 7-day team leaderboard: who's allowed the most</div>
+      <div class="lb-overlap-d">Same real data as the batter list below, aggregated by which
+        team's pitching staff was on the mound each time.</div>
+    </div>
+    ${teamBody}
+    ${body}`;
 }
 
 function renderGrandSlamTop10s(){
