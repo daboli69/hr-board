@@ -8836,15 +8836,68 @@ let gsMainView = "bygame";   // ADDED per Travis's request: "bygame" or "top10s"
 function gsBoardGo(gpk){ gsBoardGamePk = gpk; view = "gsboard"; renderGrandSlamBoard(); scrollTo(0,0); }
 function gsSetMainView(v){ gsMainView = v; renderGrandSlamBoard(); }
 
+function toggleGSBAheadDetail(idx){
+  const el = document.getElementById(`gsb-ahead-detail-${idx}`);
+  const row = document.getElementById(`gsb-ahead-row-${idx}`);
+  if(!el) return;
+  const open = el.style.display !== "none";
+  el.style.display = open ? "none" : "block";
+  if(row) row.setAttribute("aria-expanded", String(!open));
+}
+
+function gsbHittersAheadHTML(b){
+  // ADDED per Travis's direct request: real hitters batting ahead of this player in the
+  // lineup, with their real OBP -- directly relevant to how likely THIS player is to see
+  // bases loaded (high-OBP hitters ahead of him = more traffic = more real opportunities).
+  // Computed entirely client-side, no new backend work needed -- team, lineup_spot, and real
+  // OBP (metrics.obp) were all already on the board.
+  const spot = b.spot;
+  if(!spot){
+    return `<div class="gt10-no-drivers">No confirmed lineup spot for ${b.name} yet -- can't
+      determine who bats ahead of him.</div>`;
+  }
+  const teammates = (BOARD.players||[]).filter(p=>p.team===b.team && p.lineup_spot);
+  const bySpot = {};
+  teammates.forEach(p=>{ bySpot[p.lineup_spot] = p; });
+  const ahead = [];
+  for(let back=1; back<=3; back++){
+    let s = spot - back;
+    if(s <= 0) s += 9;   // wrap around the bottom of the order
+    if(s === spot) break;   // fewer than 9 real spots confirmed -- stop rather than loop
+    const p = bySpot[s];
+    if(p) ahead.push(p);
+  }
+  if(!ahead.length){
+    return `<div class="gt10-no-drivers">No confirmed teammates batting ahead of ${b.name}
+      yet.</div>`;
+  }
+  const obpStr = p => {
+    const o = (p.metrics && p.metrics.obp) ? (p.metrics.obp.season ?? p.metrics.obp.recent) : null;
+    return o!=null ? o.toFixed(3) : "—";
+  };
+  return `<div class="gt10-detail-h">Batting ahead of ${b.name}</div>
+    <ul class="gt10-driver-list">
+      ${ahead.map(p=>`<li><b>#${p.lineup_spot} ${p.name}</b> — real OBP ${obpStr(p)}</li>`).join("")}
+    </ul>
+    <div class="gt10-detail-link" onclick="event.stopPropagation();scanToPlayer(${b.id})">
+      Open ${b.name}'s full player card →
+    </div>`;
+}
+
 function renderGrandSlamBoard(){
   const main = document.getElementById("main");
   const tabBar = `<div class="lb-tabbar">
     <button class="lb-tab${gsMainView==='bygame'?' on':''}" onclick="gsSetMainView('bygame')">By Game</button>
     <button class="lb-tab${gsMainView==='top10s'?' on':''}" onclick="gsSetMainView('top10s')">Top 10s</button>
+    <button class="lb-tab${gsMainView==='blopps'?' on':''}" onclick="gsSetMainView('blopps')">Bases Loaded</button>
   </div>`;
 
   if(gsMainView === "top10s"){
     main.innerHTML = `<div class="cv-wrap gsb-wrap">${tabBar}${renderGrandSlamTop10s()}</div>`;
+    return;
+  }
+  if(gsMainView === "blopps"){
+    main.innerHTML = `<div class="cv-wrap gsb-wrap">${tabBar}${renderGrandSlamBLOpps()}</div>`;
     return;
   }
 
@@ -8864,9 +8917,9 @@ function renderGrandSlamBoard(){
       onclick="gsBoardGamePk=${b.game_pk};renderGrandSlamBoard();">${b.away} @ ${b.home}</button>`).join("")}
   </div>` : "";
 
-  const rowHTML = (b) => {
+  const rowHTML = (b, idx) => {
     const col = tierColor[b.tier] || "var(--faint)";
-    return `<div class="gsb-row" style="border-left-color:${col}" onclick="scanToPlayer?scanToPlayer(${b.id}):null">
+    return `<div class="gsb-row" id="gsb-ahead-row-${idx}" aria-expanded="false" style="border-left-color:${col}" onclick="toggleGSBAheadDetail(${idx})">
       <div class="gsb-rank" style="color:${col}">${String(b.rank).padStart(2,"0")}</div>
       <div class="gsb-mid">
         <div class="gsb-nm"><b>${b.name}</b></div>
@@ -8875,6 +8928,9 @@ function renderGrandSlamBoard(){
       <div class="gsb-odds">${amerStr(b.fair_odds)}</div>
       <div class="gsb-prob"><span style="color:${col}">${pctStr(b.p_slam)}</span></div>
       <div class="gsb-tier" style="color:${col};border-color:${col}">${b.tier}</div>
+      <div class="gt10-detail" id="gsb-ahead-detail-${idx}" style="display:none" onclick="event.stopPropagation()">
+        ${gsbHittersAheadHTML(b)}
+      </div>
     </div>`;
   };
 
@@ -11804,6 +11860,51 @@ function renderLongBallSleepers(){
     </div>
     ${body}
   </div>`;
+}
+
+function toggleBLOppDetail(idx){
+  const el = document.getElementById(`blopp-detail-${idx}`);
+  const row = document.getElementById(`blopp-row-${idx}`);
+  if(!el) return;
+  const open = el.style.display !== "none";
+  el.style.display = open ? "none" : "block";
+  if(row) row.setAttribute("aria-expanded", String(!open));
+}
+
+function renderGrandSlamBLOpps(){
+  const rows = (BOARD && BOARD.grand_slam_bl_opportunities) || [];
+  const body = rows.length ? rows.map((r,i)=>{
+    const logHTML = (r.log||[]).length
+      ? `<ul class="gt10-driver-list">${(r.log||[]).map(e=>
+          `<li>${e.game_date} — vs ${e.pitcher_role==='SP'?'starter':'reliever'} (id ${e.pitcher})</li>`).join("")}</ul>`
+      : `<div class="gt10-no-drivers">No real game-by-game log available.</div>`;
+    return `<div class="gt10-row" id="blopp-row-${i}" aria-expanded="false"
+        onclick="toggleBLOppDetail(${i})">
+      <div class="gt10-mid">
+        <div class="gt10-nm"><b>${r.name}</b></div>
+        <div class="gt10-sub">${r.team||"?"} vs ${r.opp_team||"?"}${r.spot?` · #${r.spot}`:""}</div>
+      </div>
+      <div class="gt10-prob"><b>${r.n_opportunities}</b><span class="glo-ceiling">last 7 days</span></div>
+      <div class="gt10-chev">▾</div>
+      <div class="gt10-detail" id="blopp-detail-${i}" style="display:none" onclick="event.stopPropagation()">
+        <div class="gt10-detail-h">${r.name}'s real bases-loaded plate appearances</div>
+        ${logHTML}
+        <div class="gt10-detail-link" onclick="event.stopPropagation();scanToPlayer(${r.id})">
+          Open full player card →
+        </div>
+      </div>
+    </div>`;
+  }).join("") : `<div class="psc-empty">No real bases-loaded opportunities in the last 7 days yet.</div>`;
+
+  return `<div class="lb-overlap-intro">
+      <div class="lb-overlap-h">Who's personally seeing loaded bases the most</div>
+      <div class="lb-overlap-d">Per Travis's direct request: real count of how many times
+        each hitter has personally come to the plate with the bases loaded in the last 7 real
+        days, with which pitcher (and whether starter or reliever) each time. A genuinely
+        different angle from the team/pitcher traffic multipliers already baked into each
+        hitter's real slam probability -- this is the hitter-side opportunity count, not the
+        pitcher-side allow rate.</div>
+    </div>${body}`;
 }
 
 function renderGrandSlamTop10s(){
