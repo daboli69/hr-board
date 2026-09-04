@@ -1065,6 +1065,13 @@ def _agg_metrics(rows: pd.DataFrame) -> dict:
     # Other Props tab, never fed back into heat_score):
     hits = int(singles + doubles + triples + hr)
     ba = round(hits / ab, 3) if ab > 0 else None
+    # ADDED this session, per Travis's request: real OBP. Standard formula denominator is
+    # AB + BB + HBP + sacrifice FLIES only (NOT sac bunts) -- deliberately not reusing `sacs`
+    # above (which combines sac flies and sac bunts together for the AB calculation), since
+    # that would incorrectly include sac bunts in the OBP denominator too.
+    sac_flies_only = ev.isin(["sac_fly", "sac_fly_double_play"]).sum()
+    obp_denom = ab + walks + hbp + sac_flies_only
+    obp = round((hits + walks + hbp) / obp_denom, 3) if obp_denom > 0 else None
     bb_pct = pct(walks, pa)                                    # walk rate (plate discipline)
     xba = None                                                  # expected BA on contact
     if n_bb and "estimated_ba_using_speedangle" in bb:
@@ -1124,6 +1131,7 @@ def _agg_metrics(rows: pd.DataFrame) -> dict:
         "k_pct": pct(ks, pa),
         # Hits-props signals (used ONLY by the Other Props tab, not the HR heat model):
         "ba": ba,
+        "obp": obp,
         "xba": xba,
         "bb_pct": bb_pct,
         "ld_pct_hit": ld_pct_hit,
@@ -2371,6 +2379,69 @@ _AB_EVENTS = {"single", "double", "triple", "home_run", "field_out", "strikeout"
               "grounded_into_double_play", "force_out", "double_play", "field_error",
               "fielders_choice", "fielders_choice_out", "strikeout_double_play",
               "triple_play", "other_out"}
+
+
+def batter_bases_loaded_opportunities(df: pd.DataFrame, batter_ids: list, asof: str,
+                                      recent_days: int = 7) -> dict:
+    """Real, batter-level count of how many times each hitter has personally come to the
+    plate with the bases loaded in the last `recent_days` real days -- a genuinely different
+    angle from pitcher_traffic_profile_recent() (which measures how often a PITCHER allows
+    bases-loaded situations). This measures how often a BATTER has personally had the
+    opportunity, regardless of who was pitching -- per Travis's direct request, to find who's
+    "seeing loaded bases the most" right now, not who's likely to see it based on the
+    opposing pitcher's own tendency.
+
+    For each real bases-loaded PA, records the opposing pitcher and whether he was that
+    game's starter or a reliever, using the same starter-derivation convention used elsewhere
+    in this file (first pitcher of inning 1 in the half the batter's team bats in).
+
+    Returns {batter_id: {"n_opportunities": int, "log": [{"game_date", "game_pk", "pitcher",
+    "pitcher_role": "SP"|"BP"}, ...]}} -- log entries newest-first, capped at the real count
+    (no arbitrary truncation), so a caller can see the full recent pattern, not just a total.
+    """
+    out = {}
+    if df is None or df.empty or not batter_ids:
+        return out
+    need = {"batter", "pitcher", "game_pk", "game_date", "at_bat_number", "inning",
+           "inning_topbot", "on_1b", "on_2b", "on_3b"}
+    if not need.issubset(df.columns):
+        return out
+    dates = pd.to_datetime(df["game_date"], errors="coerce")
+    asof_ts = pd.to_datetime(asof)
+    d = df[(dates < asof_ts) & (dates >= asof_ts - pd.Timedelta(days=recent_days))].copy()
+    if d.empty:
+        return out
+
+    # real starter per (game_pk, half), same convention used elsewhere in this file
+    starters = {}
+    inn1 = d[d["inning"].to_numpy() == 1]
+    for (gp, half), grp in inn1.groupby(["game_pk", "inning_topbot"]):
+        g = grp.sort_values(["at_bat_number"])
+        p0 = g.iloc[0]["pitcher"]
+        if p0 == p0:
+            starters[(int(gp), half)] = int(p0)
+
+    loaded = d[d["on_1b"].notna() & d["on_2b"].notna() & d["on_3b"].notna()]
+    if loaded.empty:
+        return out
+    # one row per real PA with the bases loaded (a PA can span multiple pitches, all showing
+    # loaded bases -- dedup to the PA, not the pitch, so a long at-bat isn't overcounted)
+    pa_loaded = loaded.drop_duplicates(subset=["batter", "game_pk", "at_bat_number"])
+
+    for bid in batter_ids:
+        brows = pa_loaded[pa_loaded["batter"] == bid]
+        if brows.empty:
+            continue
+        log = []
+        for _, r in brows.sort_values("game_date", ascending=False).iterrows():
+            gp, half, pid = int(r["game_pk"]), r["inning_topbot"], int(r["pitcher"])
+            sp = starters.get((gp, half))
+            log.append({
+                "game_date": str(r["game_date"]), "game_pk": gp,
+                "pitcher": pid, "pitcher_role": "SP" if pid == sp else "BP",
+            })
+        out[int(bid)] = {"n_opportunities": len(log), "log": log}
+    return out
 
 
 def hitless_streaks(df: pd.DataFrame, batter_ids: list, asof: str, lookback_games: int = 15) -> dict:

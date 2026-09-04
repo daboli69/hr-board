@@ -419,23 +419,65 @@ def get_recent_lineup(team_id: int, before_date: str) -> list[int]:
 
         if not games_by_spot or not any(games_by_spot):
             return []
+        # FIXED this session: only iterating latest.items() meant a spot missing from the
+        # single most recent game's data (for any reason) silently vanished from the whole
+        # lineup, even when an earlier game in the window clearly had a real, established
+        # starter there. Confirmed directly: several teams showed only 8 of 9 real players.
+        # Now builds from the union of every spot seen across ANY game in the window.
         latest = games_by_spot[-1]
+        all_spots = set()
+        for gm in games_by_spot:
+            all_spots.update(gm.keys())
         lineup_map = {}
-        for spot, pid in latest.items():
+        spot_source_idx = {}   # spot -> which game_idx that spot's pick actually came from,
+                               # needed below to dedupe a player who moved between spots
+        for spot in all_spots:
+            pid = latest.get(spot)
+            if pid is None:
+                # this spot wasn't in the most recent game's data at all -- use the most
+                # recent EARLIER game that did have a real occupant for it
+                found_idx = None
+                for gi in range(len(games_by_spot) - 2, -1, -1):
+                    cand = games_by_spot[gi].get(spot)
+                    if cand:
+                        pid, found_idx = cand, gi
+                        break
+                if pid is None:
+                    continue   # genuinely no data for this spot anywhere in the window
+                lineup_map[spot] = pid
+                spot_source_idx[spot] = found_idx
+                continue
             if total_starts.get(pid, 0) != 1:
                 lineup_map[spot] = pid   # 2+ real starts (or somehow 0) -- trust the most
-                continue                # recent game outright, including real platoon players
+                spot_source_idx[spot] = len(games_by_spot) - 1   # recent game outright,
+                continue                                        # including real platoon players
             # exactly 1 total start anywhere in the window -- genuinely looks like a one-off
             # fill-in, not a real platoon player (who'd have 2-3 starts of his own). Only
             # override with a CLEARLY dominant alternative (3+ real starts) at this same spot.
-            replacement = None
-            for earlier in reversed(games_by_spot[:-1]):
-                cand = earlier.get(spot)
+            replacement, repl_idx = None, None
+            for gi in range(len(games_by_spot) - 2, -1, -1):
+                cand = games_by_spot[gi].get(spot)
                 if cand and total_starts.get(cand, 0) >= 3:
-                    replacement = cand
+                    replacement, repl_idx = cand, gi
                     break
-            lineup_map[spot] = replacement if replacement else pid
-        return [lineup_map[spot] for spot in sorted(lineup_map.keys())]
+            if replacement:
+                lineup_map[spot] = replacement
+                spot_source_idx[spot] = repl_idx
+            else:
+                lineup_map[spot] = pid
+                spot_source_idx[spot] = len(games_by_spot) - 1
+
+        # FIXED this session: a player who occupies different spots across different games
+        # (moves around the batting order) could end up picked for MORE THAN ONE spot here,
+        # once per spot he ever occupied -- an invalid, duplicated lineup. Dedupe by player,
+        # keeping only his most recent spot assignment (by which game that pick came from).
+        best_spot_for_pid: dict[int, tuple] = {}   # pid -> (game_idx, spot)
+        for spot, pid in lineup_map.items():
+            gi = spot_source_idx.get(spot, -1)
+            if pid not in best_spot_for_pid or gi > best_spot_for_pid[pid][0]:
+                best_spot_for_pid[pid] = (gi, spot)
+        deduped = {spot: pid for pid, (gi, spot) in best_spot_for_pid.items()}
+        return [deduped[spot] for spot in sorted(deduped.keys())]
     except Exception:
         return []
 

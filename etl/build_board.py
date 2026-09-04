@@ -2754,15 +2754,26 @@ def build(date_str: str | None = None) -> dict:
             lb_pitcher_ev = statcast_data.pitcher_batted_ev_profile(df, pitcher_ids)  # Jackpot
             gs_pitcher_traffic = statcast_data.pitcher_traffic_profile(df, pitcher_ids)  # Grand Slam Part A
             gs_team_traffic = statcast_data.team_traffic_profile(df, recent_days=14)  # Grand Slam Part A2
+            # ADDED per Travis's direct request: real, batter-level tracking of how many
+            # times each hitter has personally come to the plate with the bases loaded
+            # recently, and who was pitching (SP or BP, which specific pitcher) each time --
+            # a genuinely different angle from the pitcher/team traffic multipliers above,
+            # which measure how often a PITCHER or TEAM allows the situation, not how often a
+            # specific BATTER has personally had the opportunity.
+            gs_batter_bl_opps = statcast_data.batter_bases_loaded_opportunities(
+                df, batter_ids, date_str, recent_days=7)
             print(f"[build] long ball ceiling: {len(lb_ceiling)} batters (trajectory/bat speed) "
                   f"| {len(lb_evbarrels)} batters (MLB-wide ev50/max EV leaderboard) "
                   f"| {len(lb_park_dist)} parks (real HR distance) "
                   f"| {len(lb_pitcher_ev)} pitchers (EV/hard-hit allowed, Jackpot EV) "
                   f"| {len(gs_pitcher_traffic)} pitchers (bases-loaded traffic, Grand Slam) "
-                  f"| {len(gs_team_traffic)} teams (recent bases-loaded traffic, Grand Slam)")
+                  f"| {len(gs_team_traffic)} teams (recent bases-loaded traffic, Grand Slam) "
+                  f"| {len(gs_batter_bl_opps)} batters (personal bases-loaded opportunities, "
+                  f"last 7 real days)")
         except Exception as e:
             lb_ceiling, lb_evbarrels, lb_park_dist, lb_pitcher_ev, gs_pitcher_traffic = {}, {}, {}, {}, {}
             gs_team_traffic = {}
+            gs_batter_bl_opps = {}
             _hnote("long ball ceiling metrics", e)
             print(f"[build] long ball ceiling metrics skipped: {e}")
         print(f"[build] bvp tables: {len(bat_tables)} hitters, {len(arm_tables)} arms, "
@@ -3472,7 +3483,7 @@ def build(date_str: str | None = None) -> dict:
         # the four headline signals first (in your order), then context metrics
         for key in ("pull_air_pct", "avg_ev", "barrel_pct", "ideal_aa_pct",
                     "bat_speed", "hardhit_pct", "iso", "slg", "launch_angle",
-                    "fb_pct", "pull_pct", "swstr_pct", "k_pct"):
+                    "fb_pct", "pull_pct", "swstr_pct", "k_pct", "obp"):
             metrics[key] = {
                 "recent": recent.get(key),
                 "season": season.get(key),
@@ -3994,6 +4005,23 @@ def build(date_str: str | None = None) -> dict:
 
         gs_top10s = {"overall": _gs_top10(), "pow": _gs_top10("pow"), "due": _gs_top10("due")}
 
+        # ADDED per Travis's direct request: a real, displayable top-N list of who's
+        # personally seen the bases loaded the most recently, joining the real opportunity
+        # counts computed above with player names/teams for display.
+        _players_by_id_for_bl = {p["id"]: p for p in players if p.get("id") is not None}
+        gs_bl_opportunities = []
+        for bid, rec in gs_batter_bl_opps.items():
+            pl = _players_by_id_for_bl.get(bid)
+            if not pl or not rec.get("n_opportunities"):
+                continue
+            gs_bl_opportunities.append({
+                "id": bid, "name": pl.get("name"), "team": pl.get("team"),
+                "opp_team": pl.get("opp_team"), "spot": pl.get("lineup_spot"),
+                "n_opportunities": rec["n_opportunities"], "log": rec["log"],
+            })
+        gs_bl_opportunities.sort(key=lambda r: -r["n_opportunities"])
+        gs_bl_opportunities = gs_bl_opportunities[:15]
+
         # Pick 1/2/3, searched over the FULL scored pool (gs_all), not just the top-12 slice
         # board_gs keeps -- a genuine deep-leverage play can rank #15 overall by raw p_slam and
         # still be the single best spot-6+ candidate, and restricting the search to board_gs
@@ -4087,6 +4115,7 @@ def build(date_str: str | None = None) -> dict:
         board_gs_board = []
         gs_pool_top30 = []
         gs_top10s = {"overall": [], "pow": [], "due": []}
+        gs_bl_opportunities = []
         _hnote("grand slam", e); print(f"[build] grand slam skipped: {e}")
 
     try:                                           # persist career-BvP cache for the next build
@@ -5815,6 +5844,8 @@ def build(date_str: str | None = None) -> dict:
                                                  # overlap, separate from the top-12 jackpot list
         "grand_slam_top10s": gs_top10s,  # ADDED per Travis's request -- overall/pow/due top 10s,
                                          # same real p_slam ranking, three eligibility filters
+        "grand_slam_bl_opportunities": gs_bl_opportunities,  # ADDED per Travis's request --
+                                         # who's personally seen bases loaded most recently
         "day_late_hits": day_late_hits,  # ADDED per Travis's request -- a "due" list for hits,
                                          # not HRs. Real hitless streaks among elite contact
                                          # hitters (real, matchup-adjusted p_hit >= 0.68).
