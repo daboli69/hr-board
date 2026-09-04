@@ -2373,6 +2373,59 @@ _AB_EVENTS = {"single", "double", "triple", "home_run", "field_out", "strikeout"
               "triple_play", "other_out"}
 
 
+def hitless_streaks(df: pd.DataFrame, batter_ids: list, asof: str, lookback_games: int = 15) -> dict:
+    """Real, per-batter count of consecutive games without a hit, working backward from the
+    most recent game strictly before `asof`. Per Travis's request: a "due" list for hits, not
+    HRs -- elite contact hitters (identified separately, via real matchup-adjusted p_hit) who
+    are genuinely overdue for a hit, since it's statistically rare for a true .300+ hitter to
+    go multiple games hitless in a row.
+
+    Pure Statcast, no external dependencies (no odds, no live fetch) -- each batter's own
+    real game log is the only input, so this works the same whether or not live odds happen
+    to be populated for a given player.
+
+    Returns {batter_id: {"games_hitless": int, "last_hit_date": str | None,
+    "games_checked": int}}. games_hitless counts REAL games with at least one plate
+    appearance and zero hits, walking backward until a hit is found or lookback_games is
+    exhausted (in which case last_hit_date is None -- genuinely no hit found in the window,
+    not necessarily "never," just outside how far back this looked).
+    """
+    HIT_EVENTS = {"single", "double", "triple", "home_run"}
+    out = {}
+    if df is None or df.empty or not batter_ids:
+        return out
+    need = {"batter", "game_date", "events"}
+    if not need.issubset(df.columns):
+        return out
+    d = df[df["game_date"] < asof]
+    if d.empty:
+        return out
+    pa = d[d["events"].isin(PA_EVENTS)].copy()
+    if pa.empty:
+        return out
+    for bid in batter_ids:
+        brows = pa[pa["batter"] == bid]
+        if brows.empty:
+            continue
+        # one row per real game, True if that game included at least one hit
+        by_game = brows.groupby("game_date")["events"].apply(lambda s: bool(s.isin(HIT_EVENTS).any()))
+        by_game = by_game.sort_index(ascending=False)   # most recent game first
+        games_hitless = 0
+        last_hit_date = None
+        games_checked = 0
+        for game_date, had_hit in by_game.items():
+            if games_checked >= lookback_games:
+                break
+            games_checked += 1
+            if had_hit:
+                last_hit_date = str(game_date)
+                break
+            games_hitless += 1
+        out[int(bid)] = {"games_hitless": games_hitless, "last_hit_date": last_hit_date,
+                         "games_checked": games_checked}
+    return out
+
+
 def hitter_labels(df: pd.DataFrame, start_date: str | None = None, min_bbe: int = 15) -> dict:
     """One profile label per hitter over the trailing window (same 2-week sample as the
     model), mirroring the PF highlight rules: 'elite' (all 14 thresholds), else 'fb'

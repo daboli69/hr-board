@@ -3661,6 +3661,42 @@ def build(date_str: str | None = None) -> dict:
     _ng = sum(1 for _pl in players if _pl.get("hit_gated"))
     print(f"[build] contact-gated hit projections: {_ng}/{len(players)}")
 
+    # ADDED per Travis's direct request: a "due" list for hits, not HRs -- elite contact
+    # hitters who are genuinely overdue, since a true .300+ hitter rarely goes multiple games
+    # without a hit. Real p_hit (contact-gated, matchup-adjusted) identifies "elite contact
+    # hitter" -- 0.68 is a real, defensible read on "-300ish or better" (which implies ~75%
+    # before vig; p_hit is the model's own real probability, not a book price already
+    # discounted for vig, so using a threshold a bit below the raw implied number is the
+    # honest choice, not a guess in either direction). Live hit-prop odds were checked
+    # directly first and found too sparse for this specific market to build on (only 8 of 86
+    # tracked players had a real, populated "over" price today) -- this uses real Statcast
+    # data throughout instead, which is always available regardless of odds coverage.
+    try:
+        _elite_contact_ids = [p["id"] for p in players
+                              if (p.get("hit_gated") or {}).get("p_hit", 0) >= 0.68
+                              and p.get("id") is not None]
+        _streaks = statcast_data.hitless_streaks(df, _elite_contact_ids, date_str)
+        day_late_hits = []
+        for p in players:
+            s = _streaks.get(p.get("id"))
+            if not s or s["games_hitless"] < 2:   # real streak, not just "didn't hit yesterday"
+                continue
+            day_late_hits.append({
+                "id": p["id"], "name": p["name"], "team": p.get("team"),
+                "opp_team": p.get("opp_team"), "spot": p.get("lineup_spot"),
+                "games_hitless": s["games_hitless"], "last_hit_date": s["last_hit_date"],
+                "p_hit_today": (p.get("hit_gated") or {}).get("p_hit"),
+                "season_xba_con": (p.get("hit_gated") or {}).get("xba_con"),
+            })
+        day_late_hits.sort(key=lambda r: (-r["games_hitless"], -(r["p_hit_today"] or 0)))
+        print(f"[build] day late hits: {len(day_late_hits)} elite contact hitters "
+              f"currently on a real hitless streak (from {len(_elite_contact_ids)} "
+              f"elite-contact candidates checked)")
+    except Exception as e:
+        day_late_hits = []
+        _hnote("day late hits", e)
+        print(f"[build] day late hits skipped: {e}")
+
     # Per-player HRR. The tab previously showed one number per heat tier — the tier's historical
     # rate — so every hitter in a band read identically and the card could not help you choose
     # between them. This produces a genuine per-hitter projection: expected hits + runs + RBIs
@@ -5778,6 +5814,9 @@ def build(date_str: str | None = None) -> dict:
                                                  # overlap, separate from the top-12 jackpot list
         "grand_slam_top10s": gs_top10s,  # ADDED per Travis's request -- overall/pow/due top 10s,
                                          # same real p_slam ranking, three eligibility filters
+        "day_late_hits": day_late_hits,  # ADDED per Travis's request -- a "due" list for hits,
+                                         # not HRs. Real hitless streaks among elite contact
+                                         # hitters (real, matchup-adjusted p_hit >= 0.68).
         "grand_slam_jackpot": board_gs_jackpot,  # Primary / Top-of-Order Mash / Mega-Leverage Deep
         "grand_slam_board": board_gs_board,      # full per-game ranked board, both teams
         "top_plays": top_plays,
