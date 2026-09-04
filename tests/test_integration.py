@@ -193,6 +193,23 @@ def test_statsapi_bullpen():
     check("statsapi bullpen fetcher exists", run)
 
 
+def test_prop_price_normalization():
+    """Keep American prop prices out of decimal EV math."""
+    from etl.fetch_odds import _prop_price_to_decimal
+
+    def run():
+        cases = {200: 3.0, -125: 1.8, 1.91: 1.91, "2.50": 2.5}
+        for raw, expected in cases.items():
+            actual = _prop_price_to_decimal(raw)
+            assert actual is not None and abs(actual - expected) < 1e-6, \
+                f"{raw!r} normalized to {actual}, expected {expected}"
+        for bad in (None, 0, 1, -1, 99):
+            assert _prop_price_to_decimal(bad) is None, f"accepted invalid price {bad!r}"
+        return "American +200/-125 and decimal 1.91/2.50 normalized safely"
+
+    check("prop price format normalization", run)
+
+
 def test_odds_archiver():
     from etl import fetch_odds
 
@@ -275,6 +292,7 @@ if __name__ == "__main__":
     test_props_live()
     test_environment_live()
     test_statsapi_bullpen()
+    test_prop_price_normalization()
     test_odds_archiver()
     test_backtest_wiring()
     print("\n4. definition order:")
