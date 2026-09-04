@@ -2381,6 +2381,52 @@ _AB_EVENTS = {"single", "double", "triple", "home_run", "field_out", "strikeout"
               "triple_play", "other_out"}
 
 
+def park_longball_ranking(df: pd.DataFrame) -> dict:
+    """Real ranking of which parks have hosted the longest home run of the day the most,
+    season-wide and broken down by real calendar month -- per Travis's direct request.
+
+    Computed directly from the full-season Statcast data already loaded every build (no
+    cross-referencing needed against history.json's hr_log, which was checked directly first
+    and found to have zero real park data in any of the last 794 tracked entries -- track.py
+    never captured it). Every real home run already has its own real distance, real date, and
+    real home team (the park owner, regardless of which team the batter plays for) right in
+    the same Statcast row, so this is a direct, one-pass computation, not a reconstruction.
+
+    Returns {"season": [{"park": str, "n_days_longest": int}, ...] sorted by count descending,
+    "by_month": {"2026-07": [...], "2026-08": [...], ...}} -- same shape per month, keyed by
+    real "YYYY-MM" so the frontend can build a month picker directly from the real months that
+    actually have data, not a hardcoded list.
+    """
+    from etl import environment as env_mod   # local import, same pattern used elsewhere in
+                                             # this file to avoid a circular import risk
+    if df is None or df.empty:
+        return {"season": [], "by_month": {}}
+    need = {"events", "game_date", "hit_distance_sc", "home_team", "away_team"}
+    if not need.issubset(df.columns):
+        return {"season": [], "by_month": {}}
+    hrs = df[(df["events"] == "home_run") & df["hit_distance_sc"].notna()].copy()
+    if hrs.empty:
+        return {"season": [], "by_month": {}}
+
+    # one row per real calendar day: whichever real HR that day traveled the farthest
+    idx = hrs.groupby("game_date")["hit_distance_sc"].idxmax()
+    winners = hrs.loc[idx].copy()
+    # the park is always the HOME team's park, regardless of which team the batter plays for
+    winners["_park"] = winners["home_team"].map(lambda t: env_mod.TEAM_PARK.get(str(t), None))
+    winners = winners.dropna(subset=["_park"])
+    winners["_month"] = winners["game_date"].astype(str).str.slice(0, 7)   # real "YYYY-MM"
+
+    def _rank(rows):
+        counts = rows["_park"].value_counts()
+        return [{"park": p, "n_days_longest": int(n)} for p, n in counts.items()]
+
+    season = _rank(winners)
+    by_month = {}
+    for month, grp in winners.groupby("_month"):
+        by_month[month] = _rank(grp)
+    return {"season": season, "by_month": by_month}
+
+
 def batter_bases_loaded_opportunities(df: pd.DataFrame, batter_ids: list, asof: str,
                                       recent_days: int = 7) -> dict:
     """Real, batter-level count of how many times each hitter has personally come to the

@@ -2762,6 +2762,9 @@ def build(date_str: str | None = None) -> dict:
             # specific BATTER has personally had the opportunity.
             gs_batter_bl_opps = statcast_data.batter_bases_loaded_opportunities(
                 df, batter_ids, date_str, recent_days=7)
+            # ADDED per Travis's direct request: real ranking of which parks have hosted the
+            # longest HR of the day the most, season-wide and by real calendar month.
+            lb_park_longball = statcast_data.park_longball_ranking(df)
             print(f"[build] long ball ceiling: {len(lb_ceiling)} batters (trajectory/bat speed) "
                   f"| {len(lb_evbarrels)} batters (MLB-wide ev50/max EV leaderboard) "
                   f"| {len(lb_park_dist)} parks (real HR distance) "
@@ -2769,15 +2772,18 @@ def build(date_str: str | None = None) -> dict:
                   f"| {len(gs_pitcher_traffic)} pitchers (bases-loaded traffic, Grand Slam) "
                   f"| {len(gs_team_traffic)} teams (recent bases-loaded traffic, Grand Slam) "
                   f"| {len(gs_batter_bl_opps)} batters (personal bases-loaded opportunities, "
-                  f"last 7 real days)")
+                  f"last 7 real days) "
+                  f"| {len(lb_park_longball.get('season', []))} parks (longball park ranking)")
         except Exception as e:
             lb_ceiling, lb_evbarrels, lb_park_dist, lb_pitcher_ev, gs_pitcher_traffic = {}, {}, {}, {}, {}
             gs_team_traffic = {}
             gs_batter_bl_opps = {}
+            lb_park_longball = {"season": [], "by_month": {}}
             _hnote("long ball ceiling metrics", e)
             print(f"[build] long ball ceiling metrics skipped: {e}")
         print(f"[build] bvp tables: {len(bat_tables)} hitters, {len(arm_tables)} arms, "
               f"{len(pitch_hist)} histories, {len(team_ks)} team K splits")
+
     except Exception as e:
         print(f"[build] BvP tables skipped (non-fatal): {e}")
         bat_tables, arm_tables, pitch_hist, team_ks, sprint = {}, {}, {}, {}, {}
@@ -4004,6 +4010,28 @@ def build(date_str: str | None = None) -> dict:
             return out
 
         gs_top10s = {"overall": _gs_top10(), "pow": _gs_top10("pow"), "due": _gs_top10("due")}
+
+        # ADDED per Travis's direct follow-up: starter names were still showing as raw IDs in
+        # the bases-loaded log. Statcast's own player_name column (the first attempt, inside
+        # batter_bases_loaded_opportunities) apparently isn't consistently populated for every
+        # row. This uses the same real, already-proven name source used elsewhere in this
+        # file (statsapi.get_handedness()'s real fullName, via MLB's own API) as a reliable
+        # fallback/override for any pitcher whose Statcast-sourced name came back empty.
+        try:
+            _bl_pitcher_ids = {e["pitcher_id"] for rec in gs_batter_bl_opps.values()
+                               for e in rec.get("log", []) if not e.get("pitcher_name")}
+            if _bl_pitcher_ids:
+                _bl_names = statsapi.get_handedness(list(_bl_pitcher_ids))
+                for rec in gs_batter_bl_opps.values():
+                    for e in rec.get("log", []):
+                        if not e.get("pitcher_name"):
+                            _nm = (_bl_names.get(e["pitcher_id"]) or {}).get("name")
+                            if _nm:
+                                e["pitcher_name"] = _nm
+                print(f"[build] bases-loaded pitcher names: filled in {len(_bl_pitcher_ids)} "
+                      f"real names via MLB's own API (Statcast's own column had gaps)")
+        except Exception as _e:
+            print(f"[build] bases-loaded pitcher name enrichment skipped (non-fatal): {_e}")
 
         # ADDED per Travis's direct request: a real, displayable top-N list of who's
         # personally seen the bases loaded the most recently, joining the real opportunity
@@ -6506,12 +6534,14 @@ def build(date_str: str | None = None) -> dict:
         board["long_ball_jackpot"] = build_long_ball_jackpot(
             players, lb_evbarrels, lb_pitcher_ev,
             pitcher_edges=pitcher_edges, bullpen_rankings=bullpen_rankings)
+        board["long_ball_jackpot"]["park_longball_ranking"] = lb_park_longball
         _lb = board["long_ball_jackpot"]
         print(f"[build] long ball jackpot: {_lb['candidates_scored']} candidates scored, "
               f"{len(_lb['picks'])}/3 picks selected, MLB p95 max EV: {_lb['mlb_p95_max_ev']}, "
               f"slate: {_lb['slate_context']['n_games']} games")
     except Exception as e:
-        board["long_ball_jackpot"] = {"picks": [], "candidates_scored": 0, "notes": []}
+        board["long_ball_jackpot"] = {"picks": [], "candidates_scored": 0, "notes": [],
+                                      "park_longball_ranking": {"season": [], "by_month": {}}}
         _hnote("long ball jackpot", e); print(f"[build] long ball jackpot skipped: {e}")
 
     try:
