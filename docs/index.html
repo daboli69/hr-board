@@ -11876,7 +11876,7 @@ function renderGrandSlamBLOpps(){
   const body = rows.length ? rows.map((r,i)=>{
     const logHTML = (r.log||[]).length
       ? `<ul class="gt10-driver-list">${(r.log||[]).map(e=>
-          `<li>${e.game_date} — vs ${e.pitcher_role==='SP'?'starter':'reliever'} (id ${e.pitcher})</li>`).join("")}</ul>`
+          `<li>${e.game_date} — vs ${e.pitcher_role==='SP'?'starter':'reliever'} ${e.pitcher_name || (e.pitcher_role==='BP' && e.pitcher_team ? `(${e.pitcher_team} pen)` : `(id ${e.pitcher_id})`)}</li>`).join("")}</ul>`
       : `<div class="gt10-no-drivers">No real game-by-game log available.</div>`;
     return `<div class="gt10-row" id="blopp-row-${i}" aria-expanded="false"
         onclick="toggleBLOppDetail(${i})">
