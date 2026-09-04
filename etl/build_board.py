@@ -4050,6 +4050,20 @@ def build(date_str: str | None = None) -> dict:
         gs_bl_opportunities.sort(key=lambda r: -r["n_opportunities"])
         gs_bl_opportunities = gs_bl_opportunities[:15]
 
+        # ADDED per Travis's direct request: real, 7-day team leaderboard for who's allowed
+        # the most bases-loaded opportunities. Reuses the pitcher_team field already computed
+        # on every log entry above -- no new backend function needed, just a real aggregate
+        # over the same real data.
+        _team_bl_counts = {}
+        for rec in gs_batter_bl_opps.values():
+            for e in rec.get("log", []):
+                team = e.get("pitcher_team")
+                if team:
+                    _team_bl_counts[team] = _team_bl_counts.get(team, 0) + 1
+        gs_bl_by_team = sorted(
+            [{"team": t, "n_allowed": n} for t, n in _team_bl_counts.items()],
+            key=lambda r: -r["n_allowed"])
+
         # Pick 1/2/3, searched over the FULL scored pool (gs_all), not just the top-12 slice
         # board_gs keeps -- a genuine deep-leverage play can rank #15 overall by raw p_slam and
         # still be the single best spot-6+ candidate, and restricting the search to board_gs
@@ -4144,6 +4158,7 @@ def build(date_str: str | None = None) -> dict:
         gs_pool_top30 = []
         gs_top10s = {"overall": [], "pow": [], "due": []}
         gs_bl_opportunities = []
+        gs_bl_by_team = []
         _hnote("grand slam", e); print(f"[build] grand slam skipped: {e}")
 
     try:                                           # persist career-BvP cache for the next build
@@ -5874,6 +5889,8 @@ def build(date_str: str | None = None) -> dict:
                                          # same real p_slam ranking, three eligibility filters
         "grand_slam_bl_opportunities": gs_bl_opportunities,  # ADDED per Travis's request --
                                          # who's personally seen bases loaded most recently
+        "grand_slam_bl_by_team": gs_bl_by_team,  # ADDED per Travis's request -- real 7-day
+                                         # team leaderboard for bases-loaded allowed
         "day_late_hits": day_late_hits,  # ADDED per Travis's request -- a "due" list for hits,
                                          # not HRs. Real hitless streaks among elite contact
                                          # hitters (real, matchup-adjusted p_hit >= 0.68).

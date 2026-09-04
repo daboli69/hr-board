@@ -2401,20 +2401,36 @@ def park_longball_ranking(df: pd.DataFrame) -> dict:
                                              # this file to avoid a circular import risk
     if df is None or df.empty:
         return {"season": [], "by_month": {}}
-    need = {"events", "game_date", "hit_distance_sc", "home_team", "away_team"}
+    need = {"events", "game_date", "hit_distance_sc", "home_team"}
     if not need.issubset(df.columns):
         return {"season": [], "by_month": {}}
     hrs = df[(df["events"] == "home_run") & df["hit_distance_sc"].notna()].copy()
     if hrs.empty:
         return {"season": [], "by_month": {}}
+    # FIXED this session, per a real report of severe over-counting (7+ parks summing to 8+
+    # "day wins" for a month that had only 3-4 real days so far). Two real, defensive fixes,
+    # since a clean-data test couldn't reproduce it -- pointing at the live data's actual
+    # formatting/structure, not the core grouping logic:
+    #   1. Normalize game_date to a clean YYYY-MM-DD string before grouping -- grouping on the
+    #      raw column directly would incorrectly split the same calendar day into multiple
+    #      groups if the raw values have any inconsistency (mixed types, embedded time, etc).
+    #   2. Dedupe to one row per real home run event (batter + game_pk + at_bat_number, when
+    #      available) before finding each day's max -- Statcast is pitch-level data, and if a
+    #      single real HR has more than one row for any reason, it could effectively compete
+    #      against itself for "longest of the day," or double-count in a group.
+    hrs["_gdate"] = pd.to_datetime(hrs["game_date"], errors="coerce").dt.strftime("%Y-%m-%d")
+    hrs = hrs.dropna(subset=["_gdate"])
+    dedup_cols = [c for c in ("batter", "game_pk", "at_bat_number") if c in hrs.columns]
+    if dedup_cols:
+        hrs = hrs.drop_duplicates(subset=dedup_cols)
 
     # one row per real calendar day: whichever real HR that day traveled the farthest
-    idx = hrs.groupby("game_date")["hit_distance_sc"].idxmax()
+    idx = hrs.groupby("_gdate")["hit_distance_sc"].idxmax()
     winners = hrs.loc[idx].copy()
     # the park is always the HOME team's park, regardless of which team the batter plays for
     winners["_park"] = winners["home_team"].map(lambda t: env_mod.TEAM_PARK.get(str(t), None))
     winners = winners.dropna(subset=["_park"])
-    winners["_month"] = winners["game_date"].astype(str).str.slice(0, 7)   # real "YYYY-MM"
+    winners["_month"] = winners["_gdate"].str.slice(0, 7)   # real "YYYY-MM"
 
     def _rank(rows):
         counts = rows["_park"].value_counts()
