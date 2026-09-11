@@ -2611,6 +2611,7 @@ def build(date_str: str | None = None) -> dict:
         return _recent_cache[team_id]
 
     projected_sides = set()
+    roster_only_ids = {}   # bid -> True, for real roster players beyond the recent-9 projection
     for g in games:
         pk = g["game_pk"]
         lu = slate["lineups"].get(pk) or {}
@@ -2622,14 +2623,33 @@ def build(date_str: str | None = None) -> dict:
             away = _recent(g["away_id"])
             if away:
                 projected_sides.add((pk, "away"))
+            # ADDED per Travis's direct request: before the real lineup posts, also pull the
+            # full real active roster and add anyone not already in the recent-9 projection,
+            # so a real bench/platoon player who simply hasn't started recently isn't missing
+            # from the board entirely.
+            try:
+                for rid in statsapi.get_active_roster(g["away_id"]):
+                    if rid not in away:
+                        away = (away or []) + [rid]
+                        roster_only_ids[rid] = True
+            except Exception:
+                pass
         if not home:
             home = _recent(g["home_id"])
             if home:
                 projected_sides.add((pk, "home"))
+            try:
+                for rid in statsapi.get_active_roster(g["home_id"]):
+                    if rid not in home:
+                        home = (home or []) + [rid]
+                        roster_only_ids[rid] = True
+            except Exception:
+                pass
         if away or home:
             slate["lineups"][pk] = {"away": away or [], "home": home or []}
     proj_game_pks = {pk for (pk, _s) in projected_sides}
-    print(f"[build] projected {len(projected_sides)} lineup side(s) across {len(proj_game_pks)} game(s)")
+    print(f"[build] projected {len(projected_sides)} lineup side(s) across {len(proj_game_pks)} game(s), "
+          f"{len(roster_only_ids)} additional real roster player(s) added while lineups pending")
 
     # collect batter ids from posted lineups
     batter_ids, game_of_batter, side_of_batter, spot_of_batter, status_of_batter = [], {}, {}, {}, {}
@@ -2638,11 +2658,21 @@ def build(date_str: str | None = None) -> dict:
         if not gmeta:
             continue
         for i, bid in enumerate(lu.get("away", [])):
-            batter_ids.append(bid); game_of_batter[bid] = pk; side_of_batter[bid] = "away"; spot_of_batter[bid] = i + 1
-            status_of_batter[bid] = "projected" if (pk, "away") in projected_sides else "confirmed"
+            batter_ids.append(bid); game_of_batter[bid] = pk; side_of_batter[bid] = "away"
+            if bid in roster_only_ids:
+                spot_of_batter[bid] = None
+                status_of_batter[bid] = "roster_only"
+            else:
+                spot_of_batter[bid] = i + 1
+                status_of_batter[bid] = "projected" if (pk, "away") in projected_sides else "confirmed"
         for i, bid in enumerate(lu.get("home", [])):
-            batter_ids.append(bid); game_of_batter[bid] = pk; side_of_batter[bid] = "home"; spot_of_batter[bid] = i + 1
-            status_of_batter[bid] = "projected" if (pk, "home") in projected_sides else "confirmed"
+            batter_ids.append(bid); game_of_batter[bid] = pk; side_of_batter[bid] = "home"
+            if bid in roster_only_ids:
+                spot_of_batter[bid] = None
+                status_of_batter[bid] = "roster_only"
+            else:
+                spot_of_batter[bid] = i + 1
+                status_of_batter[bid] = "projected" if (pk, "home") in projected_sides else "confirmed"
     batter_ids = list(dict.fromkeys(batter_ids))
 
     pitcher_ids = [p for g in games for p in (g["away_pitcher_id"], g["home_pitcher_id"])]

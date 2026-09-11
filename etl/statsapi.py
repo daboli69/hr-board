@@ -342,6 +342,36 @@ def recent_hr_hitters_from_boxscore(date_str: str) -> set:
     return out
 
 
+def get_active_roster(team_id: int) -> list[int]:
+    """Real, full active-roster batter IDs for a team -- used ONLY as a fallback before that
+    team's real lineup is officially posted for the day. Per Travis's direct request: the
+    recent-lineup projection (get_recent_lineup) only shows 9 names, so a real player in a
+    bench/platoon role who simply hasn't started in the last several games disappears from
+    the board entirely, even though he's a real candidate to start today. Pulling the full
+    real active roster instead means nobody's missing while lineups are still pending.
+
+    Once MLB posts the real, confirmed lineup for a game, build_board.py's existing fallback
+    logic stops calling this for that side automatically -- the confirmed lineup always takes
+    priority, so this never overrides or conflicts with a real posted lineup.
+
+    Returns [] on any failure -- non-fatal, since the recent-lineup projection still covers
+    the common case even if this real roster pull fails for some reason.
+    """
+    try:
+        data = _get(f"{BASE}/teams/{team_id}/roster", {"rosterType": "active"})
+        ids = []
+        for r in data.get("roster", []):
+            pos = (r.get("position") or {}).get("code", "")
+            if pos == "1":   # exclude pitchers -- this board is for batters only
+                continue
+            pid = (r.get("person") or {}).get("id")
+            if pid:
+                ids.append(int(pid))
+        return ids
+    except Exception:
+        return []
+
+
 def get_recent_lineup(team_id: int, before_date: str) -> list[int]:
     """
     A team's projected batting order (player ids, in order) before today's is confirmed.
