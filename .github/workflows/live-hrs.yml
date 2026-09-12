@@ -14,10 +14,22 @@ name: Live HRs Tonight
 on:
   workflow_dispatch:          # manual "Run workflow" button, for testing or a late game
   schedule:
-    - cron: "*/15 23,0,1,2,3 * * *"
+    - cron: "*/15 0,1,2,3,4,16,17,18,19,20,21,22,23 * * *"
 
 jobs:
+  season:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        env:
+          REFRESH_MODE: active
+        run: python etl/season_refresh.py
   live-hrs:
+    needs: season
+    if: github.event_name == 'workflow_dispatch' || needs.season.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10        # this should be fast -- a real hang here means something's wrong,
                                 # not that it needs more time the way the full build sometimes does

@@ -19,6 +19,7 @@ on:
     # retry anything that failed and backfill any older ungraded day. GitHub crons drift
     # and occasionally skip, which is exactly why we run thrice + backfill instead of once.
     - cron: "0 11,17,23 * * *"
+    - cron: "40 10 * * 1"
 
 permissions:
   contents: write
@@ -28,7 +29,19 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  season:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        env:
+          REFRESH_MODE: weekly
+        run: python etl/season_refresh.py
   grade:
+    needs: season
+    if: github.event_name == 'workflow_dispatch' || needs.season.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

@@ -49,12 +49,19 @@
   // category keeps its dated snapshot; an empty successful category is empty.
   return {...ODDS,updated:ODDS?.updated||raw.generated_at,shared_updated:raw.generated_at,slate_date:BOARD.slate_date,props:Object.fromEntries(Object.entries(map).map(([market,bucket])=>[bucket,raw.coverage?.markets?.[market]?.status==='loaded'?props[bucket]:(ODDS?.props?.[bucket]||{})])),prices:raw.coverage?.markets?.player_home_runs?.status==='unavailable'?(ODDS?.prices||{}):prices,count:Object.keys(prices).length};
  }
+ let oddsBusy=false,lastOddsAttempt=0;
  loadOddsEager=async function(){
+  if(oddsBusy)return;oddsBusy=true;lastOddsAttempt=Date.now();
+  try{
   await originalLoadOdds();if(!platform){loadNote='Open Model vs market in the shared GOING app for verified live game-matched prices.';return;}
   try{const r=await fetch('/api/odds?sport=mlb',{cache:'no-store'});if(!r.ok)throw Error();const data=await r.json();if(data.provider!=='parlay'||!Array.isArray(data.props))throw Error();shared=data;loadNote=`Shared live prices checked ${new Date(data.generated_at).toLocaleTimeString()}${data.coverage?.possibly_truncated?'; provider limit reached, coverage may be partial':''}${Object.values(data.coverage?.markets||{}).some(m=>m.status!=='loaded')?'; some market categories are unavailable':''}`;const merged=legacyFromShared(data);if(merged)ODDS=merged;}
   catch{loadNote='Shared live odds unavailable; saved baseball prices remain in the original views. Market-rank comparison needs a verified live feed.';}
-  if(['market-disagreement','fantasy-research'].includes(view))renderView();
+  renderView();
+  }finally{oddsBusy=false;}
  };
+ const refreshSharedOdds=()=>{const upcoming=(BOARD?.games||[]).some(g=>Date.parse(g.time)>Date.now());const interval=upcoming?300000:3600000;if(!document.hidden&&Date.now()-lastOddsAttempt>=interval)loadOddsEager();};
+ setInterval(refreshSharedOdds,60000);
+ document.addEventListener('visibilitychange',refreshSharedOdds);
  function card(p,body){return `<article class="going-card"><b>${html(p.name)}</b><span>${html(p.team)} vs ${html(p.opp_team)} · lineup ${html(p.lineup_spot??'not set')} · ${html(p.lineup_status||'not confirmed')}</span>${body}<button data-going-save="${p.id}" aria-pressed="${!!watch[p.id]}">${watch[p.id]?'★ Saved':'☆ Save to fantasy watchlist'}</button></article>`;}
  function renderMarket(){
   const rows=marketComparison().filter(r=>!query||`${r.p.name} ${r.p.team}`.toLowerCase().includes(query));

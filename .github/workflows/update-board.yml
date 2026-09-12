@@ -5,12 +5,10 @@ name: Update HR Board
 on:
   workflow_dispatch:          # manual "Run workflow" button
   schedule:
-    # Times are UTC; the MLB season runs on EDT (UTC-4). Requested ET build times:
-    #   6:30am, 10am, 12pm, 3pm, 5pm, 7pm ET  ->  10:30, 14, 16, 19, 21, 23 UTC
-    # The build preserves the last good board if Savant throttles, so this is safe.
-    # (In EST/winter these land one hour earlier ET; the season is almost entirely EDT.)
-    - cron: "30 10 * * *"            # 6:30am ET — early lineups + overnight refresh
-    - cron: "0 14,16,19,21,23 * * *" # 10am, 12pm, 3pm, 5pm, 7pm ET
+    # Rebuild every two hours during the daytime/evening; schedule gate below
+    # reduces this to Monday 10:30 UTC when no MLB games are nearby.
+    - cron: "30 10 * * *"
+    - cron: "17 0,2,14,16,18,20,22 * * *"
 
 permissions:
   contents: write             # allow committing the refreshed board.json
@@ -20,7 +18,19 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  season:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        env:
+          REFRESH_MODE: weekly
+        run: python etl/season_refresh.py
   build:
+    needs: season
+    if: github.event_name == 'workflow_dispatch' || needs.season.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     # FlareSolverr solves FanGraphs' Cloudflare challenge for etl/statcast_data.py's
