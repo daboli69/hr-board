@@ -8,8 +8,8 @@ name: Live HRs Tonight
 # the one "live_hrs_tonight" field into the existing board.json using MLB's live game feed,
 # which is fast and cheap -- no Statcast involved at all.
 #
-# Runs every 15 minutes, 7:00pm-11:45pm ET (23:00-03:45 UTC), covering when most MLB games are
-# actually being played. Times are UTC; the MLB season runs on EDT (UTC-4).
+# Runs every 15 minutes from noon through 12:45am ET during EDT (16:00-04:45 UTC).
+# The schedule gate skips updates when no MLB games are nearby.
 
 on:
   workflow_dispatch:          # manual "Run workflow" button, for testing or a late game

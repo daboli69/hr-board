@@ -15,6 +15,7 @@ on:
   schedule:
     # 9am ET (UTC-4) — yesterday's games are final and archived by then.
     - cron: "0 13 * * *"
+    - cron: "50 10 * * 1"
 
 permissions:
   contents: write
@@ -24,7 +25,19 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  season:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        env:
+          REFRESH_MODE: weekly
+        run: python etl/season_refresh.py
   microclimate:
+    needs: season
+    if: github.event_name == 'workflow_dispatch' || needs.season.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
