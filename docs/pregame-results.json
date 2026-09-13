@@ -1,9 +1,306 @@
 {
   "schema_version": 1,
   "record_kind": "pregame_model_research",
-  "updated_at": "2026-09-13T14:52:09.214734+00:00",
-  "games": [],
-  "pending_games": 15,
+  "updated_at": "2026-09-13T19:14:26.685862+00:00",
+  "games": [
+    {
+      "game_pk": 824225,
+      "date": "2026-09-13",
+      "captured_at": "2026-09-13T05:10:34.436703+00:00",
+      "game": {
+        "game_pk": 824225,
+        "away": "COL",
+        "home": "DET",
+        "park": "Comerica Park",
+        "time": "2026-09-13T16:10:00Z"
+      },
+      "graded_at": "2026-09-13T19:14:26.627000+00:00",
+      "source": "https://statsapi.mlb.com/api/v1/game/824225/boxscore",
+      "players": [
+        {
+          "id": 691720,
+          "name": "Kyle Karros",
+          "team": "COL",
+          "score": 61,
+          "state": "no_recorded_appearance",
+          "home_runs": null,
+          "hits": null,
+          "hits_runs_rbis": null
+        },
+        {
+          "id": 691182,
+          "name": "Adael Amador",
+          "team": "COL",
+          "score": 56,
+          "state": "graded",
+          "home_runs": 1,
+          "hits": 1,
+          "hits_runs_rbis": 3
+        },
+        {
+          "id": 681198,
+          "name": "TJ Rumfield",
+          "team": "COL",
+          "score": 55,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 1,
+          "hits_runs_rbis": 1
+        },
+        {
+          "id": 682985,
+          "name": "Riley Greene",
+          "team": "DET",
+          "score": 55,
+          "state": "graded",
+          "home_runs": 1,
+          "hits": 2,
+          "hits_runs_rbis": 6
+        },
+        {
+          "id": 694249,
+          "name": "Cole Carrigg",
+          "team": "COL",
+          "score": 49,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 679529,
+          "name": "Spencer Torkelson",
+          "team": "DET",
+          "score": 48,
+          "state": "graded",
+          "home_runs": 1,
+          "hits": 2,
+          "hits_runs_rbis": 4
+        },
+        {
+          "id": 664983,
+          "name": "Jake McCarthy",
+          "team": "COL",
+          "score": 45,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 696100,
+          "name": "Hunter Goodman",
+          "team": "COL",
+          "score": 42,
+          "state": "no_recorded_appearance",
+          "home_runs": null,
+          "hits": null,
+          "hits_runs_rbis": null
+        },
+        {
+          "id": 690993,
+          "name": "Colt Keith",
+          "team": "DET",
+          "score": 39,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 1,
+          "hits_runs_rbis": 2
+        },
+        {
+          "id": 681393,
+          "name": "Connor Norby",
+          "team": "COL",
+          "score": 38,
+          "state": "no_recorded_appearance",
+          "home_runs": null,
+          "hits": null,
+          "hits_runs_rbis": null
+        },
+        {
+          "id": 664954,
+          "name": "Brett Sullivan",
+          "team": "COL",
+          "score": 37,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 605353,
+          "name": "Vimael Mach\u00edn",
+          "team": "COL",
+          "score": 36,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 2,
+          "hits_runs_rbis": 2
+        },
+        {
+          "id": 691728,
+          "name": "Zac Veen",
+          "team": "COL",
+          "score": 34,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 814430,
+          "name": "Brett Callahan",
+          "team": "DET",
+          "score": 34,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 693307,
+          "name": "Dillon Dingler",
+          "team": "DET",
+          "score": 34,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 666160,
+          "name": "Mickey Moniak",
+          "team": "COL",
+          "score": 33,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 1,
+          "hits_runs_rbis": 1
+        },
+        {
+          "id": 703601,
+          "name": "Max Clark",
+          "team": "DET",
+          "score": 33,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 1,
+          "hits_runs_rbis": 2
+        },
+        {
+          "id": 807726,
+          "name": "John Peck",
+          "team": "DET",
+          "score": 30,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 1,
+          "hits_runs_rbis": 3
+        },
+        {
+          "id": 650402,
+          "name": "Gleyber Torres",
+          "team": "DET",
+          "score": 30,
+          "state": "no_recorded_appearance",
+          "home_runs": null,
+          "hits": null,
+          "hits_runs_rbis": null
+        },
+        {
+          "id": 805808,
+          "name": "Kevin McGonigle",
+          "team": "DET",
+          "score": 29,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 1,
+          "hits_runs_rbis": 4
+        },
+        {
+          "id": 687859,
+          "name": "Troy Johnston",
+          "team": "COL",
+          "score": 26,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 680664,
+          "name": "Eduardo Valencia",
+          "team": "DET",
+          "score": 25,
+          "state": "no_recorded_appearance",
+          "home_runs": null,
+          "hits": null,
+          "hits_runs_rbis": null
+        },
+        {
+          "id": 595879,
+          "name": "Javier B\u00e1ez",
+          "team": "DET",
+          "score": 22,
+          "state": "no_recorded_appearance",
+          "home_runs": null,
+          "hits": null,
+          "hits_runs_rbis": null
+        },
+        {
+          "id": 678662,
+          "name": "Ezequiel Tovar",
+          "team": "COL",
+          "score": 19,
+          "state": "no_recorded_appearance",
+          "home_runs": null,
+          "hits": null,
+          "hits_runs_rbis": null
+        },
+        {
+          "id": 656716,
+          "name": "Zach McKinstry",
+          "team": "DET",
+          "score": 19,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 2
+        },
+        {
+          "id": 701678,
+          "name": "Hao-Yu Lee",
+          "team": "DET",
+          "score": 18,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 1
+        },
+        {
+          "id": 687597,
+          "name": "Jordan Beck",
+          "team": "COL",
+          "score": 15,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 701162,
+          "name": "Ben Malgeri",
+          "team": "DET",
+          "score": 12,
+          "state": "no_recorded_appearance",
+          "home_runs": null,
+          "hits": null,
+          "hits_runs_rbis": null
+        }
+      ]
+    }
+  ],
+  "pending_games": 14,
   "errors": [],
   "note": "Research scores recorded before first pitch. No frozen bet price: betting returns and prediction calibration are not measured here."
 }
