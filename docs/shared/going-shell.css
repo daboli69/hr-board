@@ -50,3 +50,23 @@ body[data-going-workspace=yard] .thead{top:calc(var(--hh,200px) + var(--going-he
 body[data-going-workspace=long] #glNav .ic{display:none}
 body[data-going-workspace=long] #btTabGroup{display:flex!important;flex-wrap:nowrap;width:100%;overflow-x:auto;scrollbar-width:none}
 body[data-going-workspace=long] #btTabGroup button{flex:0 0 auto;white-space:nowrap}
+/* Shared research surfaces: consistent hierarchy without changing sport calculations. */
+body[data-going-workspace]{--going-panel-raised:#202d24;--going-control:#17231c;--going-radius:12px}
+body[data-going-workspace=long]{--bt-panel:var(--going-panel);--bt-panel-2:var(--going-panel-raised);--bt-line:var(--going-border);--bt-mute:var(--going-muted)}
+body[data-going-workspace=yard]{--panel:var(--going-panel);--panel-2:var(--going-panel-raised);--line:var(--going-border);--muted:var(--going-muted)}
+body[data-going-workspace] :is(.bt-row,.bt-game,.sig-card,.going-card,.pl-card,.sgp-card,.slatestrip){border:1px solid var(--going-border);border-radius:var(--going-radius);background:var(--going-panel);box-shadow:none}
+body[data-going-workspace] :is(.bt-who b,.bt-game-head b,.pl-card-h b,.going-card>b,.sgp-head b){font:650 16px/1.4 var(--going-font);letter-spacing:-.2px}
+body[data-going-workspace] :is(.bt-controls,.controls,.going-toolbar) :is(input,select),body[data-going-workspace] :is(.chip,.sortchip,.fbtn,.listbtn,.pos-group button){min-height:44px;border-radius:8px;border:1px solid var(--going-border);font:500 13px/1.35 var(--going-font)}
+body[data-going-workspace] :is(.bt-controls,.controls,.going-toolbar) :is(input,select){background:var(--going-control);color:var(--going-text);padding:10px 12px}
+body[data-going-workspace] :is(.chip,.sortchip,.fbtn,.listbtn,.pos-group button){background:var(--going-control);color:var(--going-muted)}
+body[data-going-workspace] :is(.chip[aria-pressed=true],.sortchip.on,.pos-group button[aria-pressed=true]){background:#33291f;color:#ffc29b;border-color:#886247}
+body[data-going-workspace] :is(.bt-projection-strip,.bt-best-grid>span){background:var(--going-panel-raised);border-radius:8px}
+body[data-going-workspace] :is(.bt-projection-strip,.bt-metrics,.sgp-summary){font-variant-numeric:tabular-nums}
+body[data-going-workspace] :is(.bt-note,.bt-sheet-note,.pl-foot,.sgp-note){font:400 13px/1.65 var(--going-font);color:var(--going-muted)}
+body[data-going-workspace=long] #btOddsDialog,body[data-going-workspace=yard] :is(.drawer-card,.sheet-card){background:var(--going-panel);border-color:var(--going-border);box-shadow:0 16px 64px #0006}
+body[data-going-workspace=long] .bt-sheet-head,body[data-going-workspace=yard] .drawer-hd{background:var(--going-panel);border-bottom:1px solid var(--going-border);padding:16px}
+body[data-going-workspace] :is(.drawer-x,.sheet-close,.cfg-close){min-width:44px;min-height:44px}
+body[data-going-workspace=yard] .sheet-card{max-height:85dvh;overflow-y:auto;overscroll-behavior:contain}
+body[data-going-workspace] :is(.drawer-scroll,.bt-sheet-scroll){overscroll-behavior:contain}
+@media(min-width:760px){body[data-going-workspace=long] #btOddsDialog{width:min(900px,calc(100vw - 64px));max-width:900px;margin:auto;border-radius:16px}body[data-going-workspace=yard] .sheet{align-items:center}body[data-going-workspace=yard] .sheet-card{border-bottom:1px solid var(--going-border);border-radius:16px}}
+@media(max-width:600px){body[data-going-workspace] :is(.bt-controls,.controls,.going-toolbar) :is(input,select){font-size:16px}body[data-going-workspace] :is(.bt-projection-strip,.bt-best-grid){gap:6px}}
