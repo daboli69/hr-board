@@ -70,3 +70,8 @@ body[data-going-workspace=yard] .sheet-card{max-height:85dvh;overflow-y:auto;ove
 body[data-going-workspace] :is(.drawer-scroll,.bt-sheet-scroll){overscroll-behavior:contain}
 @media(min-width:760px){body[data-going-workspace=long] #btOddsDialog{width:min(900px,calc(100vw - 64px));max-width:900px;margin:auto;border-radius:16px}body[data-going-workspace=yard] .sheet{align-items:center}body[data-going-workspace=yard] .sheet-card{border-bottom:1px solid var(--going-border);border-radius:16px}}
 @media(max-width:600px){body[data-going-workspace] :is(.bt-controls,.controls,.going-toolbar) :is(input,select){font-size:16px}body[data-going-workspace] :is(.bt-projection-strip,.bt-best-grid){gap:6px}}
+
+body[data-going-workspace=yard] .going-platform-nav>div{flex-wrap:nowrap;overflow-x:auto;width:100%;scrollbar-width:none}
+body[data-going-workspace=yard] .going-platform-nav button{flex:none;white-space:nowrap}
+body[data-going-workspace=yard] .going-platform-nav button[aria-pressed=true]{border-color:#886247;color:#ffc29b;background:#33291f}
+body[data-yard-view="pregame-record"] #welcome,body[data-yard-view="market-disagreement"] #welcome,body[data-yard-view="fantasy-research"] #welcome{display:none}
