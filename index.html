@@ -2053,23 +2053,23 @@
       <option value="time">Sort · Time</option>
     </select>
     <input class="search" id="search" placeholder="Search hitter or team…" />
-    <button id="filtersBtn" class="fbtn" onclick="document.getElementById('filterSheet').classList.add('show')">⚙ Filters<span id="filtCount" class="fcount" hidden></span></button>
+    <button id="filtersBtn" class="fbtn" onclick="document.getElementById('filterSheet').classList.add('show')"> Filters<span id="filtCount" class="fcount" hidden></span></button>
   </div>
   <div class="controls chiprow">
     <button id="mixBtn" class="chip" aria-pressed="false" title="Re-rank by EV/barrel vs this pitcher's mix">vs Pitch Mix</button>
     <button id="thinBtn" class="chip" aria-pressed="false" title="Hide hitters with thin recent samples">Hide small</button>
     <button id="listBtn" class="chip" aria-pressed="false" title="Show only players on your list">★ My List</button>
-    <button class="chip edge-chip" data-edge="elite" aria-pressed="false" title="Only hitters clearing the elite gate (pull/EV/barrel)">⭐ Elite</button>
-    <button class="chip edge-chip" data-edge="power" aria-pressed="false" title="Only hitters with a PLUS HR-power profile (barrel / HR-swing)">💣 Power+</button>
+    <button class="chip edge-chip" data-edge="elite" aria-pressed="false" title="Only hitters clearing the elite gate (pull/EV/barrel)"> Elite</button>
+    <button class="chip edge-chip" data-edge="power" aria-pressed="false" title="Only hitters with a PLUS HR-power profile (barrel / HR-swing)"> Power+</button>
     <button class="chip edge-chip" data-edge="zone" aria-pressed="false" title="Only hitters who crush a zone (vs today's arm)">◆ Zone edge</button>
-    <button class="chip edge-chip" data-edge="climate" aria-pressed="false" title="Only hitters with a warm/cold climate BOOST tonight">☀ Climate+</button>
+    <button class="chip edge-chip" data-edge="climate" aria-pressed="false" title="Only hitters with a warm/cold climate BOOST tonight"> Climate+</button>
     <button class="chip edge-chip" data-edge="mix" aria-pressed="false" title="Only hitters with a favorable pitch-mix matchup (60+)">◎ Mix+</button>
-    <button class="chip edge-chip" data-edge="late" aria-pressed="false" title="Only hitters in an elevated late-HR spot">⏱ Late-HR</button>
+    <button class="chip edge-chip" data-edge="late" aria-pressed="false" title="Only hitters in an elevated late-HR spot"> Late-HR</button>
     <button class="chip cov-fam-chip" id="covFam3" onclick="setCovFam(3)" aria-pressed="false" title="Only hitters with 3+ independent evidence families — backtested at 1.56x the base HR rate">◎ 3+ families</button>
     <button class="chip cov-fam-chip" id="covFam4" onclick="setCovFam(4)" aria-pressed="false" title="Only hitters with 4+ independent evidence families — backtested at 2.01x the base HR rate, the strongest signal in the app">◎ 4+ families</button>
     <button class="chip cov-fam-chip" id="bbe250" onclick="setBbe(250)" aria-pressed="false" title="Only hitters with 250+ batted balls this season. The same convergence signal reads 16.1% on 250+ BBE and 9.1% under 120 — below the base rate. Thin samples invert signals.">▣ 250+ BBE</button>
     <button class="chip cov-fam-chip" id="nearMiss2" onclick="setNearMiss(2)" aria-pressed="false" title="Only hitters with 2+ near misses — balls that died within 5ft of the wall at their own spray angle. Backtested at 12.2% vs 9.3% for hitters with none.">◇ 2+ near miss</button>
-    <button class="chip edge-chip" data-edge="eye" aria-pressed="false" title="Only disciplined hitters (elite eye or in-zone contact)">👁 Discipline</button>
+    <button class="chip edge-chip" data-edge="eye" aria-pressed="false" title="Only disciplined hitters (elite eye or in-zone contact)"> Discipline</button>
     <button class="chip edge-chip" data-edge="grade" aria-pressed="false" title="Only ELITE or STRONG matchup grades (4+ factors aligned)">Graded</button>
     <button id="listClearBtn" class="chip listclear" onclick="listClear()" title="Empty your list — asked automatically each new slate">Clear</button>
     <span id="shown" class="shown-count"></span>
@@ -2236,7 +2236,7 @@
       <h3>Confirmation tier — LOADED / STRONG / SOLID / LEAN / THIN</h3>
       <p>The pill next to a hitter's name isn't about sample size — it counts <b>how many of the six signals cleared their "good" anchor</b>. <b>LOADED</b> = 5–6 cleared, <b>STRONG</b> = 4, <b>SOLID</b> = 3, <b>LEAN</b> = 2, <b>THIN</b> = 0–1.</p>
       <p>Heat tells you <i>how hot</i>; the tier tells you <i>how many independent things agree</i>. A 68 Heat that's LOADED is a hitter where nearly everything is firing. A 68 Heat that's LEAN is one or two signals carrying the whole score — same number, more fragile. Use it as a breadth check before you commit.</p>
-      <p><b>Thin-data warning.</b> A signal can be <i>missing</i> rather than just low — a just-called-up or returning-from-injury hitter may not have data for every metric yet. When fewer than all six have real numbers, the score fills the blanks with a cautious "poor" baseline, and the card shows a <b>⚠ thin-data warning</b>. Treat that Heat as softer than it looks — it's resting partly on absence of evidence. This is why two hitters at the same Heat can be very different bets.</p>
+      <p><b>Thin-data warning.</b> A signal can be <i>missing</i> rather than just low — a just-called-up or returning-from-injury hitter may not have data for every metric yet. When fewer than all six have real numbers, the score fills the blanks with a cautious "poor" baseline, and the card shows a <b>Note: thin-data warning</b>. Treat that Heat as softer than it looks — it's resting partly on absence of evidence. This is why two hitters at the same Heat can be very different bets.</p>
 
       <h3>SMASH bar</h3>
       <p>When a hitter clears a high bar on multiple fronts at once — strong heat, several confirming reasons, a genuinely vulnerable spot — he gets flagged <b>SMASH</b> and appears in the morning briefing. It's deliberately rare (top few per slate). Treat it as "the model is unusually confident," not a guarantee. Still accumulating sample; check the Tracker before sizing anything off it.</p>
@@ -2254,17 +2254,17 @@
 
       <h3>Filters & sorting</h3>
       <p><b>Heat / Trend / BP / Bomb / Park / Name / Time</b> sort the list — <b>BP</b> ranks by how vulnerable the opposing bullpen is to each hitter's hand, <b>Bomb</b> ranks by raw long-ball ceiling (season max exit velo nudged by recent form; the "NNN EV" chip shows the ceiling), and <b>Park</b> ranks by today's park &amp; weather HR boost (the chip shows the % swing plus wind).</p>
-      <p><b>Edge filter chips</b> (⭐ Elite · 💣 Power+ · ◆ Zone edge · ☀ Climate+ · ◎ Mix+ · ⏱ Late-HR) narrow the board to hitters carrying specific edges, and <b>stack with AND logic</b> — tap several to drill to exactly the spot you want. They're dashed until active, solid orange when on, and clear with "Clear all."</p>
+      <p><b>Edge filter chips</b> ( Elite ·  Power+ · ◆ Zone edge ·  Climate+ · ◎ Mix+ ·  Late-HR) narrow the board to hitters carrying specific edges, and <b>stack with AND logic</b> — tap several to drill to exactly the spot you want. They're dashed until active, solid orange when on, and clear with "Clear all."</p>
 
       <h3>Park &amp; weather model</h3>
       <p>A separate, physics-based read — its own lens that <b>never touches the Heat score</b>. It flies each hitter's actual batted balls (exit velocity, launch angle, spray direction) through the real wall distances and heights of today's park, under today's temperature and wind, and counts how many clear the fence versus a neutral park. That gives a <b>per-hitter</b> boost, not a flat park factor: a dead-pull hitter gets more from a short porch on his side, and wind/heat scale with how often he already lives near the wall. Tap any row for the full read — expected HR per 100 batted balls here vs neutral, plus the conditions used. Two honest limits, shared by every public version of this (Ballpark Pal included): batted-ball backspin is estimated from launch conditions, not measured, and closed retractable roofs can't be detected, so treat it as a strong secondary signal — and for the final per-hitter precision, Ballpark Pal is still the authority.</p>
 
       <p><b>The 30-park read.</b> On the same expanded card, a <b>30-PARK</b> block takes the hitter's recent deep contact and flies it through all 30 MLB parks' walls under neutral air — pure geometry, no weather. It tells you how homer-friendly his contact is <i>park to park</i>: a guy whose clearing balls average 28 of 30 parks is "out almost anywhere," while one averaging 8-12 "needs a friendly park." It also shows how many of his deep balls clear <b>tonight's</b> park specifically, and how many are <b>park-dependent</b> (out in some parks but not others — the ones where the venue decides his night). Same principle as the boost above, but framed as fit rather than a percentage — useful for spotting a hitter whose power plays up or down badly in tonight's building.</p>
 
-      <p>In <b>⚙ Filters</b>: <b>Games</b> and <b>Teams</b> narrow to specific matchups or clubs, <b>Heat floor</b> (40/55/70+) cuts the long tail, <b>Opposing starter</b> drops strong SP so you only see hitters facing a vulnerable one, <b>Bats</b> shows one handedness, and <b>Traits</b> lets you tap any badge to show only hitters carrying it (tap several to stack them). Every filter combines, so you can stack (say) a vulnerable starter + weak bullpen sort + a trait + a team at once. <b>Hide small samples</b> drops hitters under ~25 PA in the window <i>or</i> whose score leans on missing signal data (fewer than 4 of the 6 signals have numbers).</p>
+      <p>In <b> Filters</b>: <b>Games</b> and <b>Teams</b> narrow to specific matchups or clubs, <b>Heat floor</b> (40/55/70+) cuts the long tail, <b>Opposing starter</b> drops strong SP so you only see hitters facing a vulnerable one, <b>Bats</b> shows one handedness, and <b>Traits</b> lets you tap any badge to show only hitters carrying it (tap several to stack them). Every filter combines, so you can stack (say) a vulnerable starter + weak bullpen sort + a trait + a team at once. <b>Hide small samples</b> drops hitters under ~25 PA in the window <i>or</i> whose score leans on missing signal data (fewer than 4 of the 6 signals have numbers).</p>
 
       <h3>Top Plays</h3>
-      <p><b>Top Plays</b> (panel up top on the Board) is your fast scan, now grouped by <b>angle</b> so you can see <i>why</i> each hitter is here. Categories: <b>SMASH</b> (everything converges), <b>◈ ZONE</b> (HRs in this arm’s meatball zones — the #1 signal), <b>🎯 Graded</b> (4+ matchup factors aligned), <b>💣 Bomb Score</b> (best composite matchups), plus Top Heat, Mix Edges, Owns the Arm, Risers, Complete and Due. Every row carries its signal chips — matchup grade, ZONE count, plate-discipline icons and Bomb Score — so you can judge a play without opening the card.</p>
+      <p><b>Top Plays</b> (panel up top on the Board) is your fast scan, now grouped by <b>angle</b> so you can see <i>why</i> each hitter is here. Categories: <b>SMASH</b> (everything converges), <b>◈ ZONE</b> (HRs in this arm’s meatball zones — the #1 signal), <b> Graded</b> (4+ matchup factors aligned), <b> Bomb Score</b> (best composite matchups), plus Top Heat, Mix Edges, Owns the Arm, Risers, Complete and Due. Every row carries its signal chips — matchup grade, ZONE count, plate-discipline icons and Bomb Score — so you can judge a play without opening the card.</p>
 
       <h3>Scan tab</h3>
       <p>The whole slate grouped <b>by game</b>, each scored 0–100 for how much edge/action it holds. Chips flag what's inside at a glance: hot hitters, +EV plays, a vulnerable arm, a gassed pen, climate boosts, late-HR spots, a high total, warm weather, wind blowing out. <b>Tap a game</b> and you get everything for that matchup in one screen: the arms ranked by vulnerability, the top hitters with their edge tags, a full <b>weather &amp; park</b> block (temp, wind interpreted as helps/suppresses HR, precip, humidity, roof), the <b>team stack</b> signal (which side has the denser cluster of hot bats), and the best +EV plays. This is where the old Weather and Stacks views now live.</p>
@@ -2278,7 +2278,7 @@
       <p>Every hitter's card now carries two HR-specific lenses, both <b>separate from Heat</b>. <b>Zone profile</b> — a mini 9-cell grid lighting up the zones he crushes (xwOBA ≥ .400) vs today's arm, so you see his damage zones without opening Edges. <b>HR power profile</b> — his raw over-the-fence contact: barrel%, HR-swing% (how often he takes a home-run-shaped swing), average fly-ball distance, and max distance. Flagged PLUS when the power is strong. Barrel rate and carry are the leading HR indicators, shown plainly.</p>
 
       <h3>Elite gate &amp; edge filters</h3>
-      <p>An <b>ELITE / ELITE+</b> chip appears by a hitter's name app-wide when he clears the four headline thresholds (pull-air ≥33%, EV ≥90, barrel ≥10%, plus ideal attack angle for the +). On the Board, the <b>edge filter chips</b> (⭐ Elite · 💣 Power+ · ◆ Zone edge · ☀ Climate+ · ◎ Mix+ · ⏱ Late-HR) let you narrow the slate to hitters carrying specific edges. They <b>stack with AND logic</b> — tap several to drill to your exact spot (e.g. Elite + Power+ + Zone edge = only the hitters clearing the gate who also have plus power and crush a zone their pitcher lives in). None of these touch Heat.</p>
+      <p>An <b>ELITE / ELITE+</b> chip appears by a hitter's name app-wide when he clears the four headline thresholds (pull-air ≥33%, EV ≥90, barrel ≥10%, plus ideal attack angle for the +). On the Board, the <b>edge filter chips</b> ( Elite ·  Power+ · ◆ Zone edge ·  Climate+ · ◎ Mix+ ·  Late-HR) let you narrow the slate to hitters carrying specific edges. They <b>stack with AND logic</b> — tap several to drill to your exact spot (e.g. Elite + Power+ + Zone edge = only the hitters clearing the gate who also have plus power and crush a zone their pitcher lives in). None of these touch Heat.</p>
 
       <h3>The pitcher</h3>
       <p><b>Arms Today</b> ranks starters by how shellable they are. Form labels: <b>SHELLABLE</b> (bad & getting worse — prime), <b>STEADY-BAD</b> (consistently hittable — still a target), <b>SLIPPING</b> (was fine, now cracking), <b>BAD-IMPROVING / BOUNCING-BACK</b> (downgrade — numbers improving), <b>DEALING</b> (avoid). <b>Arm badges</b> spell out the specific vulnerability behind the label: <b>HR PRONE</b> (gives up bombs), <b>BARRELED</b> (barreled ≥10%), <b>LOUD</b> (hard contact/high EV allowed), <b>PULL-AIR</b> (pulled fly balls allowed), <b>WEAK vs R/L</b> (which hand's taken him deep over 2yr — target those hitters), <b>VELO ↓</b> (velo trending down), <b>SLIPPING</b> (recent worse than season), <b>TOUGH</b> (low vulnerability — avoid). <b>Platoon</b> shows whether the arm gets hit harder by RHB or LHB, and the score vs your hitter's hand. <b>Opposing bullpen</b> shows the pen's HR-vulnerability and its split vs your hitter's hand.</p>
@@ -2344,7 +2344,7 @@
       <p>In Bets. The slate ranked for the <b>single longest home run</b> — but not on raw distance alone. Each hitter gets two scores that are blended: <b>distance</b> (how far if he connects — career-max ceiling over the last two seasons, plus fly-ball carry, barrel and exit velo) and <b>convergence</b> (how many <i>proven-lift</i> signals agree tonight). Convergence rewards signals that actually moved HR outcomes in the backtest and your tracker — power badges, zone-fit edges, heat band, barrel band, matchup grade and park factor — each weighted by its measured lift. So a 470ft ceiling with a POW badge (real +76% lift), a zone edge and a hot park outranks a 470ft ceiling with nothing corroborating it. Each row shows the final score, the distance/convergence split, and the converging signals with their measured lift %. A row tagged “ceiling only — no signals converge” has the raw pop but nothing backing it up tonight.</p>
 
       <h3>Matchup Grade — ELITE / STRONG / MOD / WEAK</h3>
-      <p>The per-hitter grade for <b>today's specific matchup</b>, by <b>factor convergence</b> rather than a weighted average. Five factors either align or they don't: <b>Power</b> (ISO — HIGH at .200, ELITE at .250), <b>Zone</b> (3+ overlap dots viable, 5+ premium), <b>Arm</b> (the opposing pitcher's HR Vulnerability tier), <b>Park</b> (1.05+ boost, 1.10+ premium), and <b>Form</b> (bat trending up). <b>4+ aligned = STRONG · all five with premium levels = ELITE.</b> The card shows a five-cell grid of exactly which factors hit. Plate discipline nudges the grade one step (elite eye up, chaser down) but never inflates a spot with nothing else going for it. Sort the board by Grade, or use the 🎯 Graded filter for ELITE/STRONG only.</p>
+      <p>The per-hitter grade for <b>today's specific matchup</b>, by <b>factor convergence</b> rather than a weighted average. Five factors either align or they don't: <b>Power</b> (ISO — HIGH at .200, ELITE at .250), <b>Zone</b> (3+ overlap dots viable, 5+ premium), <b>Arm</b> (the opposing pitcher's HR Vulnerability tier), <b>Park</b> (1.05+ boost, 1.10+ premium), and <b>Form</b> (bat trending up). <b>4+ aligned = STRONG · all five with premium levels = ELITE.</b> The card shows a five-cell grid of exactly which factors hit. Plate discipline nudges the grade one step (elite eye up, chaser down) but never inflates a spot with nothing else going for it. Sort the board by Grade, or use the  Graded filter for ELITE/STRONG only.</p>
 
       <h3>Bomb Score</h3>
       <p>The composite batter-vs-pitcher matchup score, 0–100 — this replaced the old raw max-exit-velo "Bomb" sort. Combines ISO, SLG, <b>zone overlap</b> (weighted heaviest), park factor, platoon edge, the opposing starter's ERA, a hot-bat bonus, and the pitcher's times-through-order fade. <b>≥55 high-priority, ≥65 elite.</b> Every component's 0–100 subscore is shown on the card so you can see what's driving the number.</p>
@@ -2359,7 +2359,7 @@
       <p>A 0–100 quality-of-contact score: how consistently a hitter squares the ball up. Built from Sweet Spot%, Barrel%, Hard Hit%, and average exit velo. <b>≥75 Elite · ≥60 Strong · ≥45 Average.</b> Separate from both Heat and HR power — it measures contact quality, not home-run shape specifically.</p>
 
       <h3>Plate discipline icons</h3>
-      <p>Three icons next to a hitter's name, from chase rate and in-zone contact percentiles: <b>👁 Eye</b> (chase rate in the top 25% — rarely chases, forces pitchers into the zone), <b>⊕ Crosshair</b> (in-zone contact in the top 25% — squares up strikes), <b>⚠ Warning</b> (bottom 25% chase rate — swings at everything). Eye and Crosshair together is the top-tier confirmation. Percentiles are <b>true MLB percentiles</b> computed over every qualified hitter in the season pull. These now <b>adjust HR probability in the parlay math</b> — Eye ×1.06, Crosshair ×1.05, Warning ×0.94.</p>
+      <p>Three icons next to a hitter's name, from chase rate and in-zone contact percentiles: <b> Eye</b> (chase rate in the top 25% — rarely chases, forces pitchers into the zone), <b>⊕ Crosshair</b> (in-zone contact in the top 25% — squares up strikes), <b>Note: Warning</b> (bottom 25% chase rate — swings at everything). Eye and Crosshair together is the top-tier confirmation. Percentiles are <b>true MLB percentiles</b> computed over every qualified hitter in the season pull. These now <b>adjust HR probability in the parlay math</b> — Eye ×1.06, Crosshair ×1.05, Warning ×0.94.</p>
 
       <h3>Statcast percentile card</h3>
       <p>A Savant-style bar chart in the expanded card ranking the hitter against <b>every qualified MLB hitter</b> — not just today's slate — across nine categories: Exit Velocity, Barrel%, Hard Hit%, xwOBA, Walk Rate, Chase Rate, Whiff%, Zone Contact% and K%. Computed from the full season pull, so these are real league percentiles. Chase, Whiff and K% are inverted so higher is always better. Red/orange across Exit Velo, Barrel% and Zone Contact% together = an elite power-contact hitter.</p>
@@ -2636,9 +2636,9 @@ function featureBlock(p){
   const pd=f.discipline;
   if(pd && (pd.chase_pctl!=null || pd.zcontact_pctl!=null)){
     const tags=[];
-    if(pd.eye) tags.push(`<b style="color:#4FD1C5">👁 elite eye</b>`);
+    if(pd.eye) tags.push(`<b style="color:#4FD1C5"> elite eye</b>`);
     if(pd.crosshair) tags.push(`<b style="color:#68D391">⊕ elite contact</b>`);
-    if(pd.warning) tags.push(`<b style="color:#FC8181">⚠ chaser</b>`);
+    if(pd.warning) tags.push(`<b style="color:#FC8181">Note: chaser</b>`);
     const bits=[];
     if(pd.chase_pct!=null) bits.push(`chase ${pd.chase_pct}% (${pd.chase_pctl}th pctl)`);
     if(pd.zcontact_pct!=null) bits.push(`z-contact ${pd.zcontact_pct}% (${pd.zcontact_pctl}th pctl)`);
@@ -2693,7 +2693,7 @@ function featureBlock(p){
     const good=edge>=0.030, bad=edge<=-0.030;
     const col=good?"var(--hot)":bad?"var(--cold)":"var(--muted)";
     rows+=`<div class="feat-row">
-      <div class="feat-hd"><b>${isDay?"☀️ Day game":"🌙 Night game"}</b> <span class="feat-sc" style="color:${col}">${good?"favorable":bad?"unfavorable":"neutral"}</span></div>
+      <div class="feat-hd"><b>${isDay?" Day game":" Night game"}</b> <span class="feat-sc" style="color:${col}">${good?"favorable":bad?"unfavorable":"neutral"}</span></div>
       <div class="feat-dt">Day ${dn.day.ops_proxy} OPS (${dn.day.pa} PA, ${dn.day.hr} HR) vs night ${dn.night.ops_proxy} (${dn.night.pa} PA, ${dn.night.hr} HR). ${good?`He's <b>${Math.round(edge*1000)}</b> OPS points better in tonight's condition.`:bad?`He's <b>${Math.round(Math.abs(edge)*1000)}</b> OPS points worse in tonight's condition.`:"No meaningful gap between conditions."}</div>
     </div>`;
   }
@@ -2925,7 +2925,7 @@ function tierBlock(p){
   const present = bd.present!=null ? bd.present : keys.length;
   const thinData = present < 6;
   const thinWarn = thinData
-    ? `<div class="tierbox-thin">⚠ Only <b>${present} of 6</b> signals have data — the score fills the blanks with a neutral estimate, so treat this heat as <b>softer than it looks</b> until his sample fills in.</div>`
+    ? `<div class="tierbox-thin">Note: Only <b>${present} of 6</b> signals have data — the score fills the blanks with a neutral estimate, so treat this heat as <b>softer than it looks</b> until his sample fills in.</div>`
     : "";
   return `<div class="tierbox">
     <div class="tierbox-h"><span class="tier ${t}">${t}</span>
@@ -2977,9 +2977,9 @@ function gradePill(p){
 function disciplineIcons(p){
   const d=(p.features||{}).discipline; if(!d) return "";
   const out=[];
-  if(d.eye) out.push(`<span class="pd-ic eye" title="Elite plate discipline — chase rate ${d.chase_pct}% (${d.chase_pctl}th pctl). Rarely chases; forces pitchers into the zone. +HR probability.">👁</span>`);
+  if(d.eye) out.push(`<span class="pd-ic eye" title="Elite plate discipline — chase rate ${d.chase_pct}% (${d.chase_pctl}th pctl). Rarely chases; forces pitchers into the zone. +HR probability."></span>`);
   if(d.crosshair) out.push(`<span class="pd-ic cross" title="Elite in-zone contact — ${d.zcontact_pct}% (${d.zcontact_pctl}th pctl). Squares up strikes at a top rate. +HR probability.">⊕</span>`);
-  if(d.warning) out.push(`<span class="pd-ic warn" title="High chaser — chase rate ${d.chase_pct}% (${d.chase_pctl}th pctl). Swings outside the zone often. −HR probability.">⚠</span>`);
+  if(d.warning) out.push(`<span class="pd-ic warn" title="High chaser — chase rate ${d.chase_pct}% (${d.chase_pctl}th pctl). Swings outside the zone often. −HR probability.">Note:</span>`);
   return out.length?`<span class="pd-icons">${out.join("")}</span>`:"";
 }
 function eliteChip(p){
@@ -3278,7 +3278,7 @@ function slateStrip(){
   const wxbits=[];
   if(wind) wxbits.push(`<span class="ss-wx" title="wind blowing out">↗ ${wind} wind out</span>`);
   if(hot)  wxbits.push(`<span class="ss-wx" title="hot — ball carries">▲ ${hot} hot</span>`);
-  if(rain) wxbits.push(`<span class="ss-wx ss-rain" title="rain risk">☂ ${rain} rain risk</span>`);
+  if(rain) wxbits.push(`<span class="ss-wx ss-rain" title="rain risk"> ${rain} rain risk</span>`);
   const smashN=(typeof slateSmash==="function")?(slateSmash().size||0):0;
   return `<div class="slatestrip">
     <div class="ss-row">
@@ -4162,10 +4162,10 @@ function sortChips(){
 }
 // U2 — one-tap filter presets. Each sets a whole combo and keeps the filter sheet in sync.
 const PRESETS={
-  hot:{label:"🔥 Hot 70+", set:()=>{minHeat=70;}},
-  elite:{label:"⭐ ELITE", set:()=>{gradeMin="ELITE";}},
+  hot:{label:" Hot 70+", set:()=>{minHeat=70;}},
+  elite:{label:" ELITE", set:()=>{gradeMin="ELITE";}},
   zone:{label:"◆ Zone 5+", set:()=>{zoneMin=5;}},
-  bomb:{label:"💣 Bomb 65+", set:()=>{bombMin=65;}},
+  bomb:{label:" Bomb 65+", set:()=>{bombMin=65;}},
   combo:{label:"Hot + ELITE", set:()=>{minHeat=55;gradeMin="ELITE";}},
 };
 function presetChips(){
@@ -4497,10 +4497,10 @@ function render(){
     const cats=[
       {t:'<span class="clearflag" style="font-size:9.5px">SMASH</span>',d:"everything converges — the day's calls",ps:smashTop,note:p=>{const sm=smashSet.get(p.id);return sm?sm.reasons.slice(0,4).join(" · "):"";}},
       {t:'<span style="color:#F5A623">◈ ZONE</span>',d:"HRs in this arm's meatball zones — the #1 signal",ps:zoneTop,note:p=>{const o=(((p.features||{}).zone_profile||{}).overlap)||{};return o.count?`${o.count} HR in zones ${(o.cells||[]).join(", ")} — exactly where ${((p.features||{}).zone_profile||{}).vs_arm||"this arm"} gets hurt`:"";}},
-      {t:"🎯 Graded",d:"4+ factors aligned for today",ps:gradeTop,note:p=>{const m=p.matchup_grade||{};return m.notes&&m.notes.length?`${m.grade} · ${m.notes.join(" · ")}`:"";}},
-      {t:"💣 Bomb Score",d:"best composite matchups",ps:bombTop,note:p=>{const b=p.bomb_score||{};const pt=b.parts||{};const bits=[];if(pt.zone!=null)bits.push(`zone ${pt.zone}`);if(pt.iso!=null)bits.push(`ISO ${pt.iso}`);if(pt.era!=null)bits.push(`arm ${pt.era}`);return b.score!=null?`${b.score} — ${bits.join(" · ")}`:"";}},
+      {t:" Graded",d:"4+ factors aligned for today",ps:gradeTop,note:p=>{const m=p.matchup_grade||{};return m.notes&&m.notes.length?`${m.grade} · ${m.notes.join(" · ")}`:"";}},
+      {t:" Bomb Score",d:"best composite matchups",ps:bombTop,note:p=>{const b=p.bomb_score||{};const pt=b.parts||{};const bits=[];if(pt.zone!=null)bits.push(`zone ${pt.zone}`);if(pt.iso!=null)bits.push(`ISO ${pt.iso}`);if(pt.era!=null)bits.push(`arm ${pt.era}`);return b.score!=null?`${b.score} — ${bits.join(" · ")}`:"";}},
       {t:"Top Heat",d:"highest overall",ps:heatTop},
-      {t:"⚙ Mix Edges",d:"climb vs this arm's mix",ps:mixTop,mix:true},
+      {t:" Mix Edges",d:"climb vs this arm's mix",ps:mixTop,mix:true},
       {t:"● Owns the Arm",d:"has homered off today's SP or pen",ps:bvpTop},
       {t:"▲ Risers",d:"contact trending up",ps:riseTop},
       {t:"◆ Complete",d:"clear all four signals",ps:compTop},
@@ -5333,8 +5333,8 @@ function renderJackpot(){
   const sortKeyJ = jackpotView==="value" ? "value" : "winScore";
   cands.sort((a,b)=>b.j[sortKeyJ]-a.j[sortKeyJ]);
   const tabs=`<div class="sortchips"><button class="sortchip${jackpotView==='win'?' on':''}" onclick="jackpotView='win';renderJackpot()">Best shot to win</button><button class="sortchip${jackpotView==='value'?' on':''}" onclick="jackpotView='value';renderJackpot()">Best leverage</button></div>`;
-  const lev=j=> j.leverage>=1.9?["🎯🎯","var(--hot)","low-profile — big payout if he wins"]
-              : j.leverage>=1.3?["🎯","var(--seam)","moderately under-the-radar"]
+  const lev=j=> j.leverage>=1.9?["","var(--hot)","low-profile — big payout if he wins"]
+              : j.leverage>=1.3?["","var(--seam)","moderately under-the-radar"]
               : ["chalk","var(--muted)","obvious pick — small payout share"];
   const row=(x,i)=>{
     const j=x.j, p=x.p, [lg,lc,lt]=lev(j);
@@ -5348,10 +5348,10 @@ function renderJackpot(){
     </div>`;
   };
   const blurb = jackpotView==="value"
-    ? `Ranked by <b>leverage</b> — big distance ceiling on a bat the crowd is likely to overlook. If one of these hits the day's longest, you split the pool with far fewer people (the difference between $50,000 and $695 in the app). 🎯🎯 = the real long shots at a huge share.`
+    ? `Ranked by <b>leverage</b> — big distance ceiling on a bat the crowd is likely to overlook. If one of these hits the day's longest, you split the pool with far fewer people (the difference between $50,000 and $695 in the app).  = the real long shots at a huge share.`
     : `Ranked by <b>best shot to win</b> — most likely to actually hit the longest HR of the day (raw ceiling × chance he homers × carry conditions). These are the safest to be right; check the leverage tab for the ones that pay the most.`;
   main.innerHTML=`<div style="max-width:760px;margin:0 auto">
-    <div class="q-head"><b>🎯 Long Ball Jackpot</b><span class="beta-pill">${cands.length} live ceilings</span></div>
+    <div class="q-head"><b> Long Ball Jackpot</b><span class="beta-pill">${cands.length} live ceilings</span></div>
     <div class="q-sub">For the "longest HR of the day" pool. The number is each hitter's <b>distance ceiling</b> (his longest recent batted ball) — to win, you need the day's longest, so ceiling is almost everything. ${blurb}</div>
     ${tabs}
     ${cands.slice(0,40).map(row).join("")}
@@ -5385,7 +5385,7 @@ function evCrossCheck(e){
   if(!p){ verdict="game"; label="game-model play"; color="var(--muted)"; }
   else if(lean>=3){ verdict="strong"; label="model agrees ✓✓"; color="var(--good)"; }
   else if(lean>=1){ verdict="lean"; label="model leans in ✓"; color="var(--good)"; }
-  else if(lean<=-2){ verdict="fade"; label="model disagrees ⚠"; color="var(--bad)"; }
+  else if(lean<=-2){ verdict="fade"; label="model disagrees Note:"; color="var(--bad)"; }
   else { verdict="neutral"; label="+EV only · model neutral"; color="var(--warm)"; }
   return {verdict, label, color, bestLift, bestLabel, bits};
 }
@@ -5632,7 +5632,7 @@ function renderEdges(){
     <button class="${edgesView==='late'?'on':''}" onclick="setEdgesView('late')">Late-HR</button>
   </div>`;
   const hd=`<div class="edges-hd"><h2>Edges <span class="beta-pill">BETA</span></h2></div>`;
-  const note=`<div class="edges-note">⚠︎ Experimental signals, not yet CLV-validated. These reconstruct matchups the market undersamples. Treat as leads — log a bet if you act, so the tracker can prove or kill the edge over time.</div>`;
+  const note=`<div class="edges-note">Note: Experimental signals, not yet CLV-validated. These reconstruct matchups the market undersamples. Treat as leads — log a bet if you act, so the tracker can prove or kill the edge over time.</div>`;
 
   if(edgesView==="qt"){
     // QUICK TARGET: the top-4 most dangerous batting-order spots vs each arm on the slate,
@@ -5696,7 +5696,7 @@ function renderEdges(){
         if(lp.n_out!=null||lp.n_tired!=null){
           stats.push(`<span title="From MLB boxscore pitch counts over the last 3 days — more direct than inferring appearances from the Statcast frame">box: ${lp.n_out||0} out / ${lp.n_tired||0} tired</span>`);
         }
-        if(lp.disagrees) stats.push(`<span class="pen-flag" title="The two availability sources disagree — treat tonight's pen read as uncertain">⚠ ${lp.disagrees}</span>`);
+        if(lp.disagrees) stats.push(`<span class="pen-flag" title="The two availability sources disagree — treat tonight's pen read as uncertain">Note: ${lp.disagrees}</span>`);
       }
       const pl=p.platoon;
       if(pl&&pl.worse&&pl.gap!=null&&pl.gap>=8) stats.push(`vs ${pl.worse==="R"?"RHB":"LHB"} <b style="color:var(--seam)">+${pl.gap}</b>`);
@@ -6091,7 +6091,7 @@ function edgesDrilldown(p){
     <div class="edge-dd-help">
       <b>How to read this:</b> the number by each batter is his <b>zone-match score</b> — his average xwOBA in exactly the cells this pitcher throws to most (higher = worse matchup for the arm). The <b>badge</b> is how many zones he crushes (xwOBA ≥ .400 on 6+ balls). The arm's own rank comes from how much its top opponents punish its favorite zones.
     </div>
-    <div class="edges-note" style="margin-top:12px">⚠︎ Beta signal — a spatial matchup the market doesn't price directly. Zone stats need sample; low-sample cells are hidden. Not yet CLV-validated.</div>
+    <div class="edges-note" style="margin-top:12px">Note: Beta signal — a spatial matchup the market doesn't price directly. Zone stats need sample; low-sample cells are hidden. Not yet CLV-validated.</div>
   </div>`;
 }
 
@@ -6476,10 +6476,10 @@ function renderEdge(){
       // auto-fill status banner: tells the user prices are being filled from their books,
       // and warns if the data is stale (last fetch failed) or old.
       if(!ODDS) return "";
-      if(!oddsMatchSlate()) return `<div class="odds-status warn">⚠ Auto-filled odds are from a different slate — enter prices manually today.</div>`;
+      if(!oddsMatchSlate()) return `<div class="odds-status warn">Note: Auto-filled odds are from a different slate — enter prices manually today.</div>`;
       const age=oddsAgeMin();
       const n=ODDS.count||0;
-      if(oddsStale()) return `<div class="odds-status warn">⚠ Book odds may be stale — the last refresh didn't go through${age!=null?`, showing prices from ${age} min ago`:""}. Double-check before betting.</div>`;
+      if(oddsStale()) return `<div class="odds-status warn">Note: Book odds may be stale — the last refresh didn't go through${age!=null?`, showing prices from ${age} min ago`:""}. Double-check before betting.</div>`;
       if(n>0) return `<div class="odds-status ok">✓ Prices auto-filled from DraftKings & Fanatics (best of the two), with FanDuel as a labeled backup for hitters they didn't post${age!=null&&age<180?` · updated ${age} min ago`:""}. Type over any price to override.</div>`;
       return `<div class="odds-status">Book odds not posted yet — enter prices manually, or check back closer to game time.</div>`;
     })()}
@@ -6553,8 +6553,8 @@ function renderBets(){
       <button class="${betsView==='clv'?'on':''}" onclick="setBetsView('clv')">CLV</button>
     </div>
     <div class="bk-row">
-      <button class="chip" onclick="exportData()">⬇ Backup bets</button>
-      <button class="chip" onclick="document.getElementById('impFile').click()">⬆ Restore</button>
+      <button class="chip" onclick="exportData()">Down Backup bets</button>
+      <button class="chip" onclick="document.getElementById('impFile').click()">Up Restore</button>
       <input type="file" id="impFile" accept=".json" hidden onchange="importData(this)"/>
       <span class="bk-note">your bet log lives on this phone only — back it up</span>
     </div>
@@ -7409,7 +7409,7 @@ function renderTopPicks(){
     </div>`;
   };
   main.innerHTML=`<div style="max-width:760px;margin:0 auto">
-    <div class="q-head"><b>⚡ Top Picks</b><span class="beta-pill">${picks.length}</span></div>
+    <div class="q-head"><b> Top Picks</b><span class="beta-pill">${picks.length}</span></div>
     <div class="q-sub">Every prop — HR, hits, HRR, strikeouts — in <b>one list, most likely to hit first</b>. The number is the model's calibrated chance the bet cashes; the ●●● dots are how much of everything else (backtested lift, matchup grade, zone, park, heat, arm) backs it up. Short on time? Start at the top. Hits and K-overs naturally rank highest because they hit most often — tap a type to see the best of just that market.</div>
     ${chips}
     ${picks.slice(0,60).map(row).join("")}
@@ -7972,7 +7972,7 @@ function renderParlays(){
     const shown=tags.slice(0,3);
     return `<div class="pl-leg">
       <div class="pl-leg-main"><b>${p.name}</b> <span class="pl-meta">${p.team}→${p.opp_team} · ${timeStr(p.time)}${p.why?` · ${p.why}`:""}</span>${shown.length?`<div class="pl-tags">${shown.join("")}</div>`:""}</div>
-      <button class="pl-lock ${PGEN.locked.includes(p.id)?'on':''}" onclick="event.stopPropagation();pgenToggleLock(${p.id})" title="lock into Build Your Own">${PGEN.locked.includes(p.id)?"🔒":"✎"}</button>
+      <button class="pl-lock ${PGEN.locked.includes(p.id)?'on':''}" onclick="event.stopPropagation();pgenToggleLock(${p.id})" title="lock into Build Your Own">${PGEN.locked.includes(p.id)?"Lock":"Edit"}</button>
       <div class="pl-leg-prob">${(p._prob*100).toFixed(0)}%<span>${americanFair(p._prob)}</span></div>
     </div>`;
   };
@@ -8063,13 +8063,13 @@ function renderParlays(){
           const p=ranked.find(x=>x.id===id); const nm=p?p.name:("#"+id);
           return `<button class="pg-chip" onclick="pgenToggleLock(${id})">${nm} ✕</button>`;
         }).join("")}<button class="pg-clear" onclick="pgenClear()">clear all</button></div>`
-      : `<div class="pg-locked pg-locked-empty">Tap ✎ on any hitter below to lock them into every generated parlay.</div>`;
+      : `<div class="pg-locked pg-locked-empty">Tap Edit on any hitter below to lock them into every generated parlay.</div>`;
 
     // build the result
     const res=pgenBuild(ranked);
     let resultHTML;
     if(res.error){
-      resultHTML=`<div class="pg-result pg-err">⚠ ${res.error}</div>`;
+      resultHTML=`<div class="pg-result pg-err">Note: ${res.error}</div>`;
     } else {
       const {picks,ev,allPriced,dec,mp}=res;
       const am = allPriced ? ((dec>=2)?("+"+Math.round((dec-1)*100)):("−"+Math.round(100/(dec-1)))) : null;
@@ -8079,7 +8079,7 @@ function renderParlays(){
       const legsHTML=picks.map(p=>{
         const e=fetchedOddsFor(p.id);
         const priceTag = e&&e.best!=null ? `<span class="pl-tag lb">${fmtAm(e.best)}${e.fallback?" · FD ref":""}</span>` : `<span class="pl-tag warn">no price</span>`;
-        const lockTag = s.locked.includes(p.id) ? `<span class="pl-tag tg">🔒 locked</span>` : null;
+        const lockTag = s.locked.includes(p.id) ? `<span class="pl-tag tg">Locked</span>` : null;
         return leg(p, lockTag || priceTag);
       }).join("");
       resultHTML=`
@@ -8096,7 +8096,7 @@ function renderParlays(){
     }
 
     return `<div class="pl-card pg-card">
-      <div class="pl-card-h"><b>⚙ Build Your Own</b><span class="pg-title-sub">set the rules, lock your guys</span></div>
+      <div class="pl-card-h"><b> Build Your Own</b><span class="pg-title-sub">set the rules, lock your guys</span></div>
       <div class="pg-controls">
         <label class="pg-row"><span>Legs</span>${seg("legs",[{l:"2",v:2},{l:"3",v:3},{l:"4",v:4},{l:"5",v:5}])}</label>
         <label class="pg-row"><span>Heat floor</span>${seg("heatFloor",[{l:"any",v:0},{l:"40+",v:40},{l:"55+",v:55},{l:"70+",v:70}])}</label>
@@ -8247,7 +8247,7 @@ function renderParlays(){
         <div class="pl-card-d">The 3 hitters most likely to hit a grand slam tonight — ranked by traffic (bases loaded when they bat) × punish (can they golf a grooved in-zone fastball). A slam needs both: ducks on the pond AND a masher who capitalizes.</div></div>
       ${picks.map(leg2).join("")}
       <div class="pl-gs-legend">Each shows <b>GS score</b> (0-100), the drivers, and the elite tier. Traffic comes from the on-base bats ahead in the order + the starter's wildness; punish from barrel/EV/pull and in-zone fastball damage.</div>
-      <div class="pl-foot">⚠︎ Experimental — grand slams are rare and high-variance by nature; this ranks relative likelihood, not a real probability. A lottery ticket, sized accordingly. Not CLV-validated.</div>
+      <div class="pl-foot">Note: Experimental — grand slams are rare and high-variance by nature; this ranks relative likelihood, not a real probability. A lottery ticket, sized accordingly. Not CLV-validated.</div>
     </div>`;
   };
 
@@ -9178,7 +9178,7 @@ function propParlayHTML(){
     (c)=>`Combined ${(c.prob*100).toFixed(1)}% — a longshot on purpose. Only worth it because each leg is individually +EV; bet what you'd tip.`);
 
   const cards=[c2,c1,c3].filter(Boolean).join("");
-  return `<div class="pl-intro-note">Prop parlays built from tonight's priced +EV legs — hits, HRR, pitcher Ks, HR, and game lines. Combined odds and the <b>honest</b> combined probability are shown so you see the real risk. Legs are spread one-per-game to avoid correlation. ⚠︎ Parlays are −EV structurally for most bettors; these only surface when the individual legs carry edge, and even then the combined chance is small.</div>
+  return `<div class="pl-intro-note">Prop parlays built from tonight's priced +EV legs — hits, HRR, pitcher Ks, HR, and game lines. Combined odds and the <b>honest</b> combined probability are shown so you see the real risk. Legs are spread one-per-game to avoid correlation. Note: Parlays are −EV structurally for most bettors; these only surface when the individual legs carry edge, and even then the combined chance is small.</div>
     ${cards||'<div class="empty">Couldn\'t assemble parlays from the current priced legs.</div>'}`;
 }
 
@@ -9625,7 +9625,7 @@ function renderTargets(){
         <span class="tg-bn">${b.name}</span>
         <span class="tg-bh">${b.heat!=null?Math.round(b.heat):"—"}${b.spot?` <i>#${b.spot}</i>`:""}</span>
       </button>`).join("");
-    const flags=(r.flags||[]).map(f=>`<span class="tg-flag">⚠ ${f}</span>`).join("");
+    const flags=(r.flags||[]).map(f=>`<span class="tg-flag">Note: ${f}</span>`).join("");
     return `<div class="tg-row" onclick="filterToGame(${r.game_pk})">
       <div class="tg-top">
         <div class="tg-l">
@@ -9904,7 +9904,7 @@ function renderTracker(){
     <div class="trk-sum"><b>${days.length}</b> days graded · <b>${homered}</b> of ${players} ranked hitters homered ·
       <b>${tot}</b> HR total · <b>${sp}</b> off starters / <b>${bp}</b> off the pen
       ${tot?`(${(100*sp/tot).toFixed(0)}% SP)`:""}</div>
-    ${acc("⚖︎ Model vs baselines","The real test: does Heat beat just sorting by ISO or barrel%? It has to clear these to have edge.",
+    ${acc(" Model vs baselines","The real test: does Heat beat just sorting by ISO or barrel%? It has to clear these to have edge.",
       (cmpRows||'<div class="ln" style="color:var(--muted)">— needs a few graded days —</div>')+verdict, true)}
     ${acc("◈ New signals — measured","Every edge added beyond the core model, graded against reality. Lift above 1.00 means the signal is finding home runs.",
       (()=>{

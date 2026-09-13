@@ -1,0 +1,52 @@
+/* GOING design foundation: shared by hub, sports and private results. */
+:root{--going-bg:#101713;--going-panel:#18221c;--going-border:#35443a;--going-text:#f2f4ed;--going-muted:#adbbb1;--going-accent:#f28a50;--going-font:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--going-header-height:76px}
+body[data-going-workspace]{background:var(--going-bg);color:var(--going-text);font-family:var(--going-font);-webkit-font-smoothing:antialiased}
+body[data-going-workspace] :is(h1,h2,h3,h4,button,input,select){font-family:var(--going-font)}
+body[data-going-workspace] :focus-visible{outline:3px solid var(--going-accent);outline-offset:3px}
+#going-shell{position:sticky;top:0;z-index:45;width:100%;background:#101713f5;border-bottom:1px solid var(--going-border);backdrop-filter:blur(16px);padding:0;margin:0;box-sizing:border-box}
+#going-shell *{box-sizing:border-box}
+#going-shell .going-shell-inner{max-width:1440px;min-height:76px;padding:12px 28px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:24px}
+#going-shell .going-wordmark{position:relative;display:inline-flex;align-items:baseline;gap:6px;min-height:44px;padding:5px 0 10px;flex-shrink:0;color:var(--going-text);text-decoration:none;font:900 27px/1.15 Arial,Helvetica,sans-serif;letter-spacing:-1.5px;margin:0;border:0;background:none}
+#going-shell .going-wordmark-sport{color:var(--going-accent);font:inherit;letter-spacing:inherit}
+#going-shell .going-wordmark i{position:absolute;left:1px;bottom:3px;width:28px;height:3px;background:var(--going-accent);transform:skewX(-20deg)}
+#going-shell .going-global-nav{display:flex;align-items:center;gap:5px;flex-wrap:nowrap;margin:0;padding:0;border:0;background:none}
+#going-shell .going-global-nav a{display:flex;align-items:center;justify-content:center;min-height:44px;padding:10px 15px;border:1px solid transparent;border-radius:8px;font:600 13px/1.2 var(--going-font);letter-spacing:0;text-decoration:none;color:var(--going-muted);margin:0;white-space:nowrap;background:none}
+#going-shell .going-global-nav a:hover{background:#1e2b22;color:var(--going-text)}
+#going-shell .going-global-nav a[aria-current=page]{border-color:#63503e;background:#2c291e;color:#ffc29b}
+body[data-going-workspace] :is(.sig-card,.bt-game,.panel,.going-card){border-color:var(--going-border);border-radius:12px}
+body[data-going-workspace] :is(.sig-card,.panel,.going-card){background:var(--going-panel)}
+body[data-going-workspace] :is(.pos-group button,.sortchip,.going-section button){min-height:44px;border-radius:8px}
+body[data-going-workspace] :is(.pos-group button[aria-pressed=true],.going-section button[aria-pressed=true]){background:#f28a50;color:#111813;border-color:#f28a50}
+body[data-going-workspace=home] main{padding-top:28px}
+body[data-going-workspace=home] .top{display:none}
+body[data-going-workspace=home] .wordmark{font-family:Arial,Helvetica,sans-serif;color:var(--going-text)}
+body[data-going-workspace=home] .wordmark::after{background:var(--going-accent)}
+body[data-going-workspace=home] .sport{background:var(--going-panel);border-color:var(--going-border)}
+body[data-going-workspace=home] .actions a:first-child{background:var(--going-accent);border-color:var(--going-accent)}
+body[data-going-workspace=long] .bt-brand{display:none!important}
+body[data-going-workspace=long] .bt-head{top:var(--going-header-height);background:var(--going-bg);border-color:var(--going-border)}
+body[data-going-workspace=long] #glNav{background:var(--going-bg);border-color:var(--going-border)}
+body[data-going-workspace=long] #glNav button{font-family:var(--going-font);letter-spacing:0;text-transform:none}
+body[data-going-workspace=long] #glNav button[aria-current]{color:var(--going-accent)}
+body[data-going-workspace=yard] .going-platform-nav{max-width:1440px;margin:auto;padding:10px 28px;border-bottom:1px solid var(--going-border);background:var(--going-bg)}
+body[data-going-workspace=yard] .going-platform-nav .going-logo{display:none}
+body[data-going-workspace=yard] .going-platform-nav button{font:600 13px var(--going-font);min-height:44px;background:#1b281f;border-color:var(--going-border);border-radius:8px}
+body[data-going-workspace=yard]>header{top:var(--going-header-height);background:var(--going-bg);border-color:var(--going-border)}
+body[data-going-workspace=yard] .brand-mark{display:none}
+body[data-going-workspace=yard] .brand-copy{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+body[data-going-workspace=yard] .brand .stamp{margin-right:auto}
+body[data-going-workspace=yard] #tabbar{background:var(--going-bg);border-color:var(--going-border)}
+body[data-going-workspace=results] main>nav{display:none}
+body[data-going-workspace=results] main>header{padding:30px 0 16px}
+body[data-going-workspace=results] button{background:var(--going-accent);border-color:var(--going-accent)}
+body[data-going-workspace=results] .panel{border-color:var(--going-border)}
+@media(min-width:760px){body[data-going-workspace=long] #glNav{top:var(--going-header-height)}}
+@media(max-width:600px){#going-shell .going-shell-inner{padding:10px 16px 8px;min-height:104px;gap:4px;flex-wrap:wrap}#going-shell .going-wordmark{font-size:25px;min-height:44px}#going-shell .going-global-nav{width:100%;justify-content:space-between;gap:2px}#going-shell .going-global-nav a{padding:10px 12px;flex:1;font-size:12px}body[data-going-workspace=yard] .going-platform-nav{padding:10px 14px}body[data-going-workspace=long] .bt-head{display:flex;flex-wrap:wrap}body[data-going-workspace=long] #btSportGroup{margin-right:auto}}
+@media(prefers-reduced-motion:reduce){#going-shell *{transition:none!important}}
+
+body[data-going-workspace=yard] .thead{top:calc(var(--hh,200px) + var(--going-header-height))}
+@media(min-width:700px){body[data-going-workspace=long] .cfg-sheet{top:calc(var(--going-header-height) + 60px);max-height:calc(100vh - var(--going-header-height) - 90px)}}
+
+body[data-going-workspace=long] #glNav .ic{display:none}
+body[data-going-workspace=long] #btTabGroup{display:flex!important;flex-wrap:nowrap;width:100%;overflow-x:auto;scrollbar-width:none}
+body[data-going-workspace=long] #btTabGroup button{flex:0 0 auto;white-space:nowrap}
