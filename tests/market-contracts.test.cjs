@@ -1,0 +1,6 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
+const source=fs.readFileSync(path.join(__dirname,'../docs/index.html'),'utf8');
+function fn(name){const start=source.indexOf('function '+name+'(');return source.slice(start,source.indexOf('\n}',start)+2);}
+function quote(prop,line){const ctx={ODDS:{props:{hits:{player:{line,over:2,under:2}},hrr:{player:{line,over:2,under:2}},pk:{player:{line,over:2,under:2}}}},oddsMatchSlate:()=>true,normName:()=> 'player',decimalToAmerican:x=>100*(x-1)};vm.createContext(ctx);vm.runInContext(fn('propPriceDecimal')+'\n'+fn('fetchedPropFor'),ctx);return ctx.fetchedPropFor(prop,'Player');}
+test('Hit and combined hit/run/RBI probabilities require their exact supported lines',()=>{for(const prop of ['hit','hits']){assert.ok(quote(prop,.5));for(const line of [1.5,2.5,0,null,'',NaN])assert.equal(quote(prop,line),null);}assert.ok(quote('hrr',1.5));assert.equal(quote('hrr',.5),null);assert.equal(quote('hrr',2.5),null);});
+test('Strikeout quotes retain real half-point thresholds and reject refund contracts',()=>{assert.ok(quote('pk',6.5));assert.ok(quote('k','4.5'));for(const line of [6,0,-1,Infinity,null])assert.equal(quote('pk',line),null);});

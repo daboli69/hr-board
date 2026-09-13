@@ -8557,6 +8557,11 @@ function fetchedPropFor(prop, name){
   if(!bucket) return null;
   const e = bucket[normName(name)];
   if(!e) return null;
+  // These probability models price exact half-point contracts; integer lines need refund math.
+  const line = e.line == null || String(e.line).trim() === "" ? NaN : Number(e.line);
+  const expected = {hit:0.5,hits:0.5,hrr:1.5}[prop];
+  if(!Number.isFinite(line) || line < 0 || (expected != null && line !== expected)) return null;
+  if(["k","pk"].includes(prop) && !Number.isInteger(line - 0.5)) return null;
   const over=propPriceDecimal(e.over), under=propPriceDecimal(e.under);
   if(over==null&&under==null) return null;
   return Object.assign({},e,{over,under,

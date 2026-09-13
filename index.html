@@ -7517,6 +7517,12 @@ function fetchedPropFor(prop, name){
   const bucket = ODDS.props[map[prop]||prop];
   if(!bucket) return null;
   const e = bucket[normName(name)];
+  if(!e) return null;
+  // These probability models price exact half-point contracts; integer lines need refund math.
+  const line = e.line == null || String(e.line).trim() === "" ? NaN : Number(e.line);
+  const expected = {hit:0.5,hits:0.5,hrr:1.5}[prop];
+  if(!Number.isFinite(line) || line < 0 || (expected != null && line !== expected)) return null;
+  if(["k","pk"].includes(prop) && !Number.isInteger(line - 0.5)) return null;
   return e || null;
 }
 // EV per $1 for a side given model probability of the OVER and the book prices.
