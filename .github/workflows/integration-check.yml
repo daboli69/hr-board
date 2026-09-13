@@ -72,6 +72,7 @@ jobs:
         run: |
           python tests/test_game_identity.py
           python tests/test_pregame_records.py
+          python tests/test_frozen_grading.py
 
       - name: Integration verification
         id: integ
