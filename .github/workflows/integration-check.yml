@@ -68,6 +68,9 @@ jobs:
       - name: Exact market contract checks
         run: node --test tests/*.test.cjs
 
+      - name: Game identity regression checks
+        run: python tests/test_game_identity.py
+
       - name: Integration verification
         id: integ
         run: |

@@ -6916,7 +6916,7 @@ def main():
             "parlay_picks": parlay_picks,
             "pitcher_props": board.get("pitcher_props", []),
             "players": [{
-                "id": p["id"], "name": p["name"], "team": p["team"],
+                "id": p["id"], "name": p["name"], "team": p["team"], "game_pk": p.get("game_pk"),
                 "heat": p["heat"], "tier": p.get("tier"), "cleared": p.get("cleared"),
                 "signals": p["score_breakdown"].get("signals", {}),
                 "opp_form": (p["opp_pitcher"].get("form") or {}).get("label"),

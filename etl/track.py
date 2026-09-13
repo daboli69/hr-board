@@ -37,7 +37,7 @@ def _load_day(date):
             b = json.load(f)
         if b.get("slate_date") == date:
             return [{
-                "id": p["id"], "name": p["name"], "team": p.get("team"),
+                "id": p["id"], "name": p["name"], "team": p.get("team"), "game_pk": p.get("game_pk"),
                 "heat": p.get("heat"), "tier": p.get("tier"),
                 "signals": p.get("score_breakdown", {}).get("signals", {}),
                 "opp_form": (p.get("opp_pitcher") or {}).get("form", {}).get("label"),
@@ -246,6 +246,41 @@ def _tier(h):
     return "70+" if h >= 70 else "55-69" if h >= 55 else "40-54" if h >= 40 else "<40"
 
 
+
+def _game_map(sc, mapper):
+    """Preserve game identity for every statistic, including two games on one date."""
+    return {(int(game), int(player)): value
+            for game, frame in sc.dropna(subset=["game_pk"]).groupby("game_pk")
+            for player, value in mapper(frame).items()}
+
+
+def _bind_participants(rows, sc, role="batter"):
+    """Old records may resolve only when a player appeared in exactly one game.
+
+    Missing participation and ambiguous doubleheaders are excluded, never losses.
+    """
+    appearances = {}
+    for player, game in sc[[role, "game_pk"]].dropna().itertuples(index=False, name=None):
+        appearances.setdefault(int(player), set()).add(int(game))
+    bound, excluded = [], 0
+    for row in rows or []:
+        try:
+            player = int(row["id"])
+            games = appearances.get(player, set())
+            game = int(row["game_pk"]) if row.get("game_pk") is not None else (next(iter(games)) if len(games) == 1 else None)
+        except (KeyError, TypeError, ValueError):
+            game, games = None, set()
+        if game is None or game not in games:
+            excluded += 1
+            continue
+        bound.append({**row, "game_pk": game})
+    return bound, excluded
+
+
+def _selection_key(player):
+    return (int(player["game_pk"]), int(player["id"]))
+
+
 def grade_date(date):
     """Grade a single date -> record dict, or None if it can't be graded yet (no snapshot,
     or results not posted). Pure: does not read or write history.json."""
@@ -267,16 +302,18 @@ def grade_date(date):
         print(f"[track] insufficient data for {date}; will retry next run."); return None
 
     sc = _normalize_sc(sc)
-    hrmap = _hr_map(sc)
-    hrrmap = _hrr_map(sc)
-    kmap = _k_map(sc)
-    pkmap = _pitcher_k_map(sc)
-    def homered(p): return hrmap.get(p["id"], {}).get("hr", 0) > 0
-    def got_hits(p, n=1): return hrrmap.get(p["id"], {}).get("hits", 0) >= n
+    players, excluded_players = _bind_participants(players, sc)
+    pitcher_props, excluded_pitchers = _bind_participants(pitcher_props, sc, "pitcher")
+    hrmap = _game_map(sc, _hr_map)
+    hrrmap = _game_map(sc, _hrr_map)
+    kmap = _game_map(sc, _k_map)
+    pkmap = _game_map(sc, _pitcher_k_map)
+    def homered(p): return hrmap.get(_selection_key(p), {}).get("hr", 0) > 0
+    def got_hits(p, n=1): return hrrmap.get(_selection_key(p), {}).get("hits", 0) >= n
     def hrr_val(p):
-        h = hrrmap.get(p["id"], {})
+        h = hrrmap.get(_selection_key(p), {})
         return h.get("hits", 0) + h.get("runs", 0) + h.get("rbis", 0)
-    def struck_out(p, n=1): return kmap.get(p["id"], 0) >= n
+    def struck_out(p, n=1): return kmap.get(_selection_key(p), 0) >= n
 
     tiers, forms = {}, {}
     by_signal = {k: {"cleared": {"n": 0, "hr": 0}, "not": {"n": 0, "hr": 0}} for k in SIGNALS}
@@ -439,7 +476,7 @@ def grade_date(date):
         hl = by_hlabel.setdefault(p.get("hlabel") or "none", {"n": 0, "hr": 0})
         hl["n"] += 1; hl["hr"] += 1 if hit else 0
         if hit:
-            res = hrmap[p["id"]]
+            res = hrmap[_selection_key(p)]
             total_hr += res["hr"]; sp_hr += res["sp"]; bp_hr += res["bp"]
             badge_hits += len(badges)
             hr_log.append({"name": p["name"], "heat": p.get("heat"), "tier": p.get("tier"),
@@ -518,7 +555,10 @@ def grade_date(date):
         kind = pk.get("kind"); legs = pk.get("legs") or []
         if not kind or not legs:
             continue
-        hits = [1 if hrmap.get(l.get("id"), {}).get("hr", 0) > 0 else 0 for l in legs]
+        legs, excluded_legs = _bind_participants(legs, sc)
+        if excluded_legs:
+            continue
+        hits = [1 if homered(leg) else 0 for leg in legs]
         entry = by_parlay.setdefault(kind, {
             "n": 0, "leg_n": 0, "leg_hr": 0, "all_hit": 0, "any_hit": 0, "pair_hits": 0,
         })
@@ -565,7 +605,7 @@ def grade_date(date):
         if kh is None:
             continue
         tier = _prop_tier(kh)
-        actual_ks = pkmap.get(pp.get("id"), 0)
+        actual_ks = pkmap.get(_selection_key(pp), 0)
         e = by_pk_tier.setdefault(tier, {"n": 0, "total_ks": 0, "o5": 0, "o6": 0, "o7": 0})
         e["n"] += 1
         e["total_ks"] += actual_ks
@@ -587,7 +627,7 @@ def grade_date(date):
         out = {}
         for n in ns:
             top = rk[:n]
-            ks_thrown = [pkmap.get(pp.get("id"), 0) for pp in top]
+            ks_thrown = [pkmap.get(_selection_key(pp), 0) for pp in top]
             out[str(n)] = {
                 "n": len(top),
                 "total_ks": sum(ks_thrown),
@@ -621,6 +661,9 @@ def grade_date(date):
 
     record = {
         "date": date, "players": len(players),
+        "grading_version": "game-scoped-v2",
+        "excluded_unresolved_players": excluded_players,
+        "excluded_unresolved_pitchers": excluded_pitchers,
         "hitters_homered": n_hit,
         "total_hr": total_hr, "sp_hr": sp_hr, "bp_hr": bp_hr,
         "by_tier": tiers, "by_form": forms, "by_signal": by_signal, "by_badge": by_badge,
