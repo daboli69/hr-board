@@ -6957,6 +6957,9 @@ def main():
                 "day_night": p.get("day_night"),
             } for p in board["players"]],
         }
+        from etl.pregame_records import freeze_games
+        frozen = freeze_games(snap, board.get("games", []), snap_dir, board.get("generated_at"))
+        print(f"[build] preserved {frozen} new pregame game records")
         with open(os.path.join(snap_dir, f"{board['slate_date']}.json"), "w") as f:
             json.dump(snap, f, default=str)
         import glob

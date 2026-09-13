@@ -69,7 +69,9 @@ jobs:
         run: node --test tests/*.test.cjs
 
       - name: Game identity regression checks
-        run: python tests/test_game_identity.py
+        run: |
+          python tests/test_game_identity.py
+          python tests/test_pregame_records.py
 
       - name: Integration verification
         id: integ
