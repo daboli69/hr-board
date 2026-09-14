@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "record_kind": "pregame_model_research",
-  "updated_at": "2026-09-14T00:50:50.518690+00:00",
+  "updated_at": "2026-09-14T16:30:59.867852+00:00",
   "games": [
     {
       "game_pk": 822682,
@@ -1184,6 +1184,312 @@
           "home_runs": 0,
           "hits": 1,
           "hits_runs_rbis": 1
+        }
+      ]
+    },
+    {
+      "game_pk": 823171,
+      "date": "2026-09-13",
+      "captured_at": "2026-09-13T05:10:34.436703+00:00",
+      "game": {
+        "game_pk": 823171,
+        "away": "SD",
+        "home": "SF",
+        "park": "Oracle Park",
+        "time": "2026-09-13T23:20:00Z"
+      },
+      "graded_at": "2026-09-14T16:30:59.360419+00:00",
+      "source": "https://statsapi.mlb.com/api/v1/game/823171/boxscore",
+      "players": [
+        {
+          "id": 646240,
+          "name": "Rafael Devers",
+          "team": "SF",
+          "score": 82,
+          "state": "no_recorded_appearance",
+          "home_runs": null,
+          "hits": null,
+          "hits_runs_rbis": null
+        },
+        {
+          "id": 701538,
+          "name": "Jackson Merrill",
+          "team": "SD",
+          "score": 53,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 1,
+          "hits_runs_rbis": 3
+        },
+        {
+          "id": 683766,
+          "name": "Christian Koss",
+          "team": "SF",
+          "score": 52,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 2,
+          "hits_runs_rbis": 4
+        },
+        {
+          "id": 669134,
+          "name": "Luis Campusano",
+          "team": "SD",
+          "score": 49,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 678545,
+          "name": "Osleivis Basabe",
+          "team": "SF",
+          "score": 44,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 592518,
+          "name": "Manny Machado",
+          "team": "SD",
+          "score": 41,
+          "state": "graded",
+          "home_runs": 1,
+          "hits": 1,
+          "hits_runs_rbis": 4
+        },
+        {
+          "id": 664034,
+          "name": "Ty France",
+          "team": "SD",
+          "score": 41,
+          "state": "no_recorded_appearance",
+          "home_runs": null,
+          "hits": null,
+          "hits_runs_rbis": null
+        },
+        {
+          "id": 665487,
+          "name": "Fernando Tatis Jr.",
+          "team": "SD",
+          "score": 38,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 3,
+          "hits_runs_rbis": 7
+        },
+        {
+          "id": 669720,
+          "name": "Austin Hays",
+          "team": "SD",
+          "score": 37,
+          "state": "no_recorded_appearance",
+          "home_runs": null,
+          "hits": null,
+          "hits_runs_rbis": null
+        },
+        {
+          "id": 666023,
+          "name": "Freddy Fermin",
+          "team": "SD",
+          "score": 37,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 805811,
+          "name": "Bryce Eldridge",
+          "team": "SF",
+          "score": 32,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 2,
+          "hits_runs_rbis": 3
+        },
+        {
+          "id": 687957,
+          "name": "Dustin Harris",
+          "team": "SD",
+          "score": 31,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 1,
+          "hits_runs_rbis": 2
+        },
+        {
+          "id": 806367,
+          "name": "Turner Hill",
+          "team": "SF",
+          "score": 31,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 694376,
+          "name": "Shay Whitcomb",
+          "team": "SF",
+          "score": 30,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 2,
+          "hits_runs_rbis": 3
+        },
+        {
+          "id": 801501,
+          "name": "Nate Furman",
+          "team": "SF",
+          "score": 28,
+          "state": "no_recorded_appearance",
+          "home_runs": null,
+          "hits": null,
+          "hits_runs_rbis": null
+        },
+        {
+          "id": 808982,
+          "name": "Jung Hoo Lee",
+          "team": "SF",
+          "score": 25,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 668800,
+          "name": "Andrew Knizner",
+          "team": "SF",
+          "score": 25,
+          "state": "graded",
+          "home_runs": 1,
+          "hits": 1,
+          "hits_runs_rbis": 4
+        },
+        {
+          "id": 823550,
+          "name": "Sung-Mun Song",
+          "team": "SD",
+          "score": 24,
+          "state": "no_recorded_appearance",
+          "home_runs": null,
+          "hits": null,
+          "hits_runs_rbis": null
+        },
+        {
+          "id": 813841,
+          "name": "Jonah Cox",
+          "team": "SF",
+          "score": 23,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 1,
+          "hits_runs_rbis": 1
+        },
+        {
+          "id": 687529,
+          "name": "Grant McCray",
+          "team": "SF",
+          "score": 23,
+          "state": "no_recorded_appearance",
+          "home_runs": null,
+          "hits": null,
+          "hits_runs_rbis": null
+        },
+        {
+          "id": 593428,
+          "name": "Xander Bogaerts",
+          "team": "SD",
+          "score": 21,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 669392,
+          "name": "Samad Taylor",
+          "team": "SD",
+          "score": 19,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 1,
+          "hits_runs_rbis": 2
+        },
+        {
+          "id": 687749,
+          "name": "Jase Bowen",
+          "team": "SD",
+          "score": 18,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 701852,
+          "name": "Drew Cavanaugh",
+          "team": "SF",
+          "score": 18,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 695391,
+          "name": "Brett Harris",
+          "team": "SF",
+          "score": 17,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 806956,
+          "name": "Ethan Salas",
+          "team": "SD",
+          "score": 14,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 1,
+          "hits_runs_rbis": 2
+        },
+        {
+          "id": 630105,
+          "name": "Jake Cronenworth",
+          "team": "SD",
+          "score": 12,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 1,
+          "hits_runs_rbis": 1
+        },
+        {
+          "id": 687551,
+          "name": "Drew Gilbert",
+          "team": "SF",
+          "score": 11,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 669200,
+          "name": "Mason McCoy",
+          "team": "SD",
+          "score": 0,
+          "state": "no_recorded_appearance",
+          "home_runs": null,
+          "hits": null,
+          "hits_runs_rbis": null
         }
       ]
     },
@@ -4158,7 +4464,7 @@
       ]
     }
   ],
-  "pending_games": 1,
+  "pending_games": 10,
   "errors": [],
   "note": "Research scores recorded before first pitch. No frozen bet price: betting returns and prediction calibration are not measured here."
 }
