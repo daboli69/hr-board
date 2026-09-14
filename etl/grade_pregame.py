@@ -15,19 +15,38 @@ def grade_record(record, schedule, box):
     captured, generated, start = (_utc(record.get(k)) for k in ['captured_at', 'generated_at', 'kickoff'])
     if not captured or not generated or not start or not generated <= captured < start:
         raise ValueError('Record does not establish a pregame observation')
+    confirmed_bench = set()
+    for side in ('home', 'away'):
+        team = box.get('teams', {}).get(side, {})
+        appearances = team.get('teamStats', {}).get('batting', {}).get('plateAppearances')
+        if not team.get('players') or not isinstance(appearances, (int, float)) or appearances <= 0:
+            raise ValueError(f'Final {side} boxscore is incomplete; retry required')
+        counted = sum(p.get('stats', {}).get('batting', {}).get('plateAppearances', 0)
+                      for p in team['players'].values())
+        if counted == appearances and isinstance(team.get('batters'), list):
+            batters = {str(pid) for pid in team['batters']}
+            for p in team['players'].values():
+                pid = str(p.get('person', {}).get('id'))
+                if pid not in batters and p.get('gameStatus', {}).get('isOnBench') is True and not p.get('stats', {}).get('batting'):
+                    confirmed_bench.add(pid)
     actual = {str(p.get('person', {}).get('id')): p for team in box.get('teams', {}).values() for p in team.get('players', {}).values()}
     outcomes = []
     for player in record.get('players', []):
         batting = actual.get(str(player['id']), {}).get('stats', {}).get('batting', {})
-        played = batting.get('plateAppearances', 0) > 0
+        appearances = batting.get('plateAppearances')
+        if appearances is None and str(player['id']) in confirmed_bench:
+            appearances = 0
+        observed = isinstance(appearances, (int, float)) and appearances >= 0
+        played = observed and appearances > 0
         required = ['homeRuns', 'hits', 'runs', 'rbi', 'strikeOuts']
         complete = played and all(isinstance(batting.get(k), (int, float)) for k in required)
         outcomes.append({'id': player['id'], 'name': player.get('name'), 'team': player.get('team'),
-                         'score': player.get('heat'), 'state': 'graded' if complete else 'no_recorded_appearance' if not played else 'stats_unavailable',
+                         'score': player.get('heat'), 'state': 'graded' if complete else 'no_recorded_appearance' if observed and not played else 'stats_unavailable',
                          'home_runs': batting['homeRuns'] if complete else None,
                          'hits': batting['hits'] if complete else None,
                          'hits_runs_rbis': sum(batting[k] for k in ['hits', 'runs', 'rbi']) if complete else None})
-    return {'game_pk': game_id, 'date': record['date'], 'captured_at': record['captured_at'],
+    return {'grader_version': 2, 'needs_retry': any(p['state'] == 'stats_unavailable' for p in outcomes),
+            'game_pk': game_id, 'date': record['date'], 'captured_at': record['captured_at'],
             'game': record.get('game'), 'graded_at': datetime.now(timezone.utc).isoformat(),
             'source': f'https://statsapi.mlb.com/api/v1/game/{game_id}/boxscore', 'players': outcomes}
 
@@ -41,7 +60,8 @@ def run(root='docs'):
     session = requests.Session()
     for file in sorted((root / 'snapshots/pregame').glob('*/*.json')):
         record = json.loads(file.read_text())
-        if str(record['game_pk']) in graded:
+        existing = graded.get(str(record['game_pk']), {})
+        if existing.get('grader_version') == 2 and not existing.get('needs_retry'):
             continue
         try:
             response = session.get('https://statsapi.mlb.com/api/v1/schedule', params={'gamePk': record['game_pk']}, timeout=20)
@@ -54,8 +74,13 @@ def run(root='docs'):
             response = session.get(f"https://statsapi.mlb.com/api/v1/game/{record['game_pk']}/boxscore", timeout=20)
             response.raise_for_status()
             result = grade_record(record, schedule, response.json())
-            if result: graded[str(record['game_pk'])] = result
+            if result:
+                graded[str(record['game_pk'])] = result
+                pending += int(result['needs_retry'])
         except (requests.RequestException, ValueError, KeyError) as error:
+            pending += 1
+            if existing:
+                existing['needs_retry'] = True
             errors.append({'game_pk': record.get('game_pk'), 'reason': str(error)})
     payload = {'schema_version': 1, 'record_kind': 'pregame_model_research', 'updated_at': datetime.now(timezone.utc).isoformat(),
                'games': sorted(graded.values(), key=lambda g: (g['date'], g['game_pk'])), 'pending_games': pending, 'errors': errors,
