@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "record_kind": "pregame_model_research",
-  "updated_at": "2026-09-15T20:04:57.547144+00:00",
+  "updated_at": "2026-09-16T01:11:01.719217+00:00",
   "games": [
     {
       "grader_version": 2,
@@ -1208,7 +1208,7 @@
         "park": "Oracle Park",
         "time": "2026-09-13T23:20:00Z"
       },
-      "graded_at": "2026-09-15T20:04:56.888840+00:00",
+      "graded_at": "2026-09-16T01:11:00.722209+00:00",
       "source": "https://statsapi.mlb.com/api/v1/game/823171/boxscore",
       "players": [
         {
@@ -2410,7 +2410,7 @@
         "park": "loanDepot park",
         "time": "2026-09-13T17:40:00Z"
       },
-      "graded_at": "2026-09-15T20:04:56.945030+00:00",
+      "graded_at": "2026-09-16T01:11:00.769387+00:00",
       "source": "https://statsapi.mlb.com/api/v1/game/823815/boxscore",
       "players": [
         {
@@ -3006,7 +3006,7 @@
         "park": "Wrigley Field",
         "time": "2026-09-13T18:20:00Z"
       },
-      "graded_at": "2026-09-15T20:04:57.000149+00:00",
+      "graded_at": "2026-09-16T01:11:00.846293+00:00",
       "source": "https://statsapi.mlb.com/api/v1/game/824628/boxscore",
       "players": [
         {
@@ -3314,7 +3314,7 @@
         "park": "Fenway Park",
         "time": "2026-09-13T19:05:00Z"
       },
-      "graded_at": "2026-09-15T20:04:57.050309+00:00",
+      "graded_at": "2026-09-16T01:11:00.961772+00:00",
       "source": "https://statsapi.mlb.com/api/v1/game/824708/boxscore",
       "players": [
         {
@@ -4208,7 +4208,7 @@
         "park": "Chase Field",
         "time": "2026-09-13T20:10:00Z"
       },
-      "graded_at": "2026-09-15T20:04:57.111525+00:00",
+      "graded_at": "2026-09-16T01:11:01.034146+00:00",
       "source": "https://statsapi.mlb.com/api/v1/game/825033/boxscore",
       "players": [
         {
@@ -4506,7 +4506,7 @@
         "park": "Rogers Centre",
         "time": "2026-09-14T23:07:00Z"
       },
-      "graded_at": "2026-09-15T20:04:57.172084+00:00",
+      "graded_at": "2026-09-16T01:11:01.110725+00:00",
       "source": "https://statsapi.mlb.com/api/v1/game/822765/boxscore",
       "players": [
         {
@@ -4804,7 +4804,7 @@
         "park": "Busch Stadium",
         "time": "2026-09-14T23:45:00Z"
       },
-      "graded_at": "2026-09-15T20:04:57.242604+00:00",
+      "graded_at": "2026-09-16T01:11:01.193951+00:00",
       "source": "https://statsapi.mlb.com/api/v1/game/823006/boxscore",
       "players": [
         {
@@ -6006,7 +6006,7 @@
         "park": "Coors Field",
         "time": "2026-09-15T00:40:00Z"
       },
-      "graded_at": "2026-09-15T20:04:57.304513+00:00",
+      "graded_at": "2026-09-16T01:11:01.261552+00:00",
       "source": "https://statsapi.mlb.com/api/v1/game/824308/boxscore",
       "players": [
         {
@@ -7208,7 +7208,7 @@
         "park": "Chase Field",
         "time": "2026-09-15T01:40:00Z"
       },
-      "graded_at": "2026-09-15T20:04:57.364517+00:00",
+      "graded_at": "2026-09-16T01:11:01.413668+00:00",
       "source": "https://statsapi.mlb.com/api/v1/game/825034/boxscore",
       "players": [
         {
@@ -7502,9 +7502,605 @@
           "hits_runs_rbis": null
         }
       ]
+    },
+    {
+      "grader_version": 2,
+      "needs_retry": true,
+      "game_pk": 822925,
+      "date": "2026-09-15",
+      "captured_at": "2026-09-15T05:16:10.567078+00:00",
+      "game": {
+        "game_pk": 822925,
+        "away": "ATH",
+        "home": "TB",
+        "park": "Tropicana Field",
+        "time": "2026-09-15T22:40:00Z"
+      },
+      "graded_at": "2026-09-16T01:11:01.495258+00:00",
+      "source": "https://statsapi.mlb.com/api/v1/game/822925/boxscore",
+      "players": [
+        {
+          "id": 680700,
+          "name": "Richie Palacios",
+          "team": "TB",
+          "score": 65,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 680869,
+          "name": "Zack Gelof",
+          "team": "ATH",
+          "score": 64,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 666018,
+          "name": "Jonathan Aranda",
+          "team": "TB",
+          "score": 63,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 1,
+          "hits_runs_rbis": 1
+        },
+        {
+          "id": 622268,
+          "name": "Donovan Walton",
+          "team": "ATH",
+          "score": 59,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 663743,
+          "name": "Nick Fortes",
+          "team": "TB",
+          "score": 59,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 683748,
+          "name": "Victor Mesa Jr.",
+          "team": "TB",
+          "score": 49,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 675961,
+          "name": "Alika Williams",
+          "team": "ATH",
+          "score": 48,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 1,
+          "hits_runs_rbis": 1
+        },
+        {
+          "id": 691406,
+          "name": "Junior Caminero",
+          "team": "TB",
+          "score": 47,
+          "state": "graded",
+          "home_runs": 1,
+          "hits": 1,
+          "hits_runs_rbis": 3
+        },
+        {
+          "id": 703607,
+          "name": "Henry Bolte",
+          "team": "ATH",
+          "score": 45,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 1,
+          "hits_runs_rbis": 2
+        },
+        {
+          "id": 671732,
+          "name": "Lawrence Butler",
+          "team": "ATH",
+          "score": 41,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 691777,
+          "name": "Max Muncy",
+          "team": "ATH",
+          "score": 41,
+          "state": "no_recorded_appearance",
+          "home_runs": null,
+          "hits": null,
+          "hits_runs_rbis": null
+        },
+        {
+          "id": 643446,
+          "name": "Jeff McNeil",
+          "team": "ATH",
+          "score": 36,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 1,
+          "hits_runs_rbis": 1
+        },
+        {
+          "id": 689414,
+          "name": "Liam Hicks",
+          "team": "TB",
+          "score": 31,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 656775,
+          "name": "Cedric Mullins",
+          "team": "TB",
+          "score": 29,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 666126,
+          "name": "Carlos Cortes",
+          "team": "ATH",
+          "score": 27,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 669127,
+          "name": "Shea Langeliers",
+          "team": "ATH",
+          "score": 26,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 1,
+          "hits_runs_rbis": 1
+        },
+        {
+          "id": 650490,
+          "name": "Yandy D\u00edaz",
+          "team": "TB",
+          "score": 26,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 663611,
+          "name": "Nick Madrigal",
+          "team": "TB",
+          "score": 26,
+          "state": "no_recorded_appearance",
+          "home_runs": null,
+          "hits": null,
+          "hits_runs_rbis": null
+        },
+        {
+          "id": 661531,
+          "name": "Brian Serven",
+          "team": "ATH",
+          "score": 25,
+          "state": "no_recorded_appearance",
+          "home_runs": null,
+          "hits": null,
+          "hits_runs_rbis": null
+        },
+        {
+          "id": 676356,
+          "name": "Jonny DeLuca",
+          "team": "TB",
+          "score": 25,
+          "state": "no_recorded_appearance",
+          "home_runs": null,
+          "hits": null,
+          "hits_runs_rbis": null
+        },
+        {
+          "id": 700652,
+          "name": "Kenny Piper",
+          "team": "TB",
+          "score": 24,
+          "state": "stats_unavailable",
+          "home_runs": null,
+          "hits": null,
+          "hits_runs_rbis": null
+        },
+        {
+          "id": 668723,
+          "name": "Ryan Vilade",
+          "team": "TB",
+          "score": 21,
+          "state": "no_recorded_appearance",
+          "home_runs": null,
+          "hits": null,
+          "hits_runs_rbis": null
+        },
+        {
+          "id": 683021,
+          "name": "Michael Stefanic",
+          "team": "ATH",
+          "score": 19,
+          "state": "no_recorded_appearance",
+          "home_runs": null,
+          "hits": null,
+          "hits_runs_rbis": null
+        },
+        {
+          "id": 695720,
+          "name": "Tommy White",
+          "team": "ATH",
+          "score": 18,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 641680,
+          "name": "Jonah Heim",
+          "team": "ATH",
+          "score": 16,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 622761,
+          "name": "Jorge Mateo",
+          "team": "TB",
+          "score": 12,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 1,
+          "hits_runs_rbis": 1
+        },
+        {
+          "id": 672016,
+          "name": "Denzel Clarke",
+          "team": "ATH",
+          "score": 10,
+          "state": "no_recorded_appearance",
+          "home_runs": null,
+          "hits": null,
+          "hits_runs_rbis": null
+        },
+        {
+          "id": 802415,
+          "name": "Chandler Simpson",
+          "team": "TB",
+          "score": 10,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 3,
+          "hits_runs_rbis": 4
+        }
+      ]
+    },
+    {
+      "grader_version": 2,
+      "needs_retry": false,
+      "game_pk": 824466,
+      "date": "2026-09-15",
+      "captured_at": "2026-09-15T05:16:10.567078+00:00",
+      "game": {
+        "game_pk": 824466,
+        "away": "LAD",
+        "home": "CIN",
+        "park": "Great American Ball Park",
+        "time": "2026-09-15T22:40:00Z"
+      },
+      "graded_at": "2026-09-16T01:11:01.630350+00:00",
+      "source": "https://statsapi.mlb.com/api/v1/game/824466/boxscore",
+      "players": [
+        {
+          "id": 682829,
+          "name": "Elly De La Cruz",
+          "team": "CIN",
+          "score": 84,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 2,
+          "hits_runs_rbis": 2
+        },
+        {
+          "id": 800543,
+          "name": "Josue De Paula",
+          "team": "LAD",
+          "score": 73,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 605141,
+          "name": "Mookie Betts",
+          "team": "LAD",
+          "score": 71,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 606192,
+          "name": "Teoscar Hern\u00e1ndez",
+          "team": "LAD",
+          "score": 65,
+          "state": "graded",
+          "home_runs": 1,
+          "hits": 1,
+          "hits_runs_rbis": 4
+        },
+        {
+          "id": 553993,
+          "name": "Eugenio Su\u00e1rez",
+          "team": "CIN",
+          "score": 63,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 682877,
+          "name": "Juan Brito",
+          "team": "CIN",
+          "score": 63,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 1,
+          "hits_runs_rbis": 1
+        },
+        {
+          "id": 571970,
+          "name": "Max Muncy",
+          "team": "LAD",
+          "score": 51,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 1
+        },
+        {
+          "id": 663656,
+          "name": "Kyle Tucker",
+          "team": "LAD",
+          "score": 48,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 1
+        },
+        {
+          "id": 668709,
+          "name": "JJ Bleday",
+          "team": "CIN",
+          "score": 41,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 680574,
+          "name": "Matt McLain",
+          "team": "CIN",
+          "score": 39,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 699115,
+          "name": "Carlos Jorge",
+          "team": "CIN",
+          "score": 38,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 669257,
+          "name": "Will Smith",
+          "team": "LAD",
+          "score": 37,
+          "state": "no_recorded_appearance",
+          "home_runs": null,
+          "hits": null,
+          "hits_runs_rbis": null
+        },
+        {
+          "id": 663886,
+          "name": "Tyler Stephenson",
+          "team": "CIN",
+          "score": 36,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 670770,
+          "name": "TJ Friedl",
+          "team": "CIN",
+          "score": 32,
+          "state": "no_recorded_appearance",
+          "home_runs": null,
+          "hits": null,
+          "hits_runs_rbis": null
+        },
+        {
+          "id": 669242,
+          "name": "Tommy Edman",
+          "team": "LAD",
+          "score": 31,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 1,
+          "hits_runs_rbis": 1
+        },
+        {
+          "id": 699302,
+          "name": "H\u00e9ctor Rodr\u00edguez",
+          "team": "CIN",
+          "score": 30,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 500743,
+          "name": "Miguel Rojas",
+          "team": "LAD",
+          "score": 28,
+          "state": "no_recorded_appearance",
+          "home_runs": null,
+          "hits": null,
+          "hits_runs_rbis": null
+        },
+        {
+          "id": 571771,
+          "name": "Enrique Hern\u00e1ndez",
+          "team": "LAD",
+          "score": 27,
+          "state": "no_recorded_appearance",
+          "home_runs": null,
+          "hits": null,
+          "hits_runs_rbis": null
+        },
+        {
+          "id": 667472,
+          "name": "Dane Myers",
+          "team": "CIN",
+          "score": 27,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 677943,
+          "name": "Will Banfield",
+          "team": "CIN",
+          "score": 26,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 701398,
+          "name": "Sal Stewart",
+          "team": "CIN",
+          "score": 20,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 690976,
+          "name": "Alex Freeland",
+          "team": "LAD",
+          "score": 19,
+          "state": "graded",
+          "home_runs": 1,
+          "hits": 2,
+          "hits_runs_rbis": 4
+        },
+        {
+          "id": 518692,
+          "name": "Freddie Freeman",
+          "team": "LAD",
+          "score": 19,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 3,
+          "hits_runs_rbis": 3
+        },
+        {
+          "id": 669743,
+          "name": "Alex Call",
+          "team": "LAD",
+          "score": 17,
+          "state": "no_recorded_appearance",
+          "home_runs": null,
+          "hits": null,
+          "hits_runs_rbis": null
+        },
+        {
+          "id": 672613,
+          "name": "Eliezer Alfonzo",
+          "team": "LAD",
+          "score": 11,
+          "state": "no_recorded_appearance",
+          "home_runs": null,
+          "hits": null,
+          "hits_runs_rbis": null
+        },
+        {
+          "id": 624431,
+          "name": "Jose Trevino",
+          "team": "CIN",
+          "score": 11,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 0,
+          "hits_runs_rbis": 0
+        },
+        {
+          "id": 663647,
+          "name": "Ke'Bryan Hayes",
+          "team": "CIN",
+          "score": 9,
+          "state": "no_recorded_appearance",
+          "home_runs": null,
+          "hits": null,
+          "hits_runs_rbis": null
+        },
+        {
+          "id": 676439,
+          "name": "Hunter Feduccia",
+          "team": "LAD",
+          "score": 8,
+          "state": "graded",
+          "home_runs": 0,
+          "hits": 1,
+          "hits_runs_rbis": 2
+        }
+      ]
     }
   ],
-  "pending_games": 24,
+  "pending_games": 23,
   "errors": [],
   "note": "Research scores recorded before first pitch. No frozen bet price: betting returns and prediction calibration are not measured here."
 }
