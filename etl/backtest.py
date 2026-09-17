@@ -1,18 +1,12 @@
 """
-Season backtest: replay every slate as it would have looked that morning, grade it
-against what actually happened, and answer "how big is the edge" with ~80 days of
-data instead of waiting weeks of live tracking.
+Historical diagnostic replay, not a timestamp-verified pregame backtest.
 
-THE LEAK CONTRACT (the whole game is not cheating):
-  - Features for date D are computed from df[game_date < D] ONLY — enforced by
-    construction (the feature call receives a strictly-past frame) and verified by
-    poison_check(), which corrupts all future rows and asserts identical heats.
-  - The day's opposing starter is taken from that day's actual first pitcher
-    (inning 1). Honest approximation: the real morning board uses PROBABLES, which
-    occasionally get scratched; using the actual starter is mildly optimistic and
-    is documented in the output.
-  - Scope: the CORE model (four-signal heat + opposing-arm nudge). Park/weather,
-    badges and BvP layers are not replayed; this measures the engine you froze.
+Statcast features use prior dates. Actual participants and first pitchers are
+known retrospectively, and some diagnostic tags use that day's participation.
+Those assumptions prevent this replay from establishing pregame performance.
+Current-season FanGraphs aggregates are excluded because no historical
+publication snapshots are supplied. A poison check of Statcast alone cannot
+validate the availability of every external input.
 
 Run via the manual "Backtest" workflow: pulls the season, replays, writes
 docs/backtest.json for the Tracker tab.
@@ -635,14 +629,9 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
         return {"error": f"need more than {WARMUP_DAYS} days of data"}
     dates = [d for d in all_dates[WARMUP_DAYS:] if (not start or d >= start) and (not end or d <= end)]
 
-    # FanGraphs, fetched once for the whole replay — same season-aggregate leak caveat as
-    # replay_runs() (see that function's docstring note): there is no historical daily FanGraphs
-    # snapshot to fetch as-of, so this is "does the signal correlate", not a leak-free test.
-    try:
-        fg_pitch = statcast_data.fangraphs_pitching()
-    except Exception as e:
-        fg_pitch = {}
-        print(f"[backtest] fangraphs fetch skipped (non-fatal): {e}")
+    # No timestamped historical snapshot exists here. Never substitute today's
+    # season aggregate for information available before a historical game.
+    fg_pitch = {}
     _sp_names = {}
     if fg_pitch:
         _all_sp = set()
@@ -1071,6 +1060,9 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
         _by_month_rates[m] = {"n": v["n"], "pct": round(100 * _rate, 2),
                               "vs_season_lift": round(_rate / _base_rate_final, 3) if _base_rate_final else None}
     return {
+        "validation_scope": "diagnostic_replay",
+        "pregame_validated": False,
+        "current_season_fangraphs_used": False,
         "days": graded_days, "pool": n_tot, "hr": hr_tot,
         "model_version": compute.MODEL_VERSION,
         "base_pct": round(100 * hr_tot / n_tot, 2) if n_tot else None,
@@ -1153,7 +1145,7 @@ def replay(df: pd.DataFrame, start: str | None = None, end: str | None = None) -
                      "o6_pct": round(100 * pk_o6 / pk_n, 1) if pk_n else None,
                      "o7_pct": round(100 * pk_o7 / pk_n, 1) if pk_n else None},
         },
-        "notes": ["core heat model (heat + arm nudge); park/weather layers not replayed",
+        "notes": ["Actual participants and starters are known retrospectively; this is not proof of pregame performance. Current-season FanGraphs aggregates are excluded.", "core heat model (heat + arm nudge); park/weather layers not replayed",
                   "by_badge lift covers HITTER-only badges (POWER/DUE/HOT/WARMING/MAY COOL); "
                   "opponent-context badges (WEAK ARM/PLATOON/PITCH EDGE/WEAK PEN) need lineup/pen "
                   "data not in the replay frame and are omitted",
@@ -1975,23 +1967,10 @@ def replay_runs(df: pd.DataFrame, start: str | None = None, end: str | None = No
     dates = [d for d in all_dates[WARMUP_DAYS:]
              if (not start or d >= start) and (not end or d <= end)]
 
-    # FanGraphs, fetched ONCE for the whole replay rather than per historical day.
-    #
-    # This is a real, named limitation, not a hidden one: FanGraphs does not serve historical
-    # daily snapshots, so there is no way to get an AS-OF xFIP/SIERA/Stuff+/Location+ for a
-    # pitcher on a specific past date the way AsOfFrame does for Statcast data. What gets used
-    # instead is the CURRENT season's aggregate, applied uniformly across the whole replay
-    # window. That means a pitcher's full-season quality leaks backward into his April starts —
-    # a real pitcher-quality leak, structurally different from (and less serious than) a
-    # same-day outcome leak, but a leak worth knowing about when reading the with-FanGraphs
-    # numbers below. Treat them as "does this signal correlate with results", not as a clean
-    # controlled test.
-    try:
-        fg_pitch = statcast_data.fangraphs_pitching()
-    except Exception as e:
-        fg_pitch = {}
-        print(f"[backtest] fangraphs fetch skipped (non-fatal): {e}")
-    _fg_notes = [] if fg_pitch else ["FanGraphs unavailable this run — with/without comparison skipped"]
+    # No timestamped historical snapshot exists here. Never substitute today's
+    # season aggregate for information available before a historical game.
+    fg_pitch = {}
+    _fg_notes = ["Current-season FanGraphs aggregates excluded: historical availability is unverified"]
     # Every starter's name, looked up ONCE for the whole replay (fg_pitch is keyed by
     # normalised name; MLBAM ids alone can't join to it). Collected from every game's two
     # starters across the full date range so this is one batched call, not one per game.
@@ -2193,6 +2172,9 @@ def replay_runs(df: pd.DataFrame, start: str | None = None, end: str | None = No
     brier_base = sum((base_rate - (1 if i < home_wins_actual else 0)) ** 2
                      for i in range(n)) / n
     return {
+        "validation_scope": "diagnostic_replay",
+        "pregame_validated": False,
+        "current_season_fangraphs_used": False,
         "games": n,
         "home_win_rate": round(100 * base_rate, 2),
         "accuracy": round(100 * correct / n, 2),
@@ -2246,7 +2228,7 @@ def replay_runs(df: pd.DataFrame, start: str | None = None, end: str | None = No
         "totals_graded": (V.grade_totals(_tot_rows) if len(_tot_rows) >= 100 else None),
         "calib": {k: calib[k] for k in sorted(calib, key=int)},
         "notes": [
-            "CALIBRATION is the number that matters, not accuracy — you cannot bet a probability you can't trust",
+            "Diagnostic replay uses actual participants/starters; pregame availability has not been established. Current-season FanGraphs aggregates are excluded.",
             "Brier lower is better; if it does not beat brier_baseline the model has learned nothing",
             "total MAE floor: a model knowing every game's TRUE mean still posts ~3.30; a "
             "constant predictor posts ~3.51. Usable headroom is ~0.2 runs, so judge totals on "
