@@ -2820,7 +2820,7 @@
       <h3>Bets — Find Edge</h3>
       <p>The tab that turns the model into a decision. Every hitter shows the model's probability and the <b>worst price you can take and still break even</b>. Type in what your book is posting and it computes the expected value instantly, then sorts everything by it.</p>
       <p><b>Why this exists:</b> beating the base rate is not the same as making money. A hitter the model likes at 17% needs <b>+488 or longer</b> to break even. Books post home run props at +300 to +450. So a 17% hitter at +400 is a <b>losing bet</b> — you'd be paying 20 cents for something worth 17. Meanwhile a 12.5% hitter at +800 is <i>profitable</i>, because the book is paying you for 11% when the true odds are 12.5%.</p>
-      <p><b>Qualified Bets</b> (in Targets) is that idea turned into a list. It scans every market — home runs, hits, strikeouts, moneylines, totals — and shows only the spots where <b>the book price beats the model's fair price</b>, because that gap is the entire edge. For hitter props it also drops the ones the signal model disagrees with (usually book noise). Each play is sized by <b>half-Kelly</b> off its edge — bigger edge, bigger bet — capped at 4% of bankroll per play, because these probabilities are estimates and props swing hard. Set your bankroll to see dollar stakes. Most nights the list is short: that's the point — forcing action where there's no edge is how the vig grinds you down. It's model math, not betting advice, and real edges still lose plenty; the profit is in the price over hundreds of bets.</p>
+      <p><b>Price research</b> compares listed prices with model estimates. It shows every matching candidate, labels large disagreements for review and suggests no stake until the final probability model has been validated on predictions saved before games.</p>
       <p>That inversion is the entire game, and it's why the hottest hitter on the board is frequently the worst bet on the board. Prices you enter clear automatically each new slate.</p>
       <p><b>The caveat that matters:</b> a positive EV number is only as trustworthy as the model's calibration. Until the Tracker shows that a stated 17% actually converts near 17%, these are <i>candidates</i>, not green lights.</p>
 
@@ -2885,7 +2885,7 @@
       <button class="nav-item" data-nav="altlines" onclick="drawerGo('altlines')">Alt Line Finder<i>real book alt lines, ranked by model confidence, plus money only</i></button>
       <button class="nav-item" data-nav="lbboard" onclick="drawerGo('lbboard','tracker')">Long Ball Tracker<i>who actually won the day, and what the board knew about them first</i></button>
       <button class="nav-item" data-nav="kob" onclick="drawerGo('kob')">King of the Bases<i>DK promo, $500K pool -- most total bases in the last game</i></button>
-      <button class="nav-item" data-nav="qualified" onclick="drawerGo('qualified')">Qualified Bets<i>every market, only where price beats fair · Kelly sized</i></button>
+      <button class="nav-item" data-nav="qualified" onclick="drawerGo('qualified')">Price research<i>model-price comparisons · unvalidated estimates</i></button>
       <button class="nav-item" data-nav="edges" onclick="drawerGo('edges','arms')">Vulnerable Arms<i>HR Vuln score · zone maps</i></button>
       <button class="nav-item" data-nav="pitchmix" onclick="drawerGo('pitchmix')">Team vs Pitch Mix<i>lineup vs the arsenal he actually throws</i></button>
       <button class="nav-item" data-nav="edges-qt" onclick="drawerGo('edges','qt')">Quick Target<i>dangerous lineup spots per arm</i></button>
@@ -7358,7 +7358,7 @@ function renderEdge(){
   const summary = priced.length
     ? `<div class="edge-sum ${plusReliable.length?'good':''}">
          <b>${plusReliable.length}</b> reliable +EV play${plusReliable.length===1?"":"s"}${plus.length>plusReliable.length?` <span class="es-spec">(+${plus.length-plusReliable.length} speculative)</span>`:""} of ${priced.length} priced
-         ${plusReliable.length?`<span>Top: ${plusReliable[0].p.name} at ${fmtAm(plusReliable[0].price)} — model ${(plusReliable[0].prob*100).toFixed(0)}%, book implies ${(plusReliable[0].imp*100).toFixed(0)}%. Reliable = trustworthy heat, real signals, a price where the model is calibrated.</span>`
+         ${plusReliable.length?`<span>Top: ${plusReliable[0].p.name} at ${fmtAm(plusReliable[0].price)} — model ${(plusReliable[0].prob*100).toFixed(0)}%, book implies ${(plusReliable[0].imp*100).toFixed(0)}%. This filter checks available history and signals; it does not establish accuracy.</span>`
                             :plus.length?`<span>The only +EV prices you entered are on <b>speculative</b> hitters (thin data or longshots) — the model's edge there is least trustworthy. Treat as darts, not value.</span>`
                             :`<span>Every price you entered is short of fair value. That's the normal result — most HR props are priced at or below fair. Not betting is a decision.</span>`}
        </div>`
@@ -7376,7 +7376,7 @@ function renderEdge(){
       : "";
     // confidence tag on +EV plays: reliable = act on it, speculative = flagged dart
     const confTxt = reliable
-      ? `<span class="edge-conf rel" title="trustworthy heat, real signals, calibrated price range">reliable</span>`
+      ? `<span class="edge-conf rel" title="History and signal filters passed; probability remains unvalidated">research</span>`
       : speculative
       ? `<span class="edge-conf spec" title="${(x.confFlags||[]).join(', ')||'lower confidence'}">speculative${x.confFlags&&x.confFlags.length?` · ${x.confFlags[0]}`:""}</span>`
       : "";
@@ -7438,7 +7438,7 @@ function renderEdge(){
       if(bv!=null && cv!=null && bv!==cv){
         return `<b style="color:var(--seam)">\u26a0 Calibration is stale.</b> Today's board uses model v${bv} but the loaded backtest was run on v${cv}. The HR-rate curve no longer matches how heat is scored, so these probabilities may be off. Re-run the backtest to recalibrate before trusting the EV here.`;
       }
-      return `<b>These numbers are calibrated.</b> Probabilities come from the backtest's real HR rates across ~${(BACKTEST.pool||0).toLocaleString()} hitter-days, not a guess. Calibration still drifts — glance at the Tracker's calibration table now and then to confirm a stated 17% is still converting near 17%.`;
+      return `<b>Historical estimates — not yet validated before games.</b> The replay contains ${(BACKTEST.pool||0).toLocaleString()} hitter observations, but actual participants and some older full-season inputs were known afterward. Later model adjustments also need their own testing. No stake is suggested from this evidence.`;
     })()}</div>
   </div>`;
 }
@@ -8262,72 +8262,12 @@ const KELLY_CAP=0.04;          // never suggest >4% of bankroll on one prop, wha
 
 function renderQualified(){
   const main=document.getElementById("main");
-  if(!BOARD||!BOARD.players){ main.innerHTML=`<div class="empty">Board not loaded.</div>`; return; }
-  const minEdge=getMinEdge()/100, bankroll=getBankroll();
-  const all=allPropEV();   // already ev>0 across HR/Hits/HRR/Ks/ML/Totals, sorted by ev
-  const typeChip={"Home Run":"hr","HRR 1.5":"hr","1+ Hits":"hit","Game Total":"tot","Moneyline":"ml"};
-  const isHitterProp=e=>/Home Run|HRR|Hits/.test(e.propLabel);
-  const rows=[]; let excludedFade=0, excludedRef=0;
-  all.forEach(e=>{
-    if(e.ev<minEdge) return;
-    // model corroboration: for hitter props, drop the ones the signal model disagrees with
-    let cc=null;
-    if(isHitterProp(e) && typeof evCrossCheck==="function"){
-      const pid=(BOARD.players.find(p=>p.name===e.name)||{}).id;
-      cc=evCrossCheck({name:e.name, propLabel:e.propLabel});
-      if(cc && cc.verdict==="fade"){ excludedFade++; return; }
-    }
-    const ref=!!e.fallback;
-    if(ref) excludedRef++;
-    const kf=Math.min(KELLY_CAP, kellyFrac(e.prob, e.price)*KELLY_FRACTION);
-    rows.push({e, cc, ref, kf, edge:e.ev});
-  });
-  // real prices first, then by edge
-  rows.sort((a,b)=>(a.ref-b.ref)||(b.edge-a.edge));
-  const real=rows.filter(r=>!r.ref);
-  const totalExposure=real.reduce((s,r)=>s+r.kf,0);
-
-  const row=r=>{
-    const e=r.e, pid=(BOARD.players.find(p=>p.name===e.name)||{}).id;
-    const stake=bankroll?` · <b>$${Math.round(bankroll*r.kf)}</b>`:"";
-    const corr = r.cc
-      ? `<span class="q-corr" style="color:${r.cc.color}">${r.cc.label}${r.cc.bestLift!=null?` · ${r.cc.bestLabel} ${liftPct(r.cc.bestLift)}`:""}</span>`
-      : `<span class="q-corr" style="color:var(--muted)">model-priced</span>`;
-    const tc=typeChip[e.propLabel]||"k";
-    // line movement (HR market only): + = market steaming toward, - = drifting away
-    let mvChip="";
-    if(pid!=null && /Home Run/.test(e.propLabel) && typeof fetchedOddsFor==="function"){
-      const oe=fetchedOddsFor(pid);
-      if(oe && oe.mv!=null && (oe.mv_n||0)>1 && Math.abs(oe.mv)>=1.5){
-        mvChip = oe.mv>0
-          ? `<span class="q-mv up" title="market steaming toward this — sharp money agrees; opened ${fmtAm(oe.open)}">steam ↑ ${oe.mv.toFixed(1)}pt</span>`
-          : `<span class="q-mv dn" title="market drifting away — the extra price may be a trap; opened ${fmtAm(oe.open)}">fading ↓ ${oe.mv.toFixed(1)}pt</span>`;
-      }
-    }
-    return `<div class="q-row"${pid?` onclick="scanToPlayer(${pid})"`:""}>
-      <div class="q-edge">+${(r.edge*100).toFixed(0)}%<i>edge</i></div>
-      <div class="q-body">
-        <div class="q-nm"><b>${e.name}</b> <span class="q-type ${tc}">${e.propLabel}${e.side&&e.propLabel.indexOf('O/U')<0&&e.propLabel!=='Moneyline'?' '+e.side.toUpperCase():''}</span>${mvChip}${r.ref?'<span class="q-ref" title="FanDuel reference price — verify before betting">ref price</span>':''}</div>
-        <div class="q-line">${fmtAm(e.price)} book · fair <b>${americanFair(e.prob)}</b> · model ${(e.prob*100).toFixed(0)}%</div>
-        <div class="q-size">½-Kelly <b>${(r.kf*100).toFixed(1)}%</b>${stake} &nbsp;·&nbsp; ${corr}</div>
-      </div>
-    </div>`;
-  };
-
-  const brInput=`<div class="q-ctrl">
-    <label>Bankroll $<input id="qBankroll" type="number" inputmode="decimal" value="${bankroll||''}" placeholder="set for $ stakes" onchange="setBankroll(this.value)"></label>
-    <label>Min edge <select id="qMinEdge" onchange="setMinEdge(this.value)">${[2,3,4,5,7,10].map(v=>`<option value="${v}"${getMinEdge()===v?' selected':''}>${v}%</option>`).join('')}</select></label>
-  </div>`;
-
-  main.innerHTML=`<div style="max-width:760px;margin:0 auto">
-    <div class="q-head"><b>Qualified Bets</b><span class="beta-pill">${real.length} live edge${real.length===1?'':'s'}</span></div>
-    <div class="q-sub">Every market — HR, hits, Ks, moneyline, totals — filtered to the spots where <b>the book price beats the model's fair price</b> (that gap is your only edge), and for hitter props, where the signal model agrees. Sized by half-Kelly off your edge. HR rows also show <b>line movement</b> since this morning — <span style="color:var(--good)">steam ↑</span> means sharp money is on your side (bet before it shortens more), <span style="color:var(--warm)">fading ↓</span> means the market's drifting away and the extra price may be a trap. This is the list to actually bet.</div>
-    ${brInput}
-    ${real.length?real.map(row).join(""):`<div class="empty" style="padding:28px 16px">No qualified edges at ${getMinEdge()}%+ right now.<br>That's the system working — most nights the board holds few true edges, and forcing bets where there's none is how the vig wins. Lower the min-edge to see thinner spots, or check back once more odds post.</div>`}
-    ${real.length&&bankroll?`<div class="q-total">Total suggested exposure tonight: <b>${(totalExposure*100).toFixed(1)}%</b> of bankroll (~$${Math.round(bankroll*totalExposure)}) across ${real.length} bets</div>`:''}
-    ${rows.filter(r=>r.ref).length?`<details class="sec" style="margin-top:14px"><summary>${rows.filter(r=>r.ref).length} more on reference prices (unverified)</summary><div class="q-sub" style="margin:6px 0">These use a FanDuel reference price because DK/Fanatics didn't post the market — the edge is only real if that price is. Verify at your book before betting.</div>${rows.filter(r=>r.ref).map(row).join("")}</details>`:''}
-    <div class="pl-note" style="margin-top:14px">Edge = model probability × decimal price − 1. Half-Kelly, capped at ${(KELLY_CAP*100)}% per bet, hedges against the fact that these probabilities are <i>estimates</i> — real edges still lose often; the profit is in the price, over hundreds of bets. This is model math, not betting advice.${excludedFade?` ${excludedFade} +EV spot${excludedFade>1?'s':''} hidden because the signal model disagreed (likely book noise).`:''}</div>
-  </div>`;
+  if(!BOARD||!BOARD.players){main.innerHTML='<div class="empty">Board not loaded.</div>';return;}
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const minEdge=getMinEdge()/100;
+  const rows=allPropEV().filter(e=>Number.isFinite(e.prob)&&Number.isFinite(e.ev)&&e.ev>=minEdge).sort((a,b)=>Number(!!a.fallback)-Number(!!b.fallback)||b.ev-a.ev);
+  const row=e=>`<article class="q-row"><div class="q-edge">${(e.ev*100).toFixed(1)}%<i>estimated return</i></div><div class="q-body"><div class="q-nm"><b>${esc(e.name)}</b> · ${esc(e.propLabel)} ${esc(e.side||'')}</div><div class="q-line">Listed price ${esc(fmtAm(e.price))} · model chance ${(e.prob*100).toFixed(1)}% · model break-even price ${esc(americanFair(e.prob))}</div><div class="q-size">Research only · No suggested stake${e.ev>.25?' · Large model/price disagreement: review required':''}${e.fallback?' · Reference price not verified':''}</div></div></article>`;
+  main.innerHTML=`<section style="max-width:760px;margin:0 auto"><div class="q-head"><b>Price research</b><span class="beta-pill">${rows.length} candidates</span></div><p class="q-sub">These prices are above the model's break-even estimate. Estimated return means what you might gain or lose per dollar over many identical bets if the model were accurate. The final probabilities have not been validated on predictions saved before games, so no bet size is suggested. Price movement alone does not reveal who bet or why.</p><div class="q-ctrl"><label>Minimum estimated return <select id="qMinEdge" onchange="setMinEdge(this.value)">${[2,3,4,5,7,10].map(v=>`<option value="${v}"${getMinEdge()===v?' selected':''}>${v}%</option>`).join('')}</select></label></div>${rows.map(row).join('')||'<p>No priced candidates meet this filter. Missing opportunities are not a reason to loosen your standards.</p>'}<p class="pl-note">All matching candidates remain visible. A large disagreement can indicate a bad model or mismatched price. Confirm the current player, game, line and price at your book. Historical replay results are research evidence, not proof of profit.</p></section>`;
 }
 
 // ===== TOP PICKS: one confidence-ranked list across every prop type =====
