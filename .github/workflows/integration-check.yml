@@ -70,6 +70,7 @@ jobs:
 
       - name: Game identity regression checks
         run: |
+          python tests/test_split_overlaps.py
           python tests/test_game_identity.py
           python tests/test_pregame_records.py
           python tests/test_frozen_grading.py

@@ -2446,6 +2446,9 @@
     @keyframes sheetUp{from{transform:translate(-50%,100%)}to{transform:translate(-50%,0)}}
     .ty-grid{grid-template-columns:repeat(3,1fr)}
   }
+.split-wrap{max-width:1150px;margin:auto;padding:8px 0 30px}.split-wrap h2{margin:8px 0}.split-muted{color:var(--muted);font-size:12px;line-height:1.6}.split-tabs,.split-controls,.split-stats{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.split-wrap button,.split-wrap select,.split-wrap input{font:inherit;color:var(--ink);background:var(--card,#171d26);border:1px solid var(--seam);border-radius:9px;padding:9px 11px;min-height:42px}.split-wrap button[aria-pressed=true]{border-color:var(--hot);color:var(--hot)}.split-controls{padding:14px;border:1px solid var(--seam);border-radius:12px;align-items:center}.split-controls input{width:82px}.split-controls label{font-size:12px;display:flex;align-items:center;gap:8px}.split-card{border:1px solid var(--seam);border-radius:14px;padding:16px;margin:12px 0;background:var(--card,#131a22)}.split-card-head{display:flex;justify-content:space-between;gap:16px}.split-card h3{margin:0;font-size:17px}.split-score{font-size:23px;color:var(--hot);font-weight:800;text-align:right}.split-score small{display:block;font-size:10px;color:var(--muted);font-weight:400}.split-stats button{text-align:left;font-size:12px;flex:1 1 120px}.split-stats b{display:block;font-size:16px;margin-top:4px}.split-card summary{cursor:pointer;min-height:44px;padding-top:12px}.split-scroll{overflow:auto;max-width:100%}.split-table{border-collapse:collapse;min-width:700px;width:100%;font-size:12px}.split-table td,.split-table th{padding:9px;text-align:left;border-bottom:1px solid var(--seam)}.split-table th button{white-space:nowrap;font-size:11px}.split-empty{padding:28px 16px;border:1px dashed var(--seam);border-radius:12px}.split-confidence{font-size:12px;margin:12px 0;color:var(--muted)}.split-wrap details{border-top:1px solid var(--seam);margin-top:12px}.split-wrap .split-sort{max-width:100%;width:260px}@media(max-width:600px){.split-card{padding:13px}.split-controls{gap:12px}.split-stats{gap:6px}.split-stats button{flex-basis:calc(50% - 6px)}.split-card-head{gap:10px}.split-score{font-size:21px}}
+.splits-active #welcome,.splits-active #meta{display:none}.split-controls strong{width:100%}.split-controls label{flex:1}.split-controls .split-muted{width:100%}.split-count{margin:6px 0!important}@media(max-width:600px){.split-wrap h2{font-size:21px}.split-tabs{gap:5px;margin:8px 0}.split-tabs button,.split-tabs select{padding:7px 8px;font-size:12px}.split-controls{padding:10px;margin:8px 0;gap:6px}.split-controls input{width:62px;padding:6px}.split-controls label{font-size:11px}.split-wrap .split-sort{width:180px}.split-confidence button{padding:6px;font-size:11px}.split-score button{padding:7px;font-size:11px}.split-score button b{display:block;font-size:23px}.split-card-head h3{font-size:16px}}
+.split-confidence{display:flex;flex-wrap:wrap;gap:6px}.split-confidence b{display:block;font-size:15px;margin-top:3px}.split-confidence button{flex:1}.split-score button b{display:block}
 </style>
 <link rel="stylesheet" href="shared/going-shell.css"><script defer src="shared/going-shell.js" data-workspace="yard" data-base="https://going-long.vercel.app"></script></head>
 <body>
@@ -2892,6 +2895,8 @@
       <button class="nav-item" data-nav="edges-pens" onclick="drawerGo('edges','pens')">Bullpens<i>pen rankings + fatigue</i></button>
       <button class="nav-item" data-nav="parlays" onclick="drawerGo('parlays')">Parlays &amp; Jackpots<i>HR combos · grand slam · longball</i></button>
 
+      <div class="nav-sec">SPLITS</div>
+      <button class="nav-item" data-nav="splits" onclick="drawerGo('splits')">Split Overlaps<i>post-All-Star · pitchers, batters &amp; matchups</i></button>
       <div class="nav-sec">CONDITIONS</div>
       <button class="nav-item" data-nav="weather" onclick="drawerGo('weather')">Weather &amp; Parks<i>wind arrows + best/worst HR parks</i></button>
       <button class="nav-item" data-nav="edges-micro" onclick="drawerGo('edges','micro')">Microclimate<i>temp-sensitive hitters tonight</i></button>
@@ -6024,10 +6029,95 @@ function renderPitchMix(){
     <div class="prop-note" style="margin-top:14px">Green = more damage by the hitter; red on K%/SwStr% = the pitch beats him. Rates pool the raw counts across every pitch you select, so a big sample never gets outweighed by a tiny one. Splits are season-long and measured against all pitchers who throw that pitch (not just this arm), which keeps the samples usable. Tap a hitter for his full card.</div>
   </div>`;
 }
+// SPLIT_OVERLAPS_START -- pure filtering/sorting is also exercised by Node tests.
+const splitLabels={iso:'ISO',slg:'SLG',fb_pct:'FB%',barrel_pct:'Barrel%',ev:'EV (mph)',hr_rate:'HR rate %',hr9:'HR/9',hr_fb:'HR/FB %',avg:'AVG',obp:'OBP',woba:'wOBA',k_pct:'K%',babip:'BABIP',contact_pct:'Contact %',whip:'WHIP',h:'H',r:'R',rbi:'RBI',ops:'OPS',hr:'HR',baserunners:'Baserunners',era:'ERA',pa:'PA',bf:'BF',ip:'IP',bbe:'Batted balls',games:'Games',statcast_pa:'Statcast PA'};
+const splitState={section:'matchups',family:'HR_OVERLAP',layout:'cards',sort:'overlap_strength',direction:-1,thresholds:{pa:50,bf:30}};
+try{const saved=JSON.parse(localStorage.getItem('gy_split_thresholds')||'null');if(saved&&['pa','bf'].every(k=>Number.isFinite(saved[k])&&saved[k]>=0))splitState.thresholds=saved;}catch(e){}
+function splitValue(row,key){return key.split('.').reduce((v,k)=>v==null?null:v[k],row);}
+function splitVisible(rows,thresholds,key='overlap_strength',direction=-1){
+  return rows.filter(r=>r.overlap_strength!=null&&r.batter_stats.pa>=thresholds.pa&&r.pitcher_stats.bf>=thresholds.bf).slice().sort((a,b)=>{
+    const x=splitValue(a,key),y=splitValue(b,key);if(x==null&&y!=null)return 1;if(y==null&&x!=null)return -1;
+    if(x!==y&&x!=null&&y!=null)return direction*(x-y);
+    return b.overlap_strength-a.overlap_strength||a.game_pk-b.game_pk||a.id-b.id;
+  });
+}
+function splitEscape(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function splitFormat(key,value){if(value==null||!Number.isFinite(value))return '—';const stat=key.split('.').pop();return value.toFixed(['avg','obp','slg','ops','iso','babip','woba'].includes(stat)?3:['h','r','rbi','hr','pa','bf','bbe','games','statcast_pa','lineup_spot'].includes(stat)?0:1);}
+function splitSet(key,value){splitState[key]=value;if(key==='family'){splitState.sort='overlap_strength';splitState.direction=-1;}renderSplitOverlaps();}
+function splitSort(key){splitState.direction=splitState.sort===key?-splitState.direction:-1;splitState.sort=key;renderSplitOverlaps();}
+function splitThreshold(key,value){const n=Number(value);if(value===''||!Number.isFinite(n)||n<0)return;splitState.thresholds[key]=n;try{localStorage.setItem('gy_split_thresholds',JSON.stringify(splitState.thresholds));}catch(e){}renderSplitOverlaps();document.querySelector(`[aria-label="Minimum ${key==='pa'?'batter PA':'pitcher BF'}"]`)?.focus();}
+function splitMetricButton(key,label,value){return `<button type="button" onclick="splitSort('${key}')" aria-pressed="${splitState.sort===key}" title="Sort ${splitEscape(label)}">${splitEscape(label)}${splitState.sort===key?(splitState.direction===-1?' ↓':' ↑'):''}${value===undefined?'':`<b>${splitFormat(key,value)}</b>`}</button>`;}
+function splitColumns(payload,rows){
+  const cols=[['overlap_strength','Overlap Strength'],['sample_confidence','Sample confidence'],['lineup_spot','Lineup spot'],['pitcher_recent_pitch_mix.starts_count','Recent starts'],['pitcher_recent_pitch_mix.covered_starts','Starts with pitch data'],['pitcher_recent_pitch_mix.pitches','Recent pitches']];
+  for(const side of ['batter','pitcher']){
+    const keys=new Set([...(payload.metrics?.[splitState.family]?.[side]||[]),...Object.keys(rows[0]?.[`key_${side}_evidence`]||{}),...(side==='batter'?['pa']:['bf','ip']), 'games','bbe','statcast_pa']);
+    for(const key of keys)cols.push([`${side}_stats.${key}`,`${side==='batter'?'Batter':'Pitcher'} ${splitLabels[key]||key}`]);
+  }
+  return cols;
+}
+let splitSavedSignature='';
+function splitArchive(payload,ranking){
+  if(typeof indexedDB==='undefined')return;
+  const snapshotKey=payload.slate_date+'|'+payload.generated_at+'|'+payload.model_version;
+  const signature=snapshotKey+'|'+JSON.stringify(ranking.thresholds)+'|'+ranking.sort+'|'+ranking.direction;
+  if(signature===splitSavedSignature)return;
+  const request=indexedDB.open('going-split-research',1);
+  request.onupgradeneeded=()=>{for(const name of ['snapshots','rankings'])request.result.createObjectStore(name,{keyPath:'key'});};
+  request.onsuccess=()=>{
+    const db=request.result,tx=db.transaction(['snapshots','rankings'],'readwrite');
+    tx.objectStore('snapshots').put({key:snapshotKey,payload});
+    tx.objectStore('rankings').put({key:signature,snapshot_key:snapshotKey,created_at:ranking.created_at,thresholds:ranking.thresholds,sort:ranking.sort,direction:ranking.direction,
+      boards:Object.fromEntries(Object.entries(ranking.boards).map(([family,rows])=>[family,rows.map(r=>({id:r.id,game_pk:r.game_pk,rank:r.rank,strength:r.overlap_strength}))]))});
+    tx.oncomplete=()=>{splitSavedSignature=signature;db.close();};tx.onerror=()=>db.close();
+  };
+}
+function splitSaveRanking(payload){
+  // Zero backend: user-specific thresholds and complete rankings stay on this device.
+  const ranking={schema_version:1,record_kind:'local_split_ranking',created_at:new Date().toISOString(),generated_at:payload.generated_at,slate_date:payload.slate_date,model_version:payload.model_version,thresholds:{...splitState.thresholds},sort:splitState.sort,direction:splitState.direction,boards:{}};
+  for(const [family,rows] of Object.entries(payload.boards||{}))ranking.boards[family]=splitVisible(rows,splitState.thresholds,splitState.sort,splitState.direction).map((r,i)=>({...r,rank:i+1,thresholds:{...splitState.thresholds}}));
+  splitArchive(payload,ranking);
+  return ranking;
+}
+function splitExport(){const data=splitSaveRanking(BOARD.split_overlaps);const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`going-splits-${data.slate_date}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
+function renderSplitOverlaps(){
+  const payload=BOARD?.split_overlaps;
+  const host=document.getElementById('main');
+  if(!payload||payload.status!=='FRESH'||payload.slate_date!==BOARD.slate_date){host.innerHTML=`<div class="split-wrap"><h2>Split Overlaps</h2><div class="split-empty">${splitEscape(payload?.note||payload?.reason||'Split data will appear after the next daily refresh.')}<p class="split-muted">${splitEscape(payload?.status||'PENDING')} · Post-All-Star venue splits only.</p></div></div>`;return;}
+  const source=payload.boards[splitState.family]||[],rows=splitVisible(source,splitState.thresholds,splitState.sort,splitState.direction),cols=splitColumns(payload,source);
+  splitSaveRanking(payload);
+  const stat=(r,side,key)=>splitMetricButton(`${side}_stats.${key}`,`${side==='batter'?'Batter':'Pitcher'} ${splitLabels[key]||key}`,r[`${side}_stats`][key]);
+  const evidence=(r,side)=>Object.keys(r[`key_${side}_evidence`]).map(key=>stat(r,side,key)).join('');
+  const details=r=>{
+    const mix=r.pitcher_recent_pitch_mix||{},starts=mix.starts||[];
+    return `<details><summary>Show me the split data &amp; recent pitch mix</summary><p class="split-muted">Applicable venue only · ${splitEscape(payload.window_start)} through ${splitEscape(payload.slate_date)} (slate day excluded). IP is decimal innings. Sample confidence measures sample depth; it is separate from strength and probability.</p><div class="split-stats">${cols.filter(([key])=>key.includes('_stats.')).map(([key,label])=>splitMetricButton(key,label,splitValue(r,key))).join('')}</div>
+    <h4>${splitEscape(r.pitcher_name||'Opposing starter')} · last ${starts.length} starts</h4><p class="split-muted">${starts.map(s=>splitEscape(s.date)).join(' · ')||'No recorded starts'}<br>Pitch data covers ${mix.covered_starts??0} of ${starts.length} starts. Usage is context only. — means no pitches observed for that handedness.</p>
+    <div class="split-scroll"><table class="split-table" style="min-width:320px"><thead><tr><th>Pitch</th><th>Overall usage</th><th>vs R</th><th>vs L</th></tr></thead><tbody>${(mix.rows||[]).map(m=>`<tr><td>${splitEscape(m.pitch_type)}</td>${['usage_pct','usage_pct_vs_R','usage_pct_vs_L'].map(k=>`<td><button onclick="splitMixSort('${splitEscape(m.pitch_type)}','${k}')">${splitFormat(k,m[k])}% ↕</button></td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="split-muted">Tap any usage value to sort this board by that pitch and handedness. Players without that observed pitch sort last.</p></details>`;
+  };
+  let display=rows;
+  if(splitState.section!=='matchups'){
+    const seen=new Set();display=rows.filter(r=>{const key=splitState.section==='pitchers'?`${r.game_pk}:${r.pitcher_id}`:`${r.game_pk}:${r.id}`;if(seen.has(key))return false;seen.add(key);return true;});
+  }
+  const lineupLabels={confirmed:'Confirmed lineup',projected:'Projected lineup',roster_only:'On roster · lineup unconfirmed'};
+  const cards=display.map((r,i)=>`<article class="split-card"><div class="split-card-head"><div><h3>${i+1}. ${splitEscape(splitState.section==='pitchers'?r.pitcher_name:r.name)}</h3><div class="split-muted">${splitEscape(r.game)} · ${splitEscape(lineupLabels[r.lineup_status]||'Lineup pending')}</div></div><div class="split-score">${splitMetricButton('overlap_strength','Strength',r.overlap_strength)}<small>research score</small></div></div><p class="split-muted">${splitEscape(r.split_label)}${splitState.section==='pitchers'?` · facing ${splitEscape(r.name)}`:` · ${splitEscape(r.pitcher_name)}`}</p><div class="split-stats">${evidence(r,'batter')}${evidence(r,'pitcher')}</div><div class="split-confidence">${splitMetricButton('sample_confidence','Sample confidence',r.sample_confidence)} ${stat(r,'batter','pa')} ${stat(r,'pitcher','bf')} ${r.lineup_spot?splitMetricButton('lineup_spot','Lineup spot (context)',r.lineup_spot):''}</div>${details(r)}</article>`).join('');
+  const table=`<div class="split-scroll"><table class="split-table"><thead><tr><th>Player / applicable split</th>${cols.map(([key,label])=>`<th>${splitMetricButton(key,label)}</th>`).join('')}</tr></thead><tbody>${display.map(r=>`<tr><td><b>${splitEscape(r.name)}</b><br>${splitEscape(r.split_label)}<br>${splitEscape(r.pitcher_name)}</td>${cols.map(([key])=>`<td>${splitFormat(key,splitValue(r,key))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  host.innerHTML=`<section class="split-wrap"><div class="split-muted">GOING YARD / SPLITS · ${splitEscape(payload.slate_date)}</div><h2>Where the splits overlap</h2><p class="split-muted">Post-All-Star venue splits · Research strength, not probability.</p>
+    <div class="split-tabs">${['pitchers','batters','matchups'].map(s=>`<button aria-pressed="${splitState.section===s}" onclick="splitSet('section','${s}')">${s[0].toUpperCase()+s.slice(1)}</button>`).join('')}</div>
+    <div class="split-tabs">${[['HR_OVERLAP','HR Overlap'],['HIT_OVERLAP','Hit Overlap'],['HRR_OVERLAP','HRR Overlap']].map(([key,label])=>`<button aria-pressed="${splitState.family===key}" onclick="splitSet('family','${key}')">${label}</button>`).join('')}</div>
+    <div class="split-controls"><strong>Minimum sample</strong><label>Batter PA <input aria-label="Minimum batter PA" type="number" min="0" value="${splitState.thresholds.pa}" oninput="splitThreshold('pa',this.value)"></label><label>Pitcher BF <input aria-label="Minimum pitcher BF" type="number" min="0" value="${splitState.thresholds.bf}" oninput="splitThreshold('bf',this.value)"></label><span class="split-muted">All boards · saved on this device</span></div>
+    <div class="split-tabs"><button onclick="splitSet('layout','cards')" aria-pressed="${splitState.layout==='cards'}">Top Overlaps</button><button onclick="splitSet('layout','table')" aria-pressed="${splitState.layout==='table'}">All Qualifiers</button>${splitMetricButton('overlap_strength','Overlap Strength')}<select class="split-sort" aria-label="Sort by split metric" onchange="splitSort(this.value)">${cols.map(([key,label])=>`<option value="${key}" ${splitState.sort===key?'selected':''}>${label}</option>`).join('')}</select><button onclick="splitSort(splitState.sort)">${splitState.direction===-1?'High → low':'Low → high'}</button></div>
+    <p class="split-muted split-count">${rows.length} / ${source.length} matchups qualify · Full field in both views. ${splitState.section==='pitchers'?'One pitcher per game; first matchup in the active sort.':''}</p>
+    ${display.length?(splitState.layout==='cards'?cards:table):'<div class="split-empty">No matchups meet these sample thresholds. Lower the minimums to explore smaller samples.</div>'}
+    <details><summary>How this score is built &amp; saved</summary><p class="split-muted">${splitEscape(payload.formula)} ${Object.entries(payload.scoring?.[splitState.family]||{}).map(([,c])=>`${splitLabels[c[0]]||c[0]} reference ${c[1]}`).join('; ')}. Sample confidence = 100 × the smaller of PA/(PA+100) and BF/(BF+100). Lineup position and pitch usage provide context only. R/RBI also depend on team context.</p><p class="split-muted">Daily pregame records preserve all three signal families, inputs, ranks, default thresholds, and later official outcomes. Your current custom thresholds and complete sorted rankings are saved on this device; export them to keep a permanent copy. Custom device rankings are not uploaded.</p><button onclick="splitExport()">Export this ranking &amp; split evidence</button></details></section>`;
+}
+function splitMixSort(pitch,metric){const key=`mix_${pitch}_${metric}`;for(const rows of Object.values(BOARD.split_overlaps.boards))for(const r of rows)r[key]=r.pitcher_recent_pitch_mix.rows.find(m=>m.pitch_type===pitch)?.[metric]??null;splitSort(key);}
+// SPLIT_OVERLAPS_END
 function renderView(){
+  document.body.classList.toggle('splits-active',view==='splits');
+  const splitFoot=document.getElementById('foot');if(splitFoot)splitFoot.hidden=view==='splits';
   const safe=fn=>{ try{ fn(); }catch(e){ console.error("render",e);
     const m=document.getElementById("main");
     if(m) m.innerHTML=`<div class="empty">This tab hit a snag rendering today's data — the rest of the app is fine.<br>Tap another tab or check back after the next board update.</div>`; } };
+  if(view==='splits'){safe(renderSplitOverlaps);return;}
   // legacy per-game views (Stacks/Matchup) are folded into Scan & Edges — redirect stale routes.
   // Weather is a live standalone view again (park + wind arrow, plus slate park ranking).
   if(view==="stacks"){ view="scan"; }
@@ -13170,7 +13260,7 @@ document.getElementById("tabbar").addEventListener("click",async e=>{
 // Navigate to a view that lives in the "More" sheet (parlays/stacks/matchup/weather).
 // The More button in the tab bar lights up to show you're in a secondary view, since
 // none of the primary tabs own it.
-const MORE_VIEWS=new Set(["dailycard","scan","props","toppicks","converge","sgp","jackpot","ladder","altlines","lbboard","kob","qualified","edges","pitchmix","parlays","weather","calendar","targets","scanner","hrpatterns","faq","stacks","matchup","hit","hrr","gsboard"]);
+const MORE_VIEWS=new Set(["splits","dailycard","scan","props","toppicks","converge","sgp","jackpot","ladder","altlines","lbboard","kob","qualified","edges","pitchmix","parlays","weather","calendar","targets","scanner","hrpatterns","faq","stacks","matchup","hit","hrr","gsboard"]);
 // Drawer navigation — jumps to a view and optionally a sub-view, then closes the drawer.
 function renderFaq(){
   const main=document.getElementById("main");

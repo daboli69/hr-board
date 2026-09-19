@@ -45,7 +45,14 @@ def grade_record(record, schedule, box):
                          'home_runs': batting['homeRuns'] if complete else None,
                          'hits': batting['hits'] if complete else None,
                          'hits_runs_rbis': sum(batting[k] for k in ['hits', 'runs', 'rbi']) if complete else None})
-    return {'grader_version': 2, 'needs_retry': any(p['state'] == 'stats_unavailable' for p in outcomes),
+    split_results = []
+    by_id = {r['id']: r for r in outcomes}
+    for family, rows in (record.get('split_overlaps') or {}).get('boards', {}).items():
+        key = {'HR_OVERLAP': 'home_runs', 'HIT_OVERLAP': 'hits', 'HRR_OVERLAP': 'hits_runs_rbis'}[family]
+        for row in rows:
+            outcome = by_id.get(row['id'], {})
+            split_results.append(dict(row, actual_outcome=outcome.get(key), outcome_state=outcome.get('state', 'stats_unavailable')))
+    return {'grader_version': 2, 'split_signals': split_results, 'needs_retry': any(p['state'] == 'stats_unavailable' for p in outcomes),
             'game_pk': game_id, 'date': record['date'], 'captured_at': record['captured_at'],
             'game': record.get('game'), 'graded_at': datetime.now(timezone.utc).isoformat(),
             'source': f'https://statsapi.mlb.com/api/v1/game/{game_id}/boxscore', 'players': outcomes}
@@ -56,11 +63,13 @@ def run(root='docs'):
     output = root / 'pregame-results.json'
     previous = json.loads(output.read_text()) if output.exists() else {'games': []}
     graded = {str(g['game_pk']): g for g in previous.get('games', [])}
+    split_graded = {str(g['game_pk']): g for g in previous.get('split_games', [])}
     pending, errors = 0, []
     session = requests.Session()
     for file in sorted((root / 'snapshots/pregame').glob('*/*.json')):
         record = json.loads(file.read_text())
-        existing = graded.get(str(record['game_pk']), {})
+        target = split_graded if record.get('record_kind') == 'split_overlap_research' else graded
+        existing = target.get(str(record['game_pk']), {})
         if existing.get('grader_version') == 2 and not existing.get('needs_retry'):
             continue
         try:
@@ -75,7 +84,7 @@ def run(root='docs'):
             response.raise_for_status()
             result = grade_record(record, schedule, response.json())
             if result:
-                graded[str(record['game_pk'])] = result
+                target[str(record['game_pk'])] = result
                 pending += int(result['needs_retry'])
         except (requests.RequestException, ValueError, KeyError) as error:
             pending += 1
@@ -83,7 +92,8 @@ def run(root='docs'):
                 existing['needs_retry'] = True
             errors.append({'game_pk': record.get('game_pk'), 'reason': str(error)})
     payload = {'schema_version': 1, 'record_kind': 'pregame_model_research', 'updated_at': datetime.now(timezone.utc).isoformat(),
-               'games': sorted(graded.values(), key=lambda g: (g['date'], g['game_pk'])), 'pending_games': pending, 'errors': errors,
+               'games': sorted(graded.values(), key=lambda g: (g['date'], g['game_pk'])),
+               'split_games': sorted(split_graded.values(), key=lambda g: (g['date'], g['game_pk'])), 'pending_games': pending, 'errors': errors,
                'note': 'Research scores recorded before first pitch. No frozen bet price: betting returns and prediction calibration are not measured here.'}
     temporary = output.with_suffix('.tmp')
     temporary.write_text(json.dumps(payload, indent=2), encoding='utf-8')

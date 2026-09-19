@@ -6707,6 +6707,27 @@ def build(date_str: str | None = None) -> dict:
         board["total_bases_board"] = {"board": [], "notes": []}
         _hnote("king of the bases", e); print(f"[build] king of the bases skipped: {e}")
 
+    from etl import split_overlaps
+    try:
+        # Preserve game identity for doubleheaders; existing player maps are player-keyed.
+        split_players = []
+        identities = {p['id']: p for p in players}
+        for game in games:
+            for side in ('home', 'away'):
+                other = 'away' if side == 'home' else 'home'
+                for spot, bid in enumerate(slate['lineups'].get(game['game_pk'], {}).get(side, []), 1):
+                    if bid not in identities:
+                        continue
+                    split_players.append(dict(identities[bid], game_pk=game['game_pk'], side=side,
+                        team=game[side], opp_team=game[other], lineup_spot=spot if spot <= 9 else None,
+                        lineup_status=('roster_only' if spot > 9 else 'projected' if (game['game_pk'], side) in projected_sides else 'confirmed'),
+                        opp_pitcher={'id': game.get(other + '_pitcher_id'),
+                                     'name': (slate.get('pitchers', {}).get(game.get(other + '_pitcher_id')) or {}).get('name')}))
+        board['split_overlaps'] = split_overlaps.build(dict(board, players=split_players), df)
+    except Exception as error:
+        board['split_overlaps'] = {'status': 'FAILED', 'slate_date': date_str, 'boards': {},
+                                   'reason': type(error).__name__ + ': ' + str(error)}
+        _hnote('split overlaps', error)
     return board
 
 
@@ -6957,6 +6978,7 @@ def main():
                 "day_night": p.get("day_night"),
             } for p in board["players"]],
         }
+        snap['split_overlaps'] = board.get('split_overlaps')
         from etl.pregame_records import freeze_games
         frozen = freeze_games(snap, board.get("games", []), snap_dir, board.get("generated_at"))
         print(f"[build] preserved {frozen} new pregame game records")
