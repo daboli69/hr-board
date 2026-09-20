@@ -15,4 +15,16 @@ assert.equal(context.splitVisible(rows,{pa:0,bf:0}).length,3);
 const missing={...rows[0],id:4,batter_stats:{pa:100,iso:null}};
 for(const dir of [-1,1])assert.equal(context.splitVisible([...rows,missing],{pa:50,bf:30},'batter_stats.iso',dir).at(-1).id,4);
 });
+test('player board context stays separate and its active heat is sortable',()=>{
+context.BOARD={players:[{id:1,game_pk:1,heat:42,hit_heat:81,hrr_heat:63,tier:'STRONG',badges:[{k:'pow',t:'POWER'}],matchup_grade:{grade:'ELITE'},why:'real board evidence'},{id:2,game_pk:1,heat:77,hit_heat:51,hrr_heat:71}]};
+context.badgeChips=p=>`BADGES:${p.badges?.length||0}`;
+const payload={boards:{HR_OVERLAP:rows.map(r=>({...r})),HIT_OVERLAP:rows.slice(0,2).map(r=>({...r})),HRR_OVERLAP:[]}};
+context.splitAttachBoardContext(payload);
+assert.equal(payload.boards.HR_OVERLAP[0].board_context.active_heat,42);
+assert.equal(payload.boards.HIT_OVERLAP[0].board_context.active_heat,81);
+assert.equal(context.splitVisible(payload.boards.HR_OVERLAP,{pa:50,bf:30},'board_context.active_heat',-1).map(r=>r.id).join(','),'2,1');
+const card=context.splitBoardContext(payload.boards.HR_OVERLAP[0]);
+assert.match(card,/comparison only · not included in overlap strength/);
+assert.match(card,/BADGES:1/);assert.match(card,/HR Heat/);assert.match(card,/ELITE/);
+});
 test('entire page scripts parse',()=>{for(const match of html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g))new vm.Script(match[1]);});
