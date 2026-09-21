@@ -108,6 +108,7 @@ jobs:
 
           stage() {
             git add docs/board.json docs/snapshots 2>/dev/null || true
+            git add docs/signal_tracker.json 2>/dev/null || true
             git add docs/odds.json 2>/dev/null || true
             git add docs/park_factors.json 2>/dev/null || true
             git add docs/bvp_career.json 2>/dev/null || true

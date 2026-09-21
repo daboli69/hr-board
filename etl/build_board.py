@@ -6949,6 +6949,11 @@ def main():
                 "sp_vuln": (p["opp_pitcher"].get("hr_score")),
                 "luck_gap": (((p.get("luck") or {}).get("recent")) or {}).get("luck_gap"),
                 "heat_mix": p.get("heat_mix"),
+                "sample": p.get("sample"),
+                "metrics": p.get("metrics"),
+                "square_up": (p.get("features") or {}).get("square_up"),
+                "mix_punish": p.get("mix_punish"),
+                "park_hr_factor": p.get("park_hr_factor"),
                 "spot": p.get("lineup_spot"),
                 "park_boost": (p.get("park_hr") or {}).get("boost"),
                 "trend": (p.get("trend") or {}).get("dir"),
@@ -6979,9 +6984,12 @@ def main():
             } for p in board["players"]],
         }
         snap['split_overlaps'] = board.get('split_overlaps')
+        snap['model_version'] = board.get('model_version')
         from etl.pregame_records import freeze_games
         frozen = freeze_games(snap, board.get("games", []), snap_dir, board.get("generated_at"))
         print(f"[build] preserved {frozen} new pregame game records")
+        from etl.signal_records import build as build_signal_ledger
+        build_signal_ledger(os.path.dirname(OUT_PATH) or '.')
         with open(os.path.join(snap_dir, f"{board['slate_date']}.json"), "w") as f:
             json.dump(snap, f, default=str)
         import glob

@@ -98,6 +98,8 @@ def run(root='docs'):
     temporary = output.with_suffix('.tmp')
     temporary.write_text(json.dumps(payload, indent=2), encoding='utf-8')
     os.replace(temporary, output)
+    from etl.signal_records import build as build_signal_ledger
+    build_signal_ledger(root)
     print(f"Pregame research: {len(graded)} games graded, {pending} pending, {len(errors)} feed errors")
 
 

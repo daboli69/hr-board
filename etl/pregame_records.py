@@ -50,6 +50,7 @@ def freeze_games(snapshot, games, root, generated_at, now=None, split_only=False
             'game': game, 'players': players,
             'pitcher_props': [p for p in snapshot.get('pitcher_props', []) if str(p.get('game_pk')) == str(game_id)],
             'window_v': snapshot.get('window_v'),
+            'model_version': snapshot.get('model_version'),
         }
         split = snapshot.get('split_overlaps') or {}
         if split.get('status') == 'FRESH' and any(r['game_pk'] == game_id for r in split['boards'].get('HR_OVERLAP', [])):

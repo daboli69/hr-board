@@ -76,7 +76,7 @@ jobs:
         run: |
           git config user.name  "hr-board-bot"
           git config user.email "actions@github.com"
-          git add docs/history.json docs/pregame-results.json
+          git add docs/history.json docs/pregame-results.json docs/signal_tracker.json
           if git diff --staged --quiet; then
             echo "No history change"
           else
