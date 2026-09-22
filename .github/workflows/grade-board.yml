@@ -92,7 +92,7 @@ jobs:
           git config user.name  "hr-board-bot"
           git config user.email "actions@github.com"
           git add docs/history.json docs/pregame-results.json docs/signal_tracker.json
-          git add docs/opportunity_predictions.json 2>/dev/null || true
+          git add docs/opportunity_predictions.json docs/opportunity_followup.json 2>/dev/null || true
           if git diff --staged --quiet; then
             echo "No history change"
           else

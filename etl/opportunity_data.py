@@ -70,6 +70,7 @@ class MLB:
                         s=split['stat']
                         if group=='pitching':
                             rows.append({'date':split['date'], 'game_pk':split['game']['gamePk'],
+                                         'is_home':split.get('isHome'), 'game_type':split.get('gameType'),
                                          'started':bool(s.get('gamesStarted')), 'bf':s.get('battersFaced',0),
                                          'k':s.get('strikeOuts',0), 'ip':innings(s.get('inningsPitched')),
                                          'runs':s.get('runs',0)})

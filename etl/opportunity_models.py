@@ -23,6 +23,16 @@ def clip(x, lo, hi):
     return max(lo, min(hi, x))
 
 
+def valid_frozen_price(prediction):
+    """Freshness at capture, NOT price age at settlement time."""
+    observed=utc(prediction.get('observed_at'))
+    quoted=utc((prediction.get('price') or {}).get('quoted_at'))
+    kickoff=utc((prediction.get('event') or {}).get('start'))
+    return bool(prediction.get('freshness')=='FRESH' and observed and quoted and kickoff
+                and observed<kickoff and quoted<kickoff
+                and -300 <= (observed-quoted).total_seconds() <= 10800)
+
+
 def shrunk(total, exposure, prior, prior_exposure):
     return (total + prior * prior_exposure) / (exposure + prior_exposure)
 
@@ -142,7 +152,7 @@ def game_projection(games, home, away, cutoff, home_sp, away_sp, park=1., home_p
                              'home_starter_bf': home_sp['bf'], 'away_starter_bf': away_sp['bf']}}
 
 
-def pitcher_projection(features, lineup, split_rows=()):
+def pitcher_projection(features, lineup, split_rows=(), short_start_smoothing=False):
     # Opponent lineup is only actual/projected batters, not every player on a roster.
     pa, ks = sum(r['pa'] for r in lineup), sum(r['k'] for r in lineup)
     opposing_k = shrunk(ks, pa, .225, 250)
@@ -159,6 +169,10 @@ def pitcher_projection(features, lineup, split_rows=()):
     mean = baseline_mean * (1+delta)
     # Poisson mixed over observed last-five workloads admits early exits and long starts.
     workloads = features['workloads'] or [features['expected_bf']]
+    if short_start_smoothing and features['expected_ip'] < 4.5:
+        # Single follow-up candidate: remove the second workload-variance layer
+        # for pregame short-start profiles. Mean and every K-rate input unchanged.
+        workloads = [features['expected_bf']]
     average = sum(workloads)/len(workloads)
     dist, baseline_dist = {}, {}
     for bf in workloads:

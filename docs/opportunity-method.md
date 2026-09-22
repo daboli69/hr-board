@@ -1,5 +1,8 @@
 # MLB opportunities v1
 
+Follow-up baselines, larger-sample tests, one K adjustment, outage tests and
+exploratory ROI availability are documented in [the follow-up report](opportunity-followup.md).
+
 ## Scope and provenance
 
 `etl/build_opportunities.py` is independent of `etl/build_board.py`. HR scoring,

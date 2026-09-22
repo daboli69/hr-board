@@ -62,7 +62,8 @@ def contract(game, entity, market, line, side, decimal, other_decimal, probabili
         'features':features,'split_overlap':split or {'relative_change':0,'source':None},
         'baseline_probability':base_probability,'model_version':VERSION,'observed_at':now.isoformat(),
         'freshness':'FRESH','qualification':'research',
-        'validation_status':'provisional; retrospective diagnostics are not demonstrated betting profitability',
+        'validation_status':('informational only; original K model retained, single short-start adjustment rejected; historical Brier improvement is not forward betting validation'
+                             if kind=='pitcher_prop' else 'provisional; retrospective diagnostics are not demonstrated betting profitability'),
         'source':{'board':'board.json','markets':'opportunity_markets.json','stats':'https://statsapi.mlb.com/api/v1'}}
 
 
@@ -193,14 +194,32 @@ def build(board, markets, schedule, scores, pitching, batting, calibration, now=
             'note':'All quoted eligible sides, not all asserted bets. Devig needs same-book opposite side; integer pushes are separate.'}
 
 
+def retain_failed_sources(payload, previous, markets):
+    """Repeatable failed-run merge: original quote/observation times stay intact."""
+    fresh_ids={r['id'] for r in payload['opportunities']}
+    for row in previous.get('opportunities',[]):
+        category='games' if row['opportunity_type']=='game_line' else 'props'
+        source=markets.get(category,{})
+        if source.get('status')!='FRESH' and row['id'] not in fresh_ids:
+            stamp=utc(row.get('price',{}).get('quoted_at'))
+            now=utc(payload.get('generated_at'))
+            payload['opportunities'].append(dict(row,freshness='STALE',
+                stale_reason=source.get('error','source_not_fresh'),
+                quote_age_seconds=max(0,(now-stamp).total_seconds()) if stamp and now else None))
+    if not fresh_ids:
+        payload['status']='STALE' if payload['opportunities'] else 'FAILED'
+    payload['retained_stale_count']=sum(r['freshness']=='STALE' for r in payload['opportunities'])
+    return payload
+
+
 def freeze(payload, root):
+    from etl.opportunity_models import valid_frozen_price
     root=Path(root)
     path=root/'opportunity_predictions.json'
     ledger=json.loads(path.read_text()) if path.exists() else {'schema_version':1,'records':[]}
     records={r['id']:r for r in ledger['records']}
     for row in payload['opportunities']:
-        if row.get('freshness')!='FRESH': continue
-        if utc(row['observed_at'])>=utc(row['event']['start']): continue
+        if not valid_frozen_price(row): continue
         if row['id'] in records: continue  # first pregame observation, never overwrite
         records[row['id']]={'schema_version':1,'id':row['id'],'sport':'mlb','event':row['event'],'entity':row['entity'],
             'signal_family':'MLB_'+row['opportunity_type'].upper(),'model_version':VERSION,'observed_at':row['observed_at'],
@@ -230,12 +249,7 @@ def main():
         payload=build(board,markets,schedule,final_scores(schedule),pitching,batting,calibration,now)
         if payload['status']!='FRESH' and (root/'opportunities.json').exists():
             previous=json.loads((root/'opportunities.json').read_text())
-            fresh_ids={r['id'] for r in payload['opportunities']}
-            for r in previous.get('opportunities',[]):
-                category='games' if r['opportunity_type']=='game_line' else 'props'
-                if markets.get(category,{}).get('status')!='FRESH' and r['id'] not in fresh_ids:
-                    payload['opportunities'].append(dict(r,freshness='STALE'))
-            if not fresh_ids: payload['status']='STALE' if payload['opportunities'] else 'FAILED'
+            retain_failed_sources(payload,previous,markets)
         payload['source_calls']=api.calls
         save(root/'opportunities.json',payload); freeze(payload,root)
         from etl.signal_records import build as ledger

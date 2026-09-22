@@ -774,117 +774,80 @@ def _write_error(reason: str) -> None:
         print(f"[odds] {reason}: no prior good file to preserve; wrote empty", file=sys.stderr)
 
 
+def refresh_sources(api_key, prior, now=None):
+    """Fetch independent sources once each; failure never relabels old rows."""
+    now = now or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    REQUEST_AUDIT.clear()
+    result = {"schema_version": 1, "updated_at": now}
+    for key, fetcher in (("props", fetch_props), ("games", fetch_game_lines)):
+        try:
+            if not api_key:
+                raise ValueError("no_api_key")
+            rows = fetcher(api_key)
+            if not isinstance(rows, list) or any(not isinstance(r, dict) for r in rows):
+                raise ValueError("bad_shape")
+            result[key] = {"status": "FRESH", "updated_at": now, "rows": rows}
+        except Exception as error:
+            reason = f"http_{error.code}" if isinstance(error, urllib.error.HTTPError) else type(error).__name__
+            previous = prior.get(key) or {}
+            result[key] = dict(previous, status="STALE" if previous.get("rows") else "FAILED",
+                               error=reason, last_attempt=now)
+            result[key].setdefault("rows", [])
+            result[key].setdefault("updated_at", None)
+            print(f"[odds] {key}: {reason}; {result[key]['status']}", file=sys.stderr)
+    result["request_audit"] = list(REQUEST_AUDIT)
+    return result
+
+
 def main() -> int:
-    api_key = os.environ.get("PARLAY_API_KEY", "").strip()
-    if not api_key:
-        print("[odds] no PARLAY_API_KEY set", file=sys.stderr)
-        _write_error("no_api_key")
-        return 0
-    try:
-        rows = fetch_props(api_key)
-    except urllib.error.HTTPError as e:
-        print(f"[odds] HTTP {e.code} at props", file=sys.stderr)
-        _write_error(f"http_{e.code}")
-        return 0
-    except Exception as e:
-        print(f"[odds] fetch failed: {type(e).__name__}", file=sys.stderr)
-        _write_error("fetch_failed")
-        return 0
-
-    if not isinstance(rows, list):
-        print(f"[odds] unexpected response shape: {type(rows)}", file=sys.stderr)
-        _write_error("bad_shape")
-        return 0
-
-    try:
-        prices = build_odds(rows)
-    except Exception as e:
-        print(f"[odds] parse failed: {e}", file=sys.stderr)
-        _write_error("parse_failed")
-        return 0
-
-    # Guard: if the API returned rows but we parsed ZERO usable prices, that's suspicious
-    # (schema drift, or all books filtered out). Don't overwrite good prior data with an
-    # empty set on a normal game day — but DO write empty if there genuinely were no rows
-    # (legitimately no games/props posted yet).
-    if not prices and rows:
-        print(f"[odds] {len(rows)} rows returned but 0 usable prices parsed — "
-              f"possible schema change; preserving last good file", file=sys.stderr)
-        _write_error("zero_parsed")
-        return 0
-
-    # capture the slate date from the rows so the frontend can verify these odds match
-    # today's board before auto-filling (stale odds from yesterday must not fill in today)
-    slate = None
-    for row in rows:
-        if isinstance(row, dict) and row.get("game_date"):
-            slate = row["game_date"]
-            break
-
-    # build the two-sided prop markets (hits/hrr/pitcher-K) from the same fetched rows
-    try:
-        prop_odds = build_prop_odds(rows)
-    except Exception as e:
-        print(f"[odds] prop build failed (non-fatal): {e}", file=sys.stderr)
-        prop_odds = {k: {} for k in PROP_MARKETS}
-
-    # All game markets from a shared /odds response (three credits total).
-    # Non-fatal: if it fails, we keep the prop odds and just skip game lines.
-    game_lines = {}
-    gl_events = []
-    game_status = 'FRESH'
-    game_error = None
-    try:
-        gl_events = fetch_game_lines(api_key)
-        game_lines = build_game_lines(gl_events)
-    except Exception as e:
-        game_status = 'FAILED'
-        game_error = f'http_{e.code}' if isinstance(e, urllib.error.HTTPError) else type(e).__name__
-        print(f"[odds] game-line fetch failed: {game_error}", file=sys.stderr)
-
-    # Run lines reuse the same response; no second request.
-    run_lines = {}
-    try:
-        run_lines = build_run_lines(gl_events)
-    except Exception as e:
-        print(f"[odds] run-line fetch failed (non-fatal): {e}", file=sys.stderr)
-
-    payload = {
-        "updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "slate_date": slate,
-        "market": MARKET,
-        "books": BOOKS,
-        "count": len(prices),
-        "prices": prices,
-        "props": prop_odds,
-        "game_lines": game_lines,
-        "run_lines": run_lines,
-        "source_status": {"props": "FRESH", "games": game_status},
-        "request_audit": REQUEST_AUDIT,
-    }
-    # Preserve native event/time and BOTH prices at the SAME book/line. Legacy
-    # player-name maps above remain compatible but cannot safely price doubleheaders.
     from etl.opportunity_data import save
-    raw_path = OUT_PATH.with_name('opportunity_markets.json')
+    api_key = os.environ.get("PARLAY_API_KEY", "").strip()
+    raw_path = OUT_PATH.with_name("opportunity_markets.json")
     prior = json.loads(raw_path.read_text()) if raw_path.exists() else {}
-    save(raw_path, {"schema_version": 1, "updated_at": payload['updated'],
-        "props": {"status": "FRESH", "updated_at": payload['updated'], "rows": rows},
-        "games": {"status": "FRESH", "updated_at": payload['updated'], "rows": gl_events}
-                 if game_status == 'FRESH' else dict(prior.get('games', {}), status='STALE' if prior.get('games') else 'FAILED',
-                                                   error=game_error, last_attempt=payload['updated']),
-        "request_audit": REQUEST_AUDIT})
-    try:
-        _apply_movement(payload)
-    except Exception as e:
-        print(f"[odds] movement enrichment skipped (non-fatal): {e}", file=sys.stderr)
+    existing = _load_existing() or {}
+    source = refresh_sources(api_key, prior)
+    payload = dict(existing)
+    if source["props"]["status"] == "FRESH":
+        try:
+            rows = source["props"]["rows"]
+            prices, props = build_odds(rows), build_prop_odds(rows)
+            if rows and not prices and not any(props.values()):
+                raise ValueError("zero_parsed")
+            payload.update(prices=prices, props=props, count=len(prices),
+                           slate_date=next((r["game_date"] for r in rows if r.get("game_date")), None),
+                           updated=source["props"]["updated_at"])
+            payload.pop("error", None)
+        except Exception as error:
+            source["props"] = dict(prior.get("props", {}), status="STALE" if prior.get("props", {}).get("rows") else "FAILED",
+                                   error=type(error).__name__, last_attempt=source["updated_at"])
+    if source["games"]["status"] == "FRESH":
+        payload["game_lines"] = build_game_lines(source["games"]["rows"])
+        payload["run_lines"] = build_run_lines(source["games"]["rows"])
+    else:
+        # Legacy UI does not understand per-game staleness: don't advertise old
+        # game prices there. Native evidence + opportunities retain stale rows.
+        payload["game_lines"] = {}
+        payload["run_lines"] = {}
+    payload.update(market=MARKET, books=BOOKS,
+                   source_status={k: source[k]["status"] for k in ("props", "games")},
+                   request_audit=source["request_audit"],
+                   stale=source["props"]["status"] != "FRESH")
+    payload.setdefault("prices", {})
+    payload.setdefault("props", {})
+    payload.setdefault("count", 0)
+    payload.setdefault("updated", None)
+    if payload["stale"]:
+        payload["error"] = source["props"].get("error")
+        payload["last_attempt"] = source["updated_at"]
+    save(raw_path, source)
+    if not payload["stale"]:
+        try:
+            _apply_movement(payload)
+        except Exception:
+            print("[odds] movement enrichment unavailable", file=sys.stderr)
     _write(payload)
-    for pk, pv in prop_odds.items():
-        print(f"[odds] prop '{pk}': {len(pv)} players priced", file=sys.stderr)
-    print(f"[odds] game lines: {len(game_lines)} games priced", file=sys.stderr)
-    print(f"[odds] run lines: {len(run_lines)} games priced", file=sys.stderr)
-    both = sum(1 for v in prices.values() if len(v["books"]) == 2)
-    print(f"[odds] wrote {len(prices)} hitters with HR prices ({both} priced by both books)")
-    return 0
+    print(json.dumps({"source_status": payload["source_status"], "hr_prices": payload["count"]}))
+    return int(any(source[k]["status"] != "FRESH" for k in ("props", "games")))
 
 
 HIST_PATH = OUT_PATH.parent / "odds_history.json"

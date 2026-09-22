@@ -4,11 +4,12 @@ from collections import defaultdict
 from datetime import date, datetime, timezone, timedelta
 from pathlib import Path
 from etl.opportunity_data import MLB, save
-from etl.opportunity_models import utc
+from etl.opportunity_models import utc, valid_frozen_price
 
 
 def settle(prediction, game, box):
     if game.get('status',{}).get('abstractGameState')!='Final': return None
+    if not valid_frozen_price(prediction): return None
     if not utc(prediction.get('observed_at')) or utc(prediction['observed_at'])>=utc(prediction['event']['start']):
         raise ValueError('Prediction is not pregame')
     market=prediction['market']; side=prediction['side']; line=prediction['market_line']
@@ -52,6 +53,9 @@ def run(root='docs'):
     if not path.exists(): return
     ledger=json.loads(path.read_text()); pending=defaultdict(list)
     for r in ledger['records']:
+        if not valid_frozen_price(r.get('features',{}).get('prediction',{})):
+            r['grading_status']='ineligible_stale_or_unverifiable_capture'
+            continue
         if r.get('outcome') is None: pending[r['event']['id']].append(r)
     api=MLB(); errors=[]; graded=0
     # One schedule range and one final boxscore per game, reused across every offer.
@@ -74,6 +78,8 @@ def run(root='docs'):
         except Exception as e: errors.append({'game_pk':gid,'error':type(e).__name__})
     ledger.update(generated_at=datetime.now(timezone.utc).isoformat(),errors=errors)
     save(path,ledger); publish_ledger(root)
+    from etl.opportunity_followup import update_roi
+    update_roi(root)
     print(json.dumps({'graded_offers':graded,'pending_games':len(pending),'source_calls':api.calls,'errors':errors}))
     if errors: raise RuntimeError('Some official outcomes unavailable; prior settlements preserved')
 
