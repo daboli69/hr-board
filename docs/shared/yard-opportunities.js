@@ -21,5 +21,23 @@ function build(board,odds,now=Date.now()){
   }
  }return rows.sort((a,b)=>b.strength-a.strength||a.player.localeCompare(b.player));
 }
-root.GoingYardOpportunities={build,stats};if(typeof module!=='undefined')module.exports=root.GoingYardOpportunities;
+function fromModel(payload,now=Date.now()){
+ if(!payload||payload.status==='STALE'||payload.status==='FAILED')return [];
+ return (payload.opportunities||[]).filter(r=>r.freshness==='FRESH'&&Date.parse(r.event.start)>now&&now-Date.parse(r.price.quoted_at)<=3*3600000).map(r=>({
+  id:r.id,sport:'mlb',event:String(r.game_pk),profileId:r.entity.id==='game'?null:r.entity.id,player:r.entity.name,
+  market:r.market,marketLabel:({hr:'Home runs',hits:'Hits',hrr:'Hits + runs + RBIs',pk:'Pitcher strikeouts',moneyline:'Moneyline',spread:'Run line',total:'Game total'})[r.market],
+  label:r.bet_description,line:r.market_line,side:r.side,home:r.event.home,away:r.event.away,kickoff:r.event.start,
+  book:r.price.book,odds:r.price.american,dec:r.price.decimal,updatedAt:r.price.quoted_at,
+  strength:r.devigged_edge==null?null:100*r.devigged_edge,qualification:'Model research · not a proven edge',
+  projectionLabel:(finite(r.going_projection)?r.going_projection.toFixed(2)+' projected · ':'')+(100*r.going_probability).toFixed(1)+'% model',
+  confidence:r.confidence_level+' sample confidence',why:r.why.join(' · '),risk:r.main_risk,
+  parlay:r.parlay_fit.rule,chartStats:[{label:'Model win probability',value:r.going_probability*100,max:100},
+   {label:'Devigged market probability',value:r.devigged_market_probability==null?null:r.devigged_market_probability*100,max:100},
+   {label:'Push probability',value:r.push_probability*100,max:100}],
+  evidence:[['Sample sizes',JSON.stringify(r.sample_sizes)],['Underlying model inputs',JSON.stringify(r.features)],
+   ['Minor split input',JSON.stringify(r.split_overlap)],['Validation',r.validation_status],['Quote',r.price.quoted_at]],
+  source:r.model_version,researchUrl:r.entity.id==='game'?null:'/yard/?player='+r.entity.id
+ }));
+}
+root.GoingYardOpportunities={build,stats,fromModel};if(typeof module!=='undefined')module.exports=root.GoingYardOpportunities;
 })(globalThis);

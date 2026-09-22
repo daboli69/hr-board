@@ -92,13 +92,24 @@ jobs:
           FLARESOLVERR_URL: "http://localhost:8191"
         run: python tests/canary.py && python -m etl.build_board
 
-      - name: Fetch HR prop odds
-        # 3 credits/call, one call per run. On the 6x/day board schedule that's ~540
-        # credits/month — inside the free 1k tier. Never fails the build: if the key is
-        # missing or the API errors, fetch_odds writes an error-marked odds.json and exits 0.
+      - name: Cache opportunity source inputs
+        uses: actions/cache@v4
+        with:
+          path: .cache/opportunities
+          key: mlb-opportunities-${{ github.run_id }}
+          restore-keys: mlb-opportunities-
+
+      - name: Fetch shared MLB markets
+        # Props 3 credits + bundled game markets 3 credits. Eight runs/day:
+        # 48/day, 1440/30-day month. Actual credit headers are retained.
         env:
           PARLAY_API_KEY: ${{ secrets.PARLAY_API_KEY }}
         run: python -m etl.fetch_odds || true
+
+      - name: Build MLB opportunities and freeze predictions
+        id: opportunities
+        continue-on-error: true
+        run: python -m etl.build_opportunities
 
       - name: Commit updated board
         run: |
@@ -109,6 +120,7 @@ jobs:
           stage() {
             git add docs/board.json docs/snapshots 2>/dev/null || true
             git add docs/signal_tracker.json 2>/dev/null || true
+            git add docs/opportunities.json docs/opportunity_markets.json docs/opportunity_predictions.json 2>/dev/null || true
             git add docs/odds.json 2>/dev/null || true
             git add docs/park_factors.json 2>/dev/null || true
             git add docs/bvp_career.json 2>/dev/null || true
@@ -140,12 +152,12 @@ jobs:
               git rebase --abort || true
               # save our just-built outputs, reset to remote tip, restore them, recommit
               tmp="$(mktemp -d)"
-              for f in docs/board.json docs/odds.json docs/park_factors.json docs/bvp_career.json docs/wind_sens.json; do
+              for f in docs/board.json docs/odds.json docs/park_factors.json docs/bvp_career.json docs/wind_sens.json docs/signal_tracker.json docs/opportunities.json docs/opportunity_markets.json docs/opportunity_predictions.json; do
                 [ -f "$f" ] && mkdir -p "$tmp/$(dirname "$f")" && cp "$f" "$tmp/$f"
               done
               [ -d docs/snapshots ] && cp -r docs/snapshots "$tmp/docs/snapshots" 2>/dev/null || true
               git checkout -B "${BRANCH}" "origin/${BRANCH}"
-              for f in docs/board.json docs/odds.json docs/park_factors.json docs/bvp_career.json docs/wind_sens.json; do
+              for f in docs/board.json docs/odds.json docs/park_factors.json docs/bvp_career.json docs/wind_sens.json docs/signal_tracker.json docs/opportunities.json docs/opportunity_markets.json docs/opportunity_predictions.json; do
                 [ -f "$tmp/$f" ] && cp "$tmp/$f" "$f"
               done
               [ -d "$tmp/docs/snapshots" ] && cp -r "$tmp/docs/snapshots/." docs/snapshots/ 2>/dev/null || true
@@ -161,3 +173,7 @@ jobs:
             echo "::warning::board build succeeded but push could not be completed after retries; next run will pick it up"
             exit 0   # don't fail the whole run over a push race — the data is fine, next cron re-pushes
           fi
+
+      - name: Report opportunity source failure
+        if: steps.opportunities.outcome == 'failure'
+        run: echo '::error::MLB opportunities failed; retained snapshot is marked stale.'; exit 1

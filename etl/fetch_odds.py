@@ -1,4 +1,4 @@
-"""Fetch MLB home-run prop odds from parlay-api.com and write docs/odds.json.
+"""Fetch shared MLB odds; retain legacy HR output and native market evidence.
 
 Zero-backend safe: runs in a GitHub Action where PARLAY_API_KEY is a repo secret,
 so the key never touches the client. The frontend reads odds.json like board.json.
@@ -14,9 +14,8 @@ name (accents stripped, lowercased, punctuation/suffix removed). The frontend ma
 board ids to the same normalized name and looks up the price. Unmatched names are just
 absent — the Edge Finder falls back to manual entry for them, so a miss is harmless.
 
-Credits: /props is 3 credits/call. One call per run pulls the whole slate's HR props
-(all games, both books) — so a single run is 3 credits, and even hourly all day is well
-under the 20k/mo tier. We do ONE call per run.
+Credits: /props is 3 credits/page, plus 3 for bundled h2h/spreads/totals.
+Normal complete run: two requests, six credits; actual headers are recorded.
 """
 from __future__ import annotations
 import json
@@ -46,6 +45,8 @@ PROP_MARKETS = {
                                           # cost, same call.
 }
 ALL_MARKETS = [MARKET] + list(PROP_MARKETS.values())
+REQUEST_AUDIT = []
+LAST_HEADERS = {}
 # PRIMARY books — the ones the user actually bets. A hitter's headline "best" price comes
 # only from these, and where both price him it's line-shopped to the better number.
 BOOK_ALIASES = {
@@ -136,8 +137,24 @@ def _fetch(url: str, api_key: str, retries: int = 2):
             req.add_header("x-api-key", api_key)
             with urllib.request.urlopen(req, timeout=30) as r:
                 raw = r.read().decode("utf-8")
+                LAST_HEADERS.clear()
+                LAST_HEADERS.update({k.lower(): v for k, v in r.headers.items()})
+                REQUEST_AUDIT.append({"endpoint": urllib.parse.urlparse(url).path,
+                    "credits": r.headers.get("x-requests-last"),
+                    "remaining": r.headers.get("x-requests-remaining")})
             return json.loads(raw)
-        except urllib.error.HTTPError:
+        except urllib.error.HTTPError as error:
+            # Transient gateway failures only; never loop authentication or
+            # provider-disabled endpoints. Retry delay and attempts are bounded.
+            if error.code in (502, 504) and attempt == 0 and retries:
+                try:
+                    delay = float(error.headers.get('Retry-After', '5'))
+                except (ValueError, TypeError):
+                    delay = 60
+                if delay > 60:
+                    raise
+                time.sleep(max(5, delay))
+                continue
             raise
         except (urllib.error.URLError, json.JSONDecodeError, TimeoutError) as e:
             last_err = e
@@ -153,18 +170,33 @@ def _fetch(url: str, api_key: str, retries: int = 2):
 def fetch_props(api_key: str, retries: int = 2) -> list:
     q = urllib.parse.urlencode({
         "markets": ",".join(ALL_MARKETS),   # HR + hits + hrr + pitcher Ks, one call = 3 credits
-        "apiKey": api_key,
+        "bookmakers": "draftkings,fanatics,fanduel",
+        "limit": 10000,
     })
-    return _fetch(f"{API_BASE}/sports/{SPORT}/props?{q}", api_key, retries)
+    rows, offset = [], 0
+    # Provider supports offsets through 10000; fail clearly rather than silently
+    # drop a required market. Normal filtered slates fit in one page.
+    for _ in range(3):
+        page = _fetch(f"{API_BASE}/sports/{SPORT}/props?{q}&offset={offset}", api_key, retries)
+        if not isinstance(page, list):
+            raise ValueError("props_bad_shape")
+        if LAST_HEADERS.get('x-result-degraded') or LAST_HEADERS.get('x-result-truncated') == 'true':
+            raise ValueError('props_provider_incomplete')
+        rows.extend(page)
+        if LAST_HEADERS.get('x-result-has-more', 'false') != 'true':
+            return rows
+        next_offset = int(LAST_HEADERS.get('x-next-offset', 0))
+        if not offset < next_offset <= 10000:
+            raise ValueError('props_pagination_incomplete')
+        offset = next_offset
+    raise ValueError('props_pagination_limit')
 
 
 def fetch_game_lines(api_key: str, retries: int = 2) -> list:
-    """Game lines (moneyline + totals) from the /odds endpoint. Costs markets x regions
-    credits = 2 markets x 1 region = 2 credits. Returns TOA-format events with bookmakers."""
+    """All three game markets, 3 markets x 1 region = 3 credits; one response."""
     q = urllib.parse.urlencode({
-        "markets": "h2h,totals",   # moneyline + game total
+        "markets": "h2h,spreads,totals",   # all game markets, one shared response
         "regions": "us",
-        "apiKey": api_key,
     })
     return _fetch(f"{API_BASE}/sports/{SPORT}/odds?{q}", api_key, retries)
 
@@ -182,7 +214,6 @@ def fetch_run_line(api_key: str, retries: int = 2) -> list:
     q = urllib.parse.urlencode({
         "markets": "spreads",
         "regions": "us",
-        "apiKey": api_key,
     })
     return _fetch(f"{API_BASE}/sports/{SPORT}/odds?{q}", api_key, retries)
 
@@ -720,6 +751,14 @@ def _write_error(reason: str) -> None:
     """On failure, keep the last good prices but mark them stale, rather than blanking
     the file. The frontend can then still auto-fill from the last good pull and show a
     'prices may be stale' note instead of losing everything on one API hiccup."""
+    raw_path = OUT_PATH.with_name('opportunity_markets.json')
+    if raw_path.exists():
+        from etl.opportunity_data import save
+        prior = json.loads(raw_path.read_text())
+        for key in ('props', 'games'):
+            prior.setdefault(key, {}).update(status='STALE', error=reason,
+                last_attempt=time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()))
+        save(raw_path, prior)
     existing = _load_existing()
     if existing and existing.get("prices"):
         existing["error"] = reason
@@ -744,12 +783,11 @@ def main() -> int:
     try:
         rows = fetch_props(api_key)
     except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8", "ignore")[:300]
-        print(f"[odds] HTTP {e.code}: {body}", file=sys.stderr)
+        print(f"[odds] HTTP {e.code} at props", file=sys.stderr)
         _write_error(f"http_{e.code}")
         return 0
     except Exception as e:
-        print(f"[odds] fetch failed: {e}", file=sys.stderr)
+        print(f"[odds] fetch failed: {type(e).__name__}", file=sys.stderr)
         _write_error("fetch_failed")
         return 0
 
@@ -790,23 +828,24 @@ def main() -> int:
         print(f"[odds] prop build failed (non-fatal): {e}", file=sys.stderr)
         prop_odds = {k: {} for k in PROP_MARKETS}
 
-    # game lines (moneyline + totals) from the /odds endpoint — separate 2-credit call.
+    # All game markets from a shared /odds response (three credits total).
     # Non-fatal: if it fails, we keep the prop odds and just skip game lines.
     game_lines = {}
+    gl_events = []
+    game_status = 'FRESH'
+    game_error = None
     try:
         gl_events = fetch_game_lines(api_key)
         game_lines = build_game_lines(gl_events)
     except Exception as e:
-        print(f"[odds] game-line fetch failed (non-fatal): {e}", file=sys.stderr)
+        game_status = 'FAILED'
+        game_error = f'http_{e.code}' if isinstance(e, urllib.error.HTTPError) else type(e).__name__
+        print(f"[odds] game-line fetch failed: {game_error}", file=sys.stderr)
 
-    # run line (spreads) — ADDED this session, its OWN separate 1-credit call, its OWN
-    # separate try/except. Deliberately not bundled into fetch_game_lines above: if this
-    # market key were ever wrong or dropped by the API, it must not be able to take the
-    # already-working moneyline/totals fetch down with it.
+    # Run lines reuse the same response; no second request.
     run_lines = {}
     try:
-        rl_events = fetch_run_line(api_key)
-        run_lines = build_run_lines(rl_events)
+        run_lines = build_run_lines(gl_events)
     except Exception as e:
         print(f"[odds] run-line fetch failed (non-fatal): {e}", file=sys.stderr)
 
@@ -820,7 +859,20 @@ def main() -> int:
         "props": prop_odds,
         "game_lines": game_lines,
         "run_lines": run_lines,
+        "source_status": {"props": "FRESH", "games": game_status},
+        "request_audit": REQUEST_AUDIT,
     }
+    # Preserve native event/time and BOTH prices at the SAME book/line. Legacy
+    # player-name maps above remain compatible but cannot safely price doubleheaders.
+    from etl.opportunity_data import save
+    raw_path = OUT_PATH.with_name('opportunity_markets.json')
+    prior = json.loads(raw_path.read_text()) if raw_path.exists() else {}
+    save(raw_path, {"schema_version": 1, "updated_at": payload['updated'],
+        "props": {"status": "FRESH", "updated_at": payload['updated'], "rows": rows},
+        "games": {"status": "FRESH", "updated_at": payload['updated'], "rows": gl_events}
+                 if game_status == 'FRESH' else dict(prior.get('games', {}), status='STALE' if prior.get('games') else 'FAILED',
+                                                   error=game_error, last_attempt=payload['updated']),
+        "request_audit": REQUEST_AUDIT})
     try:
         _apply_movement(payload)
     except Exception as e:

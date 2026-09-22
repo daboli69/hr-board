@@ -60,6 +60,7 @@ jobs:
           restore-keys: pybaseball-
 
       - name: Grade board
+        # Official outcomes are fetched once/game across all new opportunity types.
         if: ${{ inputs.regrade != true }}
         run: python -m etl.track
 
@@ -70,13 +71,28 @@ jobs:
           python -m etl.track --regrade
 
       - name: Grade immutable pregame research
+        if: ${{ !cancelled() }}
         run: python -m etl.grade_pregame
 
+      - name: Cache official opportunity inputs
+        if: ${{ !cancelled() }}
+        uses: actions/cache@v4
+        with:
+          path: .cache/opportunities
+          key: mlb-opportunities-${{ github.run_id }}
+          restore-keys: mlb-opportunities-
+
+      - name: Grade MLB opportunity markets
+        if: ${{ !cancelled() }}
+        run: python -m etl.grade_opportunities
+
       - name: Commit history
+        if: ${{ !cancelled() }}
         run: |
           git config user.name  "hr-board-bot"
           git config user.email "actions@github.com"
           git add docs/history.json docs/pregame-results.json docs/signal_tracker.json
+          git add docs/opportunity_predictions.json 2>/dev/null || true
           if git diff --staged --quiet; then
             echo "No history change"
           else
