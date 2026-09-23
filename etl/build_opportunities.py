@@ -94,7 +94,13 @@ def build(board, markets, schedule, scores, pitching, batting, calibration, now=
         sp={s:pitching_features(pitching.get(g[s+'_sp'],[]),cutoff) for s in ('home','away')}
         def pen(s):
             p=pens.get(g[s],{})
-            return {'runs':p['bp_era']*p['total_ip']/9,'ip':p['total_ip'],'measure':'earned runs (ERA)'} if p.get('bp_era') is not None and p.get('total_ip') else None
+            era,ip=p.get('bp_era'),p.get('total_ip')
+            # Defensive: a malformed value from the bullpen_rankings source
+            # (wrong type, e.g. a string) must degrade this one team's input
+            # to None rather than raising and killing the entire run.
+            if not isinstance(era,(int,float)) or not isinstance(ip,(int,float)) or not ip:
+                return None
+            return {'runs':era*ip/9,'ip':ip,'measure':'earned runs (ERA)'}
         ctx=game_context.get(g['game_pk'],{})
         park=(ctx.get('home_breakdown') or {}).get('park_mult',1)
         model=game_projection(scores,g['home'],g['away'],cutoff,sp['home'],sp['away'],park,pen('home'),pen('away'))
@@ -260,9 +266,16 @@ def main():
         if payload['status'] in ('FAILED','STALE','FALLBACK'):
             raise SystemExit('One or more required market sources unavailable; source-specific freshness retained')
     except Exception as error:
+        import traceback
         path=root/'opportunities.json'
         old=json.loads(path.read_text()) if path.exists() else {'opportunities':[]}
-        old.update(status='STALE' if old['opportunities'] else 'FAILED',last_attempt=now.isoformat(),error=type(error).__name__)
+        # Capture the real message and the last few frames, not just the bare
+        # exception class name -- a bare "TypeError" with no message or
+        # location is undiagnosable from the deployed JSON alone.
+        tb_lines=traceback.format_exception(type(error),error,error.__traceback__)
+        old.update(status='STALE' if old['opportunities'] else 'FAILED',last_attempt=now.isoformat(),
+                   error=type(error).__name__,error_message=str(error) or None,
+                   error_traceback=''.join(tb_lines[-6:]))
         for row in old['opportunities']: row['freshness']='STALE'
         save(path,old)
         raise
