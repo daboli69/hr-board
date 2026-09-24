@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-22",
+  "updated": "2026-09-23",
   "days": [
     {
       "date": "2026-03-27",
@@ -127908,6 +127908,1623 @@
           "n_badges": 1,
           "park": null,
           "park_hr_factor": 1.17,
+          "park_boost": null,
+          "park_weather_applied": null,
+          "temp_f": null,
+          "wind_mph": null,
+          "opp_pitcher_name": null,
+          "opp_pitcher_throws": null,
+          "opp_pitcher_hr_score": null
+        }
+      ]
+    },
+    {
+      "date": "2026-09-23",
+      "players": 277,
+      "grading_version": "game-scoped-v2",
+      "excluded_unresolved_players": 4,
+      "excluded_unresolved_pitchers": 0,
+      "hitters_homered": 25,
+      "total_hr": 26,
+      "sp_hr": 20,
+      "bp_hr": 6,
+      "by_tier": {
+        "70+": {
+          "n": 9,
+          "hr": 1
+        },
+        "55-69": {
+          "n": 26,
+          "hr": 3
+        },
+        "40-54": {
+          "n": 66,
+          "hr": 6
+        },
+        "<40": {
+          "n": 176,
+          "hr": 15
+        }
+      },
+      "by_form": {
+        "STEADY": {
+          "n": 45,
+          "hr": 5
+        },
+        "SLIPPING": {
+          "n": 72,
+          "hr": 6
+        },
+        "SHELLABLE": {
+          "n": 18,
+          "hr": 0
+        },
+        "DEALING": {
+          "n": 115,
+          "hr": 9
+        },
+        "HITTABLE": {
+          "n": 18,
+          "hr": 4
+        },
+        "BOUNCING-BACK": {
+          "n": 9,
+          "hr": 1
+        }
+      },
+      "by_signal": {
+        "pull_air_pct": {
+          "cleared": {
+            "n": 108,
+            "hr": 10
+          },
+          "not": {
+            "n": 169,
+            "hr": 15
+          }
+        },
+        "avg_ev": {
+          "cleared": {
+            "n": 4,
+            "hr": 0
+          },
+          "not": {
+            "n": 273,
+            "hr": 25
+          }
+        },
+        "barrel_pct": {
+          "cleared": {
+            "n": 7,
+            "hr": 0
+          },
+          "not": {
+            "n": 270,
+            "hr": 25
+          }
+        },
+        "ideal_aa_pct": {
+          "cleared": {
+            "n": 60,
+            "hr": 6
+          },
+          "not": {
+            "n": 217,
+            "hr": 19
+          }
+        },
+        "iso": {
+          "cleared": {
+            "n": 88,
+            "hr": 10
+          },
+          "not": {
+            "n": 189,
+            "hr": 15
+          }
+        },
+        "slg": {
+          "cleared": {
+            "n": 96,
+            "hr": 10
+          },
+          "not": {
+            "n": 181,
+            "hr": 15
+          }
+        }
+      },
+      "by_badge": {
+        "hrsp": {
+          "n": 28,
+          "hr": 4
+        },
+        "pow": {
+          "n": 42,
+          "hr": 4
+        },
+        "plat": {
+          "n": 64,
+          "hr": 6
+        },
+        "hot": {
+          "n": 52,
+          "hr": 4
+        },
+        "hrbp": {
+          "n": 38,
+          "hr": 6
+        },
+        "cool": {
+          "n": 48,
+          "hr": 5
+        },
+        "arm": {
+          "n": 18,
+          "hr": 0
+        },
+        "lock": {
+          "n": 18,
+          "hr": 1
+        },
+        "due": {
+          "n": 60,
+          "hr": 5
+        },
+        "mix": {
+          "n": 2,
+          "hr": 0
+        }
+      },
+      "by_edge": {
+        "zone": {
+          "5+ premium": {
+            "n": 112,
+            "hr": 13
+          },
+          "1-2 thin": {
+            "n": 50,
+            "hr": 2
+          },
+          "0 none": {
+            "n": 72,
+            "hr": 7
+          },
+          "3-4 viable": {
+            "n": 43,
+            "hr": 3
+          }
+        },
+        "grade": {
+          "STRONG": {
+            "n": 20,
+            "hr": 3
+          },
+          "MOD": {
+            "n": 93,
+            "hr": 14
+          },
+          "WEAK": {
+            "n": 159,
+            "hr": 8
+          },
+          "ELITE": {
+            "n": 5,
+            "hr": 0
+          }
+        },
+        "bomb": {
+          "65+ elite": {
+            "n": 44,
+            "hr": 4
+          },
+          "40-54 mid": {
+            "n": 90,
+            "hr": 11
+          },
+          "55-64 high": {
+            "n": 30,
+            "hr": 5
+          },
+          "<40 low": {
+            "n": 113,
+            "hr": 5
+          }
+        },
+        "vuln": {
+          "strong": {
+            "n": 97,
+            "hr": 12
+          },
+          "avoid": {
+            "n": 9,
+            "hr": 1
+          },
+          "moderate": {
+            "n": 117,
+            "hr": 6
+          },
+          "elite_target": {
+            "n": 54,
+            "hr": 6
+          }
+        },
+        "elite": {
+          "BELOW": {
+            "n": 276,
+            "hr": 25
+          },
+          "NEAR": {
+            "n": 1,
+            "hr": 0
+          }
+        },
+        "square_up": {
+          "45-59 avg": {
+            "n": 54,
+            "hr": 5
+          },
+          "75+ elite": {
+            "n": 33,
+            "hr": 5
+          },
+          "<45 weak": {
+            "n": 145,
+            "hr": 11
+          },
+          "60-74 strong": {
+            "n": 40,
+            "hr": 4
+          }
+        },
+        "discipline": {
+          "crosshair": {
+            "n": 31,
+            "hr": 1
+          },
+          "eye": {
+            "n": 46,
+            "hr": 8
+          },
+          "none": {
+            "n": 112,
+            "hr": 12
+          },
+          "eye + crosshair": {
+            "n": 29,
+            "hr": 1
+          },
+          "chaser (warn)": {
+            "n": 59,
+            "hr": 3
+          }
+        },
+        "hr_power": {
+          "8-11%": {
+            "n": 66,
+            "hr": 5
+          },
+          "12%+ barrel": {
+            "n": 59,
+            "hr": 9
+          },
+          "<8%": {
+            "n": 147,
+            "hr": 11
+          }
+        },
+        "late_hr": {
+          "neutral": {
+            "n": 241,
+            "hr": 23
+          },
+          "mild late-HR lean": {
+            "n": 27,
+            "hr": 1
+          }
+        },
+        "pitch_mix": {
+          "60+ favorable": {
+            "n": 106,
+            "hr": 10
+          },
+          "40-59 neutral": {
+            "n": 92,
+            "hr": 6
+          },
+          "<40 poor": {
+            "n": 49,
+            "hr": 4
+          }
+        },
+        "day_night": {
+          "night": {
+            "n": 235,
+            "hr": 22
+          },
+          "day": {
+            "n": 42,
+            "hr": 3
+          }
+        },
+        "microclimate": {
+          "COLD BOOST": {
+            "n": 47,
+            "hr": 5
+          },
+          "COLD FADE": {
+            "n": 54,
+            "hr": 5
+          },
+          "WARM BOOST": {
+            "n": 6,
+            "hr": 0
+          },
+          "WARM FADE": {
+            "n": 9,
+            "hr": 2
+          }
+        }
+      },
+      "by_park": {
+        "against": {
+          "n": 175,
+          "hr": 14
+        },
+        "neutral": {
+          "n": 23,
+          "hr": 4
+        },
+        "strong+": {
+          "n": 67,
+          "hr": 7
+        },
+        "n/a": {
+          "n": 6,
+          "hr": 0
+        },
+        "lean+": {
+          "n": 6,
+          "hr": 0
+        }
+      },
+      "by_trend": {
+        "flat": {
+          "n": 86,
+          "hr": 11
+        },
+        "down": {
+          "n": 88,
+          "hr": 5
+        },
+        "up": {
+          "n": 103,
+          "hr": 9
+        }
+      },
+      "by_smash": {
+        "rest": {
+          "n": 274,
+          "hr": 25
+        },
+        "smash": {
+          "n": 3,
+          "hr": 0
+        }
+      },
+      "by_opener": {
+        "sp": {
+          "n": 250,
+          "hr": 24
+        },
+        "opener": {
+          "n": 27,
+          "hr": 1
+        }
+      },
+      "by_spot": {
+        "4": {
+          "n": 31,
+          "hr": 1
+        },
+        "2": {
+          "n": 31,
+          "hr": 4
+        },
+        "1": {
+          "n": 29,
+          "hr": 3
+        },
+        "6": {
+          "n": 31,
+          "hr": 5
+        },
+        "5": {
+          "n": 30,
+          "hr": 2
+        },
+        "7": {
+          "n": 31,
+          "hr": 1
+        },
+        "9": {
+          "n": 30,
+          "hr": 2
+        },
+        "3": {
+          "n": 30,
+          "hr": 5
+        },
+        "8": {
+          "n": 30,
+          "hr": 2
+        }
+      },
+      "by_b2b": {
+        "rest": {
+          "n": 257,
+          "hr": 24
+        },
+        "b2b": {
+          "n": 20,
+          "hr": 1
+        }
+      },
+      "by_hlabel": {
+        "fb": {
+          "n": 23,
+          "hr": 0
+        },
+        "none": {
+          "n": 247,
+          "hr": 25
+        },
+        "elite": {
+          "n": 4,
+          "hr": 0
+        },
+        "ld": {
+          "n": 3,
+          "hr": 0
+        }
+      },
+      "by_parlay": {
+        "jackpot": {
+          "n": 1,
+          "leg_n": 3,
+          "leg_hr": 0,
+          "all_hit": 0,
+          "any_hit": 0,
+          "pair_hits": 0
+        },
+        "best3": {
+          "n": 1,
+          "leg_n": 3,
+          "leg_hr": 0,
+          "all_hit": 0,
+          "any_hit": 0,
+          "pair_hits": 0
+        },
+        "rr5": {
+          "n": 1,
+          "leg_n": 5,
+          "leg_hr": 1,
+          "all_hit": 0,
+          "any_hit": 1,
+          "pair_hits": 0
+        }
+      },
+      "by_props": {
+        "hit1": {
+          "by_tier": {
+            "55-69": {
+              "n": 83,
+              "hit": 50
+            },
+            "40-54": {
+              "n": 145,
+              "hit": 83
+            },
+            "<40": {
+              "n": 45,
+              "hit": 26
+            },
+            "70+": {
+              "n": 2,
+              "hit": 1
+            },
+            "n/a": {
+              "n": 2,
+              "hit": 2
+            }
+          },
+          "top_n": {
+            "5": {
+              "n": 5,
+              "hit": 2
+            },
+            "10": {
+              "n": 10,
+              "hit": 6
+            },
+            "25": {
+              "n": 25,
+              "hit": 13
+            }
+          }
+        },
+        "hit2": {
+          "by_tier": {
+            "55-69": {
+              "n": 83,
+              "hit": 18
+            },
+            "40-54": {
+              "n": 145,
+              "hit": 32
+            },
+            "<40": {
+              "n": 45,
+              "hit": 6
+            },
+            "70+": {
+              "n": 2,
+              "hit": 0
+            },
+            "n/a": {
+              "n": 2,
+              "hit": 0
+            }
+          },
+          "top_n": {
+            "5": {
+              "n": 5,
+              "hit": 1
+            },
+            "10": {
+              "n": 10,
+              "hit": 2
+            },
+            "25": {
+              "n": 25,
+              "hit": 3
+            }
+          }
+        },
+        "hrr": {
+          "by_tier": {
+            "70+": {
+              "n": 28,
+              "hit2": 10,
+              "hit3": 5,
+              "sum": 36,
+              "sum_ct": 28
+            },
+            "55-69": {
+              "n": 91,
+              "hit2": 41,
+              "hit3": 24,
+              "sum": 150,
+              "sum_ct": 91
+            },
+            "40-54": {
+              "n": 117,
+              "hit2": 49,
+              "hit3": 25,
+              "sum": 168,
+              "sum_ct": 117
+            },
+            "<40": {
+              "n": 39,
+              "hit2": 15,
+              "hit3": 9,
+              "sum": 57,
+              "sum_ct": 39
+            },
+            "n/a": {
+              "n": 2,
+              "hit2": 0,
+              "hit3": 0,
+              "sum": 2,
+              "sum_ct": 2
+            }
+          },
+          "top_n": {
+            "5": {
+              "n": 5,
+              "hit": 2
+            },
+            "10": {
+              "n": 10,
+              "hit": 3
+            },
+            "25": {
+              "n": 25,
+              "hit": 9
+            }
+          }
+        },
+        "pk": {
+          "by_tier": {
+            "70+": {
+              "n": 4,
+              "total_ks": 23,
+              "o5": 2,
+              "o6": 2,
+              "o7": 1
+            },
+            "55-69": {
+              "n": 3,
+              "total_ks": 13,
+              "o5": 1,
+              "o6": 1,
+              "o7": 0
+            },
+            "40-54": {
+              "n": 7,
+              "total_ks": 35,
+              "o5": 3,
+              "o6": 1,
+              "o7": 1
+            },
+            "<40": {
+              "n": 18,
+              "total_ks": 66,
+              "o5": 6,
+              "o6": 4,
+              "o7": 2
+            }
+          },
+          "top_n": {
+            "3": {
+              "n": 3,
+              "total_ks": 19,
+              "o5": 2,
+              "o6": 2
+            },
+            "5": {
+              "n": 5,
+              "total_ks": 26,
+              "o5": 2,
+              "o6": 2
+            },
+            "10": {
+              "n": 10,
+              "total_ks": 46,
+              "o5": 3,
+              "o6": 3
+            }
+          }
+        },
+        "bku": {
+          "by_tier": {
+            "<30": {
+              "n": 112,
+              "hit": 52
+            },
+            "45-59": {
+              "n": 73,
+              "hit": 25
+            },
+            "30-44": {
+              "n": 61,
+              "hit": 25
+            },
+            "60+": {
+              "n": 29,
+              "hit": 10
+            }
+          }
+        }
+      },
+      "badges_on_hr": 35,
+      "top_n": {
+        "5": {
+          "n": 5,
+          "hr": 0
+        },
+        "10": {
+          "n": 10,
+          "hr": 2
+        },
+        "25": {
+          "n": 25,
+          "hr": 3
+        }
+      },
+      "ranks": {
+        "heat": {
+          "5": {
+            "n": 5,
+            "hr": 0
+          },
+          "10": {
+            "n": 10,
+            "hr": 2
+          },
+          "25": {
+            "n": 25,
+            "hr": 3
+          }
+        },
+        "iso": {
+          "5": {
+            "n": 5,
+            "hr": 1
+          },
+          "10": {
+            "n": 10,
+            "hr": 1
+          },
+          "25": {
+            "n": 25,
+            "hr": 1
+          }
+        },
+        "barrel": {
+          "5": {
+            "n": 5,
+            "hr": 0
+          },
+          "10": {
+            "n": 10,
+            "hr": 1
+          },
+          "25": {
+            "n": 25,
+            "hr": 3
+          }
+        },
+        "base": {
+          "5": {
+            "n": 277,
+            "hr": 25
+          },
+          "10": {
+            "n": 277,
+            "hr": 25
+          },
+          "25": {
+            "n": 277,
+            "hr": 25
+          }
+        }
+      },
+      "ball": {
+        "n": 83,
+        "avg_ev": 101.64,
+        "avg_la": 26.71,
+        "avg_dist": 360.6,
+        "carry": -7.18,
+        "hr_n": 28,
+        "hr_avg_dist": 391.9,
+        "hr_med_dist": 387.0,
+        "hr_max_dist": 455.0,
+        "hr_avg_ev": 103.88
+      },
+      "hr_log": [
+        {
+          "name": "Brandon Lowe",
+          "heat": 70,
+          "tier": "SOLID",
+          "arm_form": "SLIPPING",
+          "off": "SP",
+          "hr": 1,
+          "dist": 434.0,
+          "ev": 108.4,
+          "team": "PIT",
+          "game_pk": 823327,
+          "gs_p_slam": null,
+          "gs_fair_odds": null,
+          "lb_jackpot_ev": null,
+          "lb_ownership_tier": null,
+          "lb_is_gold_pick": false,
+          "heat_rank": 9,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "lock"
+          ],
+          "n_badges": 1,
+          "park": null,
+          "park_hr_factor": 0.76,
+          "park_boost": null,
+          "park_weather_applied": null,
+          "temp_f": null,
+          "wind_mph": null,
+          "opp_pitcher_name": null,
+          "opp_pitcher_throws": null,
+          "opp_pitcher_hr_score": null
+        },
+        {
+          "name": "Davis Schneider",
+          "heat": 69,
+          "tier": "SOLID",
+          "arm_form": "STEADY",
+          "off": "BP",
+          "hr": 1,
+          "dist": 351.0,
+          "ev": 98.0,
+          "team": "TOR",
+          "game_pk": 824784,
+          "gs_p_slam": null,
+          "gs_fair_odds": null,
+          "lb_jackpot_ev": null,
+          "lb_ownership_tier": null,
+          "lb_is_gold_pick": false,
+          "heat_rank": 10,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "hot"
+          ],
+          "n_badges": 1,
+          "park": null,
+          "park_hr_factor": 0.61,
+          "park_boost": null,
+          "park_weather_applied": null,
+          "temp_f": null,
+          "wind_mph": null,
+          "opp_pitcher_name": null,
+          "opp_pitcher_throws": null,
+          "opp_pitcher_hr_score": null
+        },
+        {
+          "name": "George Lombard Jr.",
+          "heat": 61,
+          "tier": "SOLID",
+          "arm_form": "HITTABLE",
+          "off": "SP",
+          "hr": 1,
+          "dist": 384.0,
+          "ev": 102.5,
+          "team": "NYY",
+          "game_pk": 823492,
+          "gs_p_slam": null,
+          "gs_fair_odds": null,
+          "lb_jackpot_ev": null,
+          "lb_ownership_tier": null,
+          "lb_is_gold_pick": false,
+          "heat_rank": 22,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "plat",
+            "hot"
+          ],
+          "n_badges": 2,
+          "park": null,
+          "park_hr_factor": 0.61,
+          "park_boost": null,
+          "park_weather_applied": null,
+          "temp_f": null,
+          "wind_mph": null,
+          "opp_pitcher_name": null,
+          "opp_pitcher_throws": null,
+          "opp_pitcher_hr_score": null
+        },
+        {
+          "name": "Ben Malgeri",
+          "heat": 55,
+          "tier": "SOLID",
+          "arm_form": "DEALING",
+          "off": "BP",
+          "hr": 1,
+          "dist": 404.0,
+          "ev": 100.5,
+          "team": "DET",
+          "game_pk": 824223,
+          "gs_p_slam": null,
+          "gs_fair_odds": null,
+          "lb_jackpot_ev": null,
+          "lb_ownership_tier": null,
+          "lb_is_gold_pick": false,
+          "heat_rank": 34,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "hrbp",
+            "cool"
+          ],
+          "n_badges": 2,
+          "park": null,
+          "park_hr_factor": 0.73,
+          "park_boost": null,
+          "park_weather_applied": null,
+          "temp_f": null,
+          "wind_mph": null,
+          "opp_pitcher_name": null,
+          "opp_pitcher_throws": null,
+          "opp_pitcher_hr_score": null
+        },
+        {
+          "name": "Ben Rice",
+          "heat": 53,
+          "tier": "LEAN",
+          "arm_form": "HITTABLE",
+          "off": "SP",
+          "hr": 2,
+          "dist": 383.0,
+          "ev": 101.1,
+          "team": "NYY",
+          "game_pk": 823492,
+          "gs_p_slam": null,
+          "gs_fair_odds": null,
+          "lb_jackpot_ev": null,
+          "lb_ownership_tier": null,
+          "lb_is_gold_pick": false,
+          "heat_rank": 43,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "hrbp",
+            "cool"
+          ],
+          "n_badges": 2,
+          "park": null,
+          "park_hr_factor": 0.72,
+          "park_boost": null,
+          "park_weather_applied": null,
+          "temp_f": null,
+          "wind_mph": null,
+          "opp_pitcher_name": null,
+          "opp_pitcher_throws": null,
+          "opp_pitcher_hr_score": null
+        },
+        {
+          "name": "Christian Encarnacion-Strand",
+          "heat": 49,
+          "tier": "SOLID",
+          "arm_form": "STEADY",
+          "off": "SP",
+          "hr": 1,
+          "dist": 383.0,
+          "ev": 101.4,
+          "team": "BAL",
+          "game_pk": 824784,
+          "gs_p_slam": null,
+          "gs_fair_odds": null,
+          "lb_jackpot_ev": null,
+          "lb_ownership_tier": null,
+          "lb_is_gold_pick": false,
+          "heat_rank": 53,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "cool"
+          ],
+          "n_badges": 1,
+          "park": null,
+          "park_hr_factor": 0.67,
+          "park_boost": null,
+          "park_weather_applied": null,
+          "temp_f": null,
+          "wind_mph": null,
+          "opp_pitcher_name": null,
+          "opp_pitcher_throws": null,
+          "opp_pitcher_hr_score": null
+        },
+        {
+          "name": "Brice Turang",
+          "heat": 42,
+          "tier": "LEAN",
+          "arm_form": "STEADY",
+          "off": "SP",
+          "hr": 1,
+          "dist": 406.0,
+          "ev": 108.4,
+          "team": "MIL",
+          "game_pk": 823410,
+          "gs_p_slam": null,
+          "gs_fair_odds": null,
+          "lb_jackpot_ev": null,
+          "lb_ownership_tier": null,
+          "lb_is_gold_pick": false,
+          "heat_rank": 84,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "plat",
+            "cool"
+          ],
+          "n_badges": 2,
+          "park": null,
+          "park_hr_factor": 0.79,
+          "park_boost": null,
+          "park_weather_applied": null,
+          "temp_f": null,
+          "wind_mph": null,
+          "opp_pitcher_name": null,
+          "opp_pitcher_throws": null,
+          "opp_pitcher_hr_score": null
+        },
+        {
+          "name": "Juan Brito",
+          "heat": 41,
+          "tier": "LEAN",
+          "arm_form": "SLIPPING",
+          "off": "SP",
+          "hr": 1,
+          "dist": 408.0,
+          "ev": 102.3,
+          "team": "CIN",
+          "game_pk": 824868,
+          "gs_p_slam": null,
+          "gs_fair_odds": null,
+          "lb_jackpot_ev": null,
+          "lb_ownership_tier": null,
+          "lb_is_gold_pick": false,
+          "heat_rank": 88,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [],
+          "n_badges": 0,
+          "park": null,
+          "park_hr_factor": 0.77,
+          "park_boost": null,
+          "park_weather_applied": null,
+          "temp_f": null,
+          "wind_mph": null,
+          "opp_pitcher_name": null,
+          "opp_pitcher_throws": null,
+          "opp_pitcher_hr_score": null
+        },
+        {
+          "name": "Juan Soto",
+          "heat": 41,
+          "tier": "THIN",
+          "arm_form": "DEALING",
+          "off": "SP",
+          "hr": 1,
+          "dist": 429.0,
+          "ev": 106.2,
+          "team": "NYM",
+          "game_pk": 822841,
+          "gs_p_slam": null,
+          "gs_fair_odds": null,
+          "lb_jackpot_ev": null,
+          "lb_ownership_tier": null,
+          "lb_is_gold_pick": false,
+          "heat_rank": 89,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "due",
+            "pow"
+          ],
+          "n_badges": 2,
+          "park": null,
+          "park_hr_factor": 0.97,
+          "park_boost": null,
+          "park_weather_applied": null,
+          "temp_f": null,
+          "wind_mph": null,
+          "opp_pitcher_name": null,
+          "opp_pitcher_throws": null,
+          "opp_pitcher_hr_score": null
+        },
+        {
+          "name": "Yainer Diaz",
+          "heat": 41,
+          "tier": "LEAN",
+          "arm_form": "DEALING",
+          "off": "SP",
+          "hr": 1,
+          "dist": 358.0,
+          "ev": 99.5,
+          "team": "HOU",
+          "game_pk": 823086,
+          "gs_p_slam": null,
+          "gs_fair_odds": null,
+          "lb_jackpot_ev": null,
+          "lb_ownership_tier": null,
+          "lb_is_gold_pick": false,
+          "heat_rank": 92,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [],
+          "n_badges": 0,
+          "park": null,
+          "park_hr_factor": 0.98,
+          "park_boost": null,
+          "park_weather_applied": null,
+          "temp_f": null,
+          "wind_mph": null,
+          "opp_pitcher_name": null,
+          "opp_pitcher_throws": null,
+          "opp_pitcher_hr_score": null
+        },
+        {
+          "name": "Ezequiel Tovar",
+          "heat": 38,
+          "tier": "THIN",
+          "arm_form": "BOUNCING-BACK",
+          "off": "BP",
+          "hr": 1,
+          "dist": 386.0,
+          "ev": 101.5,
+          "team": "COL",
+          "game_pk": 824301,
+          "gs_p_slam": null,
+          "gs_fair_odds": null,
+          "lb_jackpot_ev": null,
+          "lb_ownership_tier": null,
+          "lb_is_gold_pick": false,
+          "heat_rank": 112,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "hrsp"
+          ],
+          "n_badges": 1,
+          "park": null,
+          "park_hr_factor": 1.07,
+          "park_boost": null,
+          "park_weather_applied": null,
+          "temp_f": null,
+          "wind_mph": null,
+          "opp_pitcher_name": null,
+          "opp_pitcher_throws": null,
+          "opp_pitcher_hr_score": null
+        },
+        {
+          "name": "Donovan Walton",
+          "heat": 38,
+          "tier": "SOLID",
+          "arm_form": "DEALING",
+          "off": "SP",
+          "hr": 1,
+          "dist": 332.0,
+          "ev": 89.8,
+          "team": "ATH",
+          "game_pk": 824951,
+          "gs_p_slam": null,
+          "gs_fair_odds": null,
+          "lb_jackpot_ev": null,
+          "lb_ownership_tier": null,
+          "lb_is_gold_pick": false,
+          "heat_rank": 113,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [],
+          "n_badges": 0,
+          "park": null,
+          "park_hr_factor": 0.96,
+          "park_boost": null,
+          "park_weather_applied": null,
+          "temp_f": null,
+          "wind_mph": null,
+          "opp_pitcher_name": null,
+          "opp_pitcher_throws": null,
+          "opp_pitcher_hr_score": null
+        },
+        {
+          "name": "Matt Olson",
+          "heat": 37,
+          "tier": "THIN",
+          "arm_form": "SLIPPING",
+          "off": "SP",
+          "hr": 1,
+          "dist": 415.0,
+          "ev": 107.4,
+          "team": "ATL",
+          "game_pk": 824868,
+          "gs_p_slam": null,
+          "gs_fair_odds": null,
+          "lb_jackpot_ev": null,
+          "lb_ownership_tier": null,
+          "lb_is_gold_pick": false,
+          "heat_rank": 117,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "hrbp"
+          ],
+          "n_badges": 1,
+          "park": null,
+          "park_hr_factor": 0.89,
+          "park_boost": null,
+          "park_weather_applied": null,
+          "temp_f": null,
+          "wind_mph": null,
+          "opp_pitcher_name": null,
+          "opp_pitcher_throws": null,
+          "opp_pitcher_hr_score": null
+        },
+        {
+          "name": "Kyle Stowers",
+          "heat": 37,
+          "tier": "THIN",
+          "arm_form": "SLIPPING",
+          "off": "SP",
+          "hr": 1,
+          "dist": 412.0,
+          "ev": 108.6,
+          "team": "MIA",
+          "game_pk": 824625,
+          "gs_p_slam": null,
+          "gs_fair_odds": null,
+          "lb_jackpot_ev": null,
+          "lb_ownership_tier": null,
+          "lb_is_gold_pick": false,
+          "heat_rank": 118,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "hrbp",
+            "hot",
+            "pow"
+          ],
+          "n_badges": 3,
+          "park": null,
+          "park_hr_factor": 0.74,
+          "park_boost": null,
+          "park_weather_applied": null,
+          "temp_f": null,
+          "wind_mph": null,
+          "opp_pitcher_name": null,
+          "opp_pitcher_throws": null,
+          "opp_pitcher_hr_score": null
+        },
+        {
+          "name": "Austin Riley",
+          "heat": 34,
+          "tier": "THIN",
+          "arm_form": "SLIPPING",
+          "off": "SP",
+          "hr": 1,
+          "dist": 409.0,
+          "ev": 104.3,
+          "team": "ATL",
+          "game_pk": 824868,
+          "gs_p_slam": null,
+          "gs_fair_odds": null,
+          "lb_jackpot_ev": null,
+          "lb_ownership_tier": null,
+          "lb_is_gold_pick": false,
+          "heat_rank": 132,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "due",
+            "pow"
+          ],
+          "n_badges": 2,
+          "park": null,
+          "park_hr_factor": 0.83,
+          "park_boost": null,
+          "park_weather_applied": null,
+          "temp_f": null,
+          "wind_mph": null,
+          "opp_pitcher_name": null,
+          "opp_pitcher_throws": null,
+          "opp_pitcher_hr_score": null
+        },
+        {
+          "name": "Vaughn Grissom",
+          "heat": 34,
+          "tier": "THIN",
+          "arm_form": "DEALING",
+          "off": "SP",
+          "hr": 1,
+          "dist": 386.0,
+          "ev": 100.7,
+          "team": "LAA",
+          "game_pk": 824951,
+          "gs_p_slam": null,
+          "gs_fair_odds": null,
+          "lb_jackpot_ev": null,
+          "lb_ownership_tier": null,
+          "lb_is_gold_pick": false,
+          "heat_rank": 134,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "plat",
+            "cool"
+          ],
+          "n_badges": 2,
+          "park": null,
+          "park_hr_factor": 1.15,
+          "park_boost": null,
+          "park_weather_applied": null,
+          "temp_f": null,
+          "wind_mph": null,
+          "opp_pitcher_name": null,
+          "opp_pitcher_throws": null,
+          "opp_pitcher_hr_score": null
+        },
+        {
+          "name": "Mike Trout",
+          "heat": 33,
+          "tier": "THIN",
+          "arm_form": "DEALING",
+          "off": "SP",
+          "hr": 1,
+          "dist": 393.0,
+          "ev": 101.3,
+          "team": "LAA",
+          "game_pk": 824951,
+          "gs_p_slam": null,
+          "gs_fair_odds": null,
+          "lb_jackpot_ev": null,
+          "lb_ownership_tier": null,
+          "lb_is_gold_pick": false,
+          "heat_rank": 143,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "plat",
+            "due",
+            "pow"
+          ],
+          "n_badges": 3,
+          "park": null,
+          "park_hr_factor": 1.14,
+          "park_boost": null,
+          "park_weather_applied": null,
+          "temp_f": null,
+          "wind_mph": null,
+          "opp_pitcher_name": null,
+          "opp_pitcher_throws": null,
+          "opp_pitcher_hr_score": null
+        },
+        {
+          "name": "Yohandy Morales",
+          "heat": 32,
+          "tier": "THIN",
+          "arm_form": "DEALING",
+          "off": "BP",
+          "hr": 1,
+          "dist": 422.0,
+          "ev": 107.1,
+          "team": "WSH",
+          "game_pk": 824223,
+          "gs_p_slam": null,
+          "gs_fair_odds": null,
+          "lb_jackpot_ev": null,
+          "lb_ownership_tier": null,
+          "lb_is_gold_pick": false,
+          "heat_rank": 146,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "hrbp"
+          ],
+          "n_badges": 1,
+          "park": null,
+          "park_hr_factor": 0.74,
+          "park_boost": null,
+          "park_weather_applied": null,
+          "temp_f": null,
+          "wind_mph": null,
+          "opp_pitcher_name": null,
+          "opp_pitcher_throws": null,
+          "opp_pitcher_hr_score": null
+        },
+        {
+          "name": "Tim Tawa",
+          "heat": 30,
+          "tier": "THIN",
+          "arm_form": "STEADY",
+          "off": "BP",
+          "hr": 1,
+          "dist": 368.0,
+          "ev": 105.9,
+          "team": "AZ",
+          "game_pk": 824301,
+          "gs_p_slam": null,
+          "gs_fair_odds": null,
+          "lb_jackpot_ev": null,
+          "lb_ownership_tier": null,
+          "lb_is_gold_pick": false,
+          "heat_rank": 166,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "due"
+          ],
+          "n_badges": 1,
+          "park": null,
+          "park_hr_factor": 1.01,
+          "park_boost": null,
+          "park_weather_applied": null,
+          "temp_f": null,
+          "wind_mph": null,
+          "opp_pitcher_name": null,
+          "opp_pitcher_throws": null,
+          "opp_pitcher_hr_score": null
+        },
+        {
+          "name": "Manny Machado",
+          "heat": 26,
+          "tier": "THIN",
+          "arm_form": "DEALING",
+          "off": "SP",
+          "hr": 1,
+          "dist": 409.0,
+          "ev": 108.6,
+          "team": "SD",
+          "game_pk": 823894,
+          "gs_p_slam": null,
+          "gs_fair_odds": null,
+          "lb_jackpot_ev": null,
+          "lb_ownership_tier": null,
+          "lb_is_gold_pick": false,
+          "heat_rank": 194,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "hrsp",
+            "hrbp"
+          ],
+          "n_badges": 2,
+          "park": null,
+          "park_hr_factor": 1.23,
+          "park_boost": null,
+          "park_weather_applied": null,
+          "temp_f": null,
+          "wind_mph": null,
+          "opp_pitcher_name": null,
+          "opp_pitcher_throws": null,
+          "opp_pitcher_hr_score": null
+        },
+        {
+          "name": "Marcus Semien",
+          "heat": 25,
+          "tier": "THIN",
+          "arm_form": "DEALING",
+          "off": "BP",
+          "hr": 1,
+          "dist": 388.0,
+          "ev": 100.9,
+          "team": "NYM",
+          "game_pk": 822841,
+          "gs_p_slam": null,
+          "gs_fair_odds": null,
+          "lb_jackpot_ev": null,
+          "lb_ownership_tier": null,
+          "lb_is_gold_pick": false,
+          "heat_rank": 200,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [],
+          "n_badges": 0,
+          "park": null,
+          "park_hr_factor": 0.87,
+          "park_boost": null,
+          "park_weather_applied": null,
+          "temp_f": null,
+          "wind_mph": null,
+          "opp_pitcher_name": null,
+          "opp_pitcher_throws": null,
+          "opp_pitcher_hr_score": null
+        },
+        {
+          "name": "Cedric Mullins",
+          "heat": 23,
+          "tier": "THIN",
+          "arm_form": "SLIPPING",
+          "off": "SP",
+          "hr": 1,
+          "dist": 375.0,
+          "ev": 98.7,
+          "team": "TB",
+          "game_pk": 823492,
+          "gs_p_slam": null,
+          "gs_fair_odds": null,
+          "lb_jackpot_ev": null,
+          "lb_ownership_tier": null,
+          "lb_is_gold_pick": false,
+          "heat_rank": 210,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "hrsp",
+            "plat",
+            "due"
+          ],
+          "n_badges": 3,
+          "park": null,
+          "park_hr_factor": 0.77,
+          "park_boost": null,
+          "park_weather_applied": null,
+          "temp_f": null,
+          "wind_mph": null,
+          "opp_pitcher_name": null,
+          "opp_pitcher_throws": null,
+          "opp_pitcher_hr_score": null
+        },
+        {
+          "name": "Luke Keaschall",
+          "heat": 22,
+          "tier": "THIN",
+          "arm_form": "HITTABLE",
+          "off": "SP",
+          "hr": 1,
+          "dist": 381.0,
+          "ev": 102.6,
+          "team": "MIN",
+          "game_pk": 823168,
+          "gs_p_slam": null,
+          "gs_fair_odds": null,
+          "lb_jackpot_ev": null,
+          "lb_ownership_tier": null,
+          "lb_is_gold_pick": false,
+          "heat_rank": 217,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "hot"
+          ],
+          "n_badges": 1,
+          "park": null,
+          "park_hr_factor": 0.81,
+          "park_boost": null,
+          "park_weather_applied": null,
+          "temp_f": null,
+          "wind_mph": null,
+          "opp_pitcher_name": null,
+          "opp_pitcher_throws": null,
+          "opp_pitcher_hr_score": null
+        },
+        {
+          "name": "Ryan McMahon",
+          "heat": 16,
+          "tier": "THIN",
+          "arm_form": "HITTABLE",
+          "off": "SP",
+          "hr": 1,
+          "dist": 332.0,
+          "ev": 109.1,
+          "team": "NYY",
+          "game_pk": 823492,
+          "gs_p_slam": null,
+          "gs_fair_odds": null,
+          "lb_jackpot_ev": null,
+          "lb_ownership_tier": null,
+          "lb_is_gold_pick": false,
+          "heat_rank": 240,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [],
+          "n_badges": 0,
+          "park": null,
+          "park_hr_factor": 0.65,
+          "park_boost": null,
+          "park_weather_applied": null,
+          "temp_f": null,
+          "wind_mph": null,
+          "opp_pitcher_name": null,
+          "opp_pitcher_throws": null,
+          "opp_pitcher_hr_score": null
+        },
+        {
+          "name": "Christian Yelich",
+          "heat": 13,
+          "tier": "THIN",
+          "arm_form": "STEADY",
+          "off": "SP",
+          "hr": 1,
+          "dist": 378.0,
+          "ev": 106.1,
+          "team": "MIL",
+          "game_pk": 823410,
+          "gs_p_slam": null,
+          "gs_fair_odds": null,
+          "lb_jackpot_ev": null,
+          "lb_ownership_tier": null,
+          "lb_is_gold_pick": false,
+          "heat_rank": 256,
+          "cv_rank": null,
+          "cv_fams": null,
+          "badges": [
+            "hrsp",
+            "plat"
+          ],
+          "n_badges": 2,
+          "park": null,
+          "park_hr_factor": 0.87,
           "park_boost": null,
           "park_weather_applied": null,
           "temp_f": null,
